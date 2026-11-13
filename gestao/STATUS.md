@@ -33,8 +33,7 @@ Seguir o plano aprovado (fases 0 a 7) descrito em `gestao/decisoes/2026-11-13-al
 Passos imediatos:
 
 0. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer e investigue. O hook roda no Git Bash (`"shell": "bash"`). Testado: no bash o código de saída é 0 para permitir e 2 para bloquear. No cmd a mesma string falha com código 2, e por isso não deve ser usada.
-1. ~~O Node.js não estava instalado~~. **Resolvido:** v26.13.1 em `C:\Program Files
-odejs` (no Git Bash: `export PATH="/c/Program Files/nodejs:$PATH"` se `node` não for encontrado). Pedir autorização para `winget install OpenJS.NodeJS.LTS` ou que o usuário instale pelo site oficial (https://nodejs.org).
+1. ~~O Node.js não estava instalado~~. **Resolvido:** v26.13.1 em `C:/Program Files/nodejs`. No Git Bash, se `node` não for encontrado, rode `export PATH="/c/Program Files/nodejs:$PATH"`.
 2. Com o Node disponível:
 
    ```bash
