@@ -288,7 +288,7 @@ A gravidade é baixa: isso só acontece com um backup adulterado, ou quando as d
 | 1 | Os testes novos falham no código anterior | `npx vitest run` com o código original (implementador) | `Test Files 2 failed \| 11 passed (13)` · `Tests 10 failed \| 106 passed (116)`. As 10 falhas são exatamente os testes novos, todas por asserção e nenhuma por símbolo ausente | PASSOU (o teste detecta o defeito) |
 | 2 | Suíte completa | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 116 passed (116)` | PASSOU |
 | 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
-| 4 | Revisão independente pelo `auditor` | — | — | NÃO TESTADO |
+| 4 | Revisão independente pelo `auditor` | ver a seção seguinte | R1, R3, R4 e Extra A APROVADOS; Extra B APROVADO, com ressalvas | feita |
 | 5 | Navegador real e deploy | — | — | NÃO TESTADO |
 
 **Escolha no Extra B.** Se as demandas já estavam corrompidas antes da importação, o backup guarda esse conteúdo corrompido. O implementador escolheu **recusar** a restauração em vez de reproduzir o estado corrompido. O motivo: restaurar regravaria lixo por cima de dados válidos e apagaria o backup. O custo é que o app não consegue mais voltar ao estado corrompido. O conteúdo bruto continua no backup, mas só até a próxima importação, que sobrescreve o backup (`armazem.ts:199`).
@@ -298,3 +298,41 @@ A gravidade é baixa: isso só acontece com um backup adulterado, ou quando as d
 - O campo de dias depois do `importar` (`Alertas.tsx:61`) continua sincronizando só no sucesso. Nenhum teste demonstrou defasagem ali, porque a configuração é a última gravação da importação.
 - **Efeito colateral do R3:** qualquer desfazer agora repõe o campo de dias com o valor do estado. Isso inclui os casos sem backup, com backup ilegível e com a leitura bloqueada, e um valor digitado mas ainda não salvo é descartado.
 - O R3 só tem efeito prático no cenário sintético do R5, em que `removeItem` falha.
+
+## Revisão independente das ressalvas restantes do 3c (auditor registrado, padrão C)
+
+**Data:** 13/11/2026. **Commit revisado:** `ef91115`. O `auditor` só leu arquivos e rodou testes. `git status` ficou vazio antes e depois.
+
+**Vereditos:**
+
+| Item | Veredito | Onde | Justificativa |
+|---|---|---|---|
+| R1 | **APROVADO** | `armazem.ts:116-132`, `:203`, `:262` | Quando nada mudou, a mensagem diz "desfeita" ou "cancelado". Quando o armazenamento diverge, inclusive com uma escrita "aceita" mas com valor errado ou com a leitura de volta bloqueada, a mensagem continua pessimista. Não mascara perda (sonda) |
+| R3 | **APROVADO** | `Alertas.tsx:68-69` | O teste falha no código anterior com `Received: 10`. O fluxo de alterar os dias continua funcionando (sonda: desfazer e depois salvar 12 grava 12) |
+| R4 | **APROVADO** | `armazem.ts:225-230` | Liga o aviso e notifica os ouvintes. As demandas (mesma referência), o `erroArmazenamento` e os dias ficam intactos. O aviso continua depois de `recarregar()` |
+| Extra A | **APROVADO** | `armazem.ts:204` | Liga o aviso, que continua depois de `recarregar()` |
+| Extra B | **APROVADO, com ressalvas** | `armazem.ts:245-255` | Recusa os 4 tipos de conteúdo inválido sem gravar nada e mantém o backup. Aceita os backups legítimos: os exemplos, a lista vazia e `null` (sonda). Ressalvas C e D abaixo |
+
+| Verificação | Resultado | Situação |
+|---|---|---|
+| Os testes novos falham no código anterior. Cópia com `git archive ef91115`, trocando só o `armazem.ts` e o `Alertas.tsx` pelas versões do pai | `Test Files 2 failed \| 11 passed (13)` · `Tests 10 failed \| 106 passed (116)`, igual ao declarado. As 10 falhas são exatamente os testes novos, todas por asserção (:393, :408, :428, :442, :461 ×4, :482 e `Alertas.test.tsx:121`) | PASSOU |
+| Sondas do auditor, fora do repositório e não duráveis | `Tests 9 passed (9)`. Na primeira execução, a sonda de interface falhou por erro no próprio fixture do auditor, que foi corrigido e reexecutado | PASSOU (sonda) |
+| Suíte completa | `npx vitest run`: `Test Files 13 passed (13)` · `Tests 116 passed (116)` | PASSOU |
+| Build | `✓ built in 404ms`, `index-B8b_DIcH.js 311.86 kB`. O `tsc` passou, deduzido pelo `&&` (a saída foi truncada) | PASSOU |
+
+**Ressalvas e lacunas** (não corrigidas):
+
+- **A.** Dois ramos só têm cobertura nas sondas, sem teste no repositório: o `catch` da leitura de volta (`armazem.ts:129-131`) e o caso da escrita "aceita" com valor diferente.
+- **B.** A leitura bloqueada no `importar` (`armazem.ts:194-196`) não liga o aviso. Essa limitação já estava declarada.
+- **C. O conteúdo corrompido fica inacessível pela interface.** Isso não estava declarado.
+  - A importação não é bloqueada quando o armazenamento está corrompido (`Alertas.tsx:123`). Depois de importar, `conteudoBruto` fica `null`, e o botão de baixar o conteúdo corrompido (`Demandas.tsx:79`) some.
+  - Antes deste commit, o desfazer restaurava o estado corrompido e o botão voltava a aparecer.
+  - Agora o desfazer é sempre recusado, mas o botão "Desfazer última importação" continua habilitado e falhando (`Alertas.tsx:125`).
+  - O conteúdo bruto só existe na chave de backup, sem nenhum caminho na interface para chegar a ele, e a próxima importação sobrescreve essa chave (`armazem.ts:199`).
+  - Para o auditor, a escolha de recusar é defensável, mas o custo é maior do que o descrito.
+- **D. A confirmação da importação promete demais.** Isso não estava declarado. O texto em `Alertas.tsx:50-51` diz que o backup "poderá ser restaurado", o que não vale quando o armazenamento já estava corrompido.
+- **E.** O R3 descarta um valor de dias digitado e ainda não salvo. A limitação foi declarada, mas só foi verificada por leitura do código: NÃO TESTADO.
+- **F.** A afirmação "O R3 só tem efeito prático no cenário sintético do R5" é plausível, mas não foi demonstrada: NÃO VERIFICÁVEL.
+- **G. NÃO TESTADO:** o navegador real, o aviso na tela no R4 e no Extra A, a recusa do Extra B pela interface, o push e o deploy. O bundle local (`B8b_DIcH`) ainda não foi publicado; o site continua servindo `CSMJPeam`.
+
+**Documentação:** os números e as linhas citadas conferem. O auditor apontou uma redação ambígua no `STATUS.md:29` e no `RELATORIO-FINAL.md:97`: "metade falha por símbolo ausente" se referia ao lote original de `3d0609f`. A frase foi corrigida para dizer isso explicitamente. Não há segredos no diff.
