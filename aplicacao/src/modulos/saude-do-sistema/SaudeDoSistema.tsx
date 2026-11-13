@@ -10,7 +10,7 @@ import { executarVerificacao, type RelatorioVerificacao } from '@catalogo/verifi
 import { executarFluxoPadrao, type ExecucaoFluxo } from '@catalogo/fluxo-padrao.ts';
 import { avaliarPadroes, type SituacaoPadrao } from '@catalogo/padroes-orquestracao.ts';
 import { GATE_DESATIVAVEL } from '@catalogo/gate-de-qualidade/gate.ts';
-import { CORES_BORDA, SeloEstado } from '../../compartilhado/SeloEstado.tsx';
+import { bordaDoEstado, SeloEstado, textoDoEstado } from '../../compartilhado/SeloEstado.tsx';
 import { Mascote, type HumorMascote } from '../../compartilhado/Mascote.tsx';
 
 interface RegistroAuditoria {
@@ -23,15 +23,15 @@ const hora = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTi
 
 function SeloPadrao({ situacao }: { situacao: SituacaoPadrao }) {
   const estado: Estado = situacao === 'DEMONSTRADO' ? 'OK' : situacao === 'FALHOU' ? 'FALHA' : 'NÃO TESTADO';
-  const cls = { OK: 'text-green-800 dark:text-green-300', FALHA: 'text-red-800 dark:text-red-300', 'NÃO TESTADO': 'text-stone-600 dark:text-stone-400', 'ATENÇÃO': '' }[estado];
-  return <span className={`text-xs font-semibold ${cls}`}>{situacao === 'DEMONSTRADO' ? '✓ ' : situacao === 'FALHOU' ? '✕ ' : '? '}{situacao}</span>;
+  const simbolo = situacao === 'DEMONSTRADO' ? '✓ ' : situacao === 'FALHOU' ? '✕ ' : '? ';
+  return <strong className={`texto-pequeno ${textoDoEstado(estado)}`}>{simbolo}{situacao}</strong>;
 }
 
 function Cartao({ titulo, children }: { titulo: string; children: ReactNode }) {
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
-      <p className="text-sm text-stone-600 dark:text-stone-400">{titulo}</p>
-      <div className="mt-1">{children}</div>
+    <div className="cartao">
+      <p className="cartao-rotulo">{titulo}</p>
+      <div>{children}</div>
     </div>
   );
 }
@@ -88,92 +88,86 @@ export function SaudeDoSistema() {
   const liberadas = execucoes.filter((e) => e.liberado).length;
 
   return (
-    <section aria-labelledby="titulo-saude" className="mx-auto max-w-6xl space-y-6">
-      <header className="flex flex-wrap items-center gap-4">
+    <section aria-labelledby="titulo-saude" className="pagina">
+      <header className="cabecalho-saude">
         <Mascote especie={estadoGeral === 'OK' ? 'capivara' : 'lobo-guara'} humor={humor} tamanho={64} />
-        <div className="min-w-0 flex-1">
-          <h1 id="titulo-saude" className="text-2xl font-bold">Saúde do sistema</h1>
-          <p className="text-sm text-stone-600 dark:text-stone-400">
+        <div>
+          <h1 id="titulo-saude" className="titulo-pagina">Saúde do sistema</h1>
+          <p className="texto-suave texto-medio">
             Estado geral: <SeloEstado estado={estadoGeral} />
           </p>
         </div>
-        <button
-          type="button"
-          onClick={executar}
-          className="min-h-11 rounded-lg bg-guara-500 px-4 font-semibold text-white hover:bg-guara-600"
-        >
+        <button type="button" onClick={executar} className="botao botao--primario">
           Executar verificação
         </button>
       </header>
 
-      <div role="note" className="rounded-xl border-2 border-dashed border-amber-500 bg-amber-50 p-3 text-sm text-amber-950 dark:bg-amber-950/40 dark:text-amber-100">
+      <div role="note" className="aviso">
         <strong>Modo local, sem Supabase.</strong> Os autotestes e o fluxo padrão rodam neste navegador com dados fictícios. Nada é
         gravado em <code>verificacoes_saude</code>. Os indicadores de banco, de execuções reais e de controle de acesso por perfil
         aparecem como <strong>NÃO TESTADO</strong> até o backend ser configurado.
       </div>
 
       {/* Indicadores gerais */}
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grade grade--4">
         <Cartao titulo="Agentes ativos / total">
-          <p className="text-2xl font-bold">{agentes.filter((a) => !inativos.has(a.id)).length} / {agentes.length}</p>
+          <p className="numero-grande">{agentes.filter((a) => !inativos.has(a.id)).length} / {agentes.length}</p>
         </Cartao>
         <Cartao titulo="Habilidades ativas / total">
-          <p className="text-2xl font-bold">{habilidades.filter((h) => !inativos.has(h.contrato.id)).length} / {habilidades.length}</p>
+          <p className="numero-grande">{habilidades.filter((h) => !inativos.has(h.contrato.id)).length} / {habilidades.length}</p>
         </Cartao>
         <Cartao titulo="Taxa de aprovação no gate">
-          <p className="text-sm">24 h / 7 dias: <SeloEstado estado="NÃO TESTADO" /> <span className="text-xs">sem dados persistidos</span></p>
-          <p className="mt-1 text-sm">Sessão local: {execucoes.length ? `${liberadas} de ${execucoes.length} liberadas` : 'nenhuma execução'}</p>
+          <p className="texto-medio">24 h / 7 dias: <SeloEstado estado="NÃO TESTADO" /> <span className="texto-pequeno">sem dados persistidos</span></p>
+          <p className="texto-medio">Sessão local: {execucoes.length ? `${liberadas} de ${execucoes.length} liberadas` : 'nenhuma execução'}</p>
         </Cartao>
         <Cartao titulo="Execuções (sessão local)">
-          <p className="text-sm">Com falha: <strong>{execucoes.length - liberadas}</strong></p>
-          <p className="text-sm">Aguardando revisão humana: <strong>{liberadas}</strong></p>
-          <p className="text-sm">Concluídas pela revisão humana: <strong>0</strong> <span className="text-xs">(revisão humana não implementada)</span></p>
+          <p className="texto-medio">Com falha: <strong>{execucoes.length - liberadas}</strong></p>
+          <p className="texto-medio">Aguardando revisão humana: <strong>{liberadas}</strong></p>
+          <p className="texto-medio">Concluídas pela revisão humana: <strong>0</strong> <span className="texto-pequeno">(revisão humana não implementada)</span></p>
         </Cartao>
       </div>
       <Cartao titulo="Última verificação completa">
         {relatorio ? (
-          <p className="text-sm">
+          <p className="texto-medio">
             {new Date(relatorio.executadoEm).toLocaleString('pt-BR')} · modo {relatorio.modo} · {relatorio.resumo.ok} de {relatorio.resumo.total} habilidades OK,{' '}
             {relatorio.resumo.falha} com falha · <SeloEstado estado={estadoGeral} />
           </p>
         ) : (
-          <p className="text-sm">Nunca executada nesta sessão (ou invalidada por mudança de ativação). <SeloEstado estado="NÃO TESTADO" /></p>
+          <p className="texto-medio">Nunca executada nesta sessão (ou invalidada por mudança de ativação). <SeloEstado estado="NÃO TESTADO" /></p>
         )}
       </Cartao>
 
       {/* Painel de agentes */}
       <section aria-labelledby="titulo-agentes">
-        <h2 id="titulo-agentes" className="text-lg font-bold">Agentes ({agentes.length})</h2>
-        <ul className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+        <h2 id="titulo-agentes" className="titulo-secao">Agentes ({agentes.length})</h2>
+        <ul className="lista-limpa grade grade--3">
           {agentes.map((a) => {
             const met = metricasAgente(a.id);
             const inativo = inativos.has(a.id);
             return (
-              <li key={a.id} data-testid={`agente-${a.id}`} className={`rounded-xl border-l-4 bg-white p-4 shadow-sm dark:bg-stone-900 ${CORES_BORDA[estadoAgente(a.id)]}`}>
-                <div className="flex items-start justify-between gap-2">
+              <li key={a.id} data-testid={`agente-${a.id}`} className={`cartao cartao--estado ${bordaDoEstado(estadoAgente(a.id))}`}>
+                <div className="linha-entre">
                   <div>
-                    <p className="font-mono font-semibold">{a.id}</p>
-                    <p className="text-xs text-stone-500">v{a.versao} · {a.permissao === 'rascunho' ? 'gera rascunhos' : 'somente leitura'}</p>
+                    <p className="mono"><strong>{a.id}</strong></p>
+                    <p className="texto-pequeno texto-suave">v{a.versao} · {a.permissao === 'rascunho' ? 'gera rascunhos' : 'somente leitura'}</p>
                   </div>
                   <SeloEstado estado={estadoAgente(a.id)} />
                 </div>
-                <p className="mt-2 text-sm">{a.papel}</p>
-                <dl className="mt-2 space-y-1 text-xs text-stone-700 dark:text-stone-300">
-                  <div><dt className="inline font-semibold">Habilidades: </dt><dd className="inline">{a.habilidades.join(', ')}</dd></div>
-                  <div><dt className="inline font-semibold">Ferramentas: </dt><dd className="inline">{a.ferramentas.join(', ') || 'nenhuma'}</dd></div>
-                  <div><dt className="inline font-semibold">Situação: </dt><dd className="inline">{inativo ? 'inativo' : 'ativo'}</dd></div>
-                  <div>
-                    <dt className="inline font-semibold">Execuções (fluxo local): </dt>
-                    <dd className="inline">{met ? `última ${hora(met.ultima)} · sucesso ${met.taxa}% · média ${met.media} ms (${met.total} etapas)` : 'sem dados'}</dd>
-                  </div>
-                  {relatorio && <div className="text-stone-500">{relatorio.agentes[a.id]?.detalhe}</div>}
+                <p className="texto-medio">{a.papel}</p>
+                <dl className="dados-definicao">
+                  <dt>Habilidades</dt><dd>{a.habilidades.join(', ')}</dd>
+                  <dt>Ferramentas</dt><dd>{a.ferramentas.join(', ') || 'nenhuma'}</dd>
+                  <dt>Situação</dt><dd>{inativo ? 'inativo' : 'ativo'}</dd>
+                  <dt>Execuções</dt>
+                  <dd>{met ? `última ${hora(met.ultima)} · sucesso ${met.taxa}% · média ${met.media} ms (${met.total} etapas)` : 'sem dados'}</dd>
                 </dl>
+                {relatorio && <p className="texto-pequeno texto-suave">{relatorio.agentes[a.id]?.detalhe}</p>}
                 <button
                   type="button"
                   disabled={!a.desativavel}
                   onClick={() => alternar(a.id)}
                   title={a.desativavel ? undefined : 'O agente revisor não pode ser desativado (seção 9.3)'}
-                  className="mt-3 min-h-9 rounded-lg border border-stone-300 px-3 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700"
+                  className="botao botao--pequeno"
                 >
                   {!a.desativavel ? 'Não desativável' : inativo ? 'Reativar' : 'Desativar'}
                 </button>
@@ -185,44 +179,44 @@ export function SaudeDoSistema() {
 
       {/* Painel de habilidades */}
       <section aria-labelledby="titulo-habilidades">
-        <h2 id="titulo-habilidades" className="text-lg font-bold">Habilidades ({habilidades.length})</h2>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="bg-stone-100 text-xs uppercase text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+        <h2 id="titulo-habilidades" className="titulo-secao">Habilidades ({habilidades.length})</h2>
+        <div className="tabela-rolavel">
+          <table className="tabela">
+            <thead>
               <tr>
-                <th scope="col" className="p-2">Identificador</th>
-                <th scope="col" className="p-2">Versão</th>
-                <th scope="col" className="p-2">Modo</th>
-                <th scope="col" className="p-2">Agente</th>
-                <th scope="col" className="p-2">Último teste</th>
-                <th scope="col" className="p-2">Critérios de aceite</th>
-                <th scope="col" className="p-2">Última execução real</th>
-                <th scope="col" className="p-2"><span className="sr-only">Ações</span></th>
+                <th scope="col">Identificador</th>
+                <th scope="col">Versão</th>
+                <th scope="col">Modo</th>
+                <th scope="col">Agente</th>
+                <th scope="col">Último teste</th>
+                <th scope="col">Critérios de aceite</th>
+                <th scope="col">Última execução real</th>
+                <th scope="col"><span className="sr-only">Ações</span></th>
               </tr>
             </thead>
             <tbody>
               {habilidades.map(({ contrato: c }) => {
                 const r = relatorio?.habilidades[c.id];
                 return (
-                  <tr key={c.id} data-testid={`habilidade-${c.id}`} className="border-t border-stone-100 align-top dark:border-stone-800">
-                    <th scope="row" className="p-2 font-mono font-semibold">{c.id}</th>
-                    <td className="p-2">{c.versao}</td>
-                    <td className="p-2">{c.modo === 'deterministico' ? 'determinístico' : 'assistido'}</td>
-                    <td className="p-2">{c.agenteResponsavel ?? <span className="text-stone-500">fora do fluxo</span>}</td>
-                    <td className="p-2">
+                  <tr key={c.id} data-testid={`habilidade-${c.id}`}>
+                    <th scope="row" className="mono">{c.id}</th>
+                    <td>{c.versao}</td>
+                    <td>{c.modo === 'deterministico' ? 'determinístico' : 'assistido'}</td>
+                    <td>{c.agenteResponsavel ?? <span className="texto-suave">fora do fluxo</span>}</td>
+                    <td>
                       <SeloEstado estado={estadoHabilidade(c.id)} />
-                      {r && <p className="mt-1 text-xs text-stone-500">{r.detalhe} · {r.duracaoMs} ms</p>}
-                      {c.observacao && <p className="mt-1 text-xs text-amber-800 dark:text-amber-300">{c.observacao}</p>}
+                      {r && <p className="texto-pequeno texto-suave">{r.detalhe} · {r.duracaoMs} ms</p>}
+                      {c.observacao && <p className="texto-pequeno texto--atencao">{c.observacao}</p>}
                     </td>
-                    <td className="p-2 text-xs">{c.criteriosAceite.length} critérios; autoteste com 1 caso fixo</td>
-                    <td className="p-2 text-xs">nenhuma (sem Supabase)</td>
-                    <td className="p-2">
+                    <td className="texto-pequeno">{c.criteriosAceite.length} critérios; autoteste com 1 caso fixo</td>
+                    <td className="texto-pequeno">nenhuma (sem Supabase)</td>
+                    <td>
                       <button
                         type="button"
                         disabled={!c.desativavel}
                         onClick={() => alternar(c.id)}
                         title={c.desativavel ? undefined : 'Habilidade do revisor: não pode ser desativada'}
-                        className="min-h-9 rounded-lg border border-stone-300 px-2 text-xs disabled:cursor-not-allowed disabled:opacity-50 dark:border-stone-700"
+                        className="botao botao--pequeno"
                       >
                         {!c.desativavel ? 'Fixa' : inativos.has(c.id) ? 'Reativar' : 'Desativar'}
                       </button>
@@ -237,27 +231,27 @@ export function SaudeDoSistema() {
 
       {/* Mapa de composição */}
       <section aria-labelledby="titulo-mapa">
-        <h2 id="titulo-mapa" className="text-lg font-bold">Mapa de composição</h2>
-        <p className="text-xs text-stone-600 dark:text-stone-400">orquestrador → agente → habilidade → ferramenta, com cada bloco na cor do seu estado</p>
-        <div className="mt-3 space-y-2">
+        <h2 id="titulo-mapa" className="titulo-secao">Mapa de composição</h2>
+        <p className="texto-pequeno texto-suave">orquestrador → agente → habilidade → ferramenta, com cada bloco na cor do seu estado</p>
+        <div className="mapa">
           {agentes.map((a) => (
-            <div key={a.id} className="flex flex-wrap items-center gap-2 text-xs">
-              <span className="rounded border-2 border-stone-400 px-2 py-1 font-semibold">orquestrador</span>
+            <div key={a.id} className="linha-composicao">
+              <span className="bloco-composicao"><strong>orquestrador</strong></span>
               <span aria-hidden="true">→</span>
-              <span className={`rounded border-2 px-2 py-1 font-mono ${CORES_BORDA[estadoAgente(a.id)]}`}>{a.id}</span>
+              <span className={`bloco-composicao mono ${bordaDoEstado(estadoAgente(a.id))}`}>{a.id}</span>
               <span aria-hidden="true">→</span>
               {a.habilidades.map((h) => (
-                <span key={h} className={`rounded border-2 px-2 py-1 font-mono ${CORES_BORDA[estadoHabilidade(h)]}`}>{h} <span className="sr-only">({estadoHabilidade(h)})</span></span>
+                <span key={h} className={`bloco-composicao mono ${bordaDoEstado(estadoHabilidade(h))}`}>{h} <span className="sr-only">({estadoHabilidade(h)})</span></span>
               ))}
               <span aria-hidden="true">→</span>
               {a.ferramentas.length ? a.ferramentas.map((f) => (
-                <span key={f} className={`rounded border-2 border-dashed px-2 py-1 ${CORES_BORDA['NÃO TESTADO']}`}>{f} <span className="sr-only">(NÃO TESTADO)</span></span>
-              )) : <span className="text-stone-500">sem ferramentas</span>}
+                <span key={f} className={`bloco-composicao bloco-composicao--tracejado ${bordaDoEstado('NÃO TESTADO')}`}>{f} <span className="sr-only">(NÃO TESTADO)</span></span>
+              )) : <span className="texto-suave">sem ferramentas</span>}
             </div>
           ))}
-          <div className="flex flex-wrap items-center gap-2 text-xs">
-            <span className="rounded border-2 border-stone-400 px-2 py-1 font-semibold">gate-de-qualidade</span>
-            <span className="text-stone-600 dark:text-stone-400">
+          <div className="linha-composicao">
+            <span className="bloco-composicao"><strong>gate-de-qualidade</strong></span>
+            <span className="texto-suave">
               {GATE_DESATIVAVEL ? 'desativável' : 'não desativável'} · última decisão:{' '}
               {ultimaExecucao ? (ultimaExecucao.gate.aprovado ? 'liberou' : 'bloqueou') : 'sem execução'}
             </span>
@@ -267,17 +261,17 @@ export function SaudeDoSistema() {
 
       {/* Ferramentas e integrações */}
       <section aria-labelledby="titulo-ferramentas">
-        <h2 id="titulo-ferramentas" className="text-lg font-bold">Ferramentas e integrações</h2>
-        <ul className="mt-3 grid gap-3 md:grid-cols-2">
+        <h2 id="titulo-ferramentas" className="titulo-secao">Ferramentas e integrações</h2>
+        <ul className="lista-limpa grade grade--2">
           {ferramentas.map((f) => (
-            <li key={f.id} className="rounded-xl border border-stone-200 bg-white p-3 text-sm dark:border-stone-800 dark:bg-stone-900">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold">{f.nome}</span>
+            <li key={f.id} className="cartao texto-medio">
+              <div className="linha-entre">
+                <strong>{f.nome}</strong>
                 <SeloEstado estado="NÃO TESTADO" />
               </div>
-              <p className="mt-1 text-xs text-stone-600 dark:text-stone-400">{f.descricao}</p>
-              <p className="mt-1 text-xs">{f.motivoSemTeste}</p>
-              <button type="button" disabled className="mt-2 min-h-9 rounded-lg border border-stone-300 px-2 text-xs opacity-50 dark:border-stone-700">
+              <p className="texto-pequeno texto-suave">{f.descricao}</p>
+              <p className="texto-pequeno">{f.motivoSemTeste}</p>
+              <button type="button" disabled className="botao botao--pequeno">
                 Testar conexão (indisponível)
               </button>
             </li>
@@ -287,31 +281,31 @@ export function SaudeDoSistema() {
 
       {/* Padrões A–F */}
       <section aria-labelledby="titulo-padroes">
-        <h2 id="titulo-padroes" className="text-lg font-bold">Padrões de orquestração (A–F)</h2>
-        <div className="mt-3 overflow-x-auto rounded-xl border border-stone-200 bg-white dark:border-stone-800 dark:bg-stone-900">
-          <table className="w-full min-w-[720px] text-left text-sm">
-            <thead className="bg-stone-100 text-xs uppercase text-stone-600 dark:bg-stone-800 dark:text-stone-300">
+        <h2 id="titulo-padroes" className="titulo-secao">Padrões de orquestração (A–F)</h2>
+        <div className="tabela-rolavel">
+          <table className="tabela">
+            <thead>
               <tr>
-                <th scope="col" className="p-2">Padrão</th>
-                <th scope="col" className="p-2">No produto (fluxo determinístico local)</th>
-                <th scope="col" className="p-2">No desenvolvimento (subagentes Claude Code)</th>
+                <th scope="col">Padrão</th>
+                <th scope="col">No produto (fluxo determinístico local)</th>
+                <th scope="col">No desenvolvimento (subagentes Claude Code)</th>
               </tr>
             </thead>
             <tbody>
               {padroes.map((p) => (
-                <tr key={p.letra} className="border-t border-stone-100 align-top dark:border-stone-800">
-                  <th scope="row" className="p-2">
+                <tr key={p.letra}>
+                  <th scope="row">
                     {p.letra}. {p.nome}
-                    <p className="text-xs font-normal text-stone-500">{p.usoNoProduto}</p>
+                    <p className="texto-pequeno texto-suave">{p.usoNoProduto}</p>
                   </th>
-                  <td className="p-2">
+                  <td>
                     <SeloPadrao situacao={p.produto.situacao} />
-                    <p className="text-xs text-stone-600 dark:text-stone-400">{p.produto.justificativa}</p>
-                    {ultimaExecucao && <a href="#evidencias" className="text-xs underline">ver registro {ultimaExecucao.id}</a>}
+                    <p className="texto-pequeno texto-suave">{p.produto.justificativa}</p>
+                    {ultimaExecucao && <a href="#evidencias" className="texto-pequeno">ver registro {ultimaExecucao.id}</a>}
                   </td>
-                  <td className="p-2">
+                  <td>
                     <SeloPadrao situacao={p.desenvolvimento.situacao} />
-                    <p className="text-xs text-stone-600 dark:text-stone-400">{p.desenvolvimento.justificativa}</p>
+                    <p className="texto-pequeno texto-suave">{p.desenvolvimento.justificativa}</p>
                   </td>
                 </tr>
               ))}
@@ -322,39 +316,39 @@ export function SaudeDoSistema() {
 
       {/* Evidências */}
       <section id="evidencias" aria-labelledby="titulo-evidencias">
-        <h2 id="titulo-evidencias" className="text-lg font-bold">Evidências (sessão local, não persistidas)</h2>
+        <h2 id="titulo-evidencias" className="titulo-secao">Evidências (sessão local, não persistidas)</h2>
         {execucoes.length === 0 ? (
-          <p className="text-sm text-stone-600 dark:text-stone-400">Nenhuma execução registrada. Use “Executar verificação”.</p>
+          <p className="texto-suave texto-medio">Nenhuma execução registrada. Use “Executar verificação”.</p>
         ) : (
-          <ol className="mt-3 space-y-3">
+          <ol className="lista-limpa grade">
             {[...execucoes].reverse().map((ex) => (
-              <li key={ex.id} className="rounded-xl border border-stone-200 bg-white p-3 text-xs dark:border-stone-800 dark:bg-stone-900">
-                <p className="font-mono font-semibold">{ex.id}</p>
+              <li key={ex.id} className="cartao texto-pequeno">
+                <p className="mono"><strong>{ex.id}</strong></p>
                 <p>
                   Demanda {ex.demanda} · {ex.etapas.length} etapas · tentativas de redação: {ex.tentativasRedacao} · gate:{' '}
                   <strong>{ex.gate.aprovado ? 'liberou' : 'bloqueou'}</strong>
                 </p>
-                <table className="mt-2 w-full text-left">
-                  <thead><tr><th className="pr-2">#</th><th className="pr-2">Agente</th><th className="pr-2">Habilidade</th><th className="pr-2">Estado</th><th>Detalhe</th></tr></thead>
+                <table className="tabela tabela--compacta">
+                  <thead><tr><th>#</th><th>Agente</th><th>Habilidade</th><th>Estado</th><th>Detalhe</th></tr></thead>
                   <tbody>
                     {ex.etapas.map((e) => (
-                      <tr key={e.ordem}><td className="pr-2">{e.ordem}</td><td className="pr-2 font-mono">{e.agente}</td><td className="pr-2 font-mono">{e.habilidade}</td><td className="pr-2">{e.estado}</td><td>{e.detalhe} ({e.duracaoMs} ms)</td></tr>
+                      <tr key={e.ordem}><td>{e.ordem}</td><td className="mono">{e.agente}</td><td className="mono">{e.habilidade}</td><td>{e.estado}</td><td>{e.detalhe} ({e.duracaoMs} ms)</td></tr>
                     ))}
                   </tbody>
                 </table>
-                <ul className="mt-2">
+                <ul className="lista-limpa">
                   {ex.gate.verificacoes.map((v) => <li key={v.nome}>{v.aprovado ? '✓' : '✕'} {v.nome}</li>)}
                 </ul>
               </li>
             ))}
           </ol>
         )}
-        <h3 className="mt-4 font-semibold">Auditoria de ativação</h3>
+        <h3 className="titulo-secao">Auditoria de ativação</h3>
         {auditoria.length === 0 ? (
-          <p className="text-sm text-stone-600 dark:text-stone-400">Nenhuma alteração.</p>
+          <p className="texto-suave texto-medio">Nenhuma alteração.</p>
         ) : (
-          <ul className="text-xs">
-            {auditoria.map((r, i) => <li key={i}>{hora(r.quando)} — {r.acao} <span className="font-mono">{r.componente}</span></li>)}
+          <ul className="lista-limpa texto-pequeno">
+            {auditoria.map((r, i) => <li key={i}>{hora(r.quando)} — {r.acao} <span className="mono">{r.componente}</span></li>)}
           </ul>
         )}
       </section>

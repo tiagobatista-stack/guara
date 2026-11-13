@@ -2,7 +2,7 @@
 
 **Atualizado em:** 13/11/2026
 **Etapa atual:** 1 (diagnóstico e desenho) concluída em documentação. Etapa 2 (fundação técnica) com código escrito, mas **não executado**.
-**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: as fases 0 (documentação) e 1 (Node, build e testes) estão feitas. Próxima: fase 2 (CSS próprio; hoje o app está sem estilo). O plano do MVP está em `planejamento/PLANO.md`.
+**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: as fases 0 (documentação), 1 (Node, build e testes) e 2 (CSS próprio, conferido em 3 larguras) estão feitas. Próxima: fase 3 (domínio e CRUD em localStorage). O plano do MVP está em `planejamento/PLANO.md`.
 
 ## Checklist da apostila (seção 4) — painel de pendências
 
@@ -25,7 +25,6 @@
 
 Seguir o plano aprovado (fases 0 a 7) descrito em `gestao/decisoes/2026-11-13-alinhamento-apostila.md` e em `planejamento/PLANO.md`. Depois do Node, a ordem é:
 
-1. Fase 2: CSS próprio no lugar do Tailwind.
 2. Fases 3 a 5: incrementos do MVP.
 3. Fase 6: demonstrações P08 a P11.
 4. Fase 7: GitHub, Vercel e relatório final.

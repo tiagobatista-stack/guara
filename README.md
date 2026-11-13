@@ -8,7 +8,7 @@ O GUARÁ é um estagiário digital mobile first que apoia a análise de processo
 
 | Pasta | Conteúdo |
 |---|---|
-| `aplicacao/` | Frontend React + TypeScript + Vite + CSS próprio (o Tailwind ainda está no código e sai na fase 2) |
+| `aplicacao/` | Frontend React + TypeScript + Vite + CSS próprio |
 | `backend/supabase/functions/_compartilhado/` | Catálogo de **agentes** e **habilidades**: contratos, implementações e autotestes |
 | `dados-ficticios/` | Demandas e documentos de exemplo, todos marcados como FICTÍCIO |
 | `testes/` | Unidade, integração, interface, autotestes e avaliações de IA |

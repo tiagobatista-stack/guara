@@ -24,40 +24,42 @@ export function Painel() {
   const doDia = [...demandasFicticias].filter((d) => d.situacao !== 'concluida').sort((a, b) => a.prazo.localeCompare(b.prazo));
 
   return (
-    <section aria-labelledby="titulo-painel" className="mx-auto max-w-5xl">
-      <h1 id="titulo-painel" className="text-2xl font-bold">Hoje</h1>
-      <p className="text-sm text-stone-600 dark:text-stone-400">Data de referência fictícia: {DATA_REFERENCIA}</p>
+    <section aria-labelledby="titulo-painel" className="pagina">
+      <div>
+        <h1 id="titulo-painel" className="titulo-pagina">Hoje</h1>
+        <p className="texto-suave texto-medio">Data de referência fictícia: {DATA_REFERENCIA}</p>
+      </div>
 
-      <div className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grade grade--4">
         {cartoes.map((c) => (
-          <div key={c.rotulo} className="rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
-            <p className="text-sm text-stone-600 dark:text-stone-400">{c.rotulo}</p>
-            <p className="mt-1 text-3xl font-bold">{c.valor}</p>
+          <div key={c.rotulo} className="cartao">
+            <p className="cartao-rotulo">{c.rotulo}</p>
+            <p className="numero-grande">{c.valor}</p>
           </div>
         ))}
       </div>
 
-      <div className="mt-6 grid gap-4 lg:grid-cols-2">
-        <div className="rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
-          <h2 className="font-semibold">Demandas por prioridade de prazo</h2>
-          <ul className="mt-3 divide-y divide-stone-100 dark:divide-stone-800">
+      <div className="grade grade--2">
+        <div className="cartao">
+          <h2 className="titulo-secao">Demandas por prioridade de prazo</h2>
+          <ul className="lista-limpa lista-divisoria">
             {doDia.map((d) => (
-              <li key={d.id} className="py-2">
-                <p className="text-sm font-medium">{d.titulo}</p>
-                <p className="text-xs text-stone-600 dark:text-stone-400">
+              <li key={d.id}>
+                <p className="texto-medio"><strong>{d.titulo}</strong></p>
+                <p className="texto-pequeno texto-suave">
                   {d.processo} · {ROTULO_SITUACAO[d.situacao]} · prazo {d.prazo}
-                  {prazos.paradas.includes(d.id) && <span className="ml-1 font-semibold text-amber-700 dark:text-amber-300">· parada há 5+ dias</span>}
+                  {prazos.paradas.includes(d.id) && <strong className="texto--atencao"> · parada há 5+ dias</strong>}
                 </p>
               </li>
             ))}
           </ul>
         </div>
-        <div className="rounded-xl border border-stone-200 bg-white p-4 dark:border-stone-800 dark:bg-stone-900">
-          <h2 className="font-semibold">Linha do tempo de prazos</h2>
-          <ol className="mt-3 space-y-2 border-l-2 border-guara-500 pl-4">
+        <div className="cartao">
+          <h2 className="titulo-secao">Linha do tempo de prazos</h2>
+          <ol className="linha-tempo">
             {[...demandasFicticias].sort((a, b) => a.prazo.localeCompare(b.prazo)).map((d) => (
-              <li key={d.id} className="text-sm">
-                <span className="font-mono text-xs">{d.prazo}</span> — {d.processo}
+              <li key={d.id}>
+                <span className="mono texto-pequeno">{d.prazo}</span> — {d.processo}
               </li>
             ))}
           </ol>

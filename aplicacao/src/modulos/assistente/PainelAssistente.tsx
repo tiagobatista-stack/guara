@@ -52,14 +52,14 @@ export function PainelAssistente() {
   };
 
   return (
-    <div className="flex h-full w-full flex-col">
-      <div className="flex items-center gap-3 border-b border-stone-200 p-4 dark:border-stone-800">
+    <div className="assistente">
+      <div className="assistente-topo">
         <Mascote especie={especie} humor="tranquilo" />
-        <div className="min-w-0">
-          <p className="font-semibold">{MASCOTES[especie].nome}</p>
-          <label className="text-xs text-stone-600 dark:text-stone-400">
+        <div>
+          <p><strong>{MASCOTES[especie].nome}</strong></p>
+          <label className="texto-pequeno texto-suave">
             Mascote principal{' '}
-            <select value={especie} onChange={(e) => setEspecie(e.target.value as EspecieMascote)} className="rounded border border-stone-300 bg-transparent text-xs dark:border-stone-700">
+            <select value={especie} onChange={(e) => setEspecie(e.target.value as EspecieMascote)} className="seletor">
               {Object.entries(MASCOTES).map(([id, m]) => (
                 <option key={id} value={id}>{m.nome} ({m.bioma})</option>
               ))}
@@ -68,17 +68,17 @@ export function PainelAssistente() {
         </div>
       </div>
 
-      <section aria-label="Notificações" className="border-b border-stone-200 p-4 text-sm dark:border-stone-800">
-        <h2 className="font-semibold">Notificações</h2>
-        <p className="mt-1 text-stone-600 dark:text-stone-400">DEM-FIC-0002: prazo em 1 dia (fictício).</p>
+      <section aria-label="Notificações" className="assistente-secao">
+        <h2><strong>Notificações</strong></h2>
+        <p className="texto-suave">DEM-FIC-0002: prazo em 1 dia (fictício).</p>
       </section>
 
-      <ol className="flex-1 space-y-2 overflow-y-auto p-4" aria-live="polite">
+      <ol className="conversa" aria-live="polite">
         {mensagens.map((m, i) => (
-          <li key={i} className={`rounded-lg p-2 text-sm ${m.autor === 'usuario' ? 'ml-8 bg-guara-100 dark:bg-guara-700/30' : 'mr-8 bg-stone-100 dark:bg-stone-800'}`}>
+          <li key={i} className={m.autor === 'usuario' ? 'mensagem mensagem--usuario' : 'mensagem'}>
             {m.texto}
             {m.natureza && (
-              <span className="mt-1 block text-[11px] text-stone-600 dark:text-stone-400">
+              <span className="mensagem-meta">
                 {m.natureza} · fonte: {m.fonte}
               </span>
             )}
@@ -86,17 +86,17 @@ export function PainelAssistente() {
         ))}
       </ol>
 
-      <form onSubmit={enviar} className="flex gap-2 border-t border-stone-200 p-3 dark:border-stone-800">
-        <label className="flex-1">
+      <form onSubmit={enviar} className="formulario-conversa">
+        <label>
           <span className="sr-only">Mensagem ao assistente</span>
           <input
             value={texto}
             onChange={(e) => setTexto(e.target.value)}
             placeholder='Ex.: "prazos"'
-            className="min-h-11 w-full rounded-lg border border-stone-300 bg-transparent px-3 text-sm dark:border-stone-700"
+            className="campo"
           />
         </label>
-        <button type="submit" className="grid h-11 w-11 place-items-center rounded-lg bg-guara-500 text-white" aria-label="Enviar">
+        <button type="submit" className="botao botao--primario" aria-label="Enviar">
           <Icone nome="enviar" />
         </button>
       </form>
