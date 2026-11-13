@@ -4,6 +4,8 @@ O GUARÁ é um estagiário digital mobile first que apoia a análise de processo
 
 > Projeto didático da oficina **FluxoLab** (SEMA-MT). Usa **somente dados fictícios**. A apostila governa o MVP: localStorage, CRUD, Kanban, alertas, GitHub e Vercel. Plano em [planejamento/PLANO.md](planejamento/PLANO.md).
 
+**Versão publicada:** https://guara-lemon.vercel.app (estática; cada navegador tem dados próprios no localStorage).
+
 ## Mapa do repositório
 
 | Pasta | Conteúdo |

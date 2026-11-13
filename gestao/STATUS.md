@@ -19,7 +19,7 @@
 | MCP | JSON exportado e chamada real | **PASSOU** com um cliente MCP real via stdio (total 5 = 5). Registro em `/mcp` nesta sessão: **NÃO TESTADO** |
 | Hook | sentinela bloqueada, benigno permitido | Regras: **PASSOU** (8/8). Bloqueio em sessão real: **NÃO TESTADO** (`settings.json` do projeto não carregado nesta sessão) |
 | GitHub | URL e commit | **PASSOU**: https://github.com/tiagobatista-stack/guara (privado), `main` = `37ca679` (`metodologia/evidencias/2026-11-13-p12-github.md`) |
-| Vercel | URL aberta e testada | Deploy **PASSOU** (3ª tentativa, `452d74b`). URL de produção aberta e testada: **NÃO TESTADO** (`metodologia/evidencias/2026-11-13-p12-vercel.md`) |
+| Vercel | URL aberta e testada | **PASSOU**: https://guara-lemon.vercel.app (cadastro, Kanban, F5 e Saúde do sistema 10/10; `metodologia/evidencias/2026-11-13-p12-vercel.md`) |
 
 ## Ponto de retomada
 
@@ -82,6 +82,5 @@ A autoria dos 14 commits locais anteriores foi reescrita para esse e-mail, antes
 
 1. Abrir uma nova sessão na pasta do projeto (hook, subagentes e MCP).
 2. GitHub: o repositório privado foi criado e o push feito. Falta informar o usuário GitHub do colaborador para o convite.
-3. Vercel: conta ligada ao GitHub e importação do repositório.
 4. Escolher a demanda piloto. Supabase e Google OAuth (opcional, depois do Vercel).
 5. Documento oficial do PDS, se for desejada uma verificação real.
