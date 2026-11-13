@@ -220,7 +220,11 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       let b: { conteudo: string | null; diasInatividade: number };
       try {
         b = JSON.parse(bruto);
-        if (typeof b !== 'object' || b === null) throw new Error('backup inválido');
+        if (typeof b !== 'object' || b === null || Array.isArray(b)) throw new Error('backup inválido');
+        // Valida a forma antes de gravar: JSON válido com estrutura errada também é ilegível.
+        if ((b.conteudo !== null && typeof b.conteudo !== 'string') || !diasValidos(b.diasInatividade)) {
+          throw new Error('backup inválido');
+        }
       } catch {
         return { ok: false, mensagem: 'Backup ilegível; nada foi alterado.' };
       }

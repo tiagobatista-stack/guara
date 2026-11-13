@@ -189,7 +189,7 @@ As sondas do auditor ficaram fora do repositório e não são evidência duráve
 **Ressalvas** (não corrigidas):
 
 1. **Mensagem pessimista quando todas as gravações falham.** Nesse caso nada muda, e o armazenamento fica intacto. Mesmo assim, a reversão também falha e a mensagem diz "não foi possível reverter tudo" (`armazem.ts:233-250`). O texto é impreciso, mas não esconde perda de dados. O mesmo padrão existe no `importar` (:185-201).
-2. **Backup em JSON válido com a estrutura errada é mais grave do que a limitação declarada.** A guarda em `armazem.ts:223` aceita `{}`, `[]` e `{"conteudo":5}`. Nesses três casos, a sonda mostrou o mesmo efeito:
+2. **Backup em JSON válido com a estrutura errada é mais grave do que a limitação declarada.** *(Corrigido depois; ver a seção "Correção da ressalva 2 do 3c".)* A guarda em `armazem.ts:223` aceita `{}`, `[]` e `{"conteudo":5}`. Nesses três casos, a sonda mostrou o mesmo efeito:
    - `{ok:true}`, e a interface mostra "Dados anteriores à importação restaurados.";
    - as demandas ficam como `"undefined"`, e o app entra em `erroArmazenamento`;
    - a configuração vira `{}`;
@@ -208,3 +208,30 @@ As sondas do auditor ficaram fora do repositório e não são evidência duráve
 Nenhum documento declarava PASSOU sem execução. Não há segredos nem dados que pareçam reais nos arquivos do commit.
 
 **NÃO TESTADO:** as mensagens novas na interface no caminho de falha, a notificação dos ouvintes na falha (verificada só na sonda), o navegador real com cota cheia ou armazenamento bloqueado, o push e o deploy.
+
+## Correção da ressalva 2 do 3c: backup com estrutura errada (subagente `implementador`, padrão B)
+
+**Pedido do responsável:** "Sim, corrigir", em resposta a "Corrijo a ressalva do backup com estrutura errada com o implementador?". O Claude principal conferiu o diff e reexecutou a suíte e o build.
+
+**Correção:** `aplicacao/src/modulos/demandas/armazem.ts:223-227`. Antes de qualquer gravação, `restaurarBackup` agora recusa um backup que:
+- seja uma lista;
+- tenha `conteudo` diferente de string ou `null`;
+- tenha `diasInatividade` que não passe em `diasValidos`, ou seja, fora dos inteiros de 1 a 365. É a mesma função usada por `lerDias`, `definirDiasInatividade` e pela importação (`dados-portaveis.ts:35`).
+
+Nesses casos o erro cai no `catch` que já existia: "Backup ilegível; nada foi alterado.", sem nenhuma gravação.
+
+**Testes:** `testes/unidade/riscos-arquiteto.test.ts:291-342`.
+- Seis casos (`it.each`): `{}`, `[]`, `{"conteudo":5}`, `diasInatividade` ausente, `'x'` e `0`. Cada um exige `ok:false`, a mensagem exata, as 3 chaves iguais à fotografia (inclusive o backup), a memória inalterada e nenhum `erroArmazenamento`.
+- Um caso válido, com `conteudo: null`, que deve continuar funcionando.
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 1 | Os testes novos falham no código anterior, por asserção | `npx vitest run ../testes/unidade/riscos-arquiteto.test.ts`, com o código original (implementador) | `6 failed \| 23 passed (29)`: `AssertionError: expected true to be false` (:320), porque a função devolvia `ok:true`. O caso válido já passava antes, como esperado. **São 6 de 7** | PASSOU (o teste detecta o defeito) |
+| 2 | Suíte completa | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 106 passed (106)` | PASSOU |
+| 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
+| 4 | Revisão independente pelo `auditor` desta correção | — | — | NÃO TESTADO |
+
+**Limitações:**
+- Se `conteudo` for uma string que não é JSON de demandas válido, ela ainda é gravada. Nesse caso o app mostra o aviso de armazenamento corrompido que já existia.
+- Navegador real, push e deploy: NÃO TESTADO.
+- As outras ressalvas do 3c continuam abertas: as 1, 3, 4 e 5.

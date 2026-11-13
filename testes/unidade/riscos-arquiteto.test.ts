@@ -288,3 +288,55 @@ describe('risco 3c: falha de gravação ao desfazer a importação não deixa es
     expect(a.obter().avisoPersistencia).toBeNull();
   });
 });
+
+describe('risco 3c (ressalva 2): backup com estrutura errada não é aplicado', () => {
+  const CHAVES = [CHAVE_DEMANDAS, CHAVE_CONFIGURACAO, CHAVE_BACKUP];
+
+  function prepararImportado() {
+    const base = criarArmazenamentoEmMemoria();
+    const a = criarArmazem(base, { exemplos: () => [D('original')] });
+    expect(a.definirDiasInatividade(5).ok).toBe(true);
+    const dados = validarImportacao(exportarDados([D('imp1'), D('imp2')], 9, AGORA));
+    if (!dados.ok) throw new Error('fixture inválida');
+    expect(a.importar(dados.dados).ok).toBe(true);
+    return { a, base };
+  }
+
+  it.each([
+    ['objeto vazio', '{}'],
+    ['lista vazia', '[]'],
+    ['conteúdo numérico', '{"conteudo":5}'],
+    ['diasInatividade ausente', JSON.stringify({ salvoEm: AGORA.toISOString(), conteudo: null })],
+    ['diasInatividade não numérico', JSON.stringify({ salvoEm: AGORA.toISOString(), conteudo: null, diasInatividade: 'x' })],
+    ['diasInatividade fora do intervalo', JSON.stringify({ salvoEm: AGORA.toISOString(), conteudo: null, diasInatividade: 0 })],
+  ])('%s: recusa, não grava nada e mantém o backup', (_nome, bruto) => {
+    const { a, base } = prepararImportado();
+    base.setItem(CHAVE_BACKUP, bruto);
+    a.recarregar();
+    const fotografia = CHAVES.map((k) => base.getItem(k));
+    const memoria = a.obter();
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.mensagem).toBe('Backup ilegível; nada foi alterado.');
+    expect(CHAVES.map((k) => base.getItem(k))).toEqual(fotografia);
+    expect(a.obter()).toEqual(memoria);
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(['imp1', 'imp2']);
+    expect(a.obter().erroArmazenamento).toBeNull();
+  });
+
+  it('backup válido com conteudo null (não havia demandas) continua restaurando', () => {
+    const { a, base } = prepararImportado();
+    base.setItem(CHAVE_BACKUP, JSON.stringify({ salvoEm: AGORA.toISOString(), conteudo: null, diasInatividade: 4 }));
+    a.recarregar();
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(true);
+    expect(base.getItem(CHAVE_BACKUP)).toBeNull();
+    expect(a.obter().erroArmazenamento).toBeNull();
+    expect(a.obter().diasInatividade).toBe(4);
+    expect(a.obter().temBackup).toBe(false);
+    // Sem demandas gravadas, a carga volta aos exemplos da primeira inicialização.
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(['original']);
+  });
+});
