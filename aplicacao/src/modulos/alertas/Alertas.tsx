@@ -19,7 +19,7 @@ function baixar(nome: string, conteudo: string) {
 
 export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   const armazem = useArmazem();
-  const { demandas, diasInatividade, temBackup, erroArmazenamento } = useEstadoDemandas();
+  const { demandas, diasInatividade, temBackup, erroArmazenamento, conteudoIlegivelDoBackup } = useEstadoDemandas();
   const [dias, setDias] = useState(String(diasInatividade));
   const [aviso, setAviso] = useState<Aviso>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
@@ -46,9 +46,16 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       setAviso({ tipo: 'erro', texto: `Importação recusada: ${r.erro} Nenhum dado foi alterado.` });
       return;
     }
-    const ok = window.confirm(
-      `Importar ${r.dados.demandas.length} demanda(s) e SUBSTITUIR as ${demandas.length} atuais?\n` +
-        'Um backup dos dados atuais será gravado antes e poderá ser restaurado.',
+    // O texto depende do estado: só promete o desfazer quando ele de fato vai funcionar.
+    const avisoBackupIlegivel = conteudoIlegivelDoBackup !== null
+      ? '\nATENÇÃO: o backup atual contém demandas ilegíveis e esta importação vai SOBRESCREVER esse backup. Use "Baixar conteúdo do backup" antes, se quiser guardá-lo.'
+      : '';
+    const ok = window.confirm(erroArmazenamento
+      ? `Importar ${r.dados.demandas.length} demanda(s) no lugar dos dados atuais, que estão corrompidos?\n` +
+          'O conteúdo corrompido será guardado no backup, mas NÃO poderá ser restaurado por "Desfazer última importação". ' +
+          'Se quiser guardá-lo, cancele e use antes "Baixar conteúdo bruto" na tela Demandas.' + avisoBackupIlegivel
+      : `Importar ${r.dados.demandas.length} demanda(s) e SUBSTITUIR as ${demandas.length} atuais?\n` +
+          'Um backup dos dados atuais será gravado antes e poderá ser restaurado.' + avisoBackupIlegivel,
     );
     if (!ok) {
       setAviso({ tipo: 'sucesso', texto: 'Importação cancelada. Nenhum dado foi alterado.' });
@@ -122,9 +129,19 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
           <button type="button" className="botao" onClick={exportar} disabled={!!erroArmazenamento}>Exportar {NOME_ARQUIVO}</button>
           <button type="button" className="botao" onClick={() => arquivoRef.current?.click()}>Importar JSON…</button>
           <input ref={arquivoRef} type="file" accept="application/json,.json" className="sr-only" aria-label="Arquivo JSON para importar" onChange={importar} />
-          <button type="button" className="botao" onClick={restaurarBackup} disabled={!temBackup}>Desfazer última importação</button>
+          <button type="button" className="botao" onClick={restaurarBackup} disabled={!temBackup || conteudoIlegivelDoBackup !== null}>Desfazer última importação</button>
+          {conteudoIlegivelDoBackup !== null && (
+            <button type="button" className="botao" onClick={() => baixar('guara-conteudo-do-backup.json', conteudoIlegivelDoBackup)}>
+              Baixar conteúdo do backup
+            </button>
+          )}
           <button type="button" className="botao botao--perigo" onClick={restaurarExemplos}>Restaurar exemplos</button>
         </div>
+        {conteudoIlegivelDoBackup !== null && (
+          <p className="texto-pequeno texto--atencao">
+            O backup contém demandas ilegíveis e não pode ser restaurado por "Desfazer última importação". Baixe o conteúdo do backup para não perdê-lo: a próxima importação vai sobrescrevê-lo.
+          </p>
+        )}
       </div>
     </section>
   );

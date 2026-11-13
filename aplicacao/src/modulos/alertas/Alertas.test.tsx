@@ -3,8 +3,8 @@
 // Importação inválida e cancelada não alteram os dados.
 
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ContextoArmazem, criarArmazem, criarArmazenamentoEmMemoria } from '../demandas/armazem.ts';
-import type { Demanda } from '../demandas/modelo.ts';
+import { CHAVE_BACKUP, ContextoArmazem, criarArmazem, criarArmazenamentoEmMemoria } from '../demandas/armazem.ts';
+import { CHAVE_DEMANDAS, type Demanda } from '../demandas/modelo.ts';
 import { exportarDados } from './dados-portaveis.ts';
 import { Alertas } from './Alertas.tsx';
 
@@ -119,5 +119,79 @@ describe('tela Alertas', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('recusou a gravação');
     expect(armazem.obter().diasInatividade).toBe(3);
     expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(armazem.obter().diasInatividade);
+  });
+  describe('ressalvas C e D: importação sobre armazenamento corrompido', () => {
+    const novo = () => exportarDados([{ ...ANTIGA, id: 'nova1' }], 3, AGORA);
+    const importarArquivo = () =>
+      fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo())] } });
+
+    it('D: com armazenamento normal, a confirmação promete o desfazer', async () => {
+      montar();
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+      importarArquivo();
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importação cancelada'));
+      expect(confirmar.mock.calls[0][0]).toContain('será gravado antes e poderá ser restaurado');
+    });
+
+    it('D: com armazenamento corrompido, a confirmação não promete restaurar e sugere baixar antes', async () => {
+      localStorage.setItem(CHAVE_DEMANDAS, '{corrompido');
+      montar();
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+      importarArquivo();
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importação cancelada'));
+      const texto = confirmar.mock.calls[0][0] as string;
+      expect(texto).not.toContain('será gravado antes e poderá ser restaurado');
+      expect(texto).toContain('corrompido');
+      expect(texto).toContain('NÃO poderá ser restaurado');
+      expect(texto).toContain('Baixar conteúdo bruto');
+      expect(localStorage.getItem(CHAVE_DEMANDAS)).toBe('{corrompido');
+    });
+
+    it('C: depois de importar, o conteúdo corrompido pode ser baixado e o desfazer fica desabilitado', async () => {
+      localStorage.setItem(CHAVE_DEMANDAS, '{corrompido');
+      montar();
+      vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+      importarArquivo();
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+
+      expect(screen.getByRole('button', { name: 'Desfazer última importação' })).toBeDisabled();
+      const baixarBackup = screen.queryByRole('button', { name: 'Baixar conteúdo do backup' });
+      expect(baixarBackup).not.toBeNull();
+      expect(screen.getByText(/backup contém demandas ilegíveis/)).toBeInTheDocument();
+
+      // Download: captura o Blob entregue ao navegador.
+      const blobs: Blob[] = [];
+      const criarUrl = vi.fn((b: Blob) => { blobs.push(b); return 'blob:teste'; });
+      const urlOriginal = { criar: URL.createObjectURL, revogar: URL.revokeObjectURL };
+      URL.createObjectURL = criarUrl as unknown as typeof URL.createObjectURL;
+      URL.revokeObjectURL = vi.fn();
+      const clicar = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {});
+      try {
+        fireEvent.click(baixarBackup!);
+      } finally {
+        URL.createObjectURL = urlOriginal.criar;
+        URL.revokeObjectURL = urlOriginal.revogar;
+      }
+      expect(clicar).toHaveBeenCalledTimes(1);
+      expect(blobs).toHaveLength(1);
+      expect(await blobs[0].text()).toBe('{corrompido');
+    });
+
+    it('C: nova importação com backup ilegível avisa que ele será sobrescrito; cancelar mantém o backup', async () => {
+      localStorage.setItem(CHAVE_DEMANDAS, '{corrompido');
+      montar();
+      vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+      importarArquivo();
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+      const backup = localStorage.getItem(CHAVE_BACKUP);
+
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+      importarArquivo();
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importação cancelada'));
+      const texto = confirmar.mock.calls.at(-1)?.[0] as string;
+      expect(texto).toContain('SOBRESCREVER');
+      expect(texto).toContain('Baixar conteúdo do backup');
+      expect(localStorage.getItem(CHAVE_BACKUP)).toBe(backup);
+    });
   });
 });

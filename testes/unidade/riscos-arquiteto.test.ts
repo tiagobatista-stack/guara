@@ -488,3 +488,43 @@ describe('ressalvas restantes do 3c (R1, R4, extras A e B)', () => {
     expect(a.obter().erroArmazenamento).toBeNull();
   });
 });
+
+describe('ressalva C: conteúdo ilegível do backup fica acessível pelo estado do armazém', () => {
+  function dadosImportados() {
+    const dados = validarImportacao(exportarDados([D('imp1')], 9, AGORA));
+    if (!dados.ok) throw new Error('fixture inválida');
+    return dados.dados;
+  }
+
+  it('importar sobre armazenamento corrompido expõe o conteúdo corrompido do backup', () => {
+    const base = criarArmazenamentoEmMemoria();
+    const a = criarArmazem(base, { exemplos: () => [D('original')] });
+    base.setItem(CHAVE_DEMANDAS, '{corrompido');
+    a.recarregar();
+    expect(a.importar(dadosImportados()).ok).toBe(true);
+    expect(a.obter().conteudoBruto).toBeNull();
+    expect(a.obter().temBackup).toBe(true);
+    expect(a.obter().conteudoIlegivelDoBackup).toBe('{corrompido');
+    // Continua exposto depois de recarregar (ex.: nova abertura da página).
+    a.recarregar();
+    expect(a.obter().conteudoIlegivelDoBackup).toBe('{corrompido');
+  });
+
+  it('backup inteiro que não é JSON expõe o texto bruto do backup', () => {
+    const base = criarArmazenamentoEmMemoria();
+    const a = criarArmazem(base, { exemplos: () => [D('original')] });
+    base.setItem(CHAVE_BACKUP, '{backup-quebrado');
+    a.recarregar();
+    expect(a.obter().conteudoIlegivelDoBackup).toBe('{backup-quebrado');
+  });
+
+  it('backup legível (importação normal) não é marcado como ilegível', () => {
+    const base = criarArmazenamentoEmMemoria();
+    const a = criarArmazem(base, { exemplos: () => [D('original')] });
+    expect(a.obter().conteudoIlegivelDoBackup).toBeNull();
+    expect(a.importar(dadosImportados()).ok).toBe(true);
+    expect(a.obter().conteudoIlegivelDoBackup).toBeNull();
+    expect(a.restaurarBackup().ok).toBe(true);
+    expect(a.obter().conteudoIlegivelDoBackup).toBeNull();
+  });
+});

@@ -336,3 +336,36 @@ A gravidade é baixa: isso só acontece com um backup adulterado, ou quando as d
 - **G. NÃO TESTADO:** o navegador real, o aviso na tela no R4 e no Extra A, a recusa do Extra B pela interface, o push e o deploy. O bundle local (`B8b_DIcH`) ainda não foi publicado; o site continua servindo `CSMJPeam`.
 
 **Documentação:** os números e as linhas citadas conferem. O auditor apontou uma redação ambígua no `STATUS.md:29` e no `RELATORIO-FINAL.md:97`: "metade falha por símbolo ausente" se referia ao lote original de `3d0609f`. A frase foi corrigida para dizer isso explicitamente. Não há segredos no diff.
+
+## Correção das ressalvas C e D (subagente `implementador`, padrão B)
+
+**Pedido do responsável:** "corrigir C [...] D [...]", com o texto das duas ressalvas. O Claude principal conferiu o diff, reexecutou a suíte e o build e verificou C no navegador.
+
+**C. O conteúdo corrompido não fica mais preso.**
+- **Armazém:** novo campo de estado `conteudoIlegivelDoBackup: string | null` (`armazem.ts:28`). Ele é calculado em `carregar()` (:96-103) pela mesma regra que o desfazer usa, a função `avaliarBackup` (:36-61), também usada por `restaurarBackup` (:271). O cálculo não faz leitura nem escrita a mais no storage. O contrato existente não muda.
+- **Tela de Alertas** (`Alertas.tsx:132-144`), quando esse campo não é nulo:
+  - "Desfazer última importação" fica desabilitado;
+  - aparece o botão "Baixar conteúdo do backup";
+  - um parágrafo explica que o backup não pode ser restaurado e que a próxima importação vai sobrescrevê-lo.
+- **Uma nova importação** avisa na confirmação que vai "SOBRESCREVER" o backup ilegível. A sobrescrita não é bloqueada no armazém, porque isso criaria um beco sem saída: o desfazer está desabilitado e nenhuma ação limpa o backup.
+
+**D. A confirmação não promete mais demais** (`Alertas.tsx:49-60`). No estado normal, o texto antigo continua. Com o armazenamento corrompido, o texto diz que o conteúdo "NÃO poderá ser restaurado" e sugere usar antes "Baixar conteúdo bruto", na tela Demandas.
+
+**Testes novos (7):**
+- `Alertas.test.tsx:123-195`, 4 testes de interface: D normal, D corrompido, C com desfazer desabilitado e download, e C com o aviso de sobrescrita na segunda importação;
+- `riscos-arquiteto.test.ts:492`, 3 testes de unidade do campo novo.
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 1 | Os testes novos falham no código anterior | O implementador trocou temporariamente o `armazem.ts` e o `Alertas.tsx` pela versão de HEAD | `Tests 6 failed \| 117 passed (123)`. **3 falham por asserção, mostrando o defeito:** D ("…poderá ser restaurado"), C (`Received element is not disabled`) e C ("SOBRESCREVER"). **Os 3 testes de unidade só falham por ausência do campo** (`expected undefined…`); um deles (o backup legível) é proteção contra regressão. O teste "D normal" passa antes e depois. As asserções do download nunca rodaram contra o código anterior, porque o teste para antes, em `toBeDisabled` | PASSOU, com ressalva (só 3 de 7 falham pelo defeito) |
+| 2 | Suíte completa | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 123 passed (123)` | PASSOU |
+| 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
+| 4 | C no navegador real (servidor de desenvolvimento, `localhost`) | O Claude principal gravou no localStorage um backup `{conteudo:'{corrompido-teste', diasInatividade:3}`, recarregou e abriu Alertas | "Desfazer última importação" ficou `disabled: true`, "Baixar conteúdo do backup" ficou habilitado e o parágrafo de explicação apareceu. Ao clicar no botão de download (com o `click` do link interceptado), saiu o arquivo `guara-conteudo-do-backup.json` com o conteúdo `{corrompido-teste`. O teste foi limpo do localStorage ao final. A captura de tela falhou por tempo esgotado | PASSOU |
+| 5 | D no navegador real (texto do `window.confirm`) | — | — | NÃO TESTADO |
+| 6 | Revisão independente pelo `auditor` | — | — | NÃO TESTADO |
+
+**Limitações:**
+- **Mudou o comportamento com um backup que não é JSON ou tem estrutura errada.** Antes, o desfazer ficava habilitado e respondia "Backup ilegível". Agora fica desabilitado e oferece o download do texto bruto. Nesse caso, o texto da tela diz "demandas ilegíveis", embora o que está quebrado seja o backup inteiro.
+- A sobrescrita só é avisada na interface. Quem chamar `armazem.importar()` diretamente continua sobrescrevendo sem aviso.
+- **Sem teste:** o caso de armazenamento corrompido e backup ilegível ao mesmo tempo, e uma segunda importação confirmada que de fato sobrescreve.
+- "Restaurar exemplos" com o armazenamento corrompido substitui o conteúdo sem backup, como antes.

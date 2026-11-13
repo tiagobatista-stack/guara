@@ -24,9 +24,41 @@ export interface EstadoArmazem {
   temBackup: boolean;
   /** Preenchido quando o navegador não permite gravar (modo privado, cota cheia, bloqueio). */
   avisoPersistencia: string | null;
+  /** Texto do backup que o desfazer recusa (demandas ilegíveis ou backup quebrado), para baixar pela interface. */
+  conteudoIlegivelDoBackup: string | null;
 }
 
 export type RespostaAcao = { ok: true; demanda?: Demanda } | { ok: false; erros?: ErrosValidacao; mensagem: string };
+
+type Backup = { conteudo: string | null; diasInatividade: number };
+
+/** Classifica o backup da importação com o mesmo critério do carregamento (nada é gravado). */
+function avaliarBackup(bruto: string): { tipo: 'ok'; b: Backup } | { tipo: 'estrutura' } | { tipo: 'demandas'; conteudo: string } {
+  let b: Backup;
+  try {
+    b = JSON.parse(bruto);
+    if (typeof b !== 'object' || b === null || Array.isArray(b)) throw new Error('backup inválido');
+    // Valida a forma antes de gravar: JSON válido com estrutura errada também é ilegível.
+    if ((b.conteudo !== null && typeof b.conteudo !== 'string') || !diasValidos(b.diasInatividade)) {
+      throw new Error('backup inválido');
+    }
+  } catch {
+    return { tipo: 'estrutura' };
+  }
+  // Só aceita demandas que o carregamento aceitaria.
+  if (b.conteudo !== null) {
+    const teste = criarArmazenamentoEmMemoria();
+    teste.setItem(CHAVE_DEMANDAS_ARMAZEM, b.conteudo);
+    if (new RepositorioLocal(teste).carregar().tipo !== 'ok') return { tipo: 'demandas', conteudo: b.conteudo };
+  }
+  return { tipo: 'ok', b };
+}
+
+function conteudoIlegivel(bruto: string | null): string | null {
+  if (bruto === null) return null;
+  const r = avaliarBackup(bruto);
+  return r.tipo === 'ok' ? null : r.tipo === 'demandas' ? r.conteudo : bruto;
+}
 
 export interface OpcoesArmazem {
   agora?: () => Date;
@@ -44,6 +76,7 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
   let estado: EstadoArmazem = {
     demandas: [], erroArmazenamento: null, conteudoBruto: null,
     diasInatividade: DIAS_INATIVIDADE_PADRAO, temBackup: false, avisoPersistencia: null,
+    conteudoIlegivelDoBackup: null,
   };
   const AVISO_SEM_GRAVACAO =
     'Este navegador não permitiu gravar os dados (modo privado, cota cheia ou bloqueio). As alterações valem só até fechar a página.';
@@ -60,10 +93,14 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
   }
 
   function carregar() {
-    let extras: Pick<EstadoArmazem, 'diasInatividade' | 'temBackup' | 'avisoPersistencia'>;
+    let extras: Pick<EstadoArmazem, 'diasInatividade' | 'temBackup' | 'avisoPersistencia' | 'conteudoIlegivelDoBackup'>;
     let carga: ReturnType<RepositorioLocal['carregar']>;
     try {
-      extras = { diasInatividade: lerDias(), temBackup: armazenamento.getItem(CHAVE_BACKUP) !== null, avisoPersistencia: semPersistencia ? AVISO_SEM_GRAVACAO : null };
+      const backup = armazenamento.getItem(CHAVE_BACKUP);
+      extras = {
+        diasInatividade: lerDias(), temBackup: backup !== null, avisoPersistencia: semPersistencia ? AVISO_SEM_GRAVACAO : null,
+        conteudoIlegivelDoBackup: conteudoIlegivel(backup),
+      };
       carga = repo.carregar();
     } catch {
       // Leitura bloqueada: o app abre com os exemplos em memória, sem quebrar.
@@ -231,28 +268,16 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       }
       const bruto = antes[2];
       if (bruto === null) return { ok: false, mensagem: 'Não há backup de importação.' };
-      let b: { conteudo: string | null; diasInatividade: number };
-      try {
-        b = JSON.parse(bruto);
-        if (typeof b !== 'object' || b === null || Array.isArray(b)) throw new Error('backup inválido');
-        // Valida a forma antes de gravar: JSON válido com estrutura errada também é ilegível.
-        if ((b.conteudo !== null && typeof b.conteudo !== 'string') || !diasValidos(b.diasInatividade)) {
-          throw new Error('backup inválido');
-        }
-      } catch {
-        return { ok: false, mensagem: 'Backup ilegível; nada foi alterado.' };
+      const avaliacao = avaliarBackup(bruto);
+      if (avaliacao.tipo === 'estrutura') return { ok: false, mensagem: 'Backup ilegível; nada foi alterado.' };
+      // O backup fica guardado para não perder o conteúdo.
+      if (avaliacao.tipo === 'demandas') {
+        return {
+          ok: false,
+          mensagem: 'O backup contém demandas ilegíveis (já estavam corrompidas antes da importação ou foram alteradas); nada foi alterado e o backup foi mantido.',
+        };
       }
-      // Só aplica demandas que o carregamento aceitaria; o backup fica guardado para não perder o conteúdo.
-      if (b.conteudo !== null) {
-        const teste = criarArmazenamentoEmMemoria();
-        teste.setItem(CHAVE_DEMANDAS_ARMAZEM, b.conteudo);
-        if (new RepositorioLocal(teste).carregar().tipo !== 'ok') {
-          return {
-            ok: false,
-            mensagem: 'O backup contém demandas ilegíveis (já estavam corrompidas antes da importação ou foram alteradas); nada foi alterado e o backup foi mantido.',
-          };
-        }
-      }
+      const b = avaliacao.b;
       try {
         if (b.conteudo === null) armazenamento.removeItem(CHAVE_DEMANDAS_ARMAZEM);
         else armazenamento.setItem(CHAVE_DEMANDAS_ARMAZEM, b.conteudo);
