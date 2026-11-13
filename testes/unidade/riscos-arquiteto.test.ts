@@ -340,3 +340,151 @@ describe('risco 3c (ressalva 2): backup com estrutura errada não é aplicado', 
     expect(a.obter().demandas.map((d) => d.id)).toEqual(['original']);
   });
 });
+
+describe('ressalvas restantes do 3c (R1, R4, extras A e B)', () => {
+  const CHAVES = [CHAVE_DEMANDAS, CHAVE_CONFIGURACAO, CHAVE_BACKUP];
+
+  /** Storage em memória com controles: escritas falham (todas) e leituras falham, depois de ativados. */
+  function storageControlado() {
+    const base = criarArmazenamentoEmMemoria();
+    const ctrl = { falharEscrita: false, falharLeitura: false };
+    const escrever = (f: () => void) => {
+      if (ctrl.falharEscrita) throw new Error('QuotaExceededError simulado');
+      f();
+    };
+    const storage: Storage = {
+      get length() { return base.length; },
+      clear: () => base.clear(),
+      key: (i: number) => base.key(i),
+      getItem: (k: string) => {
+        if (ctrl.falharLeitura) throw new Error('SecurityError simulado');
+        return base.getItem(k);
+      },
+      removeItem: (k: string) => escrever(() => base.removeItem(k)),
+      setItem: (k: string, v: string) => escrever(() => base.setItem(k, v)),
+    };
+    return { storage, base, ctrl };
+  }
+
+  function dadosImportados() {
+    const dados = validarImportacao(exportarDados([D('imp1'), D('imp2')], 9, AGORA));
+    if (!dados.ok) throw new Error('fixture inválida');
+    return dados.dados;
+  }
+
+  function prepararImportado() {
+    const s = storageControlado();
+    const a = criarArmazem(s.storage, { exemplos: () => [D('original')] });
+    expect(a.definirDiasInatividade(5).ok).toBe(true);
+    expect(a.importar(dadosImportados()).ok).toBe(true);
+    return { ...s, a };
+  }
+
+  it('R1: importar com TODAS as gravações recusadas diz que nada mudou (não "não foi possível desfazer")', () => {
+    const s = storageControlado();
+    const a = criarArmazem(s.storage, { exemplos: () => [D('original')] });
+    const fotografia = CHAVES.map((k) => s.base.getItem(k));
+    s.ctrl.falharEscrita = true;
+
+    const r = a.importar(dadosImportados());
+    expect(r.ok).toBe(false);
+    expect(CHAVES.map((k) => s.base.getItem(k))).toEqual(fotografia);
+    if (!r.ok) {
+      expect(r.mensagem).toContain('desfeita');
+      expect(r.mensagem).not.toContain('não foi possível');
+    }
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(['original']);
+  });
+
+  it('R1: desfazer com TODAS as gravações recusadas diz que o desfazer foi cancelado', () => {
+    const { a, base, ctrl } = prepararImportado();
+    const fotografia = CHAVES.map((k) => base.getItem(k));
+    ctrl.falharEscrita = true;
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    expect(CHAVES.map((k) => base.getItem(k))).toEqual(fotografia);
+    if (!r.ok) {
+      expect(r.mensagem).toContain('cancelado');
+      expect(r.mensagem).not.toContain('não foi possível');
+    }
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(['imp1', 'imp2']);
+  });
+
+  it('R4: leitura bloqueada no desfazer liga o aviso, notifica e não altera a memória', () => {
+    const { a, base, ctrl } = prepararImportado();
+    expect(a.obter().avisoPersistencia).toBeNull();
+    const fotografia = CHAVES.map((k) => base.getItem(k));
+    const demandasAntes = a.obter().demandas;
+    let notificacoes = 0;
+    a.assinar(() => { notificacoes++; });
+    ctrl.falharLeitura = true;
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.mensagem).toContain('nada foi alterado');
+    expect(CHAVES.map((k) => base.getItem(k))).toEqual(fotografia);
+    expect(a.obter().demandas).toBe(demandasAntes);
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+    expect(notificacoes).toBeGreaterThan(0);
+
+    // O aviso vale até fechar a página, mesmo com a leitura de volta.
+    ctrl.falharLeitura = false;
+    a.recarregar();
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+  });
+
+  it('extra A: falha de gravação no importar liga o aviso de persistência', () => {
+    // 1ª gravação (exemplos iniciais) passa; a 2ª (backup da importação) falha.
+    const a = criarArmazem(storageComFalha(2), { exemplos: () => [D('ex')] });
+    expect(a.obter().avisoPersistencia).toBeNull();
+    expect(a.importar(dadosImportados()).ok).toBe(false);
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+    a.recarregar();
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+  });
+
+  const MSG_CONTEUDO = 'demandas ilegíveis';
+  it.each([
+    ['conteúdo que não é JSON', 'lixo{'],
+    ['envelope desconhecido', JSON.stringify({ versao: 2, demandas: [] })],
+    ['demanda inválida', JSON.stringify({ versao: 1, demandas: [{ id: 'x' }] })],
+    ['IDs duplicados', JSON.stringify({ versao: 1, demandas: [D('a'), D('a')] })],
+  ])('extra B: backup com %s é recusado, nada é gravado e o backup é mantido', (_nome, conteudo) => {
+    const { a, base } = prepararImportado();
+    base.setItem(CHAVE_BACKUP, JSON.stringify({ salvoEm: AGORA.toISOString(), conteudo, diasInatividade: 3 }));
+    a.recarregar();
+    const fotografia = CHAVES.map((k) => base.getItem(k));
+    const memoria = a.obter();
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    if (!r.ok) {
+      expect(r.mensagem).toContain(MSG_CONTEUDO);
+      expect(r.mensagem).toContain('nada foi alterado');
+    }
+    expect(CHAVES.map((k) => base.getItem(k))).toEqual(fotografia);
+    expect(a.obter()).toEqual(memoria);
+    expect(a.obter().erroArmazenamento).toBeNull();
+    expect(a.obter().avisoPersistencia).toBeNull();
+  });
+
+  it('extra B: demandas já corrompidas antes da importação não são regravadas pelo desfazer', () => {
+    const base = criarArmazenamentoEmMemoria();
+    const a = criarArmazem(base, { exemplos: () => [D('original')] });
+    base.setItem(CHAVE_DEMANDAS, '{corrompido');
+    a.recarregar();
+    expect(a.obter().erroArmazenamento).not.toBeNull();
+    expect(a.importar(dadosImportados()).ok).toBe(true);
+    const fotografia = CHAVES.map((k) => base.getItem(k));
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.mensagem).toContain(MSG_CONTEUDO);
+    expect(CHAVES.map((k) => base.getItem(k))).toEqual(fotografia);
+    // O conteúdo corrompido original continua guardado no backup, sem perda.
+    expect(JSON.parse(base.getItem(CHAVE_BACKUP) ?? '{}').conteudo).toBe('{corrompido');
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(['imp1', 'imp2']);
+    expect(a.obter().erroArmazenamento).toBeNull();
+  });
+});

@@ -3,7 +3,7 @@
 // Importação inválida e cancelada não alteram os dados.
 
 import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
+import { ContextoArmazem, criarArmazem, criarArmazenamentoEmMemoria } from '../demandas/armazem.ts';
 import type { Demanda } from '../demandas/modelo.ts';
 import { exportarDados } from './dados-portaveis.ts';
 import { Alertas } from './Alertas.tsx';
@@ -14,8 +14,8 @@ const ANTIGA: Demanda = {
   status: 'Em Andamento', criadaEm: '2026-11-01T00:00:00.000Z', ultimaAcaoRelevante: '2026-11-08T12:00:00.000Z',
 };
 
-function montar() {
-  const armazem = criarArmazem(localStorage, { agora: () => AGORA, exemplos: () => [{ ...ANTIGA }] });
+function montar(armazenamento: Storage = localStorage) {
+  const armazem = criarArmazem(armazenamento, { agora: () => AGORA, exemplos: () => [{ ...ANTIGA }] });
   render(
     <ContextoArmazem.Provider value={armazem}>
       <Alertas agora={() => AGORA} />
@@ -86,5 +86,38 @@ describe('tela Alertas', () => {
     expect(screen.getByRole('status')).toHaveTextContent('restaurados');
     expect(armazem.obter().diasInatividade).toBe(3);
     expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(3);
+  });
+
+  it('desfazer com falha e reversão parcial: o campo de limiar acompanha o estado', async () => {
+    // Depois de ativado, falham a N-ésima escrita (setItem ou removeItem) e todas as seguintes.
+    const base = criarArmazenamentoEmMemoria();
+    const ctrl = { falharDesde: null as number | null, escritas: 0 };
+    const escrever = (f: () => void) => {
+      if (ctrl.falharDesde !== null && ++ctrl.escritas >= ctrl.falharDesde) throw new Error('QuotaExceededError simulado');
+      f();
+    };
+    const armazenamento: Storage = {
+      get length() { return base.length; },
+      clear: () => base.clear(),
+      key: (i: number) => base.key(i),
+      getItem: (k: string) => base.getItem(k),
+      removeItem: (k: string) => escrever(() => base.removeItem(k)),
+      setItem: (k: string, v: string) => escrever(() => base.setItem(k, v)),
+    };
+    const armazem = montar(armazenamento);
+    const novo = exportarDados([{ ...ANTIGA, id: 'nova1' }], 10, AGORA);
+
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(10);
+
+    // Desfazer: demandas e limiar gravam; a remoção do backup e toda a reversão falham.
+    ctrl.falharDesde = 3;
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Desfazer última importação' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('recusou a gravação');
+    expect(armazem.obter().diasInatividade).toBe(3);
+    expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(armazem.obter().diasInatividade);
   });
 });

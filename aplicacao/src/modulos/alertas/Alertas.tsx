@@ -65,7 +65,8 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
     if (!window.confirm('Desfazer a última importação e voltar aos dados anteriores?')) return;
     const r = armazem.restaurarBackup();
     setAviso(r.ok ? { tipo: 'sucesso', texto: 'Dados anteriores à importação restaurados.' } : { tipo: 'erro', texto: r.mensagem });
-    if (r.ok) setDias(String(armazem.obter().diasInatividade));
+    // Sempre: após falha com reversão parcial, o limiar gravado pode ter mudado.
+    setDias(String(armazem.obter().diasInatividade));
   };
 
   const restaurarExemplos = () => {

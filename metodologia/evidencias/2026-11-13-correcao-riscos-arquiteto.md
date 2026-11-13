@@ -269,3 +269,32 @@ A gravidade é baixa: isso só acontece com um backup adulterado, ou quando as d
 | Deploy no Vercel | Status do commit `004be7e` no GitHub: `Vercel success — Deployment has completed` | PASSOU |
 | Bundle publicado | https://guara-lemon.vercel.app serve `index-CSMJPeam.js`, o mesmo nome do build local (`aplicacao/dist/assets/index-CSMJPeam.js`). Antes servia `index-BuxkUhiy.js` | PASSOU |
 | Comportamento das correções na URL pública (aviso com storage bloqueado, desfazer com falha de gravação, backup adulterado) | Esses casos exigem bloquear ou adulterar o localStorage no navegador | NÃO TESTADO |
+
+## Correção das ressalvas restantes do 3c (subagente `implementador`, padrão B)
+
+**Pedido do responsável:** "corrija as ressalvas restantes com o implementador". O Claude principal conferiu o diff e reexecutou a suíte e o build.
+
+| Item | Correção | Teste | Antes da correção (falha por asserção) |
+|---|---|---|---|
+| R1. Mensagem pessimista quando todas as gravações falham | Nova função `reverter` (`armazem.ts:116-132`), usada em `importar` (:203) e `restaurarBackup` (:262). Ela tenta reverter e depois **lê de volta** cada chave: só conta como revertido se o armazenamento ficou igual à fotografia | `riscos-arquiteto.test.ts:383` (importar) e `:399` (desfazer) | `expected '…recusou a gravação e não …' to contain 'desfeita'` (:393) e `… 'cancelado'` (:408) |
+| R3. Campo de dias desatualizado depois de um desfazer que falhou | `Alertas.tsx:68-69`: `setDias` passa a rodar sempre, e não só no sucesso | `Alertas.test.tsx:91` | `expect(element).toHaveValue(3)`, `Received: 10` (:121) |
+| R4. Leitura bloqueada no desfazer não ligava o aviso | `armazem.ts:225-230`: liga `semPersistencia`, define o aviso e notifica os ouvintes, sem trocar os dados em memória | `riscos-arquiteto.test.ts:414` | `expected null not to be null` (:428) |
+| Extra A. Falha de gravação no `importar` não ligava o aviso | `armazem.ts:204`: `semPersistencia = true` | `:437` | `expected null not to be null` (:442) |
+| Extra B. Backup com conteúdo de demandas inválido era aplicado com `ok:true` e o backup era apagado | `armazem.ts:245-255`: antes de gravar, o `conteudo` passa pelo `RepositorioLocal.carregar()` num storage em memória, que confere JSON, `versao: 1`, `ehDemandaValida` e IDs duplicados. Se não passar, devolve `ok:false` ("…nada foi alterado e o backup foi mantido.") | `:448` (4 casos) e `:472` (caminho real: demandas corrompidas, importar, desfazer) | `expected true to be false` (:461, :482) |
+| R5. Cenário sintético da 3ª gravação | Não alterado: não é defeito | — | — |
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 1 | Os testes novos falham no código anterior | `npx vitest run` com o código original (implementador) | `Test Files 2 failed \| 11 passed (13)` · `Tests 10 failed \| 106 passed (116)`. As 10 falhas são exatamente os testes novos, todas por asserção e nenhuma por símbolo ausente | PASSOU (o teste detecta o defeito) |
+| 2 | Suíte completa | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 116 passed (116)` | PASSOU |
+| 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
+| 4 | Revisão independente pelo `auditor` | — | — | NÃO TESTADO |
+| 5 | Navegador real e deploy | — | — | NÃO TESTADO |
+
+**Escolha no Extra B.** Se as demandas já estavam corrompidas antes da importação, o backup guarda esse conteúdo corrompido. O implementador escolheu **recusar** a restauração em vez de reproduzir o estado corrompido. O motivo: restaurar regravaria lixo por cima de dados válidos e apagaria o backup. O custo é que o app não consegue mais voltar ao estado corrompido. O conteúdo bruto continua no backup, mas só até a próxima importação, que sobrescreve o backup (`armazem.ts:199`).
+
+**Limitações (não corrigidas):**
+- A leitura bloqueada no `importar` (`armazem.ts:194-196`) tem a mesma lacuna do R4: não liga o aviso.
+- O campo de dias depois do `importar` (`Alertas.tsx:61`) continua sincronizando só no sucesso. Nenhum teste demonstrou defasagem ali, porque a configuração é a última gravação da importação.
+- **Efeito colateral do R3:** qualquer desfazer agora repõe o campo de dias com o valor do estado. Isso inclui os casos sem backup, com backup ilegível e com a leitura bloqueada, e um valor digitado mas ainda não salvo é descartado.
+- O R3 só tem efeito prático no cenário sintético do R5, em que `removeItem` falha.

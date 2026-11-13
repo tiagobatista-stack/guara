@@ -113,6 +113,24 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
 
   const iso = () => agora().toISOString();
 
+  /** Tenta voltar as chaves à fotografia; revertido = o armazenamento ficou igual a ela (lido de volta). */
+  function reverter(chaves: string[], antes: (string | null)[]): boolean {
+    chaves.forEach((k, i) => {
+      try {
+        const valor = antes[i];
+        if (valor === null) armazenamento.removeItem(k);
+        else armazenamento.setItem(k, valor);
+      } catch {
+        // Uma escrita recusada não basta para dizer que falhou: se nada mudou, já está revertido.
+      }
+    });
+    try {
+      return chaves.every((k, i) => armazenamento.getItem(k) === antes[i]);
+    } catch {
+      return false;
+    }
+  }
+
   return {
     obter: () => estado,
     assinar(ouvinte: () => void) {
@@ -182,16 +200,8 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
         repo.salvar(dados.demandas);
         armazenamento.setItem(CHAVE_CONFIGURACAO, JSON.stringify({ diasInatividade: dados.configuracao.diasInatividade }));
       } catch {
-        let revertido = true;
-        chaves.forEach((k, i) => {
-          try {
-            const valor = antes[i];
-            if (valor === null) armazenamento.removeItem(k);
-            else armazenamento.setItem(k, valor);
-          } catch {
-            revertido = false;
-          }
-        });
+        const revertido = reverter(chaves, antes);
+        semPersistencia = true;
         carregar();
         ouvintes.forEach((o) => o());
         return {
@@ -213,6 +223,10 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       try {
         antes = chaves.map((k) => armazenamento.getItem(k));
       } catch {
+        // Mesmo tratamento de gravar(): liga o aviso sem trocar os dados em memória.
+        semPersistencia = true;
+        estado = { ...estado, avisoPersistencia: AVISO_SEM_GRAVACAO };
+        ouvintes.forEach((o) => o());
         return { ok: false, mensagem: 'O navegador não permitiu ler os dados atuais; nada foi alterado.' };
       }
       const bruto = antes[2];
@@ -228,22 +242,24 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       } catch {
         return { ok: false, mensagem: 'Backup ilegível; nada foi alterado.' };
       }
+      // Só aplica demandas que o carregamento aceitaria; o backup fica guardado para não perder o conteúdo.
+      if (b.conteudo !== null) {
+        const teste = criarArmazenamentoEmMemoria();
+        teste.setItem(CHAVE_DEMANDAS_ARMAZEM, b.conteudo);
+        if (new RepositorioLocal(teste).carregar().tipo !== 'ok') {
+          return {
+            ok: false,
+            mensagem: 'O backup contém demandas ilegíveis (já estavam corrompidas antes da importação ou foram alteradas); nada foi alterado e o backup foi mantido.',
+          };
+        }
+      }
       try {
         if (b.conteudo === null) armazenamento.removeItem(CHAVE_DEMANDAS_ARMAZEM);
         else armazenamento.setItem(CHAVE_DEMANDAS_ARMAZEM, b.conteudo);
         armazenamento.setItem(CHAVE_CONFIGURACAO, JSON.stringify({ diasInatividade: b.diasInatividade }));
         armazenamento.removeItem(CHAVE_BACKUP);
       } catch {
-        let revertido = true;
-        chaves.forEach((k, i) => {
-          try {
-            const valor = antes[i];
-            if (valor === null) armazenamento.removeItem(k);
-            else armazenamento.setItem(k, valor);
-          } catch {
-            revertido = false;
-          }
-        });
+        const revertido = reverter(chaves, antes);
         semPersistencia = true;
         carregar();
         ouvintes.forEach((o) => o());
