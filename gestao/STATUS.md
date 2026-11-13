@@ -2,7 +2,7 @@
 
 **Atualizado em:** 13/11/2026.
 
-**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. As fases 0 a 6 do plano aprovado estão feitas. Falta a fase 7 (GitHub, Vercel e relatório final), que exige a sua autorização.
+**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. As fases 0 a 7 do plano aprovado estão feitas. Relatório final em `documentacao/RELATORIO-FINAL.md`: 9 PASSOU, 3 PARCIAL e 1 NÃO TESTADO. Os itens pendentes dependem de uma sessão aberta na pasta do projeto.
 
 ## Checklist da apostila (seção 4)
 
@@ -30,7 +30,7 @@
 
    Roteiro completo em `metodologia/evidencias/2026-11-13-p10-p11-mcp-hook-plugin.md`.
 2. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer. O hook roda no Git Bash e foi testado com saída 0 (permite) e 2 (bloqueia).
-3. **Fase 7 (com autorização):** GitHub (`gh auth login` feito por você), depois Vercel (Root Directory `aplicacao`), depois `documentacao/RELATORIO-FINAL.md`. Roteiro em `documentacao/implantacao.md`.
+3. **Publicado:** GitHub https://github.com/tiagobatista-stack/guara (privado) e Vercel https://guara-lemon.vercel.app. Cada push na `main` gera um novo deploy.
 4. **Riscos do arquiteto ainda em aberto:**
    - importação aceita arquivo sem a marca `ficticio`;
    - falha parcial na importação deixa os dados trocados;

@@ -27,4 +27,8 @@
   - servidor MCP local `guara-dados` (stdio, somente leitura, 3 ferramentas) testado com cliente real;
   - sentinela `GUARA_HOOK_TEST_BLOCK` no hook;
   - inspeção de plugins. 76/76 testes.
+- Fase 7:
+  - repositório GitHub privado `guara`;
+  - deploy no Vercel (https://guara-lemon.vercel.app) depois de 2 correções no `vercel.json`;
+  - `documentacao/RELATORIO-FINAL.md` com a auditoria do P13 e o roteiro de apresentação de 2 minutos.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.
