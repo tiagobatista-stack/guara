@@ -69,14 +69,14 @@ node servidor-mcp/testar-servidor.ts
 - O deploy de Edge Functions pode não empacotar `dados-ficticios/`, que fica fora de `functions/`. Verificar quando houver Supabase.
 - Hook em Python, e não em Node como diz a apostila. Desvio registrado.
 
-## Identidade Git local (a confirmar)
+## Identidade Git local
 
-Configuração **só deste repositório**:
+Definida pelo responsável em 13/11/2026, **só neste repositório** (não global):
 
 - `user.name = tiagobatista-stack`
-- `user.email = tiagobatista-stack@users.noreply.github.com` (presumido)
+- `user.email = tiagobatista@sema.mt.gov.br`
 
-Confirme ou ajuste antes de qualquer push.
+A autoria dos 14 commits locais anteriores foi reescrita para esse e-mail, antes de qualquer push. O conteúdo foi conferido como idêntico com `git diff`. O branch local `backup-autoria-antiga` guarda a versão anterior e pode ser apagado depois do push.
 
 ## Intervenções humanas pendentes
 
