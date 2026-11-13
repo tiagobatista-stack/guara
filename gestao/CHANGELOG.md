@@ -13,4 +13,5 @@
 - `.claude/`: skills `testar-sistema`, `revisar-interface` e `validar-pds` (didática); subagentes `arquiteto`, `implementador` e `auditor`; hook PreToolUse `verificar_comando.py`, com 7 testes Python aprovados.
 - O gate de qualidade passa a usar autor e revisor tirados do registro de etapas.
 - `dados-ficticios/entregas.ts` para o autoteste de `validar-pds`.
+- Decisão D9: frontend no Vercel, importado do GitHub. Ordem de publicação GitHub → Vercel → Supabase, conforme a apostila P12.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.

@@ -27,6 +27,10 @@ Você é o engenheiro principal do projeto. O profissional descreve, autoriza e 
 - Login Google não dá acesso a Drive, Agenda ou Gmail; cada escopo exige consentimento próprio.
 - Erros não expõem informação sensível.
 
+## Publicação
+
+A publicação usa **GitHub** (código), **Vercel** (frontend estático, Root Directory `aplicacao`) e **Supabase** (backend e segredos), nessa ordem, e somente depois que build e testes passarem. Cada passo exige autorização do responsável. O roteiro está em `documentacao/implantacao.md`.
+
 ## Privacidade e dados (seção 12)
 
 - Use **somente dados fictícios** (`dados-ficticios/`, marcados `ficticio: true` e com processos `FIC-`).

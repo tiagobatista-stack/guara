@@ -44,6 +44,7 @@ Edge Function orquestrador ── valida sessão, permissões, fluxo
 | D6 | O MVP não usa IA paga: todas as habilidades são `deterministico`. | decidido |
 | D7 | Repositório Git local. Remoto no GitHub (`tiagobatista-stack`) só com autorização. | decidido |
 | D8 | O GovFlow AI Lab é um repositório separado e não é dependência em tempo de execução. | decidido |
+| D9 | O frontend estático é publicado no **Vercel**, importado do repositório GitHub. Origem: entrega obrigatória da apostila FluxoLab (P12). O Vercel serve só o build estático (`aplicacao/dist`): o orquestrador e os segredos ficam no Supabase. Ordem de publicação: build aprovado, depois GitHub, depois Vercel, depois Supabase. Detalhes em `gestao/decisoes/2026-11-13-hospedagem-vercel.md`. | decidido (exige contas: autorização humana) |
 
 ## 4. Decisões em aberto
 
@@ -68,6 +69,7 @@ As versões serão resolvidas pelo `npm install` quando o Node.js estiver dispon
 ## 6. Custos, limites e riscos
 
 - O plano gratuito do Supabase pausa o projeto após cerca de 7 dias sem uso, tem cotas reduzidas e não oferece PITR. Os valores devem ser confirmados na página oficial de preços. Região prevista: `sa-east-1`.
+- O Vercel exige uma conta ligada ao GitHub, com acesso da integração só a este repositório. Os limites do plano gratuito devem ser confirmados na página oficial. O Vercel serve arquivos estáticos e não tem banco; o `localStorage` não é sincronizado entre navegadores.
 - Google OAuth exige um projeto no Google Cloud e uma tela de consentimento, com intervenção humana.
 - **Risco atual:** sem Node.js não há como provar que o app compila nem que os testes passam.
 - Risco de confundir dados reais com fictícios: mitigado com a marcação `ficticio` e o prefixo `FIC-`.
@@ -79,7 +81,8 @@ As versões serão resolvidas pelo `npm install` quando o Node.js estiver dispon
 | Código, testes, documentação, migrações em SQL e hooks | Instalar o Node.js (ou autorizar o winget) |
 | Build e testes locais (com Node) | Criar a conta e o projeto Supabase e aceitar os termos |
 | Commits locais | Criar o projeto Google Cloud e o OAuth |
-| | Criar o repositório GitHub, fazer push e convidar o colaborador |
+| | Criar o repositório GitHub (`gh auth login`), fazer push e convidar o colaborador |
+| Preparar o build para o Vercel (Root Directory `aplicacao`) | Criar a conta no Vercel e importar o repositório |
 | | Escolher a demanda piloto e obter aprovação institucional |
 
 ## 8. Escopo e critérios de aceite do MVP

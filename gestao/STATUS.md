@@ -21,6 +21,7 @@
 4. Abrir `npm run dev`, conferir o layout no desktop, no tablet e no smartphone e conferir a tela Saúde do sistema. Registrar a evidência em `metodologia/evidencias/`.
 5. Demonstrar os padrões A–F com os subagentes (`arquiteto`, `implementador`, `auditor`) e registrar a evidência.
 6. Atualizar este arquivo e `CHANGELOG.md`, e fazer o commit local.
+7. Publicar, com autorização, nesta ordem: **GitHub → Vercel → Supabase**. O roteiro está em `documentacao/implantacao.md`, e a decisão D9 em `gestao/decisoes/2026-11-13-hospedagem-vercel.md`. A apostila (P12) exige o repositório GitHub e uma URL Vercel real.
 
 ## O que foi feito
 
@@ -72,6 +73,7 @@ Antes de qualquer push, o responsável deve confirmar ou ajustar esses valores (
 
 1. Instalar o Node.js ou autorizar a instalação.
 2. Escolher a demanda piloto do MVP.
-3. Autorizar a criação do projeto Supabase (`sa-east-1`) e do Google OAuth.
-4. Autorizar a criação do repositório no GitHub e o push. Informar o usuário GitHub do colaborador para o convite.
-5. Fornecer o documento oficial do PDS, se for desejada uma verificação real.
+3. GitHub: rodar `gh auth login` no próprio terminal e autorizar a criação do repositório pessoal e o push. Informar o usuário GitHub do colaborador para o convite.
+4. Vercel: criar ou entrar na conta ligada ao GitHub e importar o repositório (Root Directory `aplicacao`).
+5. Supabase: autorizar a criação do projeto (`sa-east-1`) e do Google OAuth.
+6. Fornecer o documento oficial do PDS, se for desejada uma verificação real.
