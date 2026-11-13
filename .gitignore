@@ -1,0 +1,26 @@
+# Dependências e build
+node_modules/
+dist/
+dist-ssr/
+coverage/
+*.tsbuildinfo
+.vite/
+
+# Segredos — nunca versionar
+.env
+.env.*
+!.env.exemplo
+*.pem
+*.key
+**/supabase/.temp/
+**/supabase/.branches/
+
+# Ferramentas locais
+.claude/settings.local.json
+*.log
+npm-debug.log*
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+__pycache__/

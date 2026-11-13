@@ -1,0 +1,25 @@
+@import "tailwindcss";
+
+@theme {
+  --color-guara-50: #fdf6ec;
+  --color-guara-100: #f8e6c8;
+  --color-guara-500: #c8702a;
+  --color-guara-600: #a85a1f;
+  --color-guara-700: #864719;
+  --color-cerrado-600: #5f7a3a;
+  --color-pantanal-600: #2f6f73;
+}
+
+:root {
+  color-scheme: light dark;
+}
+
+body {
+  @apply bg-stone-50 text-stone-900 dark:bg-stone-950 dark:text-stone-100;
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+}
+
+:focus-visible {
+  outline: 3px solid var(--color-guara-500);
+  outline-offset: 2px;
+}
