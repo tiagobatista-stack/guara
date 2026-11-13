@@ -26,7 +26,7 @@
 1. **Feito:** MCP, hook e subagentes repetidos em sessão aberta na pasta do projeto. **Falta:** abrir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados (inclusive uma correção real pelo `implementador`).
 2. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer. O hook roda no Git Bash e foi testado com saída 0 (permite) e 2 (bloqueia).
 3. **Publicado:** GitHub https://github.com/tiagobatista-stack/guara (privado) e Vercel https://guara-lemon.vercel.app. Cada push na `main` gera um novo deploy.
-4. **Riscos do arquiteto: corrigidos** (10 testes novos, 86/86). Evidência em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`. Falta a revisão independente pelo subagente `auditor`, numa sessão aberta na pasta do projeto.
+4. **Riscos do arquiteto: corrigidos** (10 testes novos, 86/86). Evidência em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`. **Revisão independente pelo `auditor` registrado: feita** (padrão C, mesma evidência). Os riscos 1, 2, 4 e 5 e o 3a (o app não quebra com o storage bloqueado) foram **APROVADOS**. O 3b foi **REPROVADO**: o aviso "As alterações valem só até fechar a página" some depois de importar, desfazer ou recarregar, porque `armazem.ts:64` zera o aviso. Ainda não foi corrigido; aguarda a decisão do responsável. Metade dos 10 testes novos falha no código anterior por símbolo ausente, e não pelo defeito.
 
 ## Comandos
 

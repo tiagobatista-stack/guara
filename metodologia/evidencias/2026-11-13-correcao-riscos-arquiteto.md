@@ -25,7 +25,7 @@
 
 - O risco 3 foi testado com storage simulado, que lança `QuotaExceededError` e `SecurityError`. Não foi testado em modo privado real do navegador.
 - O risco 4 foi testado com `StorageEvent` disparado no jsdom. Duas abas reais do navegador: NÃO TESTADO.
-- A correção foi feita pelo Claude principal, e não pelo subagente `implementador` (indisponível nesta sessão). Revisão independente pelo `auditor`: NÃO TESTADO.
+- A correção foi feita pelo Claude principal, e não pelo subagente `implementador` (indisponível nesta sessão). Revisão independente pelo `auditor` registrado: **feita em 13/11/2026** (seção abaixo). Resultado: 4 riscos APROVADOS e o risco 3 aprovado em parte, porque o item 3b foi REPROVADO.
 
 ## Publicação
 
@@ -34,3 +34,57 @@
 | Push do `3d0609f` e deploy no Vercel | status `success`; o site passou a servir `index-BuxkUhiy.js` (antes `index-DKZURviz.js`) | PASSOU |
 | Risco 1 na URL pública | importar um JSON sem `ficticio` mostra "Importação recusada: O arquivo não está marcado como fictício…"; total continua 5 | PASSOU |
 | Aviso de persistência em navegador normal | não aparece (o localStorage está disponível) | PASSOU |
+
+## Revisão independente (auditor registrado)
+
+**Data:** 13/11/2026. **Padrão C:** subagente registrado `auditor` (`.claude/agents/`), chamado com `subagent_type: "auditor"` numa sessão aberta na pasta do projeto. O auditor só leu arquivos e rodou testes. `git status` ficou limpo antes e depois da revisão. O código de `aplicacao/src` e `testes` é idêntico em `3d0609f` e `HEAD`. O texto abaixo transcreve o resultado do auditor sem mudar o sentido. **Os itens reprovados não foram corrigidos nesta sessão**: eles só foram registrados, para decisão do responsável.
+
+**Resumo do auditor:** 4 riscos APROVADOS. O risco 3 foi aprovado só em parte: o app não quebra com o localStorage bloqueado (3a), mas o aviso "As alterações valem só até fechar a página" some depois de uma importação (3b). Isso contradiz a tabela acima, que diz que o aviso "aparece no topo de todas as telas".
+
+| # | Risco | Veredito | Correção (arquivo:linha) | Teste (arquivo:linha) | Justificativa |
+|---|---|---|---|---|---|
+| 1 | ALTO: importação aceitava arquivo sem `ficticio` | **APROVADO** | `aplicacao/src/modulos/alertas/dados-portaveis.ts:53` | `testes/unidade/riscos-arquiteto.test.ts:37-48` | No código anterior o teste falha por asserção (`expected true to be false`), ou seja, pelo próprio defeito. O MCP usa a mesma função (`servidor-mcp/consultas.ts:33`) |
+| 2 | MÉDIO: falha parcial na importação deixava os dados trocados | **APROVADO** | `aplicacao/src/modulos/demandas/armazem.ts:166-198` (fotografia em :168, reversão em :180-197) | `riscos-arquiteto.test.ts:50-84` | O teste do repositório falha no código anterior por símbolo ausente (`criarArmazenamentoEmMemoria is not a function`). Numa variante do auditor, com storage em memória local, ele falha pelo defeito: a mensagem antiga é "nada foi importado". O teste do repositório só cobre a falha na 2ª gravação. A troca real de dados acontece na falha da 3ª gravação, e o auditor a cobriu com um teste suplementar |
+| 3a | MÉDIO: localStorage bloqueado ou com cota cheia quebrava a abertura | **APROVADO** | `armazem.ts:60-79` (try/catch), `armazem.ts:258-269` (`obterArmazenamento`), `armazem.ts:274-281` | `riscos-arquiteto.test.ts:86-108` | Na variante, o código anterior lança `QuotaExceededError` e `SecurityError` simulados de verdade. O teste de `obterArmazenamento` (:100) só pode falhar por ausência, porque a função não existia |
+| 3b | MÉDIO: "o aviso aparece no topo de todas as telas" | **REPROVADO** | `armazem.ts:64` (`avisoPersistencia: null` em toda leitura bem-sucedida) | nenhum no repositório; teste do auditor, fora do repositório | No modo em memória, `carregar()` zera o aviso. Ele some depois de importar (:190/:199), desfazer (:216), `recarregar` (:221) ou evento `storage` (:234). O teste do auditor confirmou: `expected null not to be null` depois de `importar` com `ok: true`. A renderização em `aplicacao/src/nucleo/Aplicacao.tsx:112` não tem teste (NÃO TESTADO) |
+| 4 | MÉDIO: sem sincronização entre abas | **APROVADO** (só em nível de unidade) | `armazem.ts:230-240`; ligação em `armazem.ts:279` | `riscos-arquiteto.test.ts:110-129` | O teste confere a recarga com chave `guara:*` e também que uma chave externa não dispara recarga. No código anterior ele só pode falhar por ausência (`escutarOutrasAbas is not a function`). A ligação em `armazemPadrao()` foi conferida só por leitura. Duas abas reais: NÃO TESTADO |
+| 5 | BAIXO: importação não conferia os limites | **APROVADO** | `aplicacao/src/modulos/demandas/regras.ts:107-109` | `riscos-arquiteto.test.ts:131-141` | No código anterior os 4 casos falham por asserção, ou seja, pelo defeito. Os limites batem com `validarEntrada` (`regras.ts:16-20`) e `LIMITES` (`modelo.ts:34`) |
+
+Conferência do Claude principal: a linha `armazem.ts:64` foi lida e grava `avisoPersistencia: null` sempre que a leitura dá certo. Isso confirma o mecanismo do item 3b.
+
+### Comandos executados pelo auditor (Git Bash, com `/c/Program Files/nodejs` no PATH)
+
+| Comando | Onde | Resultado real | Situação |
+|---|---|---|---|
+| `npx vitest run` | repositório, `aplicacao/` | `Test Files 12 passed (12)` · `Tests 86 passed (86)` (vitest v5.1.0) | PASSOU |
+| `npm run build` | repositório, `aplicacao/` | `tsc --noEmit` sem erros; `✓ 83 modules transformed`; `dist/assets/index-BuxkUhiy.js 310.87 kB`; `✓ built in 190ms` | PASSOU |
+| `npx vitest run ../testes/unidade/riscos-arquiteto.test.ts` | cópia de `3d0609f^` | `Tests 10 failed (10)` | confirma a linha 2 dos Testes, com a ressalva abaixo |
+| variante com storage em memória local, `-t "risco 2\|risco 3"` | cópia de `3d0609f^` | `4 failed \| 6 skipped (10)` | defeito reproduzido |
+| teste suplementar de reversão (falha na gravação 1, 2 e 3) | cópia de `3d0609f^` | `2 failed \| 1 passed (3)` | defeito reproduzido |
+| o mesmo teste suplementar | cópia de `3d0609f` | `3 passed (3)` | PASSOU |
+| teste do aviso após importação em modo memória | cópia de `3d0609f` | `1 failed (1)`: `expected null not to be null` | FALHOU (item 3b) |
+| `node servidor-mcp/testar-servidor.ts` | — | não executado pelo auditor | NÃO TESTADO |
+| publicação (Vercel, risco 1 na URL, aviso no navegador) | — | não verificada pelo auditor. Indício: o build local gerou o mesmo `index-BuxkUhiy.js` | NÃO VERIFICÁVEL |
+
+### Ressalva sobre "os testes novos falham no código anterior"
+
+Os 10 de 10 testes falham no código anterior, mas por motivos diferentes:
+
+- **5 falham por asserção, isto é, pelo defeito:** o risco 1 e os 4 casos do risco 5.
+- **5 falham por símbolo ausente** (`TypeError ... is not a function`): o risco 2, os 3 testes do risco 3 e o risco 4. Isso não mostra o defeito em si.
+
+Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento os defeitos dos riscos 2 e 3a. Os riscos 3 (`obterArmazenamento`) e 4 eram falta de recurso, então só podem falhar por ausência. A frase "o teste detecta o defeito", na linha 2 dos Testes, vale de verdade só para metade dos testes do repositório.
+
+### Lacunas e problemas residuais apontados pelo auditor (não corrigidos)
+
+- **Risco 3b (defeito):** o aviso de persistência some depois de importar, desfazer, `recarregar` ou evento `storage`, porque `carregar()` grava `avisoPersistencia: null` (`armazem.ts:64`). Os dados continuam sem persistência. Nenhum teste renderiza o aviso em `Aplicacao.tsx:112`.
+- **Risco 2:** o ramo "não foi possível desfazer tudo" (`revertido = false`) não tem teste.
+- **`desfazer` (`armazem.ts:~205-218`):** tem o mesmo padrão de várias gravações sem reversão. Se a 2ª gravação falhar, a mensagem "Backup ilegível; nada foi alterado." é falsa. Ficou fora do escopo dos 5 riscos, mas é análogo ao risco 2.
+- **Efeito colateral do risco 5:** `ehDemandaValida` também é usada em `aplicacao/src/modulos/demandas/repositorio-local.ts:39`. Dados já gravados que estejam fora dos limites agora carregam como "corrompido". Não há testes exatamente nos limites (3, 120, 2000 e 80 caracteres).
+- **Risco 1:** a marca `ficticio` é declarada pelo próprio arquivo. Não há checagem de processos `FIC-` nem de conteúdo. Arquivos exportados por versões que não gravavam `ficticio` seriam recusados; o `exportarDados` atual grava a marca (`dados-portaveis.ts:25`).
+- **Risco 4:** a ligação em `armazemPadrao()` e o comportamento com duas abas reais não foram testados.
+- **Documentação:**
+  - `gestao/STATUS.md` (linha Testes) aponta `2026-11-13-p08-skill-testar-sistema.md`, e não esta evidência;
+  - `RELATORIO-FINAL.md` e `gestao/CHANGELOG.md` dizem "10 testes novos, que falham no código anterior" sem a ressalva acima;
+  - o CHANGELOG diz "aviso no topo", o que é contradito pelo item 3b.
+- **Segredos e dados reais:** no diff de `3d0609f`, o auditor procurou token, senha, chave, `service_role`, e-mails e padrão de CPF, e não achou nada. Os dados de teste são fictícios.

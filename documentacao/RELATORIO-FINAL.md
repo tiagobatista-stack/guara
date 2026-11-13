@@ -88,7 +88,12 @@ Os testes no navegador usaram **eventos de DOM disparados por script** na págin
    - subagentes `arquiteto`, `implementador` e `auditor` chamados.
 
    **Falta:** conferir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados.
-2. ~~Corrigir os 5 riscos do arquiteto~~: feito (86/86 testes). Ainda falta a revisão independente pelo subagente `auditor`.
+2. ~~Corrigir os 5 riscos do arquiteto~~: feito (86/86 testes). **Revisado pelo subagente `auditor` registrado** (padrão C):
+   - **APROVADOS:** os riscos 1, 2, 4 e 5, e o 3a (o app não quebra com o storage bloqueado).
+   - **REPROVADO, o 3b:** o aviso de persistência some depois de importar, desfazer ou recarregar (`armazem.ts:64`). Ainda não foi corrigido.
+   - Dos 10 testes novos, 5 falham no código anterior por símbolo ausente, e não pelo defeito.
+
+   Detalhes e lacunas em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`.
 3. Convidar o colaborador (falta o usuário GitHub dele).
 4. **Para produção multiusuário** (fora do escopo da oficina): backend e banco (Supabase, em branch separada, Prompt 14), autenticação Google, RLS testada com dois usuários, logs e monitoramento no servidor, e escolha da demanda piloto.
 
