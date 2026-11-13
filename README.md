@@ -2,13 +2,13 @@
 
 O GUARÁ é um estagiário digital mobile first que apoia a análise de processos. A identidade visual é a **Fofofauna** de Mato Grosso: ariranha (Amazônia), lobo-guará (Cerrado) e capivara (Pantanal). O sistema não substitui sistemas institucionais e não decide pelo profissional.
 
-> Projeto didático. Usa **somente dados fictícios**.
+> Projeto didático da oficina **FluxoLab** (SEMA-MT). Usa **somente dados fictícios**. A apostila governa o MVP: localStorage, CRUD, Kanban, alertas, GitHub e Vercel. Plano em [planejamento/PLANO.md](planejamento/PLANO.md).
 
 ## Mapa do repositório
 
 | Pasta | Conteúdo |
 |---|---|
-| `aplicacao/` | Frontend React + TypeScript + Vite + Tailwind |
+| `aplicacao/` | Frontend React + TypeScript + Vite + CSS próprio (o Tailwind ainda está no código e sai na fase 2) |
 | `backend/supabase/functions/_compartilhado/` | Catálogo de **agentes** e **habilidades**: contratos, implementações e autotestes |
 | `dados-ficticios/` | Demandas e documentos de exemplo, todos marcados como FICTÍCIO |
 | `testes/` | Unidade, integração, interface, autotestes e avaliações de IA |

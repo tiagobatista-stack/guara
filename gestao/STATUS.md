@@ -2,8 +2,35 @@
 
 **Atualizado em:** 13/11/2026
 **Etapa atual:** 1 (diagnóstico e desenho) concluída em documentação. Etapa 2 (fundação técnica) com código escrito, mas **não executado**.
+**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: a fase 0 (documentação) está feita, e a fase 1 aguarda o Node.js. O plano do MVP está em `planejamento/PLANO.md`.
+
+## Checklist da apostila (seção 4) — painel de pendências
+
+| Verificação | Evidência mínima | Situação |
+|---|---|---|
+| Ambiente | `node`, `git`, `claude` disponíveis | **FALHOU**: falta o Node.js |
+| Contexto | `CLAUDE.md` criado | PASSOU (arquivo existe) |
+| MVP | CRUD, Kanban, dashboard, alertas | NÃO TESTADO (ainda não implementado: fases 3 a 5) |
+| Persistência | F5 preserva os dados no navegador | NÃO TESTADO (fase 3) |
+| Testes | `npm run test`, `npm run build` | NÃO TESTADO (sem Node) |
+| Skills | 3 arquivos e 1 execução real | 3 arquivos criados; execução NÃO TESTADO |
+| Agentes | 3 arquivos e 1 chamada real | 3 arquivos criados; chamada NÃO TESTADO |
+| Orquestração | padrões A–F com evidências honestas | NÃO TESTADO |
+| MCP | JSON exportado e chamada real | NÃO TESTADO (fase 6) |
+| Hook | sentinela bloqueada, comando benigno permitido | regras testadas (7/7 em Python); sentinela `GUARA_HOOK_TEST_BLOCK` ainda não existe |
+| GitHub | URL e commit existente | NÃO TESTADO (exige autorização) |
+| Vercel | URL aberta e testada | NÃO TESTADO (exige autorização) |
 
 ## ▶ Ponto de retomada (próxima sessão)
+
+Seguir o plano aprovado (fases 0 a 7) descrito em `gestao/decisoes/2026-11-13-alinhamento-apostila.md` e em `planejamento/PLANO.md`. Depois do Node, a ordem é:
+
+1. Fase 2: CSS próprio no lugar do Tailwind.
+2. Fases 3 a 5: incrementos do MVP.
+3. Fase 6: demonstrações P08 a P11.
+4. Fase 7: GitHub, Vercel e relatório final.
+
+Passos imediatos:
 
 0. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer e investigue. O hook roda no Git Bash (`"shell": "bash"`). Testado: no bash o código de saída é 0 para permitir e 2 para bloquear. No cmd a mesma string falha com código 2, e por isso não deve ser usada.
 1. **Bloqueio principal:** o Node.js não está instalado. Pedir autorização para `winget install OpenJS.NodeJS.LTS` ou que o usuário instale pelo site oficial (https://nodejs.org).
@@ -21,7 +48,7 @@
 4. Abrir `npm run dev`, conferir o layout no desktop, no tablet e no smartphone e conferir a tela Saúde do sistema. Registrar a evidência em `metodologia/evidencias/`.
 5. Demonstrar os padrões A–F com os subagentes (`arquiteto`, `implementador`, `auditor`) e registrar a evidência.
 6. Atualizar este arquivo e `CHANGELOG.md`, e fazer o commit local.
-7. Publicar, com autorização, nesta ordem: **GitHub → Vercel → Supabase**. O roteiro está em `documentacao/implantacao.md`, e a decisão D9 em `gestao/decisoes/2026-11-13-hospedagem-vercel.md`. A apostila (P12) exige o repositório GitHub e uma URL Vercel real.
+7. Publicar, com autorização, nesta ordem: **GitHub → Vercel**. O Supabase é opcional e vem depois (D10). O roteiro está em `documentacao/implantacao.md`, e a decisão D9 em `gestao/decisoes/2026-11-13-hospedagem-vercel.md`. A apostila (P12) exige o repositório GitHub e uma URL Vercel real.
 
 ## O que foi feito
 
@@ -75,5 +102,6 @@ Antes de qualquer push, o responsável deve confirmar ou ajustar esses valores (
 2. Escolher a demanda piloto do MVP.
 3. GitHub: rodar `gh auth login` no próprio terminal e autorizar a criação do repositório pessoal e o push. Informar o usuário GitHub do colaborador para o convite.
 4. Vercel: criar ou entrar na conta ligada ao GitHub e importar o repositório (Root Directory `aplicacao`).
-5. Supabase: autorizar a criação do projeto (`sa-east-1`) e do Google OAuth.
-6. Fornecer o documento oficial do PDS, se for desejada uma verificação real.
+5. Supabase (opcional, depois do Vercel): autorizar a criação do projeto (`sa-east-1`) e do Google OAuth.
+6. Durante a fase 6 (MCP): exportar `guara-dados.json` pela interface e salvá-lo na pasta que for indicada.
+7. Fornecer o documento oficial do PDS, se for desejada uma verificação real.

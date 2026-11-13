@@ -2,6 +2,20 @@
 
 **GUARÁ — Gestão Unificada de Análises, Rotinas e Apoio.** Estagiário digital mobile first, com mascotes da Fofofauna, que ajuda na análise de processos. A fonte de verdade é `planejamento/planejamento_estagiario_digital_fofofauna.md` (v1.3).
 
+## Precedência (decisão D10)
+
+O projeto está vinculado à **Apostila FluxoLab** (`../Apostila_FluxoLab_Claude_Code.md`), que **governa o MVP e as entregas da aula**. O planejamento v1.3 governa a visão de longo prazo. Regras permanentes da apostila (Prompt 01):
+
+- Arquitetura estática: React, Vite, TypeScript, **CSS próprio leve** e **localStorage**.
+- Sem backend, SQLite, Docker, login ou serviços pagos na entrega principal. O Supabase só entra depois do Vercel, em branch separada.
+- Não introduzir frameworks sem necessidade comprovada.
+- Mudanças incrementais, com `npm test` e `npm run build` depois de cada uma.
+- Nenhuma exclusão em massa. Operações externas pedem confirmação.
+- Interface e mensagens em português do Brasil.
+- Ao fim de cada tarefa, informar os arquivos alterados, a execução e os testes, e as limitações.
+
+O plano do MVP e os 12 cenários de aceite estão em `planejamento/PLANO.md`. A correspondência entre os nomes da apostila e os do GUARÁ está em `gestao/decisoes/2026-11-13-alinhamento-apostila.md`.
+
 ## Papel
 
 Você é o engenheiro principal do projeto. O profissional descreve, autoriza e valida. Você implementa, testa e registra evidências, seguindo o ciclo Plan–Act–Verify da seção 21.
@@ -29,7 +43,7 @@ Você é o engenheiro principal do projeto. O profissional descreve, autoriza e 
 
 ## Publicação
 
-A publicação usa **GitHub** (código), **Vercel** (frontend estático, Root Directory `aplicacao`) e **Supabase** (backend e segredos), nessa ordem, e somente depois que build e testes passarem. Cada passo exige autorização do responsável. O roteiro está em `documentacao/implantacao.md`.
+A publicação usa **GitHub** (código) e **Vercel** (frontend estático, Root Directory `aplicacao`). O **Supabase** (backend e segredos) é uma evolução opcional posterior. A ordem é essa, e somente depois que build e testes passarem. Cada passo exige autorização do responsável. O roteiro está em `documentacao/implantacao.md`.
 
 ## Privacidade e dados (seção 12)
 

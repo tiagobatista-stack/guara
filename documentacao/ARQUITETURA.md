@@ -36,8 +36,8 @@ Edge Function orquestrador ── valida sessão, permissões, fluxo
 
 | # | Decisão | Situação |
 |---|---|---|
-| D1 | O orquestrador roda em **Supabase Edge Functions**, com segredos no cofre do Supabase. A alternativa FastAPI fica reservada a processamento documental que não caiba nas Edge Functions. | decidido (reversível) |
-| D2 | Stack do frontend: React + TypeScript + Vite + Tailwind CSS, com testes em Vitest. Playwright fica para a Etapa 5. | decidido |
+| D1 | **Na evolução depois do Vercel** (ver D10), o orquestrador roda em **Supabase Edge Functions**, com segredos no cofre do Supabase. A alternativa FastAPI fica reservada a processamento documental que não caiba nas Edge Functions. | decidido para a evolução (reversível) |
+| D2 | Stack do frontend: React + TypeScript + Vite + **CSS próprio leve** (o Tailwind foi substituído em 13/11/2026 por exigência da apostila), com testes em Vitest. | decidido |
 | D3 | O código do catálogo (`backend/supabase/functions/_compartilhado/`) é TypeScript puro, sem APIs de Node ou Deno, e é **o mesmo** carregado pela tela Saúde do sistema (Vite), pelos testes (Vitest) e, no futuro, pela Edge Function `saude` (Deno). Assim não há duas versões do catálogo. | decidido |
 | D4 | Os dados fictícios ficam em módulos `.ts` (`dados-ficticios/*.ts`), não em JSON. Isso evita a diferença de import de JSON entre Vite e Deno (`with { type: "json" }`). | decidido |
 | D5 | Enquanto não houver Supabase, a tela Saúde do sistema roda os autotestes **no navegador** e mostra a faixa "Modo local — sem Supabase". Indicadores que dependem de banco aparecem como NÃO TESTADO ou "sem dados". | decidido |
@@ -45,6 +45,7 @@ Edge Function orquestrador ── valida sessão, permissões, fluxo
 | D7 | Repositório Git local. Remoto no GitHub (`tiagobatista-stack`) só com autorização. | decidido |
 | D8 | O GovFlow AI Lab é um repositório separado e não é dependência em tempo de execução. | decidido |
 | D9 | O frontend estático é publicado no **Vercel**, importado do repositório GitHub. Origem: entrega obrigatória da apostila FluxoLab (P12). O Vercel serve só o build estático (`aplicacao/dist`): o orquestrador e os segredos ficam no Supabase. Ordem de publicação: build aprovado, depois GitHub, depois Vercel, depois Supabase. Detalhes em `gestao/decisoes/2026-11-13-hospedagem-vercel.md`. | decidido (exige contas: autorização humana) |
+| D10 | **A Apostila FluxoLab governa o MVP e as entregas da aula.** Arquitetura: React + Vite + TS, CSS próprio, **localStorage** (sem backend, login ou banco na entrega principal), Vitest, GitHub e Vercel. Funcionalidades: CRUD, Kanban de 4 status, dashboard, filtros, alertas locais de inatividade, exportação e importação JSON, MCP local e hook com sentinela. O Supabase é **evolução opcional depois do Vercel**, em branch separada. O planejamento v1.3 continua valendo como visão de longo prazo (mascotes, agentes, tela Saúde do sistema). Detalhes em `gestao/decisoes/2026-11-13-alinhamento-apostila.md`. | decidido pelo usuário em 13/11/2026 |
 
 ## 4. Decisões em aberto
 
@@ -61,7 +62,7 @@ Edge Function orquestrador ── valida sessão, permissões, fluxo
 | React, React DOM | interface componentizada | MIT |
 | TypeScript | tipagem | Apache-2.0 |
 | Vite + @vitejs/plugin-react | desenvolvimento e build rápidos | MIT |
-| Tailwind CSS (+ plugin Vite) | estilo responsivo | MIT |
+| ~~Tailwind CSS~~ | removido (D2/D10): estilo em CSS próprio, sem dependência | — |
 | Vitest + Testing Library + jsdom | testes de lógica e componentes | MIT |
 
 As versões serão resolvidas pelo `npm install` quando o Node.js estiver disponível. Nenhuma versão foi validada ainda.
