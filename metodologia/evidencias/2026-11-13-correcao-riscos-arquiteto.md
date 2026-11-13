@@ -96,11 +96,11 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
 | Item | Detalhe |
 |---|---|
 | Correção | `aplicacao/src/modulos/demandas/armazem.ts`: marca `let semPersistencia = false` (:50-51), que fica ligada até a página fechar. `carregar()` (:66) passa a gravar `avisoPersistencia: semPersistencia ? AVISO_SEM_GRAVACAO : null`. A marca é ligada nos 4 pontos que já mostravam o aviso: leitura bloqueada (:70), falha ao gravar os exemplos (:80), falha em `gravar()` (:105) e `marcarSemPersistencia()` (:231) |
-| Testes novos | `testes/unidade/riscos-arquiteto.test.ts:143-192`, `describe('risco 3b')`, com 7 casos: importar, desfazer, `recarregar` e evento `storage` no fallback em memória; falha de gravação e depois recarregar; importação recusada; e uma proteção contra regressão sem aviso. Também `aplicacao/src/nucleo/Aplicacao.test.tsx` (novo), que renderiza a tela e confere que o texto do aviso continua depois de importar. Isso cobre `Aplicacao.tsx:112`, antes NÃO TESTADO |
+| Testes novos | `testes/unidade/riscos-arquiteto.test.ts:143-193`, `describe('risco 3b')`, com 7 casos: importar, desfazer, `recarregar` e evento `storage` no fallback em memória; falha de gravação e depois recarregar; importação recusada; e uma proteção contra regressão sem aviso. Também `aplicacao/src/nucleo/Aplicacao.test.tsx` (novo), que renderiza a tela e confere que o texto do aviso continua depois de importar. Isso cobre `Aplicacao.tsx:112`, antes NÃO TESTADO |
 
 | # | Verificação | Comando | Resultado | Situação |
 |---|---|---|---|---|
-| 1 | Os testes novos falham no código anterior, **por asserção** | `npx vitest run testes/unidade/riscos-arquiteto.test.ts aplicacao/src/nucleo/Aplicacao.test.tsx`, com o `armazem.ts` original (implementador, via `git stash`) | `Tests 7 failed \| 11 passed (18)`: `expected null not to be null` (:165, :176) e `Unable to find an element with the text: /As alterações valem só até fechar a página/` (`Aplicacao.test.tsx:22`). O teste de regressão sem aviso já passava antes, como esperado | PASSOU (o teste detecta o defeito) |
+| 1 | Os testes novos falham no código anterior, **por asserção** | `npx vitest run testes/unidade/riscos-arquiteto.test.ts aplicacao/src/nucleo/Aplicacao.test.tsx`, com o `armazem.ts` original (implementador, via `git stash`) | `Tests 7 failed \| 11 passed (18)`: `expected null not to be null` (:165, :176, :184) e `Unable to find an element with the text: /As alterações valem só até fechar a página/` (`Aplicacao.test.tsx:22`). O teste de regressão sem aviso já passava antes, como esperado | PASSOU (o teste detecta o defeito) |
 | 2 | Suíte completa com a correção | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 94 passed (94)` | PASSOU |
 | 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `index-Di1FOTGA.js 310.90 kB`; `✓ built` | PASSOU |
 | 4 | Navegador real com localStorage bloqueado | — | — | NÃO TESTADO |
@@ -110,4 +110,29 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
 - O aviso nunca sai antes de a página fechar. No fallback em memória isso é o correto. Mas, se a cota encher só por um momento e uma gravação seguinte der certo, o aviso continua na tela. Tirá-lo nesse caso exigiria separar o fallback da falha de gravação: fica para decisão do responsável.
 - Algumas falhas de gravação não ligam a marca: as que caem no `catch` de `importar` (que reverte os dados), de `restaurarExemplos` e de `definirDiasInatividade`. Esse comportamento é anterior e não foi alterado. Se o aviso já estava ativo, ele continua (testado). Se for a primeira falha da sessão, o aviso não aparece.
 - As demais lacunas do auditor continuam abertas: o ramo `revertido = false`, o `desfazer` sem reversão, os limites exatos do risco 5 e duas abas reais.
-- Ainda não houve nova revisão independente pelo `auditor` desta correção (NÃO TESTADO). Também não houve push nem deploy.
+- Revisão independente pelo `auditor`: feita (seção abaixo). Push e deploy: NÃO TESTADO.
+
+## Revisão independente do risco 3b (auditor registrado, padrão C)
+
+**Data:** 13/11/2026. **Commit revisado:** `1939f25`. O `auditor` só leu arquivos e rodou testes. `git status` ficou limpo ao final.
+
+**Veredito: APROVADO, com ressalvas.** O defeito está corrigido: `carregar()` não grava mais `null` fixo (`armazem.ts:66`). Os testes novos exercitam o defeito por asserção, e o caminho com armazenamento persistente não mostrou regressão.
+
+| Verificação | Método e resultado | Situação |
+|---|---|---|
+| Os testes novos falham no código anterior | O auditor extraiu `1939f25` com `git archive` e trocou só o `armazem.ts` pelo de `1939f25^` (é o único arquivo de código alterado; o `diff` confirmou que a cópia é idêntica). Resultado: `Tests 7 failed \| 11 passed (18)`. Das falhas, **7 de 8 são por asserção** e nenhuma por símbolo ausente: `:165` (4 casos), `:176`, `:184` e `Aplicacao.test.tsx:22` (a linha 17 passou: o aviso aparece e some depois de importar). O 8º teste é proteção contra regressão e já passava antes | PASSOU |
+| Todas as chamadas a `carregar()` | `:90`, `:195`, `:204`, `:221`, `:226` e `:240` passam pela linha 66. Com a marca desligada, o aviso continua `null` | conferido por leitura |
+| Teste suplementar do auditor (fora do repositório, não durável) | `Tests 10 passed (10)` com o código de `1939f25`. Sem regressão com armazenamento normal: criar, importar, desfazer, recarregar, evento `storage`, `restaurarExemplos` e `definirDiasInatividade`. Armazenamento corrompido não liga o aviso. Instâncias diferentes não compartilham a marca. As limitações declaradas foram reproduzidas | PASSOU |
+| Suíte completa | `npx vitest run`: `Test Files 13 passed (13)` · `Tests 94 passed (94)` | PASSOU |
+| Build | `tsc --noEmit` sem erros; `index-Di1FOTGA.js 310.90 kB`; `✓ built in 211ms` | PASSOU |
+| Segredos e dados reais no diff | Nada encontrado | PASSOU |
+
+**Documentação.** O auditor **reprovou a redação** "8 testes novos, que falham por asserção", que aparecia no `STATUS.md`, no `RELATORIO-FINAL.md` e na mensagem do commit `1939f25`: são 7 de 8. O `STATUS.md` e o `RELATORIO-FINAL.md` foram corrigidos; a mensagem do commit continua como está. Também foram ajustados nesta evidência o intervalo `:143-193` e a citação de `:184`. O `gestao/CHANGELOG.md` não tem entrada do 3b e mantém "aviso no topo" e "10 testes novos (falham no código anterior)" sem a ressalva. Ele não foi alterado. Nenhum documento declara PASSOU sem execução.
+
+**Lacunas residuais** (não corrigidas; nenhuma contradiz a correção):
+
+1. Uma falha em `restaurarBackup` não liga a marca. Isso não estava entre as limitações declaradas.
+2. **Risco novo, anterior ao 3b:** em `restaurarBackup` (`armazem.ts:212-219`), se o `setItem` da configuração falhar depois que as demandas já foram regravadas, o armazenamento fica com as demandas de antes da importação. Mesmo assim, a mensagem diz "Backup ilegível; nada foi alterado.", e a memória continua com os dados importados. O auditor reproduziu isso num teste suplementar.
+3. A ligação `armazemPadrao()` → `marcarSemPersistencia()` (`:280-285`) não foi testada.
+4. Navegador real com localStorage bloqueado, duas abas reais, push e deploy: NÃO TESTADO.
+5. Continuam abertos o ramo `revertido = false` e os limites exatos do risco 5.

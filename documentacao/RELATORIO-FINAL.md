@@ -91,8 +91,8 @@ Os testes no navegador usaram **eventos de DOM disparados por script** na págin
 2. ~~Corrigir os 5 riscos do arquiteto~~: feito (86/86 testes). **Revisado pelo subagente `auditor` registrado** (padrão C):
    - **APROVADOS:** os riscos 1, 2, 4 e 5, e o 3a (o app não quebra com o storage bloqueado).
    - **REPROVADO, o 3b:** o aviso de persistência sumia depois de importar, desfazer ou recarregar (`armazem.ts:64`).
-     - **Corrigido pelo subagente `implementador`** (padrão B), com 8 testes novos que falham por asserção no código anterior. Total 94/94, build ok.
-     - Ainda NÃO TESTADO: navegador real e nova revisão do `auditor`.
+     - **Corrigido pelo subagente `implementador`** (padrão B), com 8 testes novos: 7 falham por asserção no código anterior, e o 8º é uma proteção contra regressão. Total 94/94, build ok. **Nova revisão do `auditor`: APROVADO, com ressalvas.**
+     - Ainda NÃO TESTADO: navegador real.
    - Dos 10 testes novos, 5 falham no código anterior por símbolo ausente, e não pelo defeito.
 
    Detalhes e lacunas em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`.
