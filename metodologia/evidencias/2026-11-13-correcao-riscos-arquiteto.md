@@ -362,10 +362,42 @@ A gravidade é baixa: isso só acontece com um backup adulterado, ou quando as d
 | 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
 | 4 | C no navegador real (servidor de desenvolvimento, `localhost`) | O Claude principal gravou no localStorage um backup `{conteudo:'{corrompido-teste', diasInatividade:3}`, recarregou e abriu Alertas | "Desfazer última importação" ficou `disabled: true`, "Baixar conteúdo do backup" ficou habilitado e o parágrafo de explicação apareceu. Ao clicar no botão de download (com o `click` do link interceptado), saiu o arquivo `guara-conteudo-do-backup.json` com o conteúdo `{corrompido-teste`. O teste foi limpo do localStorage ao final. A captura de tela falhou por tempo esgotado | PASSOU |
 | 5 | D no navegador real (texto do `window.confirm`) | — | — | NÃO TESTADO |
-| 6 | Revisão independente pelo `auditor` | — | — | NÃO TESTADO |
+| 6 | Revisão independente pelo `auditor` | ver a seção seguinte | C e D APROVADOS | feita |
 
 **Limitações:**
 - **Mudou o comportamento com um backup que não é JSON ou tem estrutura errada.** Antes, o desfazer ficava habilitado e respondia "Backup ilegível". Agora fica desabilitado e oferece o download do texto bruto. Nesse caso, o texto da tela diz "demandas ilegíveis", embora o que está quebrado seja o backup inteiro.
 - A sobrescrita só é avisada na interface. Quem chamar `armazem.importar()` diretamente continua sobrescrevendo sem aviso.
 - **Sem teste:** o caso de armazenamento corrompido e backup ilegível ao mesmo tempo, e uma segunda importação confirmada que de fato sobrescreve.
 - "Restaurar exemplos" com o armazenamento corrompido substitui o conteúdo sem backup, como antes.
+
+## Revisão independente das ressalvas C e D (auditor registrado, padrão C)
+
+**Data:** 13/11/2026. **Commit revisado:** `50299e0`. O `auditor` só leu arquivos e rodou testes, em cópias feitas com `git archive`. `git status` ficou limpo antes e depois.
+
+**Vereditos:** **C: APROVADO. D: APROVADO.**
+
+| Verificação | Resultado | Situação |
+|---|---|---|
+| Os testes do `50299e0` rodados contra o código de `50299e0^` (troca só do `armazem.ts` e do `Alertas.tsx`) | `Tests 6 failed \| 117 passed (123)`, igual ao declarado. **3 falham por asserção do defeito** (D corrompido; C `not disabled`; C "SOBRESCREVER"). **3 falham só pela ausência do campo**, e um deles é proteção contra regressão. O "D normal" passa antes e depois. As asserções do download não rodaram contra o código anterior | PASSOU |
+| `avaliarBackup` é a mesma regra (sonda com 13 backups, rodada no código antigo e no novo) | `ok`, a mensagem e o storage resultante são **idênticos** antes e depois nos 13 casos. No código novo, `conteudoIlegivelDoBackup === null` coincide com `restaurarBackup().ok` nos 13. Os 3 backups legíveis (exemplos, lista vazia, `conteudo: null`) continuam restauráveis. **Nada que era restaurável passou a ser bloqueado** | PASSOU (sonda) |
+| Acesso ao storage em `carregar()` | `recarregar()`: 3 `getItem`, 0 `setItem` e 0 `removeItem`, igual antes e depois. O custo novo é só de CPU: o backup é validado em memória a cada `carregar()`, inclusive nos eventos de outras abas | PASSOU (sonda) |
+| Fluxo normal de importar e desfazer | As 3 chaves ficam idênticas antes e depois | PASSOU (sonda) |
+| Texto da confirmação no estado normal | Igual byte a byte (`Alertas.tsx:57-58`). Só ganha o sufixo de sobrescrita quando o backup é ilegível | conferido |
+| Caminho pela interface para o conteúdo corrompido | Antes de importar: "Baixar conteúdo bruto" (`Demandas.tsx:75-80`). Depois de importar: "Baixar conteúdo do backup" (`Alertas.tsx:133-137`). O conteúdo só se perde numa 2ª importação **confirmada depois do aviso** | PASSOU (sonda no armazém) |
+| Suíte (no repositório e na cópia) | `Test Files 13 passed (13)` · `Tests 123 passed (123)` | PASSOU |
+| Build (na cópia `depois/`, para não regravar o `dist/`) | `tsc --noEmit` sem erros; `index-jnuIc6Tp.js 313.18 kB`; `✓ built in 403ms` | PASSOU |
+
+**Por que D é verdadeiro:** `erroArmazenamento` e `avaliarBackup` usam o mesmo validador (`RepositorioLocal.carregar`). Com o storage corrompido, o backup gerado é sempre irrestaurável; com o storage legível, é sempre restaurável.
+
+**Ressalvas e lacunas (não corrigidas):**
+- Com um backup de estrutura quebrada, a tela e a confirmação dizem "demandas ilegíveis", o que não é exato. A limitação já estava declarada.
+- O aviso fica na tela até a próxima importação, porque nenhuma ação limpa o backup.
+- `importar()` chamado diretamente não é protegido. A limitação já estava declarada.
+- **NÃO TESTADO:**
+  - a 2ª importação confirmada pela interface (só no armazém);
+  - o storage corrompido junto com um backup ilegível (os avisos se somam, `:50-58`, conferido só por leitura);
+  - o navegador real para D;
+  - o push e o deploy.
+- **NÃO VERIFICÁVEL pelo auditor:** a linha 4 desta evidência, que é C no navegador local. Não há saída salva e a captura falhou. Além disso, o teste gravou o backup direto no storage, sem passar por uma importação.
+
+**Redação:** o intervalo `:36-61` reúne `avaliarBackup` (36-55) e `conteudoIlegivel` (57-61). O `STATUS.md` dizia "3 falham por asserção" sem citar os outros 3, que falham por ausência do campo; isso foi corrigido. A mensagem do commit `50299e0` continua com essa omissão.
