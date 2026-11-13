@@ -18,8 +18,8 @@
 | Orquestração | A–F com evidências honestas | **PARCIAL**: A, B, C, D, E e F foram demonstrados pelo fluxo alternativo (`2026-11-13-p09-orquestracao.md`) |
 | MCP | JSON exportado e chamada real | **PASSOU** com um cliente MCP real via stdio (total 5 = 5). Registro em `/mcp` nesta sessão: **NÃO TESTADO** |
 | Hook | sentinela bloqueada, benigno permitido | Regras: **PASSOU** (8/8). Bloqueio em sessão real: **NÃO TESTADO** (`settings.json` do projeto não carregado nesta sessão) |
-| GitHub | URL e commit | **NÃO TESTADO**: exige autorização |
-| Vercel | URL aberta e testada | **NÃO TESTADO**: exige autorização |
+| GitHub | URL e commit | **PASSOU**: https://github.com/tiagobatista-stack/guara (privado), `main` = `37ca679` (`metodologia/evidencias/2026-11-13-p12-github.md`) |
+| Vercel | URL aberta e testada | **NÃO TESTADO**: aguarda a importação feita pelo responsável em vercel.com/new |
 
 ## Ponto de retomada
 
@@ -81,7 +81,7 @@ A autoria dos 14 commits locais anteriores foi reescrita para esse e-mail, antes
 ## Intervenções humanas pendentes
 
 1. Abrir uma nova sessão na pasta do projeto (hook, subagentes e MCP).
-2. GitHub: `gh auth login` e autorizar a criação do repositório pessoal e o push. Informar o usuário GitHub do colaborador.
+2. GitHub: o repositório privado foi criado e o push feito. Falta informar o usuário GitHub do colaborador para o convite.
 3. Vercel: conta ligada ao GitHub e importação do repositório.
 4. Escolher a demanda piloto. Supabase e Google OAuth (opcional, depois do Vercel).
 5. Documento oficial do PDS, se for desejada uma verificação real.
