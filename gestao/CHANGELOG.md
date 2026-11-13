@@ -10,4 +10,7 @@
 - Validador de esquema, verificação de saúde, fluxo padrão (seção 9.4) com gate de qualidade e quadro dos padrões A–F.
 - Aplicação React/Vite/Tailwind com layout em três áreas e as telas Painel, Demandas, Assistente e Saúde do sistema.
 - Testes Vitest. **Ainda não executados:** o Node.js não está instalado.
+- `.claude/`: skills `testar-sistema`, `revisar-interface` e `validar-pds` (didática); subagentes `arquiteto`, `implementador` e `auditor`; hook PreToolUse `verificar_comando.py`, com 7 testes Python aprovados.
+- O gate de qualidade passa a usar autor e revisor tirados do registro de etapas.
+- `dados-ficticios/entregas.ts` para o autoteste de `validar-pds`.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.

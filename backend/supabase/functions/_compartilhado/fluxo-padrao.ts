@@ -109,12 +109,14 @@ export function executarFluxoPadrao(
         processo: demanda.processo, modeloId: modeloMinuta.id, resultados: conferencia.resultados,
       });
       const revisao = etapa<{ aprovado: boolean }>('revisor', 'validar-evidencias', { resultados: conferencia.resultados });
+      // Autor e revisor vêm do registro de etapas desta tentativa, não de constantes.
+      const daTentativa = etapas.filter((e) => e.tentativa === tentativa && e.estado === 'OK');
       gate = avaliarGate({
         etapasOk: etapas.every((e) => e.estado === 'OK'),
         revisaoAprovada: revisao?.aprovado === true,
         minutaARevisar: minuta?.situacao === 'a-revisar',
-        autorMinuta: 'redator',
-        revisor: 'revisor',
+        autorMinuta: daTentativa.find((e) => e.habilidade === 'redigir-minuta')?.agente ?? '(sem autor)',
+        revisor: daTentativa.find((e) => e.habilidade === 'validar-evidencias')?.agente ?? '(sem revisor)',
       });
       if (gate.aprovado && minuta) {
         // 7. Consolidação pelo orquestrador (supervisor/agregador).

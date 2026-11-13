@@ -67,7 +67,7 @@ Requer Node.js (ainda não instalado nesta máquina; ver `gestao/STATUS.md`).
 
 ```bash
 cd aplicacao
-npm install
+npm run instalar-dependencias   # primeira vez: resolve e grava as versões
 npm run dev      # servidor local
 npm run build    # build de produção
 npm test         # Vitest

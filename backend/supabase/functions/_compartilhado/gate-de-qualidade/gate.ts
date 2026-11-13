@@ -26,7 +26,10 @@ export function avaliarGate(e: EntradaGate): SaidaGate {
     { nome: 'Todas as etapas executadas e com saída válida no esquema', aprovado: e.etapasOk },
     { nome: 'Evidências aprovadas pelo revisor', aprovado: e.revisaoAprovada },
     { nome: 'Minuta marcada como "a revisar"', aprovado: e.minutaARevisar },
-    { nome: 'Revisor diferente do autor da minuta', aprovado: e.autorMinuta !== e.revisor },
+    {
+      nome: 'Revisor diferente do autor da minuta',
+      aprovado: !e.autorMinuta.startsWith('(') && !e.revisor.startsWith('(') && e.autorMinuta !== e.revisor,
+    },
   ];
   return { aprovado: verificacoes.every((v) => v.aprovado), verificacoes };
 }

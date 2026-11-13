@@ -5,6 +5,7 @@
 
 ## ▶ Ponto de retomada (próxima sessão)
 
+0. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer e investigue. O hook roda no Git Bash (`"shell": "bash"`). Testado: no bash o código de saída é 0 para permitir e 2 para bloquear. No cmd a mesma string falha com código 2, e por isso não deve ser usada.
 1. **Bloqueio principal:** o Node.js não está instalado. Pedir autorização para `winget install OpenJS.NodeJS.LTS` ou que o usuário instale pelo site oficial (https://nodejs.org).
 2. Com o Node disponível:
 
@@ -57,6 +58,15 @@ Detalhes em `metodologia/evidencias/2026-11-13-etapa-1-2.md`.
 - `extrair-documento` usa texto por página e não lê PDF real.
 - O padrão D (paralelo) não é demonstrável no modo local, e por isso fica NÃO DEMONSTRADO.
 - A coluna de desenvolvimento dos padrões A–F (subagentes reais) ainda não foi demonstrada.
+
+## Identidade Git local (a confirmar)
+
+Os commits locais usam uma configuração **só deste repositório** (não global):
+
+- `user.name = tiagobatista-stack`
+- `user.email = tiagobatista-stack@users.noreply.github.com` (endereço "noreply" presumido, ainda não confirmado)
+
+Antes de qualquer push, o responsável deve confirmar ou ajustar esses valores (`git config user.email ...` e, se quiser, `git commit --amend --reset-author`).
 
 ## Intervenções humanas pendentes
 

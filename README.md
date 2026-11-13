@@ -24,9 +24,11 @@ Requisito: **Node.js 20 LTS ou superior**. Ele ainda não está instalado nesta 
 
 ```bash
 cd aplicacao
-npm install
+npm run instalar-dependencias
 npm run dev
 ```
+
+O `npm run instalar-dependencias` só é necessário na primeira vez: ele resolve as versões e grava `package.json` e `package-lock.json`. Depois, `npm install` basta.
 
 Abra a URL exibida e acesse **Saúde do sistema** no menu.
 
