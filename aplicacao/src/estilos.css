@@ -125,6 +125,9 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .selo-ficticio { display: none; padding: 2px 8px; border-radius: 999px; background: var(--atencao-fundo); color: var(--atencao-texto); font-size: 12px; font-weight: 600; }
 .botao-assistente { display: none; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.5); background: transparent; color: #fff; cursor: pointer; }
 
+.sino { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #fff; cursor: pointer; flex-shrink: 0; }
+.sino-contagem { position: absolute; top: 4px; right: 2px; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: var(--guara-500); color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+
 .conteudo { flex: 1; padding: 16px 16px 96px; }
 
 .painel-assistente {

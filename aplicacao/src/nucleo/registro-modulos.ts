@@ -16,6 +16,7 @@ export const modulos: ContratoModulo[] = [
   { id: 'painel', versao: '0.2.0', rotulo: 'Dashboard', icone: 'painel', principal: true, ativo: true, implementado: true },
   { id: 'demandas', versao: '0.2.0', rotulo: 'Demandas', icone: 'demandas', principal: true, ativo: true, implementado: true },
   { id: 'kanban', versao: '0.1.0', rotulo: 'Kanban', icone: 'kanban', principal: true, ativo: true, implementado: true },
+  { id: 'alertas', versao: '0.1.0', rotulo: 'Alertas', icone: 'sino', principal: false, ativo: true, implementado: true },
   { id: 'documentos', versao: '0.0.0', rotulo: 'Documentos', icone: 'documentos', principal: false, ativo: true, implementado: false },
   { id: 'agenda', versao: '0.0.0', rotulo: 'Agenda', icone: 'agenda', principal: false, ativo: true, implementado: false },
   { id: 'conhecimento', versao: '0.0.0', rotulo: 'Conhecimento', icone: 'conhecimento', principal: false, ativo: true, implementado: false },

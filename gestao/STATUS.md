@@ -2,7 +2,7 @@
 
 **Atualizado em:** 13/11/2026
 **Etapa atual:** 1 (diagnóstico e desenho) concluída em documentação. Etapa 2 (fundação técnica) com código escrito, mas **não executado**.
-**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: as fases 0 (documentação), 1 (Node, build e testes) 2 (CSS próprio, conferido em 3 larguras) 3 (CRUD em localStorage) e 4 (Kanban e Dashboard; 63/63 testes) estão feitas. Próxima: fase 5 (alertas e JSON). O plano do MVP está em `planejamento/PLANO.md`.
+**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: as fases 0 (documentação), 1 (Node, build e testes) 2 (CSS próprio, conferido em 3 larguras) 3 (CRUD), 4 (Kanban e Dashboard) e 5 (alertas e JSON; 75/75 testes; ACEITE-MVP com os 12 cenários PASSOU) estão feitas. Próxima: fase 6 (P08 a P11: skills, subagentes A–F, MCP local e hook com sentinela). O plano do MVP está em `planejamento/PLANO.md`.
 
 ## Checklist da apostila (seção 4) — painel de pendências
 
@@ -10,9 +10,9 @@
 |---|---|---|
 | Ambiente | `node`, `git`, `claude` disponíveis | PASSOU: Node v26.13.1 instalado em 13/11 |
 | Contexto | `CLAUDE.md` criado | PASSOU (arquivo existe) |
-| MVP | CRUD, Kanban, dashboard, alertas | CRUD, Kanban e Dashboard: PASSOU (fases 3 e 4). Alertas: NÃO TESTADO (fase 5) |
+| MVP | CRUD, Kanban, dashboard, alertas | PASSOU: 12/12 cenários (`metodologia/evidencias/ACEITE-MVP.md`) |
 | Persistência | F5 preserva os dados no navegador | PASSOU: criar, editar, F5 e excluir no navegador real (`metodologia/evidencias/2026-11-13-fase-3-crud-localstorage.md`) |
-| Testes | `npm run test`, `npm run build` | PASSOU para a base atual: 40/40 testes e build ok (`metodologia/evidencias/2026-11-13-fase-1-node-build-testes.md`) |
+| Testes | `npm run test`, `npm run build` | PASSOU: 75/75 testes e build ok (`metodologia/evidencias/2026-11-13-fase-1-node-build-testes.md`) |
 | Skills | 3 arquivos e 1 execução real | 3 arquivos criados; execução NÃO TESTADO |
 | Agentes | 3 arquivos e 1 chamada real | 3 arquivos criados; chamada NÃO TESTADO |
 | Orquestração | padrões A–F com evidências honestas | NÃO TESTADO |
@@ -25,7 +25,7 @@
 
 Seguir o plano aprovado (fases 0 a 7) descrito em `gestao/decisoes/2026-11-13-alinhamento-apostila.md` e em `planejamento/PLANO.md`. Depois do Node, a ordem é:
 
-2. Fase 5: alertas, exportação e importação JSON e restaurar exemplos; depois ACEITE-MVP (P07).
+2. Fase 6: P08 (invocar a skill), P09 (subagentes A–F), P10 (MCP local com `guara-dados.json`), P11 (sentinela do hook).
 3. Fase 6: demonstrações P08 a P11.
 4. Fase 7: GitHub, Vercel e relatório final.
 

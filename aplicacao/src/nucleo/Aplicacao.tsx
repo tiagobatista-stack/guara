@@ -10,6 +10,9 @@ import { modulos, moduloDaRota } from './registro-modulos.ts';
 import { Painel } from '../modulos/painel/Painel.tsx';
 import { Demandas } from '../modulos/demandas/Demandas.tsx';
 import { Kanban } from '../modulos/kanban/Kanban.tsx';
+import { Alertas } from '../modulos/alertas/Alertas.tsx';
+import { listarInativas } from '../modulos/alertas/inatividade.ts';
+import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
 import { PainelAssistente } from '../modulos/assistente/PainelAssistente.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
@@ -28,6 +31,7 @@ function Conteudo({ rota }: { rota: string }) {
   if (rota === 'painel') return <Painel />;
   if (rota === 'demandas') return <Demandas />;
   if (rota === 'kanban') return <Kanban />;
+  if (rota === 'alertas') return <Alertas />;
   if (rota === 'saude-do-sistema') return <SaudeDoSistema />;
   const m = modulos.find((x) => x.id === rota);
   return <EmConstrucao titulo={m?.rotulo ?? rota} />;
@@ -38,6 +42,8 @@ export function Aplicacao() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [conversaAberta, setConversaAberta] = useState(false);
   const ativos = modulos.filter((m) => m.ativo);
+  const { demandas, diasInatividade } = useEstadoDemandas();
+  const totalAlertas = listarInativas(demandas, diasInatividade, new Date()).length;
 
   const itemMenu = (id: string) => {
     const m = modulos.find((x) => x.id === id)!;
@@ -88,6 +94,15 @@ export function Aplicacao() {
             <input type="search" placeholder="Buscar demanda (em breve)" disabled />
           </label>
           <span className="selo-ficticio">Dados fictícios</span>
+          <button
+            type="button"
+            className="sino"
+            onClick={() => navegar('alertas')}
+            aria-label={`Alertas: ${totalAlertas} demanda(s) inativa(s)`}
+          >
+            <Icone nome="sino" />
+            {totalAlertas > 0 && <span className="sino-contagem" aria-hidden="true">{totalAlertas}</span>}
+          </button>
           <button type="button" className="botao-assistente" onClick={() => setConversaAberta(true)}>
             <Icone nome="conversa" /> Assistente
           </button>

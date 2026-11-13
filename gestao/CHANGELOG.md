@@ -19,4 +19,5 @@
 - Fase 2: Tailwind substituído por CSS próprio (`estilos.css`, paleta Fofofauna, claro e escuro, breakpoints em 768, 1024 e 1280 px). Layout conferido em desktop, tablet e smartphone.
 - Fase 3: CRUD de demandas em localStorage (modelo da apostila, regras puras, repositório, armazém único, lista com pesquisa e filtros, formulário validado, detalhe, exclusão com confirmação, aviso de corrupção). 55/55 testes.
 - Fase 4: Kanban com 4 colunas e menu "Mover para"; Dashboard com total, contagem por status, vencidas e inativas; regra pura de inatividade. 63/63 testes.
+- Fase 5: alertas locais com limiar persistido (padrão 3 dias), sino no cabeçalho, exportação e importação de `guara-dados.json` com validação, confirmação e backup, desfazer importação e restaurar exemplos. ACEITE-MVP (P07): 12/12 cenários. 75/75 testes.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.

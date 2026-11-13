@@ -7,8 +7,9 @@ import { calcularMetricas } from './metricas.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 
-export function Painel({ agora = () => new Date(), limiarDias = DIAS_INATIVIDADE_PADRAO }: { agora?: () => Date; limiarDias?: number }) {
-  const { demandas } = useEstadoDemandas();
+export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { agora?: () => Date; limiarDias?: number }) {
+  const { demandas, diasInatividade } = useEstadoDemandas();
+  const limiarDias = limiarFixo ?? diasInatividade ?? DIAS_INATIVIDADE_PADRAO;
   const instante = agora();
   const m = calcularMetricas(demandas, instante, limiarDias);
   const comPrazo = demandas.filter((d) => d.prazo && d.status !== 'Concluída').sort((a, b) => a.prazo!.localeCompare(b.prazo!));
