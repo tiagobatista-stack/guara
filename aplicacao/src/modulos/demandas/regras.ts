@@ -104,8 +104,9 @@ export function ehDemandaValida(x: unknown): x is Demanda {
   return (
     typeof d.id === 'string' && d.id.length > 0 &&
     typeof d.titulo === 'string' &&
-    typeof d.descricao === 'string' &&
-    typeof d.responsavel === 'string' &&
+    d.titulo.trim().length >= LIMITES.tituloMin && d.titulo.trim().length <= LIMITES.tituloMax &&
+    typeof d.descricao === 'string' && d.descricao.length <= LIMITES.descricaoMax &&
+    typeof d.responsavel === 'string' && d.responsavel.trim().length <= LIMITES.responsavelMax &&
     PRIORIDADES.includes(d.prioridade as never) &&
     STATUS.includes(d.status as never) &&
     typeof d.criadaEm === 'string' && !Number.isNaN(Date.parse(d.criadaEm)) &&

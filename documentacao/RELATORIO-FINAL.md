@@ -15,7 +15,7 @@ Auditoria final feita sem recomeçar o projeto. Regra: **nada marcado como PASSO
 | 2 | CRUD e persistência no mesmo navegador | 12 cenários de aceite e roteiro P04 (criar, editar, F5, excluir) — `ACEITE-MVP.md` | **PASSOU** |
 | 3 | Kanban, filtros, indicadores e alertas locais | `Kanban.test`, `metricas-inatividade.test`, `Alertas.test` e checkpoints P05 e P06 no navegador | **PASSOU** |
 | 4 | Exportação e importação JSON | `dados-portaveis.test` (válido, 6 inválidos, backup); exportar e importar no navegador | **PASSOU** |
-| 5 | Testes executados e falhas reais | `npm test`: **11 arquivos, 76/76**. Hook: **8/8**. Falhas reais registradas e corrigidas (seção 3) | **PASSOU** |
+| 5 | Testes executados e falhas reais | `npm test`: **11 arquivos, 76/76**. Hook: **8/8**. Depois da correção dos riscos: **12 arquivos, 86/86**. Falhas reais registradas e corrigidas (seção 3) | **PASSOU** |
 | 6 | Skills criadas e ao menos uma execução real | 3 `SKILL.md`; `testar-sistema` invocada pela ferramenta Skill — `2026-11-13-p08-skill-testar-sistema.md` | **PASSOU** |
 | 7 | Subagentes criados e delegações demonstradas | 3 arquivos em `.claude/agents/`. Na 1ª sessão não carregaram (`Agent type 'arquiteto' not found`). **Repetido em sessão aberta na pasta do projeto:** `arquiteto`, `auditor` (reexecutou `npm test`: 76/76) e `implementador` foram chamados e responderam, sem alterar arquivos. Delegação alternativa anterior em `2026-11-13-p09-orquestracao.md` | **PASSOU** (teste de carga e papel) — `2026-11-13-p13-repeticao-hook-subagentes-mcp.md` |
 | 8 | Seis padrões de orquestração | A, B, C, D, E e F com registro de agente, entrada, saída e evidência (fluxo alternativo); no produto, o fluxo determinístico da tela Saúde do sistema cobre A, B, C, E e F | **PARCIAL**: a rodada A–F com os subagentes registrados **não foi repetida** (NÃO DEMONSTRADO) |
@@ -78,12 +78,7 @@ Os testes no navegador usaram **eventos de DOM disparados por script** na págin
 - A tela Saúde do sistema roda em **modo local**: indicadores de banco, execuções persistidas e gate de 24 h e 7 dias ficam como NÃO TESTADO.
 - O hook está em Python, e não em Node como sugere a apostila (desvio registrado).
 - Contraste WCAG AA não foi medido. Não há testes Playwright.
-- Riscos levantados pelo arquiteto e **ainda em aberto**:
-  - importação aceita arquivo sem a marca `ficticio`;
-  - falha parcial na importação;
-  - erro de localStorage na inicialização não é tratado;
-  - não há sincronização entre abas;
-  - importação não confere os limites de tamanho.
+- Os **5 riscos do arquiteto foram corrigidos** em 13/11/2026: arquivo sem marca de fictício é recusado, falha parcial de importação é revertida, localStorage bloqueado não quebra o app, há sincronização entre abas e a importação confere os limites. São 10 testes novos, que falham no código anterior; total 86/86. Evidência em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`.
 
 ## 5. Próximos passos
 
@@ -93,7 +88,7 @@ Os testes no navegador usaram **eventos de DOM disparados por script** na págin
    - subagentes `arquiteto`, `implementador` e `auditor` chamados.
 
    **Falta:** conferir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados.
-2. Corrigir os 5 riscos do arquiteto. O risco **alto** é a marca `ficticio` na importação.
+2. ~~Corrigir os 5 riscos do arquiteto~~: feito (86/86 testes). Ainda falta a revisão independente pelo subagente `auditor`.
 3. Convidar o colaborador (falta o usuário GitHub dele).
 4. **Para produção multiusuário** (fora do escopo da oficina): backend e banco (Supabase, em branch separada, Prompt 14), autenticação Google, RLS testada com dois usuários, logs e monitoramento no servidor, e escolha da demanda piloto.
 

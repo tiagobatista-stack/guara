@@ -49,6 +49,8 @@ export function validarImportacao(texto: string): ResultadoImportacao {
   if (typeof bruto !== 'object' || bruto === null || d.formato !== FORMATO || d.versao !== 1) {
     return { ok: false, erro: 'Formato não reconhecido: esperado um arquivo exportado pelo GUARÁ (versão 1).' };
   }
+  // Regra de dados fictícios (seção 12): só entra arquivo marcado explicitamente como fictício.
+  if (d.ficticio !== true) return { ok: false, erro: 'O arquivo não está marcado como fictício ("ficticio": true); dados reais não são aceitos.' };
   if (!Array.isArray(d.demandas)) return { ok: false, erro: 'O arquivo não contém a lista de demandas.' };
   if (d.demandas.length > MAX_DEMANDAS) return { ok: false, erro: `Mais de ${MAX_DEMANDAS} demandas.` };
   const invalida = d.demandas.findIndex((x) => !ehDemandaValida(x));

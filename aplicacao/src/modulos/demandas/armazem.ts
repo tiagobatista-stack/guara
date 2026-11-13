@@ -22,6 +22,8 @@ export interface EstadoArmazem {
   diasInatividade: number;
   /** Há backup lógico gravado antes da última importação. */
   temBackup: boolean;
+  /** Preenchido quando o navegador não permite gravar (modo privado, cota cheia, bloqueio). */
+  avisoPersistencia: string | null;
 }
 
 export type RespostaAcao = { ok: true; demanda?: Demanda } | { ok: false; erros?: ErrosValidacao; mensagem: string };
@@ -39,7 +41,12 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
   const repo = new RepositorioLocal(armazenamento);
   const ouvintes = new Set<() => void>();
 
-  let estado: EstadoArmazem = { demandas: [], erroArmazenamento: null, conteudoBruto: null, diasInatividade: DIAS_INATIVIDADE_PADRAO, temBackup: false };
+  let estado: EstadoArmazem = {
+    demandas: [], erroArmazenamento: null, conteudoBruto: null,
+    diasInatividade: DIAS_INATIVIDADE_PADRAO, temBackup: false, avisoPersistencia: null,
+  };
+  const AVISO_SEM_GRAVACAO =
+    'Este navegador não permitiu gravar os dados (modo privado, cota cheia ou bloqueio). As alterações valem só até fechar a página.';
 
   function lerDias(): number {
     try {
@@ -51,12 +58,24 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
   }
 
   function carregar() {
-    const extras = { diasInatividade: lerDias(), temBackup: armazenamento.getItem(CHAVE_BACKUP) !== null };
-    const carga = repo.carregar();
+    let extras: Pick<EstadoArmazem, 'diasInatividade' | 'temBackup' | 'avisoPersistencia'>;
+    let carga: ReturnType<RepositorioLocal['carregar']>;
+    try {
+      extras = { diasInatividade: lerDias(), temBackup: armazenamento.getItem(CHAVE_BACKUP) !== null, avisoPersistencia: null };
+      carga = repo.carregar();
+    } catch {
+      // Leitura bloqueada: o app abre com os exemplos em memória, sem quebrar.
+      estado = { ...estado, demandas: exemplos(), erroArmazenamento: null, conteudoBruto: null, avisoPersistencia: AVISO_SEM_GRAVACAO };
+      return;
+    }
     if (carga.tipo === 'vazio') {
       // Exemplos fictícios só na primeira inicialização.
       const iniciais = exemplos();
-      repo.salvar(iniciais);
+      try {
+        repo.salvar(iniciais);
+      } catch {
+        extras.avisoPersistencia = AVISO_SEM_GRAVACAO;
+      }
       estado = { demandas: iniciais, erroArmazenamento: null, conteudoBruto: null, ...extras };
     } else if (carga.tipo === 'ok') {
       estado = { demandas: carga.demandas, erroArmazenamento: null, conteudoBruto: null, ...extras };
@@ -79,6 +98,8 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
     try {
       repo.salvar(demandas);
     } catch {
+      estado = { ...estado, avisoPersistencia: AVISO_SEM_GRAVACAO };
+      ouvintes.forEach((o) => o());
       return { ok: false, mensagem: 'O navegador recusou a gravação (cota cheia ou modo privado).' };
     }
     publicar(demandas);
@@ -143,13 +164,37 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
     },
     /** Substitui os dados pelos importados, gravando antes um backup lógico (a confirmação fica na interface). */
     importar(dados: DadosPortaveis): RespostaAcao {
+      // Fotografia das três chaves para desfazer tudo se qualquer gravação falhar no meio.
+      const chaves = [CHAVE_DEMANDAS_ARMAZEM, CHAVE_CONFIGURACAO, CHAVE_BACKUP];
+      let antes: (string | null)[];
       try {
-        const atual = armazenamento.getItem(CHAVE_DEMANDAS_ARMAZEM);
-        armazenamento.setItem(CHAVE_BACKUP, JSON.stringify({ salvoEm: iso(), conteudo: atual, diasInatividade: estado.diasInatividade }));
+        antes = chaves.map((k) => armazenamento.getItem(k));
+      } catch {
+        return { ok: false, mensagem: 'O navegador não permitiu ler os dados atuais; nada foi importado.' };
+      }
+      try {
+        armazenamento.setItem(CHAVE_BACKUP, JSON.stringify({ salvoEm: iso(), conteudo: antes[0], diasInatividade: estado.diasInatividade }));
         repo.salvar(dados.demandas);
         armazenamento.setItem(CHAVE_CONFIGURACAO, JSON.stringify({ diasInatividade: dados.configuracao.diasInatividade }));
       } catch {
-        return { ok: false, mensagem: 'O navegador recusou a gravação; nada foi importado.' };
+        let revertido = true;
+        chaves.forEach((k, i) => {
+          try {
+            const valor = antes[i];
+            if (valor === null) armazenamento.removeItem(k);
+            else armazenamento.setItem(k, valor);
+          } catch {
+            revertido = false;
+          }
+        });
+        carregar();
+        ouvintes.forEach((o) => o());
+        return {
+          ok: false,
+          mensagem: revertido
+            ? 'O navegador recusou a gravação; a importação foi desfeita e os dados anteriores foram mantidos.'
+            : 'O navegador recusou a gravação e não foi possível desfazer tudo; confira os dados e use "Desfazer última importação".',
+        };
       }
       carregar();
       ouvintes.forEach((o) => o());
@@ -176,7 +221,50 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       carregar();
       ouvintes.forEach((o) => o());
     },
+    /** Usado quando o localStorage está bloqueado e o app roda em memória. */
+    marcarSemPersistencia() {
+      estado = { ...estado, avisoPersistencia: AVISO_SEM_GRAVACAO };
+      ouvintes.forEach((o) => o());
+    },
+    /** Sincroniza com outras abas: recarrega quando outra aba grava uma chave do GUARÁ. */
+    escutarOutrasAbas(alvo: Pick<Window, 'addEventListener' | 'removeEventListener'>): () => void {
+      const aoMudar = (e: Event) => {
+        const chave = (e as StorageEvent).key;
+        if (chave === null || chave.startsWith('guara:')) {
+          carregar();
+          ouvintes.forEach((o) => o());
+        }
+      };
+      alvo.addEventListener('storage', aoMudar);
+      return () => alvo.removeEventListener('storage', aoMudar);
+    },
   };
+}
+
+/** Storage em memória, usado quando o navegador bloqueia o localStorage. */
+export function criarArmazenamentoEmMemoria(): Storage {
+  const dados = new Map<string, string>();
+  return {
+    get length() { return dados.size; },
+    clear: () => dados.clear(),
+    getItem: (k: string) => dados.get(k) ?? null,
+    key: (i: number) => [...dados.keys()][i] ?? null,
+    removeItem: (k: string) => { dados.delete(k); },
+    setItem: (k: string, v: string) => { dados.set(k, String(v)); },
+  };
+}
+
+/** Devolve o localStorage, ou um armazenamento em memória se o navegador o bloquear. */
+export function obterArmazenamento(janela: { readonly localStorage: Storage }): { armazenamento: Storage; persistente: boolean } {
+  try {
+    const ls = janela.localStorage;
+    const teste = 'guara:teste-de-escrita';
+    ls.setItem(teste, '1');
+    ls.removeItem(teste);
+    return { armazenamento: ls, persistente: true };
+  } catch {
+    return { armazenamento: criarArmazenamentoEmMemoria(), persistente: false };
+  }
 }
 
 export type Armazem = ReturnType<typeof criarArmazem>;
@@ -184,7 +272,12 @@ export type Armazem = ReturnType<typeof criarArmazem>;
 let padrao: Armazem | null = null;
 /** Armazém do app, criado sob demanda sobre o localStorage do navegador. */
 export function armazemPadrao(): Armazem {
-  padrao ??= criarArmazem(window.localStorage);
+  if (!padrao) {
+    const { armazenamento, persistente } = obterArmazenamento(window);
+    padrao = criarArmazem(armazenamento);
+    if (!persistente) padrao.marcarSemPersistencia();
+    padrao.escutarOutrasAbas(window);
+  }
   return padrao;
 }
 

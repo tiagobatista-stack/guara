@@ -42,7 +42,7 @@ export function Aplicacao() {
   const [menuAberto, setMenuAberto] = useState(false);
   const [conversaAberta, setConversaAberta] = useState(false);
   const ativos = modulos.filter((m) => m.ativo);
-  const { demandas, diasInatividade } = useEstadoDemandas();
+  const { demandas, diasInatividade, avisoPersistencia } = useEstadoDemandas();
   const totalAlertas = listarInativas(demandas, diasInatividade, new Date()).length;
 
   const itemMenu = (id: string) => {
@@ -109,6 +109,7 @@ export function Aplicacao() {
         </header>
 
         <main id="conteudo" className="conteudo">
+          {avisoPersistencia && <p role="alert" className="aviso aviso--topo">{avisoPersistencia}</p>}
           <Conteudo rota={rota} />
         </main>
       </div>

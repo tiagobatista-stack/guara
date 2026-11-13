@@ -53,9 +53,9 @@ describe('exportar e importar', () => {
   it.each([
     ['não é JSON', '{ruim', 'JSON válido'],
     ['formato errado', JSON.stringify({ formato: 'outro', versao: 1, demandas: [] }), 'Formato'],
-    ['demanda inválida', JSON.stringify({ formato: 'guara-dados', versao: 1, demandas: [{ id: 'x' }] }), 'inválida'],
-    ['IDs duplicados', JSON.stringify({ formato: 'guara-dados', versao: 1, demandas: [D('x'), D('x')] }), 'duplicados'],
-    ['limiar inválido', JSON.stringify({ formato: 'guara-dados', versao: 1, configuracao: { diasInatividade: 0 }, demandas: [] }), 'inatividade'],
+    ['demanda inválida', JSON.stringify({ formato: 'guara-dados', versao: 1, ficticio: true, demandas: [{ id: 'x' }] }), 'inválida'],
+    ['IDs duplicados', JSON.stringify({ formato: 'guara-dados', versao: 1, ficticio: true, demandas: [D('x'), D('x')] }), 'duplicados'],
+    ['limiar inválido', JSON.stringify({ formato: 'guara-dados', versao: 1, ficticio: true, configuracao: { diasInatividade: 0 }, demandas: [] }), 'inatividade'],
     ['grande demais', 'x'.repeat(1_000_001), 'maior'],
   ])('recusa importação com %s sem alterar dados (cenário 12)', (_nome, texto, trecho) => {
     const a = criarArmazem(localStorage, { exemplos: () => [D('mantida')] });

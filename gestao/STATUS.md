@@ -12,7 +12,7 @@
 | Contexto | `CLAUDE.md` | **PASSOU** |
 | MVP | CRUD, Kanban, dashboard, alertas | **PASSOU**: 12/12 cenários (`metodologia/evidencias/ACEITE-MVP.md`) |
 | Persistência | F5 preserva os dados | **PASSOU** no navegador real, com eventos de DOM disparados por script |
-| Testes | `npm test`, `npm run build` | **PASSOU**: 76/76 testes, build ok e 8/8 testes do hook (`2026-11-13-p08-skill-testar-sistema.md`) |
+| Testes | `npm test`, `npm run build` | **PASSOU**: 86/86 testes, build ok e 8/8 testes do hook (`2026-11-13-p08-skill-testar-sistema.md`) |
 | Skills | 3 arquivos e 1 execução real | **PASSOU**: `testar-sistema` invocada pela ferramenta Skill (P08) |
 | Agentes | 3 arquivos e 1 chamada real | **PASSOU**: `arquiteto`, `auditor` (76/76 reexecutado) e `implementador` chamados em sessão aberta na pasta do projeto, como teste de carga e papel, sem alterar arquivos (`2026-11-13-p13-repeticao-hook-subagentes-mcp.md`) |
 | Orquestração | A–F com evidências honestas | **PARCIAL**: A–F demonstrados pelo fluxo alternativo (`2026-11-13-p09-orquestracao.md`). Rodada com os subagentes registrados: **NÃO DEMONSTRADO** |
@@ -26,12 +26,7 @@
 1. **Feito:** MCP, hook e subagentes repetidos em sessão aberta na pasta do projeto. **Falta:** abrir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados (inclusive uma correção real pelo `implementador`).
 2. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer. O hook roda no Git Bash e foi testado com saída 0 (permite) e 2 (bloqueia).
 3. **Publicado:** GitHub https://github.com/tiagobatista-stack/guara (privado) e Vercel https://guara-lemon.vercel.app. Cada push na `main` gera um novo deploy.
-4. **Riscos do arquiteto ainda em aberto:**
-   - importação aceita arquivo sem a marca `ficticio`;
-   - falha parcial na importação deixa os dados trocados;
-   - erro de localStorage na inicialização não é tratado;
-   - não há sincronização entre abas;
-   - importação não confere os limites de tamanho.
+4. **Riscos do arquiteto: corrigidos** (10 testes novos, 86/86). Evidência em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`. Falta a revisão independente pelo subagente `auditor`, numa sessão aberta na pasta do projeto.
 
 ## Comandos
 

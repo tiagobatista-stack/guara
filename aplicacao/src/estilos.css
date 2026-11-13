@@ -224,6 +224,8 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
   border-radius: var(--raio); padding: 12px; font-size: 14px;
 }
 
+.aviso--topo { margin: 0 auto 16px; max-width: 1152px; }
+
 .tabela-rolavel { overflow-x: auto; background: var(--superficie); border: 1px solid var(--borda); border-radius: var(--raio); }
 .tabela { width: 100%; min-width: 720px; border-collapse: collapse; text-align: left; font-size: 14px; }
 .tabela th, .tabela td { padding: 8px; vertical-align: top; border-top: 1px solid var(--borda); }

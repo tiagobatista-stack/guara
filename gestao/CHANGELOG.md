@@ -36,4 +36,11 @@
   - `arquiteto`, `auditor` (76/76) e `implementador` foram chamados;
   - `resumir_demandas` chamada pelo Claude Code (total 5);
   - relatório: de 9 PASSOU, 3 PARCIAL e 1 NÃO TESTADO para 12 PASSOU e 1 PARCIAL. Tela `/mcp` e rodada A–F com os registrados seguem pendentes.
+- Correção dos 5 riscos do arquiteto:
+  - importação exige `ficticio: true`;
+  - importação reverte as 3 chaves se uma gravação falhar;
+  - localStorage bloqueado: armazenamento em memória e aviso no topo;
+  - sincronização entre abas pelo evento `storage`;
+  - limites de tamanho na validação.
+  10 testes novos (falham no código anterior), total 86/86.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.
