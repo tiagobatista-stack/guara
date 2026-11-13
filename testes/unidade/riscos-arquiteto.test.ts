@@ -2,7 +2,7 @@
 // Cada teste reproduz o cenário do critério verificável do relatório.
 
 import {
-  CHAVE_BACKUP, criarArmazem, criarArmazenamentoEmMemoria, obterArmazenamento,
+  CHAVE_BACKUP, CHAVE_CONFIGURACAO, criarArmazem, criarArmazenamentoEmMemoria, obterArmazenamento,
 } from '../../aplicacao/src/modulos/demandas/armazem.ts';
 import { CHAVE_DEMANDAS, type Demanda } from '../../aplicacao/src/modulos/demandas/modelo.ts';
 import { exportarDados, validarImportacao } from '../../aplicacao/src/modulos/alertas/dados-portaveis.ts';
@@ -188,6 +188,103 @@ describe('risco 3b: o aviso de persistência não some enquanto os dados não pe
     const a = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [D('ex')] });
     expect(a.importar(dadosImportados()).ok).toBe(true);
     a.recarregar();
+    expect(a.obter().avisoPersistencia).toBeNull();
+  });
+});
+
+describe('risco 3c: falha de gravação ao desfazer a importação não deixa estado parcial', () => {
+  /** Storage em memória que, depois de ativado, falha na N-ésima escrita (setItem ou removeItem). */
+  function storageFalhaNaEscrita() {
+    const base = criarArmazenamentoEmMemoria();
+    const ctrl = { falharEm: null as number | null, todasDepois: false, escritas: 0 };
+    const escrever = (f: () => void) => {
+      if (ctrl.falharEm !== null) {
+        ctrl.escritas++;
+        if (ctrl.escritas === ctrl.falharEm || (ctrl.todasDepois && ctrl.escritas > ctrl.falharEm)) {
+          throw new Error('QuotaExceededError simulado');
+        }
+      }
+      f();
+    };
+    const storage: Storage = {
+      get length() { return base.length; },
+      clear: () => base.clear(),
+      key: (i: number) => base.key(i),
+      getItem: (k: string) => base.getItem(k),
+      removeItem: (k: string) => escrever(() => base.removeItem(k)),
+      setItem: (k: string, v: string) => escrever(() => base.setItem(k, v)),
+    };
+    return { storage, base, ctrl };
+  }
+
+  const CHAVES = [CHAVE_DEMANDAS, CHAVE_CONFIGURACAO, CHAVE_BACKUP];
+
+  function prepararImportado() {
+    const s = storageFalhaNaEscrita();
+    const a = criarArmazem(s.storage, { exemplos: () => [D('original')] });
+    expect(a.definirDiasInatividade(5).ok).toBe(true);
+    const dados = validarImportacao(exportarDados([D('imp1'), D('imp2')], 9, AGORA));
+    if (!dados.ok) throw new Error('fixture inválida');
+    expect(a.importar(dados.dados).ok).toBe(true);
+    const fotografia = CHAVES.map((k) => s.base.getItem(k));
+    return { ...s, a, fotografia };
+  }
+
+  // Escritas do desfazer: 1 = demandas, 2 = configuração, 3 = remoção do backup.
+  it.each([
+    ['demandas', 1],
+    ['configuração', 2],
+    ['remoção do backup', 3],
+  ])('falha na gravação de %s: armazenamento volta ao estado anterior e a mensagem é honesta', (_nome, n) => {
+    const { a, base, ctrl, fotografia } = prepararImportado();
+    ctrl.falharEm = n;
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    // Armazenamento igual ao de antes do desfazer.
+    expect(CHAVES.map((k) => base.getItem(k))).toEqual(fotografia);
+    // Memória reflete o armazenamento: continuam os dados importados.
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(['imp1', 'imp2']);
+    expect(a.obter().diasInatividade).toBe(9);
+    expect(a.obter().temBackup).toBe(true);
+    if (!r.ok) {
+      expect(r.mensagem).not.toContain('nada foi alterado');
+      expect(r.mensagem).not.toContain('ilegível');
+      expect(r.mensagem).toContain('recusou a gravação');
+    }
+    // Falha de gravação liga o aviso de persistência, como nas demais gravações.
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+  });
+
+  it('falha na configuração e também na reversão: a mensagem não diz "nada foi alterado" e a memória reflete o armazenamento', () => {
+    const { a, base, ctrl } = prepararImportado();
+    ctrl.falharEm = 2;
+    ctrl.todasDepois = true;
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    // A memória acompanha o que ficou gravado (demandas já restauradas ao original).
+    const gravadas = (JSON.parse(base.getItem(CHAVE_DEMANDAS) ?? '{}').demandas ?? []) as Demanda[];
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(gravadas.map((d) => d.id));
+    expect(a.obter().demandas.map((d) => d.id)).toEqual(['original']);
+    if (!r.ok) {
+      expect(r.mensagem).not.toContain('nada foi alterado');
+      expect(r.mensagem).toContain('não foi possível');
+    }
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+  });
+
+  it('backup ilegível: nada é gravado e a mensagem diz isso', () => {
+    const { a, base, ctrl } = prepararImportado();
+    base.setItem(CHAVE_BACKUP, '{corrompido');
+    const fotografia = CHAVES.map((k) => base.getItem(k));
+    ctrl.falharEm = 999;
+
+    const r = a.restaurarBackup();
+    expect(r.ok).toBe(false);
+    if (!r.ok) expect(r.mensagem).toContain('nada foi alterado');
+    expect(ctrl.escritas).toBe(0);
+    expect(CHAVES.map((k) => base.getItem(k))).toEqual(fotografia);
     expect(a.obter().avisoPersistencia).toBeNull();
   });
 });

@@ -132,7 +132,39 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
 **Lacunas residuais** (não corrigidas; nenhuma contradiz a correção):
 
 1. Uma falha em `restaurarBackup` não liga a marca. Isso não estava entre as limitações declaradas.
-2. **Risco novo, anterior ao 3b:** em `restaurarBackup` (`armazem.ts:212-219`), se o `setItem` da configuração falhar depois que as demandas já foram regravadas, o armazenamento fica com as demandas de antes da importação. Mesmo assim, a mensagem diz "Backup ilegível; nada foi alterado.", e a memória continua com os dados importados. O auditor reproduziu isso num teste suplementar.
+2. **Risco novo, anterior ao 3b (depois chamado 3c e corrigido; ver a seção seguinte):** em `restaurarBackup` (`armazem.ts:212-219`), se o `setItem` da configuração falhar depois que as demandas já foram regravadas, o armazenamento fica com as demandas de antes da importação. Mesmo assim, a mensagem diz "Backup ilegível; nada foi alterado.", e a memória continua com os dados importados. O auditor reproduziu isso num teste suplementar.
 3. A ligação `armazemPadrao()` → `marcarSemPersistencia()` (`:280-285`) não foi testada.
 4. Navegador real com localStorage bloqueado, duas abas reais, push e deploy: NÃO TESTADO.
 5. Continuam abertos o ramo `revertido = false` e os limites exatos do risco 5.
+
+## Correção do risco 3c: `restaurarBackup` parcial (subagente `implementador`, padrão B)
+
+**Pedido do responsável:** "Sim, corrigir", em resposta a "Corrijo o risco novo do restaurarBackup com o implementador?". O Claude principal conferiu o diff e reexecutou a suíte e o build.
+
+**Correção** em `aplicacao/src/modulos/demandas/armazem.ts`, `restaurarBackup` (:209-258). Segue o mesmo padrão do `importar`:
+
+1. Fotografa as 3 chaves (demandas, configuração e backup) antes de gravar.
+2. Se o JSON do backup não puder ser lido, devolve "Backup ilegível; nada foi alterado." sem gravar nada.
+3. Se qualquer gravação falhar, repõe as três chaves e liga `semPersistencia` (:243). Depois chama `carregar()`, avisa os ouvintes e mostra uma mensagem que diz o que de fato aconteceu:
+   - "o desfazer foi cancelado e os dados importados foram mantidos", quando a reversão é completa;
+   - "não foi possível reverter tudo; confira os dados", quando não é.
+
+**Testes novos** em `testes/unidade/riscos-arquiteto.test.ts`, no bloco `describe('risco 3c')` (:195):
+- falha na 1ª, na 2ª e na 3ª gravação (`it.each`, :234);
+- falha também na reversão (:259);
+- backup corrompido (:277), que serve de proteção contra regressão.
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 1 | Os testes novos falham no código anterior, por asserção | O implementador reverteu a correção com `git apply -R` e rodou `npx vitest run ../testes/unidade/riscos-arquiteto.test.ts` | `4 failed \| 18 passed (22)`, todas por `AssertionError`. Falha na 2ª gravação: as demandas já estavam regravadas e a configuração e o backup não (o estado parcial). Falha na 3ª: o backup continuava gravado. Falha também na reversão: a memória era `[imp1, imp2]`, mas o gravado era `[original]`. Falha na 1ª: a mensagem dizia "Backup ilegível" numa falha de gravação. O teste do backup corrompido já passava antes, como esperado | PASSOU (o teste detecta o defeito) |
+| 2 | Suíte completa com a correção | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 99 passed (99)` | PASSOU |
+| 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
+| 4 | Mensagens novas na interface (`Alertas.tsx`) | — | — | NÃO TESTADO |
+| 5 | Revisão independente pelo `auditor` desta correção | — | — | NÃO TESTADO |
+
+**Limitações** (relatadas pelo implementador):
+
+- O caminho de falha do `importar` continua sem ligar `semPersistencia`. Agora ele destoa de `restaurarBackup` e de `gravar`.
+- Um backup que é JSON válido, mas com a estrutura errada (por exemplo `{}`), ainda grava `"undefined"` nas demandas. Esse comportamento é anterior e não foi alterado.
+- Se a leitura das chaves for bloqueada, `restaurarBackup` agora devolve uma mensagem em vez de lançar exceção. Esse caso não tem teste específico.
+- Navegador real, push e deploy: NÃO TESTADO.

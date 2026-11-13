@@ -207,16 +207,48 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
     },
     /** Desfaz a última importação, restaurando o backup lógico. */
     restaurarBackup(): RespostaAcao {
-      const bruto = armazenamento.getItem(CHAVE_BACKUP);
-      if (bruto === null) return { ok: false, mensagem: 'Não há backup de importação.' };
+      // Mesmo padrão do importar: fotografa as chaves e reverte se uma gravação falhar no meio.
+      const chaves = [CHAVE_DEMANDAS_ARMAZEM, CHAVE_CONFIGURACAO, CHAVE_BACKUP];
+      let antes: (string | null)[];
       try {
-        const b = JSON.parse(bruto) as { conteudo: string | null; diasInatividade: number };
+        antes = chaves.map((k) => armazenamento.getItem(k));
+      } catch {
+        return { ok: false, mensagem: 'O navegador não permitiu ler os dados atuais; nada foi alterado.' };
+      }
+      const bruto = antes[2];
+      if (bruto === null) return { ok: false, mensagem: 'Não há backup de importação.' };
+      let b: { conteudo: string | null; diasInatividade: number };
+      try {
+        b = JSON.parse(bruto);
+        if (typeof b !== 'object' || b === null) throw new Error('backup inválido');
+      } catch {
+        return { ok: false, mensagem: 'Backup ilegível; nada foi alterado.' };
+      }
+      try {
         if (b.conteudo === null) armazenamento.removeItem(CHAVE_DEMANDAS_ARMAZEM);
         else armazenamento.setItem(CHAVE_DEMANDAS_ARMAZEM, b.conteudo);
         armazenamento.setItem(CHAVE_CONFIGURACAO, JSON.stringify({ diasInatividade: b.diasInatividade }));
         armazenamento.removeItem(CHAVE_BACKUP);
       } catch {
-        return { ok: false, mensagem: 'Backup ilegível; nada foi alterado.' };
+        let revertido = true;
+        chaves.forEach((k, i) => {
+          try {
+            const valor = antes[i];
+            if (valor === null) armazenamento.removeItem(k);
+            else armazenamento.setItem(k, valor);
+          } catch {
+            revertido = false;
+          }
+        });
+        semPersistencia = true;
+        carregar();
+        ouvintes.forEach((o) => o());
+        return {
+          ok: false,
+          mensagem: revertido
+            ? 'O navegador recusou a gravação; o desfazer foi cancelado e os dados importados foram mantidos.'
+            : 'O navegador recusou a gravação e não foi possível reverter tudo; confira os dados antes de continuar.',
+        };
       }
       carregar();
       ouvintes.forEach((o) => o());
