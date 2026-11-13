@@ -18,7 +18,7 @@
    O primeiro comando resolve as versões; nenhuma foi fixada à mão.
 3. Corrigir o que falhar. O código **nunca foi compilado**, então espere ajustes de tipos e configuração do Vitest (`test.dir`, `setupFiles`, aliases `@catalogo` e `@dados`).
 4. Abrir `npm run dev`, conferir o layout no desktop, no tablet e no smartphone e conferir a tela Saúde do sistema. Registrar a evidência em `metodologia/evidencias/`.
-5. Pendências do `.claude/` estão listadas na tabela abaixo.
+5. Demonstrar os padrões A–F com os subagentes (`arquiteto`, `implementador`, `auditor`) e registrar a evidência.
 6. Atualizar este arquivo e `CHANGELOG.md`, e fazer o commit local.
 
 ## O que foi feito
@@ -41,7 +41,14 @@
 
 ## Ferramentas de desenvolvimento (`.claude/`)
 
-Ver `metodologia/evidencias/2026-11-13-etapa-1-2.md`. O hook é testável com Python, que está disponível.
+| Item | Situação |
+|---|---|
+| Skills `testar-sistema`, `revisar-interface` e `validar-pds` (didática) | criadas |
+| Subagentes `arquiteto`, `implementador` e `auditor` | criados; rodada A–F **NÃO TESTADO** |
+| Hook `verificar_comando.py` (Bash, PowerShell, Write e Edit) | **PASSOU**: 7/7 testes Python |
+| Hook acionado pelo Claude Code numa sessão real | **NÃO TESTADO** (vale a partir de uma nova sessão aberta na pasta do projeto) |
+
+Detalhes em `metodologia/evidencias/2026-11-13-etapa-1-2.md`.
 
 ## Problemas conhecidos e riscos
 
