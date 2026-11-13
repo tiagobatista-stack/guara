@@ -24,9 +24,16 @@
 
 ## 3. 🔒 Vercel
 
-O `vercel.json` na raiz já define a instalação (`cd aplicacao && npm ci`), o build (`cd aplicacao && npm run build`) e a saída (`aplicacao/dist`). Na importação, **mantenha o Root Directory na raiz (`./`)**: não é preciso configurar nada manualmente.
+O projeto no Vercel usa **Root Directory = `aplicacao`**, como configurado na importação de 13/11/2026. O arquivo `aplicacao/vercel.json` define:
 
-O build limpo, feito só com os arquivos versionados, foi simulado em 13/11/2026 e passou.
+- instalação: `npm ci`;
+- build: `npm run build`;
+- saída: `dist`;
+- framework: Vite.
+
+O build importa arquivos de fora de `aplicacao/` (`../backend/...` e `../dados-ficticios`). Por isso a opção **"Include files outside the Root Directory"** precisa estar **ativada**, que é o padrão.
+
+Histórico: o 1º deploy falhou com `npm --prefix aplicacao ci` e o 2º com `cd aplicacao`, porque os comandos já rodam dentro de `aplicacao/`. A solução foi validada com npm 10 numa cópia limpa.
 
 1. Entrar em https://vercel.com/new com a conta ligada ao GitHub e importar o repositório, dando à integração acesso **só** a ele.
 2. Framework Preset: "Other" (o `vercel.json` já define tudo). Clicar em **Deploy**.
