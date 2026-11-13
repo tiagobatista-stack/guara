@@ -1,0 +1,61 @@
+// Kanban + Dashboard sobre a mesma fonte de verdade (P05; cenário 7 do PLANO.md).
+
+import { fireEvent, render, screen, within } from '@testing-library/react';
+import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
+import type { Demanda } from '../demandas/modelo.ts';
+import { Painel } from '../painel/Painel.tsx';
+import { Kanban } from './Kanban.tsx';
+
+const EXEMPLOS: Demanda[] = [
+  { id: 'k1', titulo: 'Revisar checklist de laboratório', descricao: '', responsavel: 'Equipe A', prioridade: 'Alta', status: 'A Fazer', criadaEm: '2026-11-13T09:00:00.000Z', ultimaAcaoRelevante: '2026-11-13T09:00:00.000Z' },
+  { id: 'k2', titulo: 'Conferir evidências de testes', descricao: '', responsavel: 'Equipe C', prioridade: 'Baixa', status: 'Em Validação', criadaEm: '2026-11-13T09:00:00.000Z', ultimaAcaoRelevante: '2026-11-13T09:00:00.000Z' },
+];
+
+const contagem = (status: string) => within(screen.getByTestId(`coluna-${status}`)).getByLabelText(/demanda\(s\)/).textContent;
+
+beforeEach(() => localStorage.clear());
+
+describe('Kanban', () => {
+  it('move pelo menu, atualiza colunas, dashboard e localStorage, e persiste ao recarregar', () => {
+    const armazem = criarArmazem(localStorage, { exemplos: () => EXEMPLOS.map((d) => ({ ...d })) });
+    const agora = () => new Date('2026-11-13T12:00:00.000Z');
+    render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Kanban />
+        <Painel agora={agora} />
+      </ContextoArmazem.Provider>,
+    );
+    expect(contagem('A Fazer')).toBe('1');
+    expect(contagem('Em Andamento')).toBe('0');
+    expect(within(screen.getByTestId('metrica-status-Em Andamento')).getByText('0')).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Mover "Revisar checklist de laboratório" para'), { target: { value: 'Em Andamento' } });
+
+    expect(screen.getByRole('status')).toHaveTextContent('movida para Em Andamento');
+    expect(contagem('A Fazer')).toBe('0');
+    expect(contagem('Em Andamento')).toBe('1');
+    expect(within(screen.getByTestId('coluna-Em Andamento')).getByText('Revisar checklist de laboratório')).toBeInTheDocument();
+    expect(within(screen.getByTestId('metrica-status-Em Andamento')).getByText('1')).toBeInTheDocument();
+    expect(screen.getByTestId('metrica-total')).toHaveTextContent('2');
+
+    const recarregado = criarArmazem(localStorage, { exemplos: () => [] });
+    expect(recarregado.obter().demandas.find((d) => d.id === 'k1')?.status).toBe('Em Andamento');
+  });
+
+  it('dashboard conta vencidas e inativas com relógio controlado', () => {
+    const armazem = criarArmazem(localStorage, {
+      exemplos: () => [
+        { ...EXEMPLOS[0], prazo: '2026-11-10' },
+        { ...EXEMPLOS[1], ultimaAcaoRelevante: '2026-11-08T09:00:00.000Z' },
+      ],
+    });
+    render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Painel agora={() => new Date('2026-11-13T12:00:00.000Z')} limiarDias={3} />
+      </ContextoArmazem.Provider>,
+    );
+    expect(screen.getByTestId('metrica-vencidas')).toHaveTextContent('1');
+    expect(screen.getByTestId('metrica-inativas')).toHaveTextContent('1');
+    expect(screen.getByText(/parada há 5 dia/)).toBeInTheDocument();
+  });
+});

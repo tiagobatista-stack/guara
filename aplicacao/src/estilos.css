@@ -251,6 +251,17 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .feedback--erro { background: var(--falha-fundo); color: var(--falha-texto); border-color: var(--falha-borda); }
 .botao--perigo { color: var(--falha-texto); border-color: var(--falha-borda); }
 
+/* ---------- Kanban ---------- */
+.pagina--larga { max-width: 1400px; }
+.kanban { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .kanban { grid-template-columns: repeat(2, 1fr); } }
+@media (min-width: 1100px) { .kanban { grid-template-columns: repeat(4, 1fr); } }
+.kanban-coluna { background: var(--superficie-2); border-radius: var(--raio); padding: 12px; display: grid; gap: 8px; align-content: start; }
+.kanban-titulo { display: flex; align-items: center; justify-content: space-between; font-size: 15px; font-weight: 700; }
+.kanban-contagem { min-width: 28px; text-align: center; padding: 0 8px; border-radius: 999px; background: var(--pantanal-600); color: #fff; font-size: 13px; }
+.kanban-lista { display: grid; gap: 8px; }
+.kanban-cartao { padding: 12px; display: grid; gap: 6px; }
+
 /* ---------- Selos de estado (cor + símbolo + texto) ---------- */
 .selo {
   display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px;

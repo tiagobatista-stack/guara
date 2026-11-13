@@ -9,6 +9,7 @@ import { Icone } from '../compartilhado/Icone.tsx';
 import { modulos, moduloDaRota } from './registro-modulos.ts';
 import { Painel } from '../modulos/painel/Painel.tsx';
 import { Demandas } from '../modulos/demandas/Demandas.tsx';
+import { Kanban } from '../modulos/kanban/Kanban.tsx';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
 import { PainelAssistente } from '../modulos/assistente/PainelAssistente.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
@@ -26,6 +27,7 @@ function useRota(): [string, (id: string) => void] {
 function Conteudo({ rota }: { rota: string }) {
   if (rota === 'painel') return <Painel />;
   if (rota === 'demandas') return <Demandas />;
+  if (rota === 'kanban') return <Kanban />;
   if (rota === 'saude-do-sistema') return <SaudeDoSistema />;
   const m = modulos.find((x) => x.id === rota);
   return <EmConstrucao titulo={m?.rotulo ?? rota} />;

@@ -18,4 +18,5 @@
 - Node.js v26.13.1 instalado. Dependências resolvidas sem Tailwind. Correções para TypeScript 7 (`baseUrl` removido; genéricos sem uso em `ContratoHabilidade`). 40/40 testes e build aprovados; o app abre no navegador.
 - Fase 2: Tailwind substituído por CSS próprio (`estilos.css`, paleta Fofofauna, claro e escuro, breakpoints em 768, 1024 e 1280 px). Layout conferido em desktop, tablet e smartphone.
 - Fase 3: CRUD de demandas em localStorage (modelo da apostila, regras puras, repositório, armazém único, lista com pesquisa e filtros, formulário validado, detalhe, exclusão com confirmação, aviso de corrupção). 55/55 testes.
+- Fase 4: Kanban com 4 colunas e menu "Mover para"; Dashboard com total, contagem por status, vencidas e inativas; regra pura de inatividade. 63/63 testes.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.

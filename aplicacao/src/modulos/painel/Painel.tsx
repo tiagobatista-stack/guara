@@ -1,68 +1,66 @@
-import { DATA_REFERENCIA, demandasFicticias } from '@dados/demandas.ts';
-import { avaliarPrazos } from '@catalogo/habilidades/avaliar-prazos/implementacao.ts';
+// Dashboard (P05): métricas reais sobre o mesmo armazém da lista e do Kanban.
 
-const ROTULO_SITUACAO: Record<string, string> = {
-  aberta: 'Aberta',
-  'em-analise': 'Em análise',
-  'aguardando-revisao': 'Aguardando revisão',
-  concluida: 'Concluída',
-};
+import { STATUS } from '../demandas/modelo.ts';
+import { useEstadoDemandas } from '../demandas/armazem.ts';
+import { DIAS_INATIVIDADE_PADRAO, diasParado } from '../alertas/inatividade.ts';
+import { calcularMetricas } from './metricas.ts';
 
-export function Painel() {
-  const prazos = avaliarPrazos({
-    dataReferencia: DATA_REFERENCIA,
-    diasInatividade: 5,
-    diasPrazoProximo: 3,
-    demandas: demandasFicticias,
-  });
-  const cartoes = [
-    { rotulo: 'Demandas abertas', valor: demandasFicticias.filter((d) => d.situacao !== 'concluida').length },
-    { rotulo: 'Pendências de revisão', valor: demandasFicticias.filter((d) => d.situacao === 'aguardando-revisao').length },
-    { rotulo: 'Prazos próximos (≤ 3 dias)', valor: prazos.prazoProximo.length + prazos.vencidas.length },
-    { rotulo: 'Concluídas', valor: demandasFicticias.filter((d) => d.situacao === 'concluida').length },
-  ];
-  const doDia = [...demandasFicticias].filter((d) => d.situacao !== 'concluida').sort((a, b) => a.prazo.localeCompare(b.prazo));
+const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
+
+export function Painel({ agora = () => new Date(), limiarDias = DIAS_INATIVIDADE_PADRAO }: { agora?: () => Date; limiarDias?: number }) {
+  const { demandas } = useEstadoDemandas();
+  const instante = agora();
+  const m = calcularMetricas(demandas, instante, limiarDias);
+  const comPrazo = demandas.filter((d) => d.prazo && d.status !== 'Concluída').sort((a, b) => a.prazo!.localeCompare(b.prazo!));
 
   return (
     <section aria-labelledby="titulo-painel" className="pagina">
       <div>
-        <h1 id="titulo-painel" className="titulo-pagina">Hoje</h1>
-        <p className="texto-suave texto-medio">Data de referência fictícia: {DATA_REFERENCIA}</p>
+        <h1 id="titulo-painel" className="titulo-pagina">Dashboard</h1>
+        <p className="texto-suave texto-medio">
+          Calculado agora ({instante.toLocaleString('pt-BR')}) sobre os dados deste navegador. Inatividade: mais de {limiarDias} dia(s) sem ação relevante.
+        </p>
       </div>
 
-      <div className="grade grade--4">
-        {cartoes.map((c) => (
-          <div key={c.rotulo} className="cartao">
-            <p className="cartao-rotulo">{c.rotulo}</p>
-            <p className="numero-grande">{c.valor}</p>
-          </div>
-        ))}
+      <div className="grade grade--4" data-testid="indicadores">
+        <div className="cartao"><p className="cartao-rotulo">Total</p><p className="numero-grande" data-testid="metrica-total">{m.total}</p></div>
+        <div className="cartao"><p className="cartao-rotulo">Vencidas</p><p className="numero-grande" data-testid="metrica-vencidas">{m.vencidas.length}</p></div>
+        <div className="cartao"><p className="cartao-rotulo">Inativas</p><p className="numero-grande" data-testid="metrica-inativas">{m.inativas.length}</p></div>
+        <div className="cartao"><p className="cartao-rotulo">Concluídas</p><p className="numero-grande">{m.porStatus['Concluída']}</p></div>
+      </div>
+
+      <div className="cartao">
+        <h2 className="titulo-secao">Por status</h2>
+        <ul className="lista-limpa grade grade--4">
+          {STATUS.map((s) => (
+            <li key={s} data-testid={`metrica-status-${s}`}>
+              <span className="texto-suave texto-medio">{s}</span> <strong>{m.porStatus[s]}</strong>
+            </li>
+          ))}
+        </ul>
       </div>
 
       <div className="grade grade--2">
         <div className="cartao">
-          <h2 className="titulo-secao">Demandas por prioridade de prazo</h2>
-          <ul className="lista-limpa lista-divisoria">
-            {doDia.map((d) => (
-              <li key={d.id}>
-                <p className="texto-medio"><strong>{d.titulo}</strong></p>
-                <p className="texto-pequeno texto-suave">
-                  {d.processo} · {ROTULO_SITUACAO[d.situacao]} · prazo {d.prazo}
-                  {prazos.paradas.includes(d.id) && <strong className="texto--atencao"> · parada há 5+ dias</strong>}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <h2 className="titulo-secao">Vencidas e inativas</h2>
+          {m.vencidas.length + m.inativas.length === 0 ? (
+            <p className="texto-suave texto-medio">Nenhuma demanda vencida ou inativa.</p>
+          ) : (
+            <ul className="lista-limpa lista-divisoria texto-medio">
+              {m.vencidas.map((d) => <li key={`v-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--falha">· vencida em {data(d.prazo)}</span></li>)}
+              {m.inativas.map((d) => <li key={`i-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--atencao">· parada há {diasParado(d, instante)} dia(s)</span></li>)}
+            </ul>
+          )}
         </div>
         <div className="cartao">
           <h2 className="titulo-secao">Linha do tempo de prazos</h2>
-          <ol className="linha-tempo">
-            {[...demandasFicticias].sort((a, b) => a.prazo.localeCompare(b.prazo)).map((d) => (
-              <li key={d.id}>
-                <span className="mono texto-pequeno">{d.prazo}</span> — {d.processo}
-              </li>
-            ))}
-          </ol>
+          {comPrazo.length === 0 ? (
+            <p className="texto-suave texto-medio">Nenhum prazo em aberto.</p>
+          ) : (
+            <ol className="linha-tempo">
+              {comPrazo.map((d) => <li key={d.id}><span className="mono texto-pequeno">{data(d.prazo)}</span> — {d.titulo}</li>)}
+            </ol>
+          )}
         </div>
       </div>
     </section>

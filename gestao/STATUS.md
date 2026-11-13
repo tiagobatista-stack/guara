@@ -2,7 +2,7 @@
 
 **Atualizado em:** 13/11/2026
 **Etapa atual:** 1 (diagnóstico e desenho) concluída em documentação. Etapa 2 (fundação técnica) com código escrito, mas **não executado**.
-**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: as fases 0 (documentação), 1 (Node, build e testes) 2 (CSS próprio, conferido em 3 larguras) e 3 (CRUD em localStorage; 55/55 testes) estão feitas. Próxima: fase 4 (Kanban e Dashboard). O plano do MVP está em `planejamento/PLANO.md`.
+**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: as fases 0 (documentação), 1 (Node, build e testes) 2 (CSS próprio, conferido em 3 larguras) 3 (CRUD em localStorage) e 4 (Kanban e Dashboard; 63/63 testes) estão feitas. Próxima: fase 5 (alertas e JSON). O plano do MVP está em `planejamento/PLANO.md`.
 
 ## Checklist da apostila (seção 4) — painel de pendências
 
@@ -10,7 +10,7 @@
 |---|---|---|
 | Ambiente | `node`, `git`, `claude` disponíveis | PASSOU: Node v26.13.1 instalado em 13/11 |
 | Contexto | `CLAUDE.md` criado | PASSOU (arquivo existe) |
-| MVP | CRUD, Kanban, dashboard, alertas | CRUD: PASSOU (fase 3). Kanban, dashboard e alertas: NÃO TESTADO (fases 4 e 5) |
+| MVP | CRUD, Kanban, dashboard, alertas | CRUD, Kanban e Dashboard: PASSOU (fases 3 e 4). Alertas: NÃO TESTADO (fase 5) |
 | Persistência | F5 preserva os dados no navegador | PASSOU: criar, editar, F5 e excluir no navegador real (`metodologia/evidencias/2026-11-13-fase-3-crud-localstorage.md`) |
 | Testes | `npm run test`, `npm run build` | PASSOU para a base atual: 40/40 testes e build ok (`metodologia/evidencias/2026-11-13-fase-1-node-build-testes.md`) |
 | Skills | 3 arquivos e 1 execução real | 3 arquivos criados; execução NÃO TESTADO |
@@ -25,7 +25,7 @@
 
 Seguir o plano aprovado (fases 0 a 7) descrito em `gestao/decisoes/2026-11-13-alinhamento-apostila.md` e em `planejamento/PLANO.md`. Depois do Node, a ordem é:
 
-2. Fases 4 e 5: Kanban e Dashboard; alertas e JSON.
+2. Fase 5: alertas, exportação e importação JSON e restaurar exemplos; depois ACEITE-MVP (P07).
 3. Fase 6: demonstrações P08 a P11.
 4. Fase 7: GitHub, Vercel e relatório final.
 

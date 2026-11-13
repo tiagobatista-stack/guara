@@ -2,7 +2,8 @@
 const CAMINHOS = {
   painel: 'M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z',
   demandas: 'M8 6h12M8 12h12M8 18h12M4 6h.01M4 12h.01M4 18h.01',
-  documentos: 'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6',
+  kanban: 'M4 4h4v16H4zM10 4h4v10h-4zM16 4h4v7h-4z',
+  documentos:'M6 3h8l4 4v14H6zM14 3v4h4M9 12h6M9 16h6',
   agenda: 'M4 6h16v14H4zM4 10h16M8 3v4M16 3v4',
   conhecimento: 'M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2zM4 19V5',
   saude: 'M3 12h4l2-5 4 10 2-5h6',
