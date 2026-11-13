@@ -15,4 +15,5 @@
 - `dados-ficticios/entregas.ts` para o autoteste de `validar-pds`.
 - Decisão D9: frontend no Vercel, importado do GitHub. Ordem de publicação GitHub → Vercel → Supabase, conforme a apostila P12.
 - Decisão D10: a Apostila FluxoLab governa o MVP. CSS próprio no lugar do Tailwind; localStorage agora e Supabase opcional depois do Vercel. Novo `planejamento/PLANO.md` com modelo de dados, regras e 12 cenários de aceite.
+- Node.js v26.13.1 instalado. Dependências resolvidas sem Tailwind. Correções para TypeScript 7 (`baseUrl` removido; genéricos sem uso em `ContratoHabilidade`). 40/40 testes e build aprovados; o app abre no navegador.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.

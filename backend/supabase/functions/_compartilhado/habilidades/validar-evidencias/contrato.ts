@@ -12,7 +12,7 @@ export interface SaidaValidarEvidencias {
   itensVerificados: number;
 }
 
-export const contrato: ContratoHabilidade<EntradaValidarEvidencias, SaidaValidarEvidencias> = {
+export const contrato: ContratoHabilidade = {
   id: 'validar-evidencias',
   versao: '0.1.0',
   descricao: 'Revisão independente: confere se cada item atendido tem fonte (campo, valor, página) e lista as ressalvas.',

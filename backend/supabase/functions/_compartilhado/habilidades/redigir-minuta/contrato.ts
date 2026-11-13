@@ -18,7 +18,7 @@ export interface SaidaRedigirMinuta {
 export const AVISO_MINUTA =
   'Rascunho gerado automaticamente. Exige revisão e validação humana; não é documento oficial.';
 
-export const contrato: ContratoHabilidade<EntradaRedigirMinuta, SaidaRedigirMinuta> = {
+export const contrato: ContratoHabilidade = {
   id: 'redigir-minuta',
   versao: '0.1.0',
   descricao: 'Gera uma minuta preliminar a partir da conferência, sempre marcada como "a revisar".',

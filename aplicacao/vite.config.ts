@@ -1,13 +1,12 @@
 /// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
-import tailwindcss from '@tailwindcss/vite';
 import { fileURLToPath } from 'node:url';
 
 const raizProjeto = fileURLToPath(new URL('..', import.meta.url));
 
 export default defineConfig({
-  plugins: [react(), tailwindcss()],
+  plugins: [react()],
   resolve: {
     alias: {
       // Catálogo e dados ficam fora de aplicacao/ (estrutura semântica, seção 8.5).

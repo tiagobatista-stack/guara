@@ -17,7 +17,7 @@ export interface SaidaMontarChecklist {
   itens: ItemChecklist[];
 }
 
-export const contrato: ContratoHabilidade<EntradaMontarChecklist, SaidaMontarChecklist> = {
+export const contrato: ContratoHabilidade = {
   id: 'montar-checklist',
   versao: '0.1.0',
   descricao: 'Monta o checklist configurado para o tipo de demanda.',

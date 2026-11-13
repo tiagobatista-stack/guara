@@ -35,7 +35,7 @@ export const esquemaResultadoRequisito: Esquema = {
   },
 };
 
-export const contrato: ContratoHabilidade<EntradaConferirRequisitos, SaidaConferirRequisitos> = {
+export const contrato: ContratoHabilidade = {
   id: 'conferir-requisitos',
   versao: '0.1.0',
   descricao: 'Confere o checklist contra as extrações e indica os itens atendidos, pendentes e não verificáveis, com evidência.',

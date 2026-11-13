@@ -14,7 +14,7 @@ export interface SaidaRegistrarDemanda {
   demanda?: { id: string; processo: string; titulo: string; tipo: string; prazo: string; situacao: 'registrada' };
 }
 
-export const contrato: ContratoHabilidade<EntradaRegistrarDemanda, SaidaRegistrarDemanda> = {
+export const contrato: ContratoHabilidade = {
   id: 'registrar-demanda',
   versao: '0.1.0',
   descricao: 'Valida os dados informados pelo usuário e registra a demanda.',

@@ -30,7 +30,7 @@ export interface SaidaRelatorioExecutivo {
 
 const esquemaContagem: Esquema = { tipo: 'objeto', campos: { chave: { tipo: 'texto' }, quantidade: { tipo: 'numero' } } };
 
-export const contrato: ContratoHabilidade<EntradaRelatorioExecutivo, SaidaRelatorioExecutivo> = {
+export const contrato: ContratoHabilidade = {
   id: 'relatorio-executivo',
   versao: '0.1.0',
   descricao: 'Consolida os resultados validados em um relatório com totais e rastreabilidade (IDs de origem).',

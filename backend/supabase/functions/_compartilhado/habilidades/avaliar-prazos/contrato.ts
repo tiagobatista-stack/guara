@@ -22,7 +22,7 @@ export interface SaidaAvaliarPrazos {
   ignoradasConcluidas: string[];
 }
 
-export const contrato: ContratoHabilidade<EntradaAvaliarPrazos, SaidaAvaliarPrazos> = {
+export const contrato: ContratoHabilidade = {
   id: 'avaliar-prazos',
   versao: '0.1.0',
   descricao: 'Identifica as demandas vencidas, com prazo próximo ou paradas há N dias.',

@@ -13,7 +13,7 @@ export interface SaidaClassificarDemanda {
   sugestao: true;
 }
 
-export const contrato: ContratoHabilidade<EntradaClassificarDemanda, SaidaClassificarDemanda> = {
+export const contrato: ContratoHabilidade = {
   id: 'classificar-demanda',
   versao: '0.1.0',
   descricao: 'Sugere tipo, setor e prioridade a partir de regras explícitas de palavras-chave.',

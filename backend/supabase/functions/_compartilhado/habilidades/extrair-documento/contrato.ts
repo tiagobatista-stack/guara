@@ -23,7 +23,7 @@ export interface SaidaExtrairDocumento {
   camposAusentes: string[];
 }
 
-export const contrato: ContratoHabilidade<EntradaExtrairDocumento, SaidaExtrairDocumento> = {
+export const contrato: ContratoHabilidade = {
   id: 'extrair-documento',
   versao: '0.1.0',
   descricao: 'Extrai campos de um documento com camada de texto e indica a página de origem.',

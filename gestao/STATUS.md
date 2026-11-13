@@ -2,17 +2,17 @@
 
 **Atualizado em:** 13/11/2026
 **Etapa atual:** 1 (diagnóstico e desenho) concluída em documentação. Etapa 2 (fundação técnica) com código escrito, mas **não executado**.
-**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: a fase 0 (documentação) está feita, e a fase 1 aguarda o Node.js. O plano do MVP está em `planejamento/PLANO.md`.
+**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. O plano aprovado tem as fases 0 a 7: as fases 0 (documentação) e 1 (Node, build e testes) estão feitas. Próxima: fase 2 (CSS próprio; hoje o app está sem estilo). O plano do MVP está em `planejamento/PLANO.md`.
 
 ## Checklist da apostila (seção 4) — painel de pendências
 
 | Verificação | Evidência mínima | Situação |
 |---|---|---|
-| Ambiente | `node`, `git`, `claude` disponíveis | **FALHOU**: falta o Node.js |
+| Ambiente | `node`, `git`, `claude` disponíveis | PASSOU: Node v26.13.1 instalado em 13/11 |
 | Contexto | `CLAUDE.md` criado | PASSOU (arquivo existe) |
 | MVP | CRUD, Kanban, dashboard, alertas | NÃO TESTADO (ainda não implementado: fases 3 a 5) |
 | Persistência | F5 preserva os dados no navegador | NÃO TESTADO (fase 3) |
-| Testes | `npm run test`, `npm run build` | NÃO TESTADO (sem Node) |
+| Testes | `npm run test`, `npm run build` | PASSOU para a base atual: 40/40 testes e build ok (`metodologia/evidencias/2026-11-13-fase-1-node-build-testes.md`) |
 | Skills | 3 arquivos e 1 execução real | 3 arquivos criados; execução NÃO TESTADO |
 | Agentes | 3 arquivos e 1 chamada real | 3 arquivos criados; chamada NÃO TESTADO |
 | Orquestração | padrões A–F com evidências honestas | NÃO TESTADO |
@@ -33,7 +33,8 @@ Seguir o plano aprovado (fases 0 a 7) descrito em `gestao/decisoes/2026-11-13-al
 Passos imediatos:
 
 0. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer e investigue. O hook roda no Git Bash (`"shell": "bash"`). Testado: no bash o código de saída é 0 para permitir e 2 para bloquear. No cmd a mesma string falha com código 2, e por isso não deve ser usada.
-1. **Bloqueio principal:** o Node.js não está instalado. Pedir autorização para `winget install OpenJS.NodeJS.LTS` ou que o usuário instale pelo site oficial (https://nodejs.org).
+1. ~~O Node.js não estava instalado~~. **Resolvido:** v26.13.1 em `C:\Program Files
+odejs` (no Git Bash: `export PATH="/c/Program Files/nodejs:$PATH"` se `node` não for encontrado). Pedir autorização para `winget install OpenJS.NodeJS.LTS` ou que o usuário instale pelo site oficial (https://nodejs.org).
 2. Com o Node disponível:
 
    ```bash
@@ -63,9 +64,9 @@ Passos imediatos:
 | Verificação de saúde, fluxo padrão 9.4, gate e padrões A–F | escrito, **NÃO TESTADO** | idem |
 | Testes Vitest (autotestes, falhas, regras, fluxo, tela) | escritos, **NÃO TESTADO** | `testes/`, `aplicacao/src/**/*.test.tsx` |
 | App React (layout em três áreas, Painel, Demandas, Assistente, Saúde do sistema) | escrito, **NÃO TESTADO** | `aplicacao/src/` |
-| `npm run build` | **NÃO TESTADO** (sem Node) | — |
-| `npm test` | **NÃO TESTADO** (sem Node) | — |
-| App abre localmente | **NÃO TESTADO** (sem Node) | — |
+| `npm run build` | **PASSOU** (depois de 2 correções) | evidência da fase 1 |
+| `npm test` | **PASSOU**: 40/40 | evidência da fase 1 |
+| App abre localmente; Saúde do sistema executa a verificação | **PASSOU**: 10/10 habilidades e 6/6 agentes OK no navegador | evidência da fase 1 |
 | Skills, subagentes e hook em `.claude/` | ver a próxima seção | — |
 
 ## Ferramentas de desenvolvimento (`.claude/`)

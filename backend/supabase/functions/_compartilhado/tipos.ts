@@ -21,7 +21,7 @@ export interface CasoAutoteste<E, S> {
   saidaEsperada: S;
 }
 
-export interface ContratoHabilidade<E = unknown, S = unknown> {
+export interface ContratoHabilidade {
   id: string;
   versao: string;
   descricao: string;
@@ -40,7 +40,7 @@ export interface ContratoHabilidade<E = unknown, S = unknown> {
 }
 
 export interface Habilidade<E = unknown, S = unknown> {
-  contrato: ContratoHabilidade<E, S>;
+  contrato: ContratoHabilidade;
   executar: (entrada: E) => S;
   autoteste: CasoAutoteste<E, S>;
 }

@@ -26,7 +26,7 @@ export interface SaidaValidarPds {
 export const AVISO_PDS =
   'Checklist didático de qualidade. NÃO é o PDS oficial da SEMA-MT; nenhuma conclusão de conformidade é emitida.';
 
-export const contrato: ContratoHabilidade<EntradaValidarPds, SaidaValidarPds> = {
+export const contrato: ContratoHabilidade = {
   id: 'validar-pds',
   versao: '0.1.0',
   descricao: 'Checklist didático de qualidade das entregas do próprio sistema (não é o PDS oficial da SEMA).',

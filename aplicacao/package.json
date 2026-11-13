@@ -10,6 +10,22 @@
     "preview": "vite preview",
     "test": "vitest run",
     "test:watch": "vitest",
-    "instalar-dependencias": "npm install react react-dom && npm install -D vite @vitejs/plugin-react typescript tailwindcss @tailwindcss/vite vitest jsdom @testing-library/react @testing-library/jest-dom @types/react @types/react-dom @types/node"
+    "instalar-dependencias": "npm install react react-dom && npm install -D vite @vitejs/plugin-react typescript vitest jsdom @testing-library/react @testing-library/jest-dom @types/react @types/react-dom @types/node"
+  },
+  "dependencies": {
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1"
+  },
+  "devDependencies": {
+    "@testing-library/jest-dom": "^7.0.1",
+    "@testing-library/react": "^16.3.3",
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@vitejs/plugin-react": "^6.3.0",
+    "jsdom": "^31.0.1",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.8",
+    "vitest": "^5.1.0"
   }
 }
