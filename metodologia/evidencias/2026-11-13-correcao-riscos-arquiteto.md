@@ -131,7 +131,7 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
 
 **Lacunas residuais** (não corrigidas; nenhuma contradiz a correção):
 
-1. Uma falha em `restaurarBackup` não liga a marca. Isso não estava entre as limitações declaradas.
+1. Uma falha em `restaurarBackup` não liga a marca. Isso não estava entre as limitações declaradas. *(Atualização: depois do 3c, a falha de gravação liga a marca (:243). A leitura bloqueada ainda não liga.)*
 2. **Risco novo, anterior ao 3b (depois chamado 3c e corrigido; ver a seção seguinte):** em `restaurarBackup` (`armazem.ts:212-219`), se o `setItem` da configuração falhar depois que as demandas já foram regravadas, o armazenamento fica com as demandas de antes da importação. Mesmo assim, a mensagem diz "Backup ilegível; nada foi alterado.", e a memória continua com os dados importados. O auditor reproduziu isso num teste suplementar.
 3. A ligação `armazemPadrao()` → `marcarSemPersistencia()` (`:280-285`) não foi testada.
 4. Navegador real com localStorage bloqueado, duas abas reais, push e deploy: NÃO TESTADO.
@@ -141,7 +141,7 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
 
 **Pedido do responsável:** "Sim, corrigir", em resposta a "Corrijo o risco novo do restaurarBackup com o implementador?". O Claude principal conferiu o diff e reexecutou a suíte e o build.
 
-**Correção** em `aplicacao/src/modulos/demandas/armazem.ts`, `restaurarBackup` (:209-258). Segue o mesmo padrão do `importar`:
+**Correção** em `aplicacao/src/modulos/demandas/armazem.ts`, `restaurarBackup` (:209-256). Segue o mesmo padrão do `importar`:
 
 1. Fotografa as 3 chaves (demandas, configuração e backup) antes de gravar.
 2. Se o JSON do backup não puder ser lido, devolve "Backup ilegível; nada foi alterado." sem gravar nada.
@@ -160,7 +160,7 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
 | 2 | Suíte completa com a correção | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 99 passed (99)` | PASSOU |
 | 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
 | 4 | Mensagens novas na interface (`Alertas.tsx`) | — | — | NÃO TESTADO |
-| 5 | Revisão independente pelo `auditor` desta correção | — | — | NÃO TESTADO |
+| 5 | Revisão independente pelo `auditor` desta correção | ver a seção seguinte | APROVADO, com ressalvas | feita |
 
 **Limitações** (relatadas pelo implementador):
 
@@ -168,3 +168,43 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
 - Um backup que é JSON válido, mas com a estrutura errada (por exemplo `{}`), ainda grava `"undefined"` nas demandas. Esse comportamento é anterior e não foi alterado.
 - Se a leitura das chaves for bloqueada, `restaurarBackup` agora devolve uma mensagem em vez de lançar exceção. Esse caso não tem teste específico.
 - Navegador real, push e deploy: NÃO TESTADO.
+
+## Revisão independente do risco 3c (auditor registrado, padrão C)
+
+**Data:** 13/11/2026. **Commit revisado:** `9d0a22b`. O `auditor` só leu arquivos e rodou testes. `git status` ficou vazio ao final.
+
+**Veredito: APROVADO, com ressalvas.** O defeito foi corrigido: o estado parcial no armazenamento, a mensagem "Backup ilegível; nada foi alterado." numa falha de gravação e a memória diferente do armazenamento. Não houve regressão.
+
+| Verificação | Método e resultado | Situação |
+|---|---|---|
+| Os testes novos falham no código anterior | `git archive 9d0a22b`, trocando só o `armazem.ts` pelo de `9d0a22b^`, que é o único arquivo de código alterado. Resultado: `Tests 4 failed \| 18 passed (22)`, igual ao declarado. As 4 falhas são `AssertionError` (:251, :245, :245, :268); nenhuma por símbolo ausente. O teste do backup ilegível (:277) passa, porque é proteção contra regressão. **São 4 de 5** | PASSOU |
+| Desfazer com sucesso, sem regressão | Coberto por `dados-portaveis.test.ts:48`, `riscos-arquiteto.test.ts:152` e `Alertas.test.tsx:85`, que passam. A sonda do auditor confirmou o resultado `{ok:true}`, a memória `[original]`, 5 dias, sem backup e sem aviso. Um segundo desfazer responde "Não há backup" | PASSOU |
+| Interação com o 3b | Depois de uma falha, um desfazer bem-sucedido restaura os dados, e o aviso continua ligado, como manda a regra "até fechar a página" | PASSOU (sonda) |
+| Leitura bloqueada | Responde "não permitiu ler…; nada foi alterado", sem nenhuma gravação; armazenamento e memória ficam intactos | PASSOU na sonda; sem teste no repositório |
+| Suíte completa | `npx vitest run`: `Test Files 13 passed (13)` · `Tests 99 passed (99)` | PASSOU |
+| Build | `tsc --noEmit` sem erros; `index-Bt1U1Gq2.js 311.46 kB`; `✓ built in 169ms` | PASSOU |
+
+As sondas do auditor ficaram fora do repositório e não são evidência durável.
+
+**Ressalvas** (não corrigidas):
+
+1. **Mensagem pessimista quando todas as gravações falham.** Nesse caso nada muda, e o armazenamento fica intacto. Mesmo assim, a reversão também falha e a mensagem diz "não foi possível reverter tudo" (`armazem.ts:233-250`). O texto é impreciso, mas não esconde perda de dados. O mesmo padrão existe no `importar` (:185-201).
+2. **Backup em JSON válido com a estrutura errada é mais grave do que a limitação declarada.** A guarda em `armazem.ts:223` aceita `{}`, `[]` e `{"conteudo":5}`. Nesses três casos, a sonda mostrou o mesmo efeito:
+   - `{ok:true}`, e a interface mostra "Dados anteriores à importação restaurados.";
+   - as demandas ficam como `"undefined"`, e o app entra em `erroArmazenamento`;
+   - a configuração vira `{}`;
+   - **o backup é removido**.
+
+   Esse comportamento é anterior à correção, não é regressão. O backup só é gravado pelo próprio app, então o problema exige adulteração ou incompatibilidade de versão.
+3. **O campo de dias pode ficar desatualizado depois de uma reversão.** `Alertas.tsx:68` só chama `setDias` quando o desfazer dá certo. Verificado só por leitura do código: NÃO TESTADO.
+4. **A leitura bloqueada em `restaurarBackup` (:215-216) não liga `semPersistencia`**, ao contrário de `carregar()` (:70). Verificado só por leitura do código.
+5. **O cenário da 3ª gravação é sintético.** Em navegadores reais, `removeItem` normalmente não lança erro por cota.
+
+**Documentação.** O auditor apontou redação imprecisa, que foi corrigida nesta atualização:
+- intervalo `:209-256`;
+- "4 de 5" no `STATUS.md` e no `RELATORIO-FINAL.md`;
+- lacuna 1 do 3b, que estava desatualizada.
+
+Nenhum documento declarava PASSOU sem execução. Não há segredos nem dados que pareçam reais nos arquivos do commit.
+
+**NÃO TESTADO:** as mensagens novas na interface no caminho de falha, a notificação dos ouvintes na falha (verificada só na sonda), o navegador real com cota cheia ou armazenamento bloqueado, o push e o deploy.
