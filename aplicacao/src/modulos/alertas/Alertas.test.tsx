@@ -71,4 +71,20 @@ describe('tela Alertas', () => {
     expect(armazem.obter().demandas.map((d) => d.id)).toEqual(['nova1', 'nova2']);
     expect(screen.getByRole('button', { name: 'Desfazer última importação' })).toBeEnabled();
   });
+
+  it('desfazer importação volta o campo de limiar ao valor restaurado', async () => {
+    const armazem = montar();
+    const novo = exportarDados([{ ...ANTIGA, id: 'nova1' }], 10, AGORA);
+
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(10);
+
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Desfazer última importação' }));
+    expect(screen.getByRole('status')).toHaveTextContent('restaurados');
+    expect(armazem.obter().diasInatividade).toBe(3);
+    expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(3);
+  });
 });
