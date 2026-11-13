@@ -12,7 +12,7 @@
 | Contexto | `CLAUDE.md` | **PASSOU** |
 | MVP | CRUD, Kanban, dashboard, alertas | **PASSOU**: 12/12 cenários (`metodologia/evidencias/ACEITE-MVP.md`) |
 | Persistência | F5 preserva os dados | **PASSOU** no navegador real, com eventos de DOM disparados por script |
-| Testes | `npm test`, `npm run build` | **PASSOU**: 86/86 testes, build ok e 8/8 testes do hook (`2026-11-13-p08-skill-testar-sistema.md`) |
+| Testes | `npm test`, `npm run build` | **PASSOU**: 94/94 testes e build ok (`2026-11-13-correcao-riscos-arquiteto.md`); 8/8 testes do hook (`2026-11-13-p08-skill-testar-sistema.md`) |
 | Skills | 3 arquivos e 1 execução real | **PASSOU**: `testar-sistema` invocada pela ferramenta Skill (P08) |
 | Agentes | 3 arquivos e 1 chamada real | **PASSOU**: `arquiteto`, `auditor` (76/76 reexecutado) e `implementador` chamados em sessão aberta na pasta do projeto, como teste de carga e papel, sem alterar arquivos (`2026-11-13-p13-repeticao-hook-subagentes-mcp.md`) |
 | Orquestração | A–F com evidências honestas | **PARCIAL**: A–F demonstrados pelo fluxo alternativo (`2026-11-13-p09-orquestracao.md`). Rodada com os subagentes registrados: **NÃO DEMONSTRADO** |
@@ -26,7 +26,7 @@
 1. **Feito:** MCP, hook e subagentes repetidos em sessão aberta na pasta do projeto. **Falta:** abrir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados (inclusive uma correção real pelo `implementador`).
 2. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer. O hook roda no Git Bash e foi testado com saída 0 (permite) e 2 (bloqueia).
 3. **Publicado:** GitHub https://github.com/tiagobatista-stack/guara (privado) e Vercel https://guara-lemon.vercel.app. Cada push na `main` gera um novo deploy.
-4. **Riscos do arquiteto: corrigidos** (10 testes novos, 86/86). Evidência em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`. **Revisão independente pelo `auditor` registrado: feita** (padrão C, mesma evidência). Os riscos 1, 2, 4 e 5 e o 3a (o app não quebra com o storage bloqueado) foram **APROVADOS**. O 3b foi **REPROVADO**: o aviso "As alterações valem só até fechar a página" some depois de importar, desfazer ou recarregar, porque `armazem.ts:64` zera o aviso. Ainda não foi corrigido; aguarda a decisão do responsável. Metade dos 10 testes novos falha no código anterior por símbolo ausente, e não pelo defeito.
+4. **Riscos do arquiteto: corrigidos** (10 testes novos, 86/86). Evidência em `metodologia/evidencias/2026-11-13-correcao-riscos-arquiteto.md`. **Revisão independente pelo `auditor` registrado: feita** (padrão C, mesma evidência). Os riscos 1, 2, 4 e 5 e o 3a (o app não quebra com o storage bloqueado) foram **APROVADOS**. O 3b foi **REPROVADO**: o aviso "As alterações valem só até fechar a página" some depois de importar, desfazer ou recarregar, porque `armazem.ts:64` zera o aviso. **O 3b foi corrigido depois pelo subagente `implementador`** (padrão B): o aviso fica ligado até a página fechar. Há 8 testes novos, que falham por asserção no código anterior. Total 94/94, build ok. Navegador real, nova revisão do `auditor` e push: NÃO TESTADO. Metade dos 10 testes novos falha no código anterior por símbolo ausente, e não pelo defeito.
 
 ## Comandos
 

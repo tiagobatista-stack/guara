@@ -47,6 +47,8 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
   };
   const AVISO_SEM_GRAVACAO =
     'Este navegador não permitiu gravar os dados (modo privado, cota cheia ou bloqueio). As alterações valem só até fechar a página.';
+  // Fica ligado até fechar a página: recarregar não torna o armazenamento persistente.
+  let semPersistencia = false;
 
   function lerDias(): number {
     try {
@@ -61,10 +63,11 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
     let extras: Pick<EstadoArmazem, 'diasInatividade' | 'temBackup' | 'avisoPersistencia'>;
     let carga: ReturnType<RepositorioLocal['carregar']>;
     try {
-      extras = { diasInatividade: lerDias(), temBackup: armazenamento.getItem(CHAVE_BACKUP) !== null, avisoPersistencia: null };
+      extras = { diasInatividade: lerDias(), temBackup: armazenamento.getItem(CHAVE_BACKUP) !== null, avisoPersistencia: semPersistencia ? AVISO_SEM_GRAVACAO : null };
       carga = repo.carregar();
     } catch {
       // Leitura bloqueada: o app abre com os exemplos em memória, sem quebrar.
+      semPersistencia = true;
       estado = { ...estado, demandas: exemplos(), erroArmazenamento: null, conteudoBruto: null, avisoPersistencia: AVISO_SEM_GRAVACAO };
       return;
     }
@@ -74,6 +77,7 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       try {
         repo.salvar(iniciais);
       } catch {
+        semPersistencia = true;
         extras.avisoPersistencia = AVISO_SEM_GRAVACAO;
       }
       estado = { demandas: iniciais, erroArmazenamento: null, conteudoBruto: null, ...extras };
@@ -98,6 +102,7 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
     try {
       repo.salvar(demandas);
     } catch {
+      semPersistencia = true;
       estado = { ...estado, avisoPersistencia: AVISO_SEM_GRAVACAO };
       ouvintes.forEach((o) => o());
       return { ok: false, mensagem: 'O navegador recusou a gravação (cota cheia ou modo privado).' };
@@ -223,6 +228,7 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
     },
     /** Usado quando o localStorage está bloqueado e o app roda em memória. */
     marcarSemPersistencia() {
+      semPersistencia = true;
       estado = { ...estado, avisoPersistencia: AVISO_SEM_GRAVACAO };
       ouvintes.forEach((o) => o());
     },

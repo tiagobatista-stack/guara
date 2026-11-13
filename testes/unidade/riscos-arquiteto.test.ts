@@ -139,3 +139,55 @@ describe('risco 5 (BAIXO): importação aplica os mesmos limites do formulário'
     expect(r.ok).toBe(false);
   });
 });
+
+describe('risco 3b: o aviso de persistência não some enquanto os dados não persistem', () => {
+  const dadosImportados = () => {
+    const r = validarImportacao(exportarDados([D('imp1')], 4, AGORA));
+    if (!r.ok) throw new Error('fixture inválida');
+    return r.dados;
+  };
+
+  it.each([
+    ['importar', (a: ReturnType<typeof criarArmazem>) => { expect(a.importar(dadosImportados()).ok).toBe(true); }],
+    ['desfazer importação', (a: ReturnType<typeof criarArmazem>) => { expect(a.restaurarBackup().ok).toBe(true); }],
+    ['recarregar', (a: ReturnType<typeof criarArmazem>) => { a.recarregar(); }],
+    ['evento "storage"', (a: ReturnType<typeof criarArmazem>) => {
+      const parar = a.escutarOutrasAbas(window);
+      window.dispatchEvent(new StorageEvent('storage', { key: CHAVE_DEMANDAS }));
+      parar();
+    }],
+  ])('fallback em memória: o aviso continua após %s', (_nome, operacao) => {
+    const a = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [D('ex')] });
+    expect(a.importar(dadosImportados()).ok).toBe(true); // prepara um backup para o "desfazer"
+    a.marcarSemPersistencia();
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+    operacao(a);
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+  });
+
+  it('falha de gravação: o aviso continua após recarregar', () => {
+    // 1ª gravação (exemplos iniciais) passa; a 2ª (criar) falha.
+    const a = criarArmazem(storageComFalha(2), { exemplos: () => [D('ex')] });
+    expect(a.obter().avisoPersistencia).toBeNull();
+    const r = a.criar({ titulo: 'Nova fictícia', descricao: '', responsavel: '', prioridade: 'Alta', status: 'A Fazer', prazo: '' });
+    expect(r.ok).toBe(false);
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+    a.recarregar();
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+  });
+
+  it('aviso presente e importação recusada pelo navegador: o aviso continua', () => {
+    // 1ª gravação (exemplos iniciais) passa; a importação falha e é revertida.
+    const a = criarArmazem(storageComFalha(2), { exemplos: () => [D('ex')] });
+    a.marcarSemPersistencia();
+    expect(a.importar(dadosImportados()).ok).toBe(false);
+    expect(a.obter().avisoPersistencia).not.toBeNull();
+  });
+
+  it('armazenamento persistente sem falhas não exibe aviso', () => {
+    const a = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [D('ex')] });
+    expect(a.importar(dadosImportados()).ok).toBe(true);
+    a.recarregar();
+    expect(a.obter().avisoPersistencia).toBeNull();
+  });
+});

@@ -88,3 +88,26 @@ Com uma variante e um teste suplementar, o auditor reproduziu pelo comportamento
   - `RELATORIO-FINAL.md` e `gestao/CHANGELOG.md` dizem "10 testes novos, que falham no código anterior" sem a ressalva acima;
   - o CHANGELOG diz "aviso no topo", o que é contradito pelo item 3b.
 - **Segredos e dados reais:** no diff de `3d0609f`, o auditor procurou token, senha, chave, `service_role`, e-mails e padrão de CPF, e não achou nada. Os dados de teste são fictícios.
+
+## Correção do risco 3b (subagente `implementador`, padrão B)
+
+**Pedido do responsável:** "corrija o risco 3b com o implementador". A correção foi feita pelo subagente registrado `implementador` (`subagent_type: "implementador"`). O Claude principal conferiu o diff e reexecutou a suíte e o build.
+
+| Item | Detalhe |
+|---|---|
+| Correção | `aplicacao/src/modulos/demandas/armazem.ts`: marca `let semPersistencia = false` (:50-51), que fica ligada até a página fechar. `carregar()` (:66) passa a gravar `avisoPersistencia: semPersistencia ? AVISO_SEM_GRAVACAO : null`. A marca é ligada nos 4 pontos que já mostravam o aviso: leitura bloqueada (:70), falha ao gravar os exemplos (:80), falha em `gravar()` (:105) e `marcarSemPersistencia()` (:231) |
+| Testes novos | `testes/unidade/riscos-arquiteto.test.ts:143-192`, `describe('risco 3b')`, com 7 casos: importar, desfazer, `recarregar` e evento `storage` no fallback em memória; falha de gravação e depois recarregar; importação recusada; e uma proteção contra regressão sem aviso. Também `aplicacao/src/nucleo/Aplicacao.test.tsx` (novo), que renderiza a tela e confere que o texto do aviso continua depois de importar. Isso cobre `Aplicacao.tsx:112`, antes NÃO TESTADO |
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 1 | Os testes novos falham no código anterior, **por asserção** | `npx vitest run testes/unidade/riscos-arquiteto.test.ts aplicacao/src/nucleo/Aplicacao.test.tsx`, com o `armazem.ts` original (implementador, via `git stash`) | `Tests 7 failed \| 11 passed (18)`: `expected null not to be null` (:165, :176) e `Unable to find an element with the text: /As alterações valem só até fechar a página/` (`Aplicacao.test.tsx:22`). O teste de regressão sem aviso já passava antes, como esperado | PASSOU (o teste detecta o defeito) |
+| 2 | Suíte completa com a correção | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 94 passed (94)` | PASSOU |
+| 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `index-Di1FOTGA.js 310.90 kB`; `✓ built` | PASSOU |
+| 4 | Navegador real com localStorage bloqueado | — | — | NÃO TESTADO |
+
+**Limitações** (relatadas pelo implementador):
+
+- O aviso nunca sai antes de a página fechar. No fallback em memória isso é o correto. Mas, se a cota encher só por um momento e uma gravação seguinte der certo, o aviso continua na tela. Tirá-lo nesse caso exigiria separar o fallback da falha de gravação: fica para decisão do responsável.
+- Algumas falhas de gravação não ligam a marca: as que caem no `catch` de `importar` (que reverte os dados), de `restaurarExemplos` e de `definirDiasInatividade`. Esse comportamento é anterior e não foi alterado. Se o aviso já estava ativo, ele continua (testado). Se for a primeira falha da sessão, o aviso não aparece.
+- As demais lacunas do auditor continuam abertas: o ramo `revertido = false`, o `desfazer` sem reversão, os limites exatos do risco 5 e duas abas reais.
+- Ainda não houve nova revisão independente pelo `auditor` desta correção (NÃO TESTADO). Também não houve push nem deploy.
