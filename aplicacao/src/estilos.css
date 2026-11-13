@@ -236,6 +236,21 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .dados-definicao { display: grid; grid-template-columns: auto 1fr; gap: 0 12px; font-size: 12px; color: var(--texto-suave); margin: 8px 0 0; }
 .dados-definicao dd { margin: 0; }
 
+/* ---------- Formulários, filtros e feedback ---------- */
+.formulario { display: grid; gap: 12px; }
+.campo-grupo { display: grid; gap: 4px; font-size: 14px; font-weight: 500; }
+.campo-grupo .campo { font-weight: 400; }
+.campo--area { padding: 8px 12px; min-height: 88px; resize: vertical; }
+.campo[aria-invalid="true"] { border-color: var(--falha-borda); }
+.erro-campo { color: var(--falha-texto); font-size: 12px; font-weight: 600; }
+.acoes { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
+.filtros { display: grid; gap: 12px; grid-template-columns: 1fr; }
+@media (min-width: 640px) { .filtros { grid-template-columns: 2fr 1fr 1fr 1fr; } }
+.feedback { padding: 10px 12px; border-radius: 8px; font-size: 14px; font-weight: 600; border: 1px solid; }
+.feedback--sucesso { background: var(--ok-fundo); color: var(--ok-texto); border-color: var(--ok-borda); }
+.feedback--erro { background: var(--falha-fundo); color: var(--falha-texto); border-color: var(--falha-borda); }
+.botao--perigo { color: var(--falha-texto); border-color: var(--falha-borda); }
+
 /* ---------- Selos de estado (cor + símbolo + texto) ---------- */
 .selo {
   display: inline-flex; align-items: center; gap: 4px; padding: 1px 8px; border-radius: 999px;
