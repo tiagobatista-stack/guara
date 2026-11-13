@@ -24,7 +24,7 @@
 
 ## 3. 🔒 Vercel
 
-O `vercel.json` na raiz já define a instalação (`npm --prefix aplicacao ci`), o build (`npm --prefix aplicacao run build`) e a saída (`aplicacao/dist`). Na importação, **mantenha o Root Directory na raiz (`./`)**: não é preciso configurar nada manualmente.
+O `vercel.json` na raiz já define a instalação (`cd aplicacao && npm ci`), o build (`cd aplicacao && npm run build`) e a saída (`aplicacao/dist`). Na importação, **mantenha o Root Directory na raiz (`./`)**: não é preciso configurar nada manualmente.
 
 O build limpo, feito só com os arquivos versionados, foi simulado em 13/11/2026 e passou.
 
