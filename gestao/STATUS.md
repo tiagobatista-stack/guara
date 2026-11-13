@@ -2,7 +2,7 @@
 
 **Atualizado em:** 13/11/2026.
 
-**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. As fases 0 a 7 do plano aprovado estão feitas. Relatório final em `documentacao/RELATORIO-FINAL.md`: 9 PASSOU, 3 PARCIAL e 1 NÃO TESTADO. Os itens pendentes dependem de uma sessão aberta na pasta do projeto.
+**Alinhamento (D10):** a Apostila FluxoLab governa o MVP. As fases 0 a 7 do plano aprovado estão feitas. Relatório final em `documentacao/RELATORIO-FINAL.md`: 12 PASSOU e 1 PARCIAL (rodada A–F com os subagentes registrados). Hook, subagentes e MCP foram repetidos em sessão aberta na pasta do projeto (`metodologia/evidencias/2026-11-13-p13-repeticao-hook-subagentes-mcp.md`).
 
 ## Checklist da apostila (seção 4)
 
@@ -14,21 +14,16 @@
 | Persistência | F5 preserva os dados | **PASSOU** no navegador real, com eventos de DOM disparados por script |
 | Testes | `npm test`, `npm run build` | **PASSOU**: 76/76 testes, build ok e 8/8 testes do hook (`2026-11-13-p08-skill-testar-sistema.md`) |
 | Skills | 3 arquivos e 1 execução real | **PASSOU**: `testar-sistema` invocada pela ferramenta Skill (P08) |
-| Agentes | 3 arquivos e 1 chamada real | **PARCIAL**. Os 3 arquivos existem, mas os subagentes registrados estão **NÃO DEMONSTRADO** (não carregaram nesta sessão). Houve delegação real alternativa a agentes genéricos seguindo os arquivos de papel. |
-| Orquestração | A–F com evidências honestas | **PARCIAL**: A, B, C, D, E e F foram demonstrados pelo fluxo alternativo (`2026-11-13-p09-orquestracao.md`) |
-| MCP | JSON exportado e chamada real | **PASSOU** com um cliente MCP real via stdio (total 5 = 5). Registro em `/mcp` nesta sessão: **NÃO TESTADO** |
-| Hook | sentinela bloqueada, benigno permitido | Regras: **PASSOU** (8/8). Bloqueio em sessão real: **NÃO TESTADO** (`settings.json` do projeto não carregado nesta sessão) |
+| Agentes | 3 arquivos e 1 chamada real | **PASSOU**: `arquiteto`, `auditor` (76/76 reexecutado) e `implementador` chamados em sessão aberta na pasta do projeto, como teste de carga e papel, sem alterar arquivos (`2026-11-13-p13-repeticao-hook-subagentes-mcp.md`) |
+| Orquestração | A–F com evidências honestas | **PARCIAL**: A–F demonstrados pelo fluxo alternativo (`2026-11-13-p09-orquestracao.md`). Rodada com os subagentes registrados: **NÃO DEMONSTRADO** |
+| MCP | JSON exportado e chamada real | **PASSOU**: cliente stdio (5 = 5) e `resumir_demandas` chamada pelo próprio Claude Code (total 5). Tela `/mcp`: **NÃO TESTADO** (comando de interface) |
+| Hook | sentinela bloqueada, benigno permitido | **PASSOU**: regras 8/8 e, em sessão real, `GUARA_HOOK_TEST_BLOCK` bloqueado e `GUARA_OK` permitido |
 | GitHub | URL e commit | **PASSOU**: https://github.com/tiagobatista-stack/guara (privado), `main` = `37ca679` (`metodologia/evidencias/2026-11-13-p12-github.md`) |
 | Vercel | URL aberta e testada | **PASSOU**: https://guara-lemon.vercel.app (cadastro, Kanban, F5 e Saúde do sistema 10/10; `metodologia/evidencias/2026-11-13-p12-vercel.md`) |
 
 ## Ponto de retomada
 
-1. **Abrir uma nova sessão do Claude Code na pasta `estagiario-digital-fofofauna/`.** Ela carrega o hook, os subagentes e o MCP do projeto. Nela:
-   - aprovar o MCP `guara-dados` e chamar `resumir_demandas`;
-   - testar `echo GUARA_HOOK_TEST_BLOCK` (deve ser bloqueado) e `echo GUARA_OK`;
-   - invocar `arquiteto`, `implementador` e `auditor`.
-
-   Roteiro completo em `metodologia/evidencias/2026-11-13-p10-p11-mcp-hook-plugin.md`.
+1. **Feito:** MCP, hook e subagentes repetidos em sessão aberta na pasta do projeto. **Falta:** abrir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados (inclusive uma correção real pelo `implementador`).
 2. **Se todas as ferramentas aparecerem bloqueadas no início da sessão**, o hook está falhando. Renomeie `.claude/settings.json` para `.claude/settings.json.desativado` pelo Explorer. O hook roda no Git Bash e foi testado com saída 0 (permite) e 2 (bloqueia).
 3. **Publicado:** GitHub https://github.com/tiagobatista-stack/guara (privado) e Vercel https://guara-lemon.vercel.app. Cada push na `main` gera um novo deploy.
 4. **Riscos do arquiteto ainda em aberto:**
@@ -80,7 +75,7 @@ A autoria dos 14 commits locais anteriores foi reescrita para esse e-mail, antes
 
 ## Intervenções humanas pendentes
 
-1. Abrir uma nova sessão na pasta do projeto (hook, subagentes e MCP).
+1. Abrir a tela `/mcp` no terminal (único resto do MCP).
 2. GitHub: o repositório privado foi criado e o push feito. Falta informar o usuário GitHub do colaborador para o convite.
 4. Escolher a demanda piloto. Supabase e Google OAuth (opcional, depois do Vercel).
 5. Documento oficial do PDS, se for desejada uma verificação real.

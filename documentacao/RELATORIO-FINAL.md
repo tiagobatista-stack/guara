@@ -17,17 +17,19 @@ Auditoria final feita sem recomeçar o projeto. Regra: **nada marcado como PASSO
 | 4 | Exportação e importação JSON | `dados-portaveis.test` (válido, 6 inválidos, backup); exportar e importar no navegador | **PASSOU** |
 | 5 | Testes executados e falhas reais | `npm test`: **11 arquivos, 76/76**. Hook: **8/8**. Falhas reais registradas e corrigidas (seção 3) | **PASSOU** |
 | 6 | Skills criadas e ao menos uma execução real | 3 `SKILL.md`; `testar-sistema` invocada pela ferramenta Skill — `2026-11-13-p08-skill-testar-sistema.md` | **PASSOU** |
-| 7 | Subagentes criados e delegações demonstradas | 3 arquivos em `.claude/agents/`. Os **subagentes registrados não carregaram** nesta sessão (`Agent type 'arquiteto' not found`). Houve delegação real alternativa (agentes genéricos seguindo os arquivos de papel) — `2026-11-13-p09-orquestracao.md` | **PARCIAL** |
-| 8 | Seis padrões de orquestração | A, B, C, D, E e F com registro de agente, entrada, saída e evidência (fluxo alternativo); no produto, o fluxo determinístico da tela Saúde do sistema cobre A, B, C, E e F | **PARCIAL**: com os subagentes registrados, NÃO DEMONSTRADO |
-| 9 | MCP conectado e ferramenta realmente chamada | `node servidor-mcp/testar-servidor.ts`: cliente MCP real (stdio), 3 ferramentas `readOnly`; `resumir_demandas` total 5 = JSON exportado (5). Conexão em `/mcp` no Claude Code: **NÃO TESTADO** | **PARCIAL** |
-| 10 | Hook sentinela realmente bloqueado | Regras: 8/8 testes (sentinela bloqueada e `GUARA_OK` permitido). Em sessão real, `echo GUARA_HOOK_TEST_BLOCK` **não foi bloqueado**, porque o `settings.json` do projeto não foi carregado | **NÃO TESTADO** em sessão real |
+| 7 | Subagentes criados e delegações demonstradas | 3 arquivos em `.claude/agents/`. Na 1ª sessão não carregaram (`Agent type 'arquiteto' not found`). **Repetido em sessão aberta na pasta do projeto:** `arquiteto`, `auditor` (reexecutou `npm test`: 76/76) e `implementador` foram chamados e responderam, sem alterar arquivos. Delegação alternativa anterior em `2026-11-13-p09-orquestracao.md` | **PASSOU** (teste de carga e papel) — `2026-11-13-p13-repeticao-hook-subagentes-mcp.md` |
+| 8 | Seis padrões de orquestração | A, B, C, D, E e F com registro de agente, entrada, saída e evidência (fluxo alternativo); no produto, o fluxo determinístico da tela Saúde do sistema cobre A, B, C, E e F | **PARCIAL**: a rodada A–F com os subagentes registrados **não foi repetida** (NÃO DEMONSTRADO) |
+| 9 | MCP conectado e ferramenta realmente chamada | `node servidor-mcp/testar-servidor.ts` (cliente MCP real, 3 ferramentas `readOnly`). **Repetido:** `mcp__guara-dados__resumir_demandas` chamada pelo próprio Claude Code, total 5 = JSON exportado (5). A tela `/mcp` não foi aberta (comando de interface): NÃO TESTADO | **PASSOU** (chamada real); tela `/mcp` NÃO TESTADA |
+| 10 | Hook sentinela realmente bloqueado | Regras: 8/8 testes. **Repetido em sessão real:** `echo GUARA_HOOK_TEST_BLOCK` bloqueado pelo hook e `echo GUARA_OK` permitido | **PASSOU** |
 | 11 | GitHub: URL real e teste de acesso | repositório privado criado; `git ls-remote` = commit local — `2026-11-13-p12-github.md` | **PASSOU** |
 | 12 | Vercel: URL real e teste de acesso | `https://guara-lemon.vercel.app`: HTTP 200; cadastro, Kanban, F5 e Saúde 10/10 na URL pública — `2026-11-13-p12-vercel.md` | **PASSOU** |
 | 13 | Diferencial: tela Saúde do sistema | 6 agentes e 10 habilidades com autoteste real; estado inicial NÃO TESTADO; "Executar verificação" dá 10/10 OK (local e na URL pública); testes provam que uma habilidade quebrada vira FALHA | **PASSOU** |
 
-**Resumo:** 9 PASSOU · 3 PARCIAL · 1 NÃO TESTADO · 0 FALHOU em aberto.
+**Resumo:** 12 PASSOU · 1 PARCIAL (item 8) · 0 NÃO TESTADO · 0 FALHOU em aberto.
 
-> Os itens 7 a 10 têm a **mesma causa**: a sessão foi aberta na pasta pai (`Claude/0`), e o Claude Code só carrega o `.claude/` (hook, subagentes) e o `.mcp.json` de um projeto ao **abrir uma sessão na pasta dele**. O roteiro para fechá-los está na seção 5.
+> **Atualização (13/11/2026, 2ª sessão):** os itens 7, 9 e 10 tinham a mesma causa: a 1ª sessão foi aberta na pasta pai (`Claude/0`), e o Claude Code só carrega o `.claude/` (hook, subagentes) e o `.mcp.json` de um projeto ao abrir uma sessão na pasta dele. Repetidos numa sessão aberta em `estagiario-digital-fofofauna/`, passaram. Antes: 9 PASSOU · 3 PARCIAL · 1 NÃO TESTADO. Evidência: `metodologia/evidencias/2026-11-13-p13-repeticao-hook-subagentes-mcp.md`.
+>
+> **Ainda em aberto:** a rodada A–F com os subagentes registrados (item 8), a tela `/mcp` (comando de interface, que o agente não executa) e uma correção real feita pelo `implementador`.
 
 ## 2. Comandos de verificação
 
@@ -85,10 +87,12 @@ Os testes no navegador usaram **eventos de DOM disparados por script** na págin
 
 ## 5. Próximos passos
 
-1. **Abrir uma sessão do Claude Code em `estagiario-digital-fofofauna/`** e, nela:
-   - aprovar o MCP `guara-dados`, conferir com `/mcp` e chamar `resumir_demandas`;
-   - testar `echo GUARA_HOOK_TEST_BLOCK` (deve ser bloqueado pelo hook) e `echo GUARA_OK`;
-   - invocar os subagentes `arquiteto`, `implementador` e `auditor` (rodada A–F).
+1. **Concluído em sessão aberta na pasta do projeto** (`2026-11-13-p13-repeticao-hook-subagentes-mcp.md`):
+   - MCP: `resumir_demandas` chamada com sucesso (total 5);
+   - hook: `GUARA_HOOK_TEST_BLOCK` bloqueado e `GUARA_OK` permitido;
+   - subagentes `arquiteto`, `implementador` e `auditor` chamados.
+
+   **Falta:** conferir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados.
 2. Corrigir os 5 riscos do arquiteto. O risco **alto** é a marca `ficticio` na importação.
 3. Convidar o colaborador (falta o usuário GitHub dele).
 4. **Para produção multiusuário** (fora do escopo da oficina): backend e banco (Supabase, em branch separada, Prompt 14), autenticação Google, RLS testada com dois usuários, logs e monitoramento no servidor, e escolha da demanda piloto.

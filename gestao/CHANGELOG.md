@@ -31,4 +31,9 @@
   - repositório GitHub privado `guara`;
   - deploy no Vercel (https://guara-lemon.vercel.app) depois de 2 correções no `vercel.json`;
   - `documentacao/RELATORIO-FINAL.md` com a auditoria do P13 e o roteiro de apresentação de 2 minutos.
+- Repetição dos testes da seção 5 do relatório em sessão aberta na pasta do projeto (`metodologia/evidencias/2026-11-13-p13-repeticao-hook-subagentes-mcp.md`):
+  - hook bloqueou `GUARA_HOOK_TEST_BLOCK` e permitiu `GUARA_OK`;
+  - `arquiteto`, `auditor` (76/76) e `implementador` foram chamados;
+  - `resumir_demandas` chamada pelo Claude Code (total 5);
+  - relatório: de 9 PASSOU, 3 PARCIAL e 1 NÃO TESTADO para 12 PASSOU e 1 PARCIAL. Tela `/mcp` e rodada A–F com os registrados seguem pendentes.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.
