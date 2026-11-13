@@ -15,6 +15,9 @@ A apostila FluxoLab (P12, checkpoint C) exige como entrega um repositório GitHu
 
 ## Configuração prevista no Vercel
 
+> **Atualização:** o `vercel.json` na raiz substitui a configuração manual abaixo. A importação usa o Root Directory padrão (`./`). O build limpo foi simulado com sucesso.
+
+
 Importar em https://vercel.com/new com:
 
 | Campo | Valor |

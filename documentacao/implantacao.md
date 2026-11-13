@@ -24,18 +24,17 @@
 
 ## 3. 🔒 Vercel
 
-1. Entrar em https://vercel.com/new e importar o repositório GitHub, dando à integração acesso **só** a este repositório.
-2. Configurar:
-   - Framework: Vite;
-   - Root Directory: `aplicacao`;
-   - **Include files outside the Root Directory**: ativado;
-   - Build: `npm run build`;
-   - Output: `dist`.
-3. Fazer o deploy, abrir a URL real e conferir:
-   - o layout no celular e no desktop;
-   - a tela Saúde do sistema mostra "Modo local";
-   - "Executar verificação" funciona.
-4. Registrar a URL e a evidência em `metodologia/evidencias/`.
+O `vercel.json` na raiz já define a instalação (`npm --prefix aplicacao ci`), o build (`npm --prefix aplicacao run build`) e a saída (`aplicacao/dist`). Na importação, **mantenha o Root Directory na raiz (`./`)**: não é preciso configurar nada manualmente.
+
+O build limpo, feito só com os arquivos versionados, foi simulado em 13/11/2026 e passou.
+
+1. Entrar em https://vercel.com/new com a conta ligada ao GitHub e importar o repositório, dando à integração acesso **só** a ele.
+2. Framework Preset: "Other" (o `vercel.json` já define tudo). Clicar em **Deploy**.
+3. Abrir a URL real e conferir:
+   - cadastro, Kanban e F5;
+   - a tela Saúde do sistema, com "Executar verificação".
+4. Lembrar que a URL tem **localStorage próprio**: os dados de `localhost` não aparecem lá. Para levá-los, use exportar e importar JSON.
+5. Registrar a URL e a evidência em `metodologia/evidencias/`.
 
 ## 4. 🔒 Supabase (backend)
 
