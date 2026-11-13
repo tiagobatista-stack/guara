@@ -19,7 +19,7 @@
 | MCP | JSON exportado e chamada real | **PASSOU** com um cliente MCP real via stdio (total 5 = 5). Registro em `/mcp` nesta sessão: **NÃO TESTADO** |
 | Hook | sentinela bloqueada, benigno permitido | Regras: **PASSOU** (8/8). Bloqueio em sessão real: **NÃO TESTADO** (`settings.json` do projeto não carregado nesta sessão) |
 | GitHub | URL e commit | **PASSOU**: https://github.com/tiagobatista-stack/guara (privado), `main` = `37ca679` (`metodologia/evidencias/2026-11-13-p12-github.md`) |
-| Vercel | URL aberta e testada | **NÃO TESTADO**: aguarda a importação feita pelo responsável em vercel.com/new |
+| Vercel | URL aberta e testada | Deploy **PASSOU** (3ª tentativa, `452d74b`). URL de produção aberta e testada: **NÃO TESTADO** (`metodologia/evidencias/2026-11-13-p12-vercel.md`) |
 
 ## Ponto de retomada
 
