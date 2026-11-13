@@ -43,6 +43,12 @@ class TestHook(unittest.TestCase):
             with self.subTest(cmd=cmd):
                 self.assertEqual(rodar({"tool_name": ferramenta, "tool_input": {"command": cmd}}), 2)
 
+    def test_sentinela_bloqueada_e_benigno_permitido(self):
+        sentinela = "echo GUARA_HOOK_" + "TEST_BLOCK"
+        self.assertEqual(rodar({"tool_name": "Bash", "tool_input": {"command": sentinela}}), 2)
+        self.assertEqual(rodar({"tool_name": "PowerShell", "tool_input": {"command": sentinela}}), 2)
+        self.assertEqual(rodar({"tool_name": "Bash", "tool_input": {"command": "echo GUARA_OK"}}), 0)
+
     def test_bloqueia_arquivo_env(self):
         self.assertEqual(rodar({"tool_name": "Write", "tool_input": {"file_path": "aplicacao/.env", "content": "X=1"}}), 2)
         self.assertEqual(rodar({"tool_name": "Write", "tool_input": {"file_path": "C:\\p\\.env.local", "content": "X=1"}}), 2)

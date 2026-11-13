@@ -34,7 +34,7 @@ Auditoria dos critérios de `planejamento/PLANO.md` contra arquivos, testes e ex
 | Validação de entradas | PASSOU | limites de tamanho, enumerações, data válida |
 | Estados vazios | PASSOU | "Nenhuma demanda cadastrada", "Nenhuma demanda inativa" e colunas vazias no Kanban |
 | Responsividade | PASSOU | estilos computados em 1366, 800 e 375 px (fase 2) |
-| Restaurar exemplos com confirmação | PASSOU (código e confirmação) | não foi executado no navegador nesta rodada |
+| Restaurar exemplos com confirmação | PARCIAL | testado no armazém (`demandas-dominio.test`); não foi executado no navegador. Corrigido após auditoria (P09-D) |
 | Desfazer importação (backup) | PASSOU | `dados-portaveis.test` |
 | Armazenamento corrompido | PASSOU | aviso, sem apagar e sem gravar por cima |
 | Cliques físicos do usuário | NÃO TESTADO | a janela do app estava atrás de outra; os passos usaram eventos de DOM em script |

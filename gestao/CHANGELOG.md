@@ -20,4 +20,11 @@
 - Fase 3: CRUD de demandas em localStorage (modelo da apostila, regras puras, repositório, armazém único, lista com pesquisa e filtros, formulário validado, detalhe, exclusão com confirmação, aviso de corrupção). 55/55 testes.
 - Fase 4: Kanban com 4 colunas e menu "Mover para"; Dashboard com total, contagem por status, vencidas e inativas; regra pura de inatividade. 63/63 testes.
 - Fase 5: alertas locais com limiar persistido (padrão 3 dias), sino no cabeçalho, exportação e importação de `guara-dados.json` com validação, confirmação e backup, desfazer importação e restaurar exemplos. ACEITE-MVP (P07): 12/12 cenários. 75/75 testes.
+- Fase 6 (P08 a P11):
+  - skill `testar-sistema` invocada de verdade;
+  - padrões A–F por delegação real alternativa (os subagentes registrados não carregaram nesta sessão);
+  - correção de `Alertas.tsx` (desfazer importação atualiza o limiar) feita pelo implementador e aprovada pelo auditor;
+  - servidor MCP local `guara-dados` (stdio, somente leitura, 3 ferramentas) testado com cliente real;
+  - sentinela `GUARA_HOOK_TEST_BLOCK` no hook;
+  - inspeção de plugins. 76/76 testes.
 - Nome do projeto definido: **GUARÁ** — Gestão Unificada de Análises, Rotinas e Apoio.

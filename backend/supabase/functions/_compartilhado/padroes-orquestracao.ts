@@ -16,7 +16,8 @@ export interface PadraoOrquestracao {
 
 const DEV_PENDENTE = {
   situacao: 'NÃO DEMONSTRADO' as const,
-  justificativa: 'Rodada com subagentes arquiteto, implementador e auditor ainda não executada nem registrada.',
+  justificativa:
+    'Subagentes registrados (.claude/agents) não estavam disponíveis na sessão de 13/11/2026. Houve delegação real alternativa (agentes genéricos seguindo os arquivos de papel) para A–F: ver metodologia/evidencias/2026-11-13-p09-orquestracao.md.',
 };
 
 function etapaOk(ex: ExecucaoFluxo, agente: string, habilidade: string): boolean | null {

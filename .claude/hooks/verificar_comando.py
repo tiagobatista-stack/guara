@@ -15,6 +15,8 @@ import re
 import sys
 
 COMANDOS_DESTRUTIVOS = [
+    # Sentinela inofensiva da apostila (P11): prova que o bloqueio vem do hook.
+    (r"GUARA_HOOK_TEST_BLOCK", "sentinela GUARA_HOOK_TEST_BLOCK"),
     (r"\brm\s+(-[a-zA-Z]*r[a-zA-Z]*f|-[a-zA-Z]*f[a-zA-Z]*r)\b", "rm -rf"),
     (r"\brm\s+-r\b", "rm -r"),
     (r"\bRemove-Item\b.*-Recurse", "Remove-Item -Recurse"),

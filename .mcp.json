@@ -1,0 +1,10 @@
+{
+  "mcpServers": {
+    "guara-dados": {
+      "type": "stdio",
+      "command": "node",
+      "args": ["servidor-mcp/servidor.ts"],
+      "env": {}
+    }
+  }
+}
