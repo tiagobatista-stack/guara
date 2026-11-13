@@ -259,4 +259,13 @@ A gravidade é baixa: isso só acontece com um backup adulterado, ou quando as d
 
 **Documentação:** nenhum PASSOU sem execução. Não há segredos no diff, e os dados dos testes são fictícios.
 
-**NÃO TESTADO:** navegador real (o botão "Desfazer última importação" com um backup adulterado), push e deploy. Continuam abertas as ressalvas 1, 3, 4 e 5 do 3c e o caso do `conteudo` string inválido.
+**NÃO TESTADO:** navegador real (o botão "Desfazer última importação" com um backup adulterado), push e deploy. Continuam abertas as ressalvas 1, 3, 4 e 5 do 3c e o caso do `conteudo` string inválido. *(O push e o deploy foram feitos depois; ver a seção seguinte.)*
+
+## Publicação das correções 3b, 3c e da ressalva 2 (13/11/2026)
+
+| Verificação | Resultado | Situação |
+|---|---|---|
+| Envio ao GitHub | Feito pelo responsável no terminal. O hook do projeto bloqueou o envio pelo Claude, como previsto. Ao final, `origin/main` = `004be7e` e nenhum commit local ficou pendente | PASSOU |
+| Deploy no Vercel | Status do commit `004be7e` no GitHub: `Vercel success — Deployment has completed` | PASSOU |
+| Bundle publicado | https://guara-lemon.vercel.app serve `index-CSMJPeam.js`, o mesmo nome do build local (`aplicacao/dist/assets/index-CSMJPeam.js`). Antes servia `index-BuxkUhiy.js` | PASSOU |
+| Comportamento das correções na URL pública (aviso com storage bloqueado, desfazer com falha de gravação, backup adulterado) | Esses casos exigem bloquear ou adulterar o localStorage no navegador | NÃO TESTADO |
