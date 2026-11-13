@@ -220,7 +220,7 @@ Nenhum documento declarava PASSOU sem execução. Não há segredos nem dados qu
 
 Nesses casos o erro cai no `catch` que já existia: "Backup ilegível; nada foi alterado.", sem nenhuma gravação.
 
-**Testes:** `testes/unidade/riscos-arquiteto.test.ts:291-342`.
+**Testes:** `testes/unidade/riscos-arquiteto.test.ts:292-342`.
 - Seis casos (`it.each`): `{}`, `[]`, `{"conteudo":5}`, `diasInatividade` ausente, `'x'` e `0`. Cada um exige `ok:false`, a mensagem exata, as 3 chaves iguais à fotografia (inclusive o backup), a memória inalterada e nenhum `erroArmazenamento`.
 - Um caso válido, com `conteudo: null`, que deve continuar funcionando.
 
@@ -229,9 +229,34 @@ Nesses casos o erro cai no `catch` que já existia: "Backup ilegível; nada foi 
 | 1 | Os testes novos falham no código anterior, por asserção | `npx vitest run ../testes/unidade/riscos-arquiteto.test.ts`, com o código original (implementador) | `6 failed \| 23 passed (29)`: `AssertionError: expected true to be false` (:320), porque a função devolvia `ok:true`. O caso válido já passava antes, como esperado. **São 6 de 7** | PASSOU (o teste detecta o defeito) |
 | 2 | Suíte completa | `npx vitest run` (reexecutado pelo Claude principal) | `Test Files 13 passed (13)` · `Tests 106 passed (106)` | PASSOU |
 | 3 | Build | `npm run build` (reexecutado pelo Claude principal) | `tsc --noEmit` sem erros; `✓ built` | PASSOU |
-| 4 | Revisão independente pelo `auditor` desta correção | — | — | NÃO TESTADO |
+| 4 | Revisão independente pelo `auditor` desta correção | ver a seção seguinte | APROVADO | feita |
 
 **Limitações:**
-- Se `conteudo` for uma string que não é JSON de demandas válido, ela ainda é gravada. Nesse caso o app mostra o aviso de armazenamento corrompido que já existia.
+- Se `conteudo` for uma string que não é JSON de demandas válido, ela ainda é gravada. A função devolve `ok:true` e a tela mostra "Dados anteriores à importação restaurados.". Depois o app mostra o aviso de armazenamento corrompido que já existia, e o backup é removido.
 - Navegador real, push e deploy: NÃO TESTADO.
 - As outras ressalvas do 3c continuam abertas: as 1, 3, 4 e 5.
+
+## Revisão independente da ressalva 2 do 3c (auditor registrado, padrão C)
+
+**Data:** 13/11/2026. **Commit revisado:** `f14473c`. O `auditor` só leu arquivos e rodou testes. `git status` ficou limpo.
+
+**Veredito: APROVADO**, com duas imprecisões menores na evidência, já corrigidas acima: o intervalo `:292-342` e a limitação do `conteudo` string, que agora fica completa.
+
+| Verificação | Método e resultado | Situação |
+|---|---|---|
+| Os testes novos falham no código anterior | `git archive f14473c`, trocando só o `armazem.ts` pelo de `f14473c^`, que é o único arquivo de código alterado. Resultado: `6 failed \| 23 passed (29)`, igual ao declarado. Todas as falhas são `AssertionError: expected true to be false` (:320), ou seja, por asserção. O 7º teste (`conteudo: null` válido) passa, porque é proteção contra regressão | PASSOU |
+| Backups legítimos não passam a ser recusados (análise do código) | O backup só é gravado em `armazem.ts:181`. O valor de `diasInatividade` vem só de `lerDias` (:53-60), `definirDiasInatividade` (:160) ou `validarImportacao` (`dados-portaveis.ts:59-60`), e os três passam por `diasValidos`. Essa função não muda desde `957020a`, o commit que criou o backup. Logo, nenhum backup gerado pelo app fica fora de 1–365, e isso vale também para os legados | conferido |
+| Backups legítimos (sonda do auditor, fora do repositório) | `Tests 9 passed (9)`. A sonda cobriu os limites 1↔365, a configuração ausente ou corrompida (que vira 3), `conteudo: null`, a importação sem `configuracao` e duas importações seguidas | PASSOU (sonda, não durável) |
+| Suíte completa | `npx vitest run`: `Test Files 13 passed (13)` · `Tests 106 passed (106)` | PASSOU |
+| Build | `tsc --noEmit && vite build`: `✓ built in 368ms`, saída 0 | PASSOU |
+
+**Limitação confirmada pela sonda.** Um backup `{conteudo:'lixo{', diasInatividade:3}` ainda produz este efeito:
+- devolve `ok:true` e aplica o conteúdo;
+- o app entra em `erroArmazenamento`;
+- o backup é removido.
+
+A gravidade é baixa: isso só acontece com um backup adulterado, ou quando as demandas já estavam corrompidas antes de importar. Nesse segundo caso, a restauração reproduz fielmente o estado anterior.
+
+**Documentação:** nenhum PASSOU sem execução. Não há segredos no diff, e os dados dos testes são fictícios.
+
+**NÃO TESTADO:** navegador real (o botão "Desfazer última importação" com um backup adulterado), push e deploy. Continuam abertas as ressalvas 1, 3, 4 e 5 do 3c e o caso do `conteudo` string inválido.
