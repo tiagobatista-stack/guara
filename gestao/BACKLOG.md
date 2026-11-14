@@ -18,4 +18,12 @@
 - **Origem judicial ou do MP:** campo `origem` com prioridade e destaque, como em `judicial_modulo.py`. Muda o modelo da apostila: confirme com o responsável e faça migração do formato `versao: 1`, com backup antes.
 - **Migrações versionadas:** lista de passos, como em `migracoes.py`. Necessária na primeira mudança de modelo.
 - **Prazo escrito em português:** "prazo 10 dias úteis", "sexta que vem", "22/12 a 29/12", como em `prazo.py:extrair`. No formulário, a data entra só como sugestão e a pessoa confirma.
+- **Demanda travada:** estado próprio com motivo por botões ("falta documento", "aguardando outro setor", "depende de campo", "outro"), reavaliação e "destravou", como em `travada_modulo.py`. No GUARÁ, um campo de bloqueio que não altera as 4 colunas do Kanban. Muda o modelo: depende das migrações versionadas.
+- **Tempo em andamento:** "em andamento há N dias" e filtro "em andamento", calculados a partir de `ultimaAcaoRelevante`. Não muda o modelo.
+- **Triagem de demanda sem prazo:** prazo sugerido em um clique para que as demandas sem data não se acumulem, como no bom dia do TOCA. A pessoa confirma antes de gravar.
+- **Aviso de demanda parecida:** no cadastro, aponta título semelhante já existente para evitar duplicata.
+- **Três números por demanda:** processo, MP/SIMP e judicial/CNJ, com dígito verificador do CNJ, como em `identificadores.py` e `processos.py`. Exemplos só no padrão `FIC-`. Muda o modelo: confirme com o responsável.
+- **Tipo campo × gabinete e demanda × tarefa comum:** deduzidos das palavras do título, como em `tipo.py` e `demanda.py`; sem palavra conclusiva, a pessoa escolhe.
+- **Resumo sem dado pessoal:** visão para tela compartilhada montada por lista branca de campos, como em `resumo.py`.
+- **Campos essenciais:** mostrar o que falta preencher em cada demanda, como em `perguntas.py`.
 - **Depois do MVP:** importar agenda `.ics` (`agenda_local.py`), histórico que guarda só o nome dos campos alterados, e uma verificação de termos proibidos (`verificar_generico.py`) no gate.
