@@ -3,6 +3,7 @@
 import { STATUS } from '../demandas/modelo.ts';
 import { useEstadoDemandas } from '../demandas/armazem.ts';
 import { DIAS_INATIVIDADE_PADRAO, diasParado } from '../alertas/inatividade.ts';
+import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { calcularMetricas } from './metricas.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
@@ -48,7 +49,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
             <p className="texto-suave texto-medio">Nenhuma demanda vencida ou inativa.</p>
           ) : (
             <ul className="lista-limpa lista-divisoria texto-medio">
-              {m.vencidas.map((d) => <li key={`v-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--falha">· vencida em {data(d.prazo)}</span></li>)}
+              {m.vencidas.map((d) => <li key={`v-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--falha">· vencida em {data(d.prazo)} ({situacaoDaDemanda(d, instante)?.texto})</span></li>)}
               {m.inativas.map((d) => <li key={`i-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--atencao">· parada há {diasParado(d, instante)} dia(s)</span></li>)}
             </ul>
           )}
@@ -59,7 +60,15 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
             <p className="texto-suave texto-medio">Nenhum prazo em aberto.</p>
           ) : (
             <ol className="linha-tempo">
-              {comPrazo.map((d) => <li key={d.id}><span className="mono texto-pequeno">{data(d.prazo)}</span> — {d.titulo}</li>)}
+              {comPrazo.map((d) => {
+                const s = situacaoDaDemanda(d, instante);
+                return (
+                  <li key={d.id} data-testid={`prazo-${d.id}`}>
+                    <span className="mono texto-pequeno">{data(d.prazo)}</span> — {d.titulo}
+                    {s && <span className={`texto-pequeno ${s.vencido ? 'texto--falha' : 'texto-suave'}`}> · {s.texto}</span>}
+                  </li>
+                );
+              })}
             </ol>
           )}
         </div>

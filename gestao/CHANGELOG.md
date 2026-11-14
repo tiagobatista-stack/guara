@@ -1,5 +1,11 @@
 # CHANGELOG
 
+## [Não lançado]
+
+### Adicionado
+
+- Prazo em dias úteis com feriados nacionais (Páscoa calculada, sem rede) em `alertas/dias-uteis.ts`, com a lógica reescrita a partir do TOCA. O Dashboard, o Kanban e Demandas mostram "faltam N dias úteis" ou "vencido há N dias úteis". A regra de vencida não mudou. 135/135 testes.
+
 ## [0.1.0] — 13/11/2026
 
 ### Adicionado

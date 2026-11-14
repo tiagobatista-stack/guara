@@ -6,12 +6,17 @@ import { PRIORIDADES, STATUS, type Demanda } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useArmazem, useEstadoDemandas } from './armazem.ts';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
+import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 
 type Modo = { tipo: 'lista' } | { tipo: 'nova' } | { tipo: 'editar'; id: string } | { tipo: 'detalhe'; id: string };
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
 
 const dataHora = (iso: string) => new Date(iso).toLocaleString('pt-BR');
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
+const comSituacao = (d: Demanda, agora: Date) => {
+  const s = situacaoDaDemanda(d, agora);
+  return s ? `${data(d.prazo)} · ${s.texto}` : data(d.prazo);
+};
 
 function baixarArquivo(nome: string, conteudo: string) {
   const url = URL.createObjectURL(new Blob([conteudo], { type: 'application/json' }));
@@ -22,7 +27,7 @@ function baixarArquivo(nome: string, conteudo: string) {
   URL.revokeObjectURL(url);
 }
 
-export function Demandas() {
+export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const armazem = useArmazem();
   const { demandas, erroArmazenamento, conteudoBruto } = useEstadoDemandas();
   const [modo, setModo] = useState<Modo>({ tipo: 'lista' });
@@ -129,7 +134,7 @@ export function Demandas() {
             <dt>Status</dt><dd>{emDetalhe.status}</dd>
             <dt>Prioridade</dt><dd>{emDetalhe.prioridade}</dd>
             <dt>Responsável</dt><dd>{emDetalhe.responsavel || '—'}</dd>
-            <dt>Prazo</dt><dd>{data(emDetalhe.prazo)}</dd>
+            <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora())}</dd>
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
           </dl>
@@ -185,7 +190,7 @@ export function Demandas() {
                     <dt>Status</dt><dd>{d.status}</dd>
                     <dt>Prioridade</dt><dd>{d.prioridade}</dd>
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
-                    <dt>Prazo</dt><dd>{data(d.prazo)}</dd>
+                    <dt>Prazo</dt><dd>{comSituacao(d, agora())}</dd>
                   </dl>
                   <div className="acoes">
                     <button type="button" className="botao botao--pequeno" aria-label={`Detalhes de ${d.titulo}`} onClick={() => { setAviso(null); setModo({ tipo: 'detalhe', id: d.id }); }}>

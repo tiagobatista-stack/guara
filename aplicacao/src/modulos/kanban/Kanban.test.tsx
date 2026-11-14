@@ -3,6 +3,7 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import type { Demanda } from '../demandas/modelo.ts';
+import { Demandas } from '../demandas/Demandas.tsx';
 import { Painel } from '../painel/Painel.tsx';
 import { Kanban } from './Kanban.tsx';
 
@@ -57,5 +58,31 @@ describe('Kanban', () => {
     expect(screen.getByTestId('metrica-vencidas')).toHaveTextContent('1');
     expect(screen.getByTestId('metrica-inativas')).toHaveTextContent('1');
     expect(screen.getByText(/parada há 5 dia/)).toBeInTheDocument();
+  });
+
+  it('mostra o prazo em dias úteis no Kanban, no dashboard e na lista, pulando o feriado de 20/11', () => {
+    const armazem = criarArmazem(localStorage, {
+      exemplos: () => [
+        { ...EXEMPLOS[0], prazo: '2026-11-23' },
+        { ...EXEMPLOS[1], prazo: '2026-11-10' },
+        { ...EXEMPLOS[1], id: 'k3', titulo: 'Arquivar relatório', status: 'Concluída', prazo: '2026-11-10' },
+      ],
+    });
+    const agora = () => new Date(2026, 10, 13, 12, 0); // sexta 13/11/2026, fuso local
+    render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Kanban agora={agora} />
+        <Painel agora={agora} />
+        <Demandas agora={agora} />
+      </ContextoArmazem.Provider>,
+    );
+    expect(within(screen.getByTestId('coluna-A Fazer')).getByTestId('prazo-k1')).toHaveTextContent('faltam 5 dias úteis');
+    const vencido = within(screen.getByTestId('coluna-Em Validação')).getByTestId('prazo-k2');
+    expect(vencido).toHaveTextContent('vencido há 3 dias úteis');
+    expect(vencido).toHaveClass('texto--falha');
+    expect(screen.queryAllByTestId('prazo-k3')).toHaveLength(0);
+    expect(screen.getByText(/vencida em 10\/11\/2026 \(vencido há 3 dias úteis\)/)).toBeInTheDocument();
+    expect(within(screen.getByTestId('demanda-k1')).getByText('23/11/2026 · faltam 5 dias úteis')).toBeInTheDocument();
+    expect(within(screen.getByTestId('demanda-k3')).getByText('10/11/2026')).toBeInTheDocument();
   });
 });

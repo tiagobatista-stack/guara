@@ -5,10 +5,12 @@
 import { useState } from 'react';
 import { STATUS, type Demanda, type Status } from '../demandas/modelo.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
+import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : 'sem prazo');
 
-export function Kanban() {
+export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
+  const instante = agora();
   const armazem = useArmazem();
   const { demandas, erroArmazenamento } = useEstadoDemandas();
   const [aviso, setAviso] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
@@ -41,24 +43,28 @@ export function Kanban() {
                 <p className="texto-pequeno texto-suave">Nenhuma demanda.</p>
               ) : (
                 <ul className="lista-limpa kanban-lista">
-                  {cartoes.map((d) => (
-                    <li key={d.id} className="cartao kanban-cartao">
-                      <p className="texto-medio"><strong>{d.titulo}</strong></p>
-                      <p className="texto-pequeno texto-suave">{d.prioridade} · {d.responsavel || 'sem responsável'} · {data(d.prazo)}</p>
-                      <label className="campo-grupo texto-pequeno">
-                        <span>Mover para</span>
-                        <select
-                          className="campo"
-                          value={d.status}
-                          aria-label={`Mover "${d.titulo}" para`}
-                          disabled={!!erroArmazenamento}
-                          onChange={(e) => mover(d, e.target.value as Status)}
-                        >
-                          {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
-                        </select>
-                      </label>
-                    </li>
-                  ))}
+                  {cartoes.map((d) => {
+                    const prazo = situacaoDaDemanda(d, instante);
+                    return (
+                      <li key={d.id} className="cartao kanban-cartao">
+                        <p className="texto-medio"><strong>{d.titulo}</strong></p>
+                        <p className="texto-pequeno texto-suave">{d.prioridade} · {d.responsavel || 'sem responsável'} · {data(d.prazo)}</p>
+                        {prazo && <p className={`texto-pequeno ${prazo.vencido ? 'texto--falha' : 'texto-suave'}`} data-testid={`prazo-${d.id}`}>{prazo.texto}</p>}
+                        <label className="campo-grupo texto-pequeno">
+                          <span>Mover para</span>
+                          <select
+                            className="campo"
+                            value={d.status}
+                            aria-label={`Mover "${d.titulo}" para`}
+                            disabled={!!erroArmazenamento}
+                            onChange={(e) => mover(d, e.target.value as Status)}
+                          >
+                            {STATUS.map((s) => <option key={s} value={s}>{s}</option>)}
+                          </select>
+                        </label>
+                      </li>
+                    );
+                  })}
                 </ul>
               )}
             </section>
