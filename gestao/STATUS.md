@@ -37,7 +37,8 @@
 12. **Tipo campo × gabinete e natureza (14/11/2026), item 11 das ideias do TOCA:** campos opcionais `tipo` e `natureza`, deduzidos do título no cadastro e conferidos pela pessoa, sem migração; PLANO atualizado. Foram 16 testes novos; total 201/201, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-tipo-e-natureza.md`.
 13. **Resumo sem dado pessoal (14/11/2026), item 12 das ideias do TOCA:** botão "Tela compartilhada" em Demandas, com resumo por lista branca (sem responsável nem descrição; SIMP e CNJ só como "tem"). O modelo não mudou. Foram 6 testes novos; total 207/207, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-resumo-sem-dado-pessoal.md`.
 14. **Publicação (14/11/2026):** os itens 5 e 7 a 13 acima foram publicados. O responsável fez o push (o hook bloqueia o do Claude); `origin/main` = `9e03ff8`, e https://guara-lemon.vercel.app serve o mesmo bundle do build local (`index-BZCS2W7X.js`). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-ideias-toca.md`.
-15. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
+15. **Login Google preparado (14/11/2026), branch local `login-google`:** Supabase Auth com Google (PKCE, supabase-js 2.118.0 sob demanda), botão de conta no menu, recusa de chave secreta, só escopos do login. Sem as variáveis, o app funciona como antes. Foram 12 testes novos com cliente falso; total 219/219, build ok. Login real: NÃO TESTADO (falta configurar Supabase e Google, passos 🔒 em `documentacao/implantacao.md` 4.1). Evidência em `metodologia/evidencias/2026-11-14-preparacao-login-google.md`.
+16. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
 
 ## Comandos
 

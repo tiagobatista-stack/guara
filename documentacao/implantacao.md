@@ -50,3 +50,26 @@ Histórico: o 1º deploy falhou com `npm --prefix aplicacao ci` e o 2º com `cd 
 3. 🔒 Configurar o Google OAuth: projeto no Google Cloud, tela de consentimento e URLs de retorno do Supabase, incluindo a URL do Vercel.
 4. Guardar os segredos **somente** no cofre do Supabase (`supabase secrets set`).
 5. No Vercel entram só `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY`. A `service_role` nunca vai para o Vercel.
+
+### 4.1 🔒 Login Google (branch `login-google`)
+
+O código está pronto na branch `login-google` (decisão `gestao/decisoes/2026-11-14-login-google.md`). Sem as variáveis abaixo, o login fica desligado. Cada passo exige conta, termos ou autorização do responsável; **segredos nunca passam pela conversa**. Os nomes dos menus podem mudar: confira na documentação oficial de cada serviço.
+
+**Antes de começar, decida:** contas pessoais ou institucionais; quem pode entrar; aprovação institucional para guardar e-mail e nome no Supabase.
+
+1. **Supabase: projeto.** Em https://supabase.com/dashboard, criar o projeto na região São Paulo (`sa-east-1`). Conferir os limites do plano gratuito em https://supabase.com/pricing.
+2. **Supabase: chaves públicas.** Nas configurações de API do projeto, copiar a **Project URL** e a chave **publishable** (ou a `anon` antiga). Não copiar a `service_role`/`sb_secret_`.
+3. **Supabase: URLs de retorno.** Em Authentication → URL Configuration:
+   - Site URL: `https://guara-lemon.vercel.app`
+   - Redirect URLs: `https://guara-lemon.vercel.app/`, `http://127.0.0.1:5173/` e, se for testar na pré-visualização da Vercel, a URL da branch.
+4. **Google Cloud: tela de consentimento.** Em https://console.cloud.google.com/, criar um projeto e configurar a tela de consentimento OAuth:
+   - tipo **Interno** (só contas da organização) ou **Externo** (qualquer conta Google);
+   - escopos: **só** `openid`, `email` e `profile`;
+   - status **Testing**, com os usuários de teste cadastrados.
+5. **Google Cloud: cliente OAuth.** Em APIs e serviços → Credenciais, criar um "ID do cliente OAuth" do tipo **Aplicativo da Web**:
+   - Origens JavaScript autorizadas: `https://guara-lemon.vercel.app` e `http://127.0.0.1:5173`;
+   - URI de redirecionamento autorizado: a URL de callback que o Supabase mostra na página do provedor Google (formato `https://<ref-do-projeto>.supabase.co/auth/v1/callback`).
+6. **Supabase: provedor Google.** Em Authentication → Providers → Google, ativar e colar o **Client ID** e o **Client Secret**. O segredo fica só ali; não vai para o repositório, para a Vercel nem para a conversa. Guia oficial: https://supabase.com/docs/guides/auth/social-login/auth-google
+7. **Teste local.** Copiar `aplicacao/.env.exemplo` para `aplicacao/.env.local` (não versionado), preencher as duas variáveis, rodar `npm run dev` e abrir `http://127.0.0.1:5173`. O rodapé do menu deve mostrar "Entrar com Google".
+8. **Vercel (pré-visualização).** Em Settings → Environment Variables (https://vercel.com/docs/environment-variables), cadastrar `VITE_SUPABASE_URL` e `VITE_SUPABASE_ANON_KEY` só para **Preview** da branch `login-google`. Produção só depois de aprovar e juntar a branch na `main`.
+9. Registrar cada passo em `metodologia/evidencias/` como PASSOU, FALHOU ou NÃO TESTADO.

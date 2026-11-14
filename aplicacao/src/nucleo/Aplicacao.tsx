@@ -16,6 +16,7 @@ import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
 import { PainelAssistente } from '../modulos/assistente/PainelAssistente.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
+import { Conta } from './Conta.tsx';
 
 function useRota(): [string, (id: string) => void] {
   const [rota, setRota] = useState(() => moduloDaRota(window.location.hash));
@@ -79,9 +80,7 @@ export function Aplicacao() {
           <button type="button" className="menu-item" disabled title="Configurações (não implementado)">
             <Icone nome="configuracoes" /> <span className="menu-rotulo">Configurações</span>
           </button>
-          <button type="button" className="menu-item" disabled title="Sair (sem autenticação nesta versão)">
-            <Icone nome="sair" /> <span className="menu-rotulo">Sair</span>
-          </button>
+          <Conta />
         </div>
       </nav>
 

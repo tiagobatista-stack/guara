@@ -10,6 +10,7 @@ const CAMINHOS = {
   saude: 'M3 12h4l2-5 4 10 2-5h6',
   configuracoes: 'M12 9a3 3 0 1 0 0 6 3 3 0 0 0 0-6zM12 2v3M12 19v3M2 12h3M19 12h3M5 5l2 2M17 17l2 2M5 19l2-2M17 7l2-2',
   sair: 'M15 4h4v16h-4M10 8l-4 4 4 4M6 12h10',
+  entrar: 'M9 4H5v16h4M14 8l4 4-4 4M18 12H8',
   conversa: 'M4 5h16v11H9l-5 4z',
   mais: 'M5 12h.01M12 12h.01M19 12h.01',
   fechar: 'M6 6l12 12M18 6L6 18',
