@@ -5,8 +5,7 @@
 ## Próxima sessão (em ordem)
 
 1. **Reativar o MCP (P10).** No Node 26 o servidor já sobe e as dependências estão instaladas (`2026-11-14-reverificacao-node26.md`). Falta o responsável exportar `guara-dados.json` pela tela Alertas e salvá-lo em `servidor-mcp/dados/`; depois rode `node servidor-mcp/testar-servidor.ts`. Reinicie a sessão para o `guara-dados` reconectar e repita a chamada real de `resumir_demandas`. Abrir a tela `/mcp` ainda está NÃO TESTADO.
-2. **Commitar a mudança de dias úteis.** Ela está pronta e testada, mas não foi commitada. Arquivos: `alertas/dias-uteis.ts`, `testes/unidade/dias-uteis.test.ts`, `Painel.tsx`, `Kanban.tsx`, `Demandas.tsx`, `Kanban.test.tsx`, o README de `alertas`, `STATUS.md`, `CHANGELOG.md`, este backlog e a evidência `2026-11-14-prazos-dias-uteis.md`. Antes, confira as telas no navegador; até lá, elas estão NÃO CONFERIDO VISUALMENTE. O push e o deploy pedem autorização.
-3. **Corrigir o caminho da apostila no `CLAUDE.md`.** Ele aponta para `../Apostila_FluxoLab_Claude_Code.md`, que não existe. A cópia está em `documentacao/` e não está versionada. O responsável decide se versiona esse material da oficina.
+2. **Conferir e publicar os dias úteis.** O commit `3b97357` foi feito só no repositório local. Confira no navegador o Dashboard, o Kanban e Demandas, inclusive em tela de celular; até lá, as telas estão NÃO CONFERIDO VISUALMENTE. O push para o GitHub, que gera o deploy na Vercel, pede autorização.
 
 ## Pendências da apostila
 

@@ -4,7 +4,7 @@
 
 ## Precedência (decisão D10)
 
-O projeto está vinculado à **Apostila FluxoLab** (`../Apostila_FluxoLab_Claude_Code.md`), que **governa o MVP e as entregas da aula**. O planejamento v1.3 governa a visão de longo prazo. Regras permanentes da apostila (Prompt 01):
+O projeto está vinculado à **Apostila FluxoLab** (`documentacao/Apostila_FluxoLab_Claude_Code.md`, cópia local não versionada), que **governa o MVP e as entregas da aula**. O planejamento v1.3 governa a visão de longo prazo. Regras permanentes da apostila (Prompt 01):
 
 - Arquitetura estática: React, Vite, TypeScript, **CSS próprio leve** e **localStorage**.
 - Sem backend, SQLite, Docker, login ou serviços pagos na entrega principal. O Supabase só entra depois do Vercel, em branch separada.
