@@ -8,6 +8,7 @@ import { useArmazem, useEstadoDemandas } from './armazem.ts';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
 import { acharParecida } from './parecida.ts';
 import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
+import { NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, TIPOS } from './classificacao.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -102,6 +103,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           titulo="Nova demanda"
           inicial={ENTRADA_VAZIA}
           aoCancelar={() => setModo({ tipo: 'lista' })}
+          deduzirAoDigitar
           verificarParecida={(entrada) => acharParecida(entrada, demandas)}
           aoVerExistente={(id) => {
             const existente = buscar(id);
@@ -149,6 +151,8 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dt>Status</dt><dd>{emDetalhe.status}</dd>
             {textoEmAndamento(emDetalhe, agora()) && <><dt>Andamento</dt><dd>{textoEmAndamento(emDetalhe, agora())}</dd></>}
             <dt>Prioridade</dt><dd>{emDetalhe.prioridade}</dd>
+            <dt>Tipo</dt><dd>{emDetalhe.tipo ? ROTULOS_TIPO[emDetalhe.tipo] : 'não definido'}</dd>
+            <dt>Natureza</dt><dd>{emDetalhe.natureza ? ROTULOS_NATUREZA[emDetalhe.natureza] : 'não definida'}</dd>
             <dt>Responsável</dt><dd>{emDetalhe.responsavel || '—'}</dd>
             <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora())}</dd>
             {NUMEROS.map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono">{emDetalhe[c] ?? '—'}</dd></Fragment>)}
@@ -217,6 +221,22 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               </select>
             </label>
             <label className="campo-grupo">
+              <span>Tipo</span>
+              <select className="campo" value={filtros.tipo} onChange={(e) => setFiltros({ ...filtros, tipo: e.target.value as Filtros['tipo'] })}>
+                <option value="">Todos</option>
+                {TIPOS.map((t) => <option key={t} value={t}>{ROTULOS_TIPO[t]}</option>)}
+                <option value="sem">Não definido</option>
+              </select>
+            </label>
+            <label className="campo-grupo">
+              <span>Natureza</span>
+              <select className="campo" value={filtros.natureza} onChange={(e) => setFiltros({ ...filtros, natureza: e.target.value as Filtros['natureza'] })}>
+                <option value="">Todas</option>
+                {NATUREZAS.map((n) => <option key={n} value={n}>{ROTULOS_NATUREZA[n]}</option>)}
+                <option value="sem">Não definida</option>
+              </select>
+            </label>
+            <label className="campo-grupo">
               <span>Responsável</span>
               <select className="campo" value={filtros.responsavel} onChange={(e) => setFiltros({ ...filtros, responsavel: e.target.value })}>
                 <option value="">Todos</option>
@@ -238,6 +258,9 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                     <dt>Status</dt><dd>{d.status}</dd>
                     {textoEmAndamento(d, agora()) && <><dt>Andamento</dt><dd data-testid={`andamento-${d.id}`}>{textoEmAndamento(d, agora())}</dd></>}
                     <dt>Prioridade</dt><dd>{d.prioridade}</dd>
+                    {(d.tipo || d.natureza) && (
+                      <><dt>Classificação</dt><dd data-testid={`classe-${d.id}`}>{[d.tipo && ROTULOS_TIPO[d.tipo], d.natureza && ROTULOS_NATUREZA[d.natureza]].filter(Boolean).join(' · ')}</dd></>
+                    )}
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
                     <dt>Prazo</dt><dd>{comSituacao(d, agora())}</dd>
                     {NUMEROS.filter((c) => d[c]).map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono" data-testid={`${c}-${d.id}`}>{d[c]}</dd></Fragment>)}

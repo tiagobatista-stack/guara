@@ -3,6 +3,10 @@ import { LIMITES, PRIORIDADES, STATUS, type EntradaDemanda } from './modelo.ts';
 import { validarEntrada, type ErrosValidacao } from './regras.ts';
 import { textoMotivo, type Parecida } from './parecida.ts';
 import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
+import {
+  deduzirNatureza, deduzirTipo, NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, textoPorque, TIPOS,
+  type Deducao, type Natureza, type Tipo,
+} from './classificacao.ts';
 
 const EXEMPLO_NUMERO = { processo: 'FIC-2026-0001', simp: 'NNNNNN-NNN/AAAA', judicial: 'NNNNNNN-DD.AAAA.J.TR.OOOO' } as const;
 
@@ -28,17 +32,66 @@ interface Props {
   verificarParecida?: (entrada: EntradaDemanda) => Parecida | null;
   /** Abre a demanda parecida (descarta o cadastro em andamento). */
   aoVerExistente?: (id: string) => void;
+  /** Só no cadastro: preenche tipo e natureza pelo título enquanto a pessoa não os escolhe. */
+  deduzirAoDigitar?: boolean;
 }
 
-export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verificarParecida, aoVerExistente }: Props) {
+type Classe = 'tipo' | 'natureza';
+
+/** Tipo e natureza deduzidos da entrada (a natureza usa o tipo já escolhido, ou o deduzido). */
+function deducoes(e: EntradaDemanda): { tipo: Deducao<Tipo>; natureza: Deducao<Natureza> } {
+  const tipo = deduzirTipo(e.titulo);
+  const temNumero = NUMEROS.some((c) => (e[c] ?? '').trim() !== '');
+  return { tipo, natureza: deduzirNatureza(e.titulo, { temNumero, tipo: e.tipo ?? tipo.valor }) };
+}
+
+export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verificarParecida, aoVerExistente, deduzirAoDigitar }: Props) {
   const [entrada, setEntrada] = useState<EntradaDemanda>(inicial);
   const [erros, setErros] = useState<ErrosValidacao>({});
   const [parecida, setParecida] = useState<Parecida | null>(null);
+  // Escolha da pessoa vale mais que a dedução: depois de mexer no campo, o título não o muda mais.
+  const [escolhidos, setEscolhidos] = useState<Record<Classe, boolean>>({ tipo: false, natureza: false });
 
   // Mexer em qualquer campo retira o aviso: a próxima tentativa compara de novo.
-  const campo = <K extends keyof EntradaDemanda>(k: K, v: EntradaDemanda[K]) => {
+  // `escolhido` marca o campo que a pessoa acabou de escolher (o estado `escolhidos` só muda no próximo render).
+  const campo = <K extends keyof EntradaDemanda>(k: K, v: EntradaDemanda[K], escolhido?: Classe) => {
     setParecida(null);
-    setEntrada((e) => ({ ...e, [k]: v }));
+    const fixos = escolhido ? { ...escolhidos, [escolhido]: true } : escolhidos;
+    setEntrada((e) => {
+      const nova = { ...e, [k]: v };
+      if (!deduzirAoDigitar) return nova;
+      const tipo = fixos.tipo ? nova.tipo : deduzirTipo(nova.titulo).valor ?? undefined;
+      const comTipo = { ...nova, tipo };
+      const natureza = fixos.natureza ? nova.natureza : deducoes(comTipo).natureza.valor ?? undefined;
+      return { ...comTipo, natureza };
+    });
+  };
+
+  const escolher = (c: Classe, valor: string) => {
+    setEscolhidos((x) => ({ ...x, [c]: true }));
+    if (c === 'tipo') campo('tipo', (valor || undefined) as Tipo | undefined, 'tipo');
+    else campo('natureza', (valor || undefined) as Natureza | undefined, 'natureza');
+  };
+
+  const sugestoes = deducoes(entrada);
+  const dica = (c: Classe, rotulos: Record<string, string>) => {
+    const d = sugestoes[c];
+    const atual = entrada[c];
+    if (atual && atual === d.valor && !escolhidos[c]) {
+      return <span className="texto-pequeno texto-suave" data-testid={`dica-${c}`}>Deduzido do título, {textoPorque(d)}. Troque se estiver errado.</span>;
+    }
+    if (!atual && d.valor) {
+      return (
+        <span className="texto-pequeno texto-suave" data-testid={`dica-${c}`}>
+          Sugestão pelo título: {rotulos[d.valor]} ({textoPorque(d)}).{' '}
+          <button type="button" className="botao botao--pequeno" onClick={() => escolher(c, d.valor!)}>Usar</button>
+        </span>
+      );
+    }
+    if (!atual && entrada.titulo.trim()) {
+      return <span className="texto-pequeno texto-suave" data-testid={`dica-${c}`}>Não deu para deduzir pelo título: escolha, se souber.</span>;
+    }
+    return null;
   };
 
   const salvar = () => {
@@ -111,6 +164,31 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
             {STATUS.map((s) => <option key={s}>{s}</option>)}
           </select>
         </label>
+      </div>
+
+      <div className="grade grade--2">
+        <div className="campo-grupo">
+          <label className="campo-grupo">
+            <span>Tipo</span>
+            <select className="campo" value={entrada.tipo ?? ''} onChange={(e) => escolher('tipo', e.target.value)} {...ajuda('tipo')}>
+              <option value="">Não definido</option>
+              {TIPOS.map((t) => <option key={t} value={t}>{ROTULOS_TIPO[t]}</option>)}
+            </select>
+          </label>
+          {dica('tipo', ROTULOS_TIPO)}
+          {mensagem('tipo')}
+        </div>
+        <div className="campo-grupo">
+          <label className="campo-grupo">
+            <span>Natureza</span>
+            <select className="campo" value={entrada.natureza ?? ''} onChange={(e) => escolher('natureza', e.target.value)} {...ajuda('natureza')}>
+              <option value="">Não definida</option>
+              {NATUREZAS.map((n) => <option key={n} value={n}>{ROTULOS_NATUREZA[n]}</option>)}
+            </select>
+          </label>
+          {dica('natureza', ROTULOS_NATUREZA)}
+          {mensagem('natureza')}
+        </div>
       </div>
 
       <fieldset className="grade grade--2">

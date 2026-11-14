@@ -191,4 +191,58 @@ describe('tela Demandas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Responder ofício fictício' }));
     expect(screen.getByText('Processo judicial (CNJ)').nextElementSibling).toHaveTextContent('—');
   });
+
+  describe('tipo e natureza pelo título', () => {
+    const titulo = (t: string) => fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: t } });
+
+    it('no cadastro, deduz e explica; a escolha da pessoa não é sobrescrita pelo título', () => {
+      const armazem = montar();
+      fireEvent.click(screen.getByRole('button', { name: 'Nova demanda' }));
+      titulo('Vistoria no lote 4');
+      expect(screen.getByLabelText('Tipo')).toHaveValue('campo');
+      expect(screen.getByTestId('dica-tipo')).toHaveTextContent('Deduzido do título, pela palavra «Vistoria». Troque se estiver errado.');
+      expect(screen.getByLabelText('Natureza')).toHaveValue('demanda');
+
+      fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'gabinete' } });
+      titulo('Vistoria no lote 5');
+      expect(screen.getByLabelText('Tipo')).toHaveValue('gabinete');
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+      expect(armazem.obter().demandas[0]).toMatchObject({ tipo: 'gabinete', natureza: 'demanda' });
+      expect(screen.getByTestId('classe-id-1')).toHaveTextContent('🏢 Gabinete · Demanda');
+    });
+
+    it('na dúvida, deixa "não definido" e pede a escolha', () => {
+      montar();
+      fireEvent.click(screen.getByRole('button', { name: 'Nova demanda' }));
+      titulo('Analisar vistoria');
+      expect(screen.getByLabelText('Tipo')).toHaveValue('');
+      expect(screen.getByTestId('dica-tipo')).toHaveTextContent('Não deu para deduzir pelo título: escolha, se souber.');
+      titulo('Reunião sobre o embargo');
+      expect(screen.getByLabelText('Natureza')).toHaveValue('comum');
+    });
+
+    it('na edição, não muda sozinho: só sugere com "Usar"', () => {
+      const armazem = montar();
+      act(() => { armazem.criar({ titulo: 'Redigir resposta fictícia', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
+      fireEvent.click(screen.getByRole('button', { name: 'Editar Redigir resposta fictícia' }));
+      expect(screen.getByLabelText('Tipo')).toHaveValue('');
+      expect(screen.getByTestId('dica-tipo')).toHaveTextContent('Sugestão pelo título: 🏢 Gabinete (pela palavra «Redigir»).');
+      fireEvent.click(within(screen.getByTestId('dica-tipo')).getByRole('button', { name: 'Usar' }));
+      expect(screen.getByLabelText('Tipo')).toHaveValue('gabinete');
+      expect(armazem.obter().demandas[0]).not.toHaveProperty('tipo');
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+      expect(armazem.obter().demandas[0].tipo).toBe('gabinete');
+    });
+
+    it('filtro por tipo na lista', () => {
+      const armazem = montar();
+      act(() => {
+        armazem.criar({ titulo: 'Vistoria fictícia A', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '', tipo: 'campo' });
+        armazem.criar({ titulo: 'Organizar arquivo', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '' });
+      });
+      fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'campo' } });
+      expect(screen.getByText('Vistoria fictícia A', { selector: 'strong' })).toBeInTheDocument();
+      expect(screen.queryByText('Organizar arquivo', { selector: 'strong' })).toBeNull();
+    });
+  });
 });

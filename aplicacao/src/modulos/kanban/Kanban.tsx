@@ -8,6 +8,7 @@ import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
+import { ROTULOS_TIPO } from '../demandas/classificacao.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : 'sem prazo');
 
@@ -52,7 +53,7 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
                     return (
                       <li key={d.id} className="cartao kanban-cartao">
                         <p className="texto-medio"><strong>{d.titulo}</strong></p>
-                        <p className="texto-pequeno texto-suave">{d.prioridade} · {d.responsavel || 'sem responsável'} · {data(d.prazo)}</p>
+                        <p className="texto-pequeno texto-suave">{d.prioridade} · {d.responsavel || 'sem responsável'} · {data(d.prazo)}{d.tipo && ` · ${ROTULOS_TIPO[d.tipo]}`}{d.natureza === 'comum' && ' · tarefa comum'}</p>
                         {prazo && <p className={`texto-pequeno ${prazo.vencido ? 'texto--falha' : 'texto-suave'}`} data-testid={`prazo-${d.id}`}>{prazo.texto}</p>}
                         {bloqueio && <p className="texto-pequeno texto--atencao" data-testid={`bloqueio-${d.id}`}>{bloqueio}</p>}
                         {andamento && <p className="texto-pequeno texto-suave" data-testid={`andamento-${d.id}`}>{andamento}</p>}

@@ -32,6 +32,8 @@ interface Demanda {
   processo?: string;           // opcional (14/11/2026): processo administrativo, ex.: FIC-2026-0001
   simp?: string;               // opcional: SIMP do Ministério Público, NNNNNN-NNN/AAAA
   judicial?: string;           // opcional: CNJ NNNNNNN-DD.AAAA.J.TR.OOOO, dígitos verificadores conferidos
+  tipo?: 'campo' | 'gabinete'; // opcional (14/11/2026): deduzido do título no cadastro, a pessoa confere
+  natureza?: 'demanda' | 'comum'; // opcional: demanda ou tarefa comum, idem
 }
 
 interface Configuracao {

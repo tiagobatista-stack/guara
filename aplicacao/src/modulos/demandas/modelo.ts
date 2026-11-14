@@ -1,5 +1,7 @@
 // Modelo de demanda do MVP (planejamento/PLANO.md §2, alinhado à Apostila FluxoLab).
 
+import type { Natureza, Tipo } from './classificacao.ts';
+
 export const STATUS = ['A Fazer', 'Em Andamento', 'Em Validação', 'Concluída'] as const;
 export type Status = (typeof STATUS)[number];
 
@@ -40,6 +42,9 @@ export interface Demanda {
   processo?: string;
   simp?: string;
   judicial?: string;
+  /** Campo × gabinete e demanda × tarefa comum (classificacao.ts); ausentes = não definidos. */
+  tipo?: Tipo;
+  natureza?: Natureza;
 }
 
 /** Campos que o usuário informa no formulário. */
@@ -54,6 +59,9 @@ export interface EntradaDemanda {
   processo?: string;
   simp?: string;
   judicial?: string;
+  /** Ausente = não definido. */
+  tipo?: Tipo;
+  natureza?: Natureza;
 }
 
 export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80 } as const;

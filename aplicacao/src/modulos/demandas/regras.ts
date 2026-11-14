@@ -1,6 +1,7 @@
 // Regras puras de demanda (sem acesso a armazenamento), testáveis isoladamente.
 
 import { LER_NUMERO, NUMEROS, numeroGravadoValido } from './identificadores.ts';
+import { NATUREZAS, TIPOS } from './classificacao.ts';
 import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
 
 export type ErrosValidacao = Partial<Record<keyof EntradaDemanda, string>>;
@@ -22,6 +23,8 @@ export function validarEntrada(e: EntradaDemanda): ErrosValidacao {
   if (!PRIORIDADES.includes(e.prioridade)) erros.prioridade = 'Prioridade inválida.';
   if (!STATUS.includes(e.status)) erros.status = 'Status inválido.';
   if (e.prazo && !dataValida(e.prazo)) erros.prazo = 'Informe uma data válida.';
+  if (e.tipo && !TIPOS.includes(e.tipo)) erros.tipo = 'Tipo inválido.';
+  if (e.natureza && !NATUREZAS.includes(e.natureza)) erros.natureza = 'Natureza inválida.';
   for (const c of NUMEROS) {
     const texto = (e[c] ?? '').trim();
     if (!texto) continue;
@@ -40,6 +43,8 @@ function normalizar(e: EntradaDemanda): Omit<Demanda, 'id' | 'criadaEm' | 'ultim
     status: e.status,
     ...(e.prazo ? { prazo: e.prazo } : {}),
     ...numerosNormalizados(e),
+    ...(e.tipo ? { tipo: e.tipo } : {}),
+    ...(e.natureza ? { natureza: e.natureza } : {}),
   };
 }
 
@@ -73,11 +78,13 @@ export function editarDemanda(d: Demanda, e: EntradaDemanda, agoraIso: string): 
     novos.prioridade !== d.prioridade ||
     novos.status !== d.status ||
     (novos.prazo ?? '') !== (d.prazo ?? '') ||
-    NUMEROS.some((c) => (novos[c] ?? '') !== (d[c] ?? ''));
+    NUMEROS.some((c) => (novos[c] ?? '') !== (d[c] ?? '')) ||
+    (novos.tipo ?? '') !== (d.tipo ?? '') ||
+    (novos.natureza ?? '') !== (d.natureza ?? '');
   if (!mudou) return { ok: true, valor: d };
   // Campos opcionais apagados no formulário saem da demanda.
-  const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, ...semOpcionais } = d;
-  void [_prazo, _processo, _simp, _judicial];
+  const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, tipo: _tipo, natureza: _natureza, ...semOpcionais } = d;
+  void [_prazo, _processo, _simp, _judicial, _tipo, _natureza];
   return { ok: true, valor: { ...semOpcionais, ...novos, ultimaAcaoRelevante: agoraIso } };
 }
 
@@ -126,6 +133,8 @@ export function paraEntrada(d: Demanda): EntradaDemanda {
     processo: d.processo ?? '',
     simp: d.simp ?? '',
     judicial: d.judicial ?? '',
+    ...(d.tipo ? { tipo: d.tipo } : {}),
+    ...(d.natureza ? { natureza: d.natureza } : {}),
   };
 }
 
@@ -135,9 +144,12 @@ export interface Filtros {
   prioridade: Demanda['prioridade'] | '';
   responsavel: string;
   bloqueio: '' | 'travadas' | 'livres';
+  /** 'sem' = tipo não definido. */
+  tipo: '' | 'campo' | 'gabinete' | 'sem';
+  natureza: '' | 'demanda' | 'comum' | 'sem';
 }
 
-export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '' };
+export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '', tipo: '', natureza: '' };
 
 export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[] {
   const texto = f.texto.trim().toLocaleLowerCase('pt-BR');
@@ -147,7 +159,9 @@ export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[
       (!f.status || d.status === f.status) &&
       (!f.prioridade || d.prioridade === f.prioridade) &&
       (!f.responsavel || d.responsavel === f.responsavel) &&
-      (!f.bloqueio || (f.bloqueio === 'travadas') === !!d.bloqueio),
+      (!f.bloqueio || (f.bloqueio === 'travadas') === !!d.bloqueio) &&
+      (!f.tipo || (f.tipo === 'sem' ? !d.tipo : d.tipo === f.tipo)) &&
+      (!f.natureza || (f.natureza === 'sem' ? !d.natureza : d.natureza === f.natureza)),
   );
 }
 
@@ -167,7 +181,9 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     typeof d.ultimaAcaoRelevante === 'string' && !Number.isNaN(Date.parse(d.ultimaAcaoRelevante)) &&
     (d.prazo === undefined || (typeof d.prazo === 'string' && dataValida(d.prazo))) &&
     (d.bloqueio === undefined || bloqueioValido(d.bloqueio)) &&
-    NUMEROS.every((c) => d[c] === undefined || numeroGravadoValido(c, d[c]))
+    NUMEROS.every((c) => d[c] === undefined || numeroGravadoValido(c, d[c])) &&
+    (d.tipo === undefined || TIPOS.includes(d.tipo as never)) &&
+    (d.natureza === undefined || NATUREZAS.includes(d.natureza as never))
   );
 }
 
