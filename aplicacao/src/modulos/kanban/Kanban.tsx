@@ -4,7 +4,7 @@
 
 import { useState } from 'react';
 import { STATUS, type Demanda, type Status } from '../demandas/modelo.ts';
-import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
+import { useAjusteFeriados, useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -16,6 +16,7 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
   const instante = agora();
   const armazem = useArmazem();
   const { demandas, erroArmazenamento } = useEstadoDemandas();
+  const ajuste = useAjusteFeriados(instante);
   const [aviso, setAviso] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
 
   const mover = (d: Demanda, destino: Status) => {
@@ -47,9 +48,9 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
               ) : (
                 <ul className="lista-limpa kanban-lista">
                   {cartoes.map((d) => {
-                    const prazo = situacaoDaDemanda(d, instante);
+                    const prazo = situacaoDaDemanda(d, instante, ajuste);
                     const andamento = textoEmAndamento(d, instante);
-                    const bloqueio = textoBloqueio(d, instante);
+                    const bloqueio = textoBloqueio(d, instante, ajuste);
                     return (
                       <li key={d.id} className="cartao kanban-cartao">
                         <p className="texto-medio"><strong>{d.titulo}</strong></p>

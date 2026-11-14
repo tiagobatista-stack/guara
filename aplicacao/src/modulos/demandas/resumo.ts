@@ -5,7 +5,7 @@
 
 import type { Demanda } from './modelo.ts';
 import { ROTULOS_NATUREZA, ROTULOS_TIPO } from './classificacao.ts';
-import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
+import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 
@@ -29,16 +29,16 @@ function filtrar(d: Demanda): DemandaDoResumo {
   return saida as DemandaDoResumo;
 }
 
-export function montarResumo(demanda: Demanda, agora: Date): Resumo {
+export function montarResumo(demanda: Demanda, agora: Date, ajuste: AjusteFeriados = {}): Resumo {
   const d = filtrar(demanda);
   const linhas: Resumo['linhas'] = [['Status', d.status], ['Prioridade', d.prioridade]];
-  const prazo = situacaoDaDemanda(d, agora);
+  const prazo = situacaoDaDemanda(d, agora, ajuste);
   linhas.push(['Prazo', d.prazo ? `${dataBr(d.prazo)}${prazo ? ` · ${prazo.texto}` : ''}` : 'sem prazo']);
   if (d.tipo) linhas.push(['Tipo', ROTULOS_TIPO[d.tipo]]);
   if (d.natureza) linhas.push(['Natureza', ROTULOS_NATUREZA[d.natureza]]);
   const andamento = textoEmAndamento(d, agora);
   if (andamento) linhas.push(['Andamento', andamento]);
-  const bloqueio = textoBloqueio(d, agora);
+  const bloqueio = textoBloqueio(d, agora, ajuste);
   if (bloqueio) linhas.push(['Bloqueio', bloqueio]);
   if (d.processo) linhas.push(['Processo', d.processo]);
   if (d.simp) linhas.push(['SIMP', 'tem (número fora do resumo)']);
@@ -47,9 +47,9 @@ export function montarResumo(demanda: Demanda, agora: Date): Resumo {
 }
 
 /** Demandas em aberto, do prazo mais próximo ao mais distante; sem prazo por último. */
-export function resumosEmAberto(demandas: readonly Demanda[], agora: Date): Resumo[] {
+export function resumosEmAberto(demandas: readonly Demanda[], agora: Date, ajuste: AjusteFeriados = {}): Resumo[] {
   return demandas
     .filter((d) => d.status !== 'Concluída')
     .sort((a, b) => (a.prazo ?? '9999-99-99').localeCompare(b.prazo ?? '9999-99-99'))
-    .map((d) => montarResumo(d, agora));
+    .map((d) => montarResumo(d, agora, ajuste));
 }

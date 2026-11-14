@@ -4,14 +4,14 @@
 import { Fragment, useMemo, useState } from 'react';
 import { MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloqueio } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
-import { useArmazem, useEstadoDemandas } from './armazem.ts';
+import { useAjusteFeriados, useArmazem, useEstadoDemandas } from './armazem.ts';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
 import { acharParecida } from './parecida.ts';
 import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
 import { NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, TIPOS } from './classificacao.ts';
 import { resumosEmAberto } from './resumo.ts';
 import { textoFalta } from './essenciais.ts';
-import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
+import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 
@@ -20,8 +20,8 @@ type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
 
 const dataHora = (iso: string) => new Date(iso).toLocaleString('pt-BR');
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
-const comSituacao = (d: Demanda, agora: Date) => {
-  const s = situacaoDaDemanda(d, agora);
+const comSituacao = (d: Demanda, agora: Date, ajuste: AjusteFeriados) => {
+  const s = situacaoDaDemanda(d, agora, ajuste);
   return s ? `${data(d.prazo)} · ${s.texto}` : data(d.prazo);
 };
 
@@ -37,6 +37,7 @@ function baixarArquivo(nome: string, conteudo: string) {
 export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const armazem = useArmazem();
   const { demandas, erroArmazenamento, conteudoBruto } = useEstadoDemandas();
+  const ajuste = useAjusteFeriados(agora());
   const [modo, setModo] = useState<Modo>({ tipo: 'lista' });
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [aviso, setAviso] = useState<Aviso>(null);
@@ -167,7 +168,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dt>Tipo</dt><dd>{emDetalhe.tipo ? ROTULOS_TIPO[emDetalhe.tipo] : 'não definido'}</dd>
             <dt>Natureza</dt><dd>{emDetalhe.natureza ? ROTULOS_NATUREZA[emDetalhe.natureza] : 'não definida'}</dd>
             <dt>Responsável</dt><dd>{emDetalhe.responsavel || '—'}</dd>
-            <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora())}</dd>
+            <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora(), ajuste)}</dd>
             {NUMEROS.map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono">{emDetalhe[c] ?? '—'}</dd></Fragment>)}
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
@@ -175,7 +176,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dd data-testid="preenchimento-detalhe">
               {emDetalhe.status === 'Concluída' ? 'concluída: nada a cobrar' : textoFalta(emDetalhe) ?? 'campos essenciais preenchidos'}
             </dd>
-            <dt>Bloqueio</dt><dd data-testid="bloqueio-detalhe">{textoBloqueio(emDetalhe, agora()) ?? 'não está travada'}</dd>
+            <dt>Bloqueio</dt><dd data-testid="bloqueio-detalhe">{textoBloqueio(emDetalhe, agora(), ajuste) ?? 'não está travada'}</dd>
           </dl>
           {emDetalhe.status !== 'Concluída' && (
             <form className="filtros" aria-label="Bloqueio da demanda" onSubmit={(e) => {
@@ -215,7 +216,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             O título aparece como foi digitado: evite nomes de pessoas nele.
           </p>
           {(() => {
-            const resumos = resumosEmAberto(demandas, agora());
+            const resumos = resumosEmAberto(demandas, agora(), ajuste);
             return resumos.length === 0 ? (
               <p className="cartao texto-suave">Nenhuma demanda em aberto.</p>
             ) : (
@@ -314,10 +315,10 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                       <><dt>Classificação</dt><dd data-testid={`classe-${d.id}`}>{[d.tipo && ROTULOS_TIPO[d.tipo], d.natureza && ROTULOS_NATUREZA[d.natureza]].filter(Boolean).join(' · ')}</dd></>
                     )}
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
-                    <dt>Prazo</dt><dd>{comSituacao(d, agora())}</dd>
+                    <dt>Prazo</dt><dd>{comSituacao(d, agora(), ajuste)}</dd>
                     {NUMEROS.filter((c) => d[c]).map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono" data-testid={`${c}-${d.id}`}>{d[c]}</dd></Fragment>)}
                     {textoFalta(d) && <><dt>Preenchimento</dt><dd className="texto--atencao" data-testid={`falta-${d.id}`}>{textoFalta(d)}</dd></>}
-                    {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora())}</dd></>}
+                    {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora(), ajuste)}</dd></>}
                   </dl>
                   <div className="acoes">
                     <button type="button" className="botao botao--pequeno" aria-label={`Detalhes de ${d.titulo}`} onClick={() => { setAviso(null); setMotivo(d.bloqueio?.motivo ?? 'documento'); setModo({ tipo: 'detalhe', id: d.id }); }}>

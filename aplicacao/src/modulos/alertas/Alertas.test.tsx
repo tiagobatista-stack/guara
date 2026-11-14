@@ -32,6 +32,41 @@ beforeEach(() => {
 });
 
 describe('tela Alertas', () => {
+  it('feriados locais: acrescentar muda a sugestão da triagem; data nacional desmarcada também; remover pede confirmação', () => {
+    const armazem = montar();
+    // AGORA = sexta 13/11/2026: 10 dias úteis = 30/11 (pulando 20/11).
+    expect(screen.getByLabelText('Prazo')).toHaveValue('2026-11-30');
+
+    fireEvent.change(screen.getByLabelText('Data'), { target: { value: '2026-11-17' } });
+    fireEvent.change(screen.getByLabelText('Nome'), { target: { value: 'Aniversário do município (fictício)' } });
+    fireEvent.click(screen.getByLabelText('Repete todo ano'));
+    fireEvent.click(screen.getByRole('button', { name: 'Acrescentar' }));
+    expect(screen.getByText('Feriado local gravado: Aniversário do município (fictício) (17/11, todo ano).')).toBeInTheDocument();
+    expect(screen.getByTestId('feriado-local-0')).toHaveTextContent('17/11 · Aniversário do município (fictício) · todo ano');
+    expect(screen.getByLabelText('Prazo')).toHaveValue('2026-12-01');
+    expect(JSON.parse(localStorage.getItem('guara:feriados:v1')!).extras).toHaveLength(1);
+
+    fireEvent.click(screen.getByLabelText('20/11/2026 · Consciência Negra'));
+    expect(armazem.obter().feriados.remover).toEqual(['2026-11-20']);
+    expect(screen.getByLabelText('Prazo')).toHaveValue('2026-11-30');
+
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Remover o feriado local Aniversário do município (fictício)' }));
+    expect(armazem.obter().feriados.extras).toHaveLength(1);
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Remover o feriado local Aniversário do município (fictício)' }));
+    expect(armazem.obter().feriados.extras).toHaveLength(0);
+    expect(screen.getByText('Nenhum feriado local.')).toBeInTheDocument();
+  });
+
+  it('feriados locais: nome vazio é recusado sem gravar', () => {
+    montar();
+    fireEvent.change(screen.getByLabelText('Data'), { target: { value: '2026-11-17' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Acrescentar' }));
+    expect(screen.getByText('Informe o nome do feriado.')).toBeInTheDocument();
+    expect(localStorage.getItem('guara:feriados:v1')).toBeNull();
+  });
+
   it('triagem: sugere 10 dias úteis, grava só no clique e a demanda sai da lista', () => {
     const armazem = montar();
     // AGORA = sexta 13/11/2026; a sugestão pula o feriado de 20/11.

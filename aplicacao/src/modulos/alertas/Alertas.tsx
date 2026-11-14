@@ -2,9 +2,10 @@
 // com o app aberto; sem e-mail, sem scheduler, sem execução com o navegador fechado.
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
+import { useAjusteFeriados, useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { diasParado, listarInativas } from './inatividade.ts';
 import { textoBloqueio } from './bloqueio.ts';
+import { FeriadosLocais } from './FeriadosLocais.tsx';
 import { listarSemPrazo, PRAZO_SUGERIDO_DIAS_UTEIS, sugerirPrazo } from './triagem.ts';
 import { dataValida, paraEntrada } from '../demandas/regras.ts';
 import type { Demanda } from '../demandas/modelo.ts';
@@ -30,9 +31,10 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   const [aviso, setAviso] = useState<Aviso>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
   const instante = agora();
+  const ajuste = useAjusteFeriados(instante);
   const inativas = listarInativas(demandas, diasInatividade, instante);
   const semPrazo = listarSemPrazo(demandas);
-  const sugestao = sugerirPrazo(instante);
+  const sugestao = sugerirPrazo(instante, ajuste);
   // Data escolhida por demanda na triagem; sem escolha, vale a sugestão.
   const [prazos, setPrazos] = useState<Record<string, string>>({});
 
@@ -122,6 +124,8 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
         <div className="acoes"><button type="submit" className="botao botao--primario">Salvar limiar</button></div>
       </form>
 
+      <FeriadosLocais agora={agora} />
+
       <div className="cartao">
         <h2 className="titulo-secao">Demandas inativas ({inativas.length})</h2>
         {inativas.length === 0 ? (
@@ -136,7 +140,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
                 </span>
                 {d.bloqueio && (
                   <>
-                    <p className="texto-pequeno">{textoBloqueio(d, instante)}. Ela continua travada?</p>
+                    <p className="texto-pequeno">{textoBloqueio(d, instante, ajuste)}. Ela continua travada?</p>
                     <div className="acoes">
                       <button type="button" className="botao botao--pequeno" aria-label={`"${d.titulo}" continua travada`}
                         onClick={() => { const r = armazem.confirmarBloqueio(d.id); setAviso(r.ok ? { tipo: 'sucesso', texto: `Reavaliação registrada: "${d.titulo}" continua travada.` } : { tipo: 'erro', texto: r.mensagem }); }}>

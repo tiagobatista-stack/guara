@@ -2,13 +2,15 @@
 // dashboard e alertas (PLANO.md, regra 8). Toda mudança grava primeiro no
 // localStorage; só depois o estado em memória e a interface são atualizados.
 
-import { createContext, useContext, useSyncExternalStore } from 'react';
+import { createContext, useContext, useMemo, useSyncExternalStore } from 'react';
 import { CHAVE_DEMANDAS as CHAVE_DEMANDAS_ARMAZEM, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
 import { confirmarBloqueio, criarDemanda, destravarDemanda, editarDemanda, mudarStatus, travarDemanda, type ErrosValidacao } from './regras.ts';
 import { RepositorioLocal } from './repositorio-local.ts';
 import { demandasExemplo } from './exemplos.ts';
 import { DIAS_INATIVIDADE_PADRAO } from '../alertas/inatividade.ts';
 import { diasValidos, type DadosPortaveis } from '../alertas/dados-portaveis.ts';
+import { CHAVE_FERIADOS, FERIADOS_VAZIOS, paraAjuste, validarFeriados, type ConfiguracaoFeriados } from '../alertas/feriados-locais.ts';
+import type { AjusteFeriados } from '../alertas/dias-uteis.ts';
 
 export const CHAVE_CONFIGURACAO = 'guara:configuracao:v1';
 export const CHAVE_BACKUP = 'guara:backup-antes-importacao:v1';
@@ -26,6 +28,10 @@ export interface EstadoArmazem {
   avisoPersistencia: string | null;
   /** Texto do backup que o desfazer recusa (demandas ilegíveis ou backup quebrado), para baixar pela interface. */
   conteudoIlegivelDoBackup: string | null;
+  /** Feriados locais e datas nacionais removidas (feriados-locais.ts). */
+  feriados: ConfiguracaoFeriados;
+  /** A gravação dos feriados locais estava ilegível; vale a lista vazia até gravar de novo. */
+  feriadosIlegiveis: boolean;
 }
 
 export type RespostaAcao = { ok: true; demanda?: Demanda } | { ok: false; erros?: ErrosValidacao; mensagem: string };
@@ -76,7 +82,7 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
   let estado: EstadoArmazem = {
     demandas: [], erroArmazenamento: null, conteudoBruto: null,
     diasInatividade: DIAS_INATIVIDADE_PADRAO, temBackup: false, avisoPersistencia: null,
-    conteudoIlegivelDoBackup: null,
+    conteudoIlegivelDoBackup: null, feriados: FERIADOS_VAZIOS, feriadosIlegiveis: false,
   };
   const AVISO_SEM_GRAVACAO =
     'Este navegador não permitiu gravar os dados (modo privado, cota cheia ou bloqueio). As alterações valem só até fechar a página.';
@@ -92,14 +98,26 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
     }
   }
 
+  function lerFeriados(): Pick<EstadoArmazem, 'feriados' | 'feriadosIlegiveis'> {
+    const bruto = armazenamento.getItem(CHAVE_FERIADOS);
+    if (bruto === null) return { feriados: FERIADOS_VAZIOS, feriadosIlegiveis: false };
+    try {
+      const c = validarFeriados(JSON.parse(bruto));
+      return c ? { feriados: c, feriadosIlegiveis: false } : { feriados: FERIADOS_VAZIOS, feriadosIlegiveis: true };
+    } catch {
+      return { feriados: FERIADOS_VAZIOS, feriadosIlegiveis: true };
+    }
+  }
+
   function carregar() {
-    let extras: Pick<EstadoArmazem, 'diasInatividade' | 'temBackup' | 'avisoPersistencia' | 'conteudoIlegivelDoBackup'>;
+    let extras: Pick<EstadoArmazem, 'diasInatividade' | 'temBackup' | 'avisoPersistencia' | 'conteudoIlegivelDoBackup' | 'feriados' | 'feriadosIlegiveis'>;
     let carga: ReturnType<RepositorioLocal['carregar']>;
     try {
       const backup = armazenamento.getItem(CHAVE_BACKUP);
       extras = {
         diasInatividade: lerDias(), temBackup: backup !== null, avisoPersistencia: semPersistencia ? AVISO_SEM_GRAVACAO : null,
         conteudoIlegivelDoBackup: conteudoIlegivel(backup),
+        ...lerFeriados(),
       };
       carga = repo.carregar();
     } catch {
@@ -239,6 +257,19 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
         return { ok: false, mensagem: 'O navegador recusou a gravação.' };
       }
       estado = { ...estado, diasInatividade: dias };
+      ouvintes.forEach((o) => o());
+      return { ok: true };
+    },
+    /** Grava os feriados locais (validados antes; a tela confirma a remoção). */
+    definirFeriados(c: ConfiguracaoFeriados): RespostaAcao {
+      const valida = validarFeriados(c);
+      if (!valida) return { ok: false, mensagem: 'Feriados inválidos; nada foi gravado.' };
+      try {
+        armazenamento.setItem(CHAVE_FERIADOS, JSON.stringify(valida));
+      } catch {
+        return { ok: false, mensagem: 'O navegador recusou a gravação.' };
+      }
+      estado = { ...estado, feriados: valida, feriadosIlegiveis: false };
       ouvintes.forEach((o) => o());
       return { ok: true };
     },
@@ -393,4 +424,11 @@ export function useArmazem(): Armazem {
 export function useEstadoDemandas(): EstadoArmazem {
   const armazem = useArmazem();
   return useSyncExternalStore(armazem.assinar, armazem.obter);
+}
+
+/** Ajuste de feriados para as contas de dias úteis (feriados locais gravados neste navegador). */
+export function useAjusteFeriados(agora: Date): AjusteFeriados {
+  const { feriados } = useEstadoDemandas();
+  const ano = agora.getFullYear();
+  return useMemo(() => paraAjuste(feriados, ano), [feriados, ano]);
 }

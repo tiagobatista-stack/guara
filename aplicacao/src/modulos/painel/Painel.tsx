@@ -1,7 +1,7 @@
 // Dashboard (P05): métricas reais sobre o mesmo armazém da lista e do Kanban.
 
 import { STATUS } from '../demandas/modelo.ts';
-import { useEstadoDemandas } from '../demandas/armazem.ts';
+import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
 import { DIAS_INATIVIDADE_PADRAO, diasParado } from '../alertas/inatividade.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { calcularMetricas } from './metricas.ts';
@@ -13,6 +13,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
   const { demandas, diasInatividade } = useEstadoDemandas();
   const limiarDias = limiarFixo ?? diasInatividade ?? DIAS_INATIVIDADE_PADRAO;
   const instante = agora();
+  const ajuste = useAjusteFeriados(instante);
   const m = calcularMetricas(demandas, instante, limiarDias);
   const semPrazo = listarSemPrazo(demandas).length;
   const comPrazo = demandas.filter((d) => d.prazo && d.status !== 'Concluída').sort((a, b) => a.prazo!.localeCompare(b.prazo!));
@@ -51,7 +52,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
             <p className="texto-suave texto-medio">Nenhuma demanda vencida ou inativa.</p>
           ) : (
             <ul className="lista-limpa lista-divisoria texto-medio">
-              {m.vencidas.map((d) => <li key={`v-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--falha">· vencida em {data(d.prazo)} ({situacaoDaDemanda(d, instante)?.texto})</span></li>)}
+              {m.vencidas.map((d) => <li key={`v-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--falha">· vencida em {data(d.prazo)} ({situacaoDaDemanda(d, instante, ajuste)?.texto})</span></li>)}
               {m.inativas.map((d) => <li key={`i-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--atencao">· parada há {diasParado(d, instante)} dia(s)</span></li>)}
             </ul>
           )}
@@ -68,7 +69,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
           ) : (
             <ol className="linha-tempo">
               {comPrazo.map((d) => {
-                const s = situacaoDaDemanda(d, instante);
+                const s = situacaoDaDemanda(d, instante, ajuste);
                 return (
                   <li key={d.id} data-testid={`prazo-${d.id}`}>
                     <span className="mono texto-pequeno">{data(d.prazo)}</span> — {d.titulo}

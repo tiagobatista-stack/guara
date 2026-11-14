@@ -244,6 +244,7 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 /* ---------- Formulários, filtros e feedback ---------- */
 .formulario { display: grid; gap: 12px; }
 .campo-grupo { display: grid; gap: 4px; font-size: 14px; font-weight: 500; }
+.campo-grupo--linha { display: flex; align-items: center; gap: 8px; font-size: 14px; min-height: 44px; }
 .campo-grupo .campo { font-weight: 400; }
 .campo--area { padding: 8px 12px; min-height: 88px; resize: vertical; }
 .campo[aria-invalid="true"] { border-color: var(--falha-borda); }
