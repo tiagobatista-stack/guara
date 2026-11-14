@@ -6,6 +6,7 @@ import { MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloquei
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useArmazem, useEstadoDemandas } from './armazem.ts';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
+import { acharParecida } from './parecida.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -100,6 +101,13 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           titulo="Nova demanda"
           inicial={ENTRADA_VAZIA}
           aoCancelar={() => setModo({ tipo: 'lista' })}
+          verificarParecida={(entrada) => acharParecida(entrada, demandas)}
+          aoVerExistente={(id) => {
+            const existente = buscar(id);
+            setAviso(null);
+            setMotivo(existente?.bloqueio?.motivo ?? 'documento');
+            setModo({ tipo: 'detalhe', id });
+          }}
           aoSalvar={(entrada) => {
             const r = armazem.criar(entrada);
             if (!r.ok) {

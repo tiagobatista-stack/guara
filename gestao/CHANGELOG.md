@@ -8,6 +8,7 @@
 - Tempo em andamento, ideia vinda do TOCA: demandas "Em Andamento" mostram "em andamento · última ação há N dias" no Kanban e em Demandas, contados da última ação relevante. O modelo não mudou. 139/139 testes.
 - Demanda travada, ideia vinda do TOCA: campo opcional `bloqueio` (motivo por categoria e data), botões no detalhe, linha no Kanban e na lista, filtro "Bloqueio" e reavaliação ("Ainda travada" ou "Destravou") no alerta de inatividade. Formato `versao: 1` mantido; dados antigos continuam válidos. 155/155 testes.
 - Triagem de demanda sem prazo, ideia vinda do TOCA: a tela Alertas lista as demandas abertas sem prazo e sugere 10 dias úteis a partir de hoje; a pessoa confere ou troca a data e grava com um clique. O Dashboard avisa quantas estão sem prazo. O modelo não mudou. 164/164 testes.
+- Aviso de demanda parecida, ideia vinda do TOCA: no cadastro, uma demanda em aberto com o mesmo processo, o mesmo título ou com todas as palavras do título digitado faz perguntar antes de gravar ("Criar mesmo assim", "Ver a existente", "Continuar editando"). O modelo não mudou. 174/174 testes.
 
 ## [0.1.0] — 13/11/2026
 

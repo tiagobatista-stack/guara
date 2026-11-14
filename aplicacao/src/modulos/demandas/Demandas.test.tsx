@@ -120,4 +120,53 @@ describe('tela Demandas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Arquivar processo FIC-0003' }));
     expect(screen.queryByLabelText('Motivo do bloqueio')).toBeNull();
   });
+
+  describe('aviso de demanda parecida', () => {
+    const preencher = (titulo: string) => {
+      fireEvent.click(screen.getByRole('button', { name: 'Nova demanda' }));
+      fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: titulo } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    };
+    const total = () => JSON.parse(localStorage.getItem('guara:demandas:v1')!).demandas.length;
+
+    it('avisa antes de gravar; "Criar mesmo assim" grava a segunda', () => {
+      const armazem = montar();
+      act(() => { armazem.criar({ titulo: 'Resposta ofício 2', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
+      preencher('resposta oficio 2');
+      expect(screen.getByTestId('aviso-parecida')).toHaveTextContent('Já existe uma demanda em aberto parecida: “Resposta ofício 2” (A Fazer; mesmo título)');
+      expect(total()).toBe(1);
+      fireEvent.click(screen.getByRole('button', { name: 'Criar mesmo assim' }));
+      expect(screen.getByRole('status')).toHaveTextContent('Demanda criada e gravada.');
+      expect(total()).toBe(2);
+    });
+
+    it('"Ver a existente" abre o detalhe sem gravar; mexer no título retira o aviso', () => {
+      const armazem = montar();
+      act(() => { armazem.criar({ titulo: 'Entregar relatório mensal', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
+      preencher('Relatório mensal');
+      expect(screen.getByTestId('aviso-parecida')).toHaveTextContent('o título digitado está inteiro no título dela');
+      fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: 'Relatório anual' } });
+      expect(screen.queryByTestId('aviso-parecida')).toBeNull();
+      fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: 'Relatório mensal' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Ver a existente (descarta este cadastro)' }));
+      expect(screen.getByRole('heading', { name: 'Entregar relatório mensal' })).toBeInTheDocument();
+      expect(total()).toBe(1);
+    });
+
+    it('título inválido mostra o erro, não o aviso; editar não avisa', () => {
+      const armazem = montar();
+      act(() => { armazem.criar({ titulo: 'Resposta ofício 2', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
+      preencher('ab');
+      expect(screen.getByText(/pelo menos 3 caracteres/)).toBeInTheDocument();
+      expect(screen.queryByTestId('aviso-parecida')).toBeNull();
+      fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+
+      fireEvent.click(screen.getByRole('button', { name: 'Editar Resposta ofício 2' }));
+      fireEvent.change(screen.getByLabelText('Responsável'), { target: { value: 'Equipe B' } });
+      fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+      expect(screen.queryByTestId('aviso-parecida')).toBeNull();
+      expect(screen.getByRole('status')).toHaveTextContent('Alterações gravadas.');
+    });
+  });
 });
