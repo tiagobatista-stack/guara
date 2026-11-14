@@ -5,7 +5,7 @@
 ## Próxima sessão (em ordem)
 
 1. **Reativar o MCP (P10).** No Node 26 o servidor já sobe e as dependências estão instaladas (`2026-11-14-reverificacao-node26.md`). Falta o responsável exportar `guara-dados.json` pela tela Alertas e salvá-lo em `servidor-mcp/dados/`; depois rode `node servidor-mcp/testar-servidor.ts`. Reinicie a sessão para o `guara-dados` reconectar e repita a chamada real de `resumir_demandas`. Abrir a tela `/mcp` ainda está NÃO TESTADO.
-2. **Conferir e publicar os dias úteis, o tempo em andamento, a demanda travada, a triagem sem prazo, o aviso de demanda parecida, os três números, o tipo e a natureza e a tela compartilhada.** O commit `3b97357` foi feito só no repositório local. Confira no navegador o Dashboard, o Kanban e Demandas, inclusive em tela de celular; até lá, as telas estão NÃO CONFERIDO VISUALMENTE. O push para o GitHub, que gera o deploy na Vercel, pede autorização.
+2. **Conferir no navegador o que foi publicado em 14/11/2026.** Já está na URL pública (`9e03ff8`). Confira em https://guara-lemon.vercel.app, inclusive em tela de celular: dias úteis (Dashboard, Kanban, Demandas), tempo em andamento, demanda travada, triagem sem prazo (Alertas), aviso de demanda parecida, três números, tipo e natureza (seis filtros em Demandas) e a tela compartilhada. Até lá, as telas estão NÃO CONFERIDO VISUALMENTE.
 
 ## Pendências da apostila
 
