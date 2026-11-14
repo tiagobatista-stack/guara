@@ -16,7 +16,7 @@
 | Skills | 3 arquivos e 1 execução real | **PASSOU**: `testar-sistema` invocada pela ferramenta Skill (P08) |
 | Agentes | 3 arquivos e 1 chamada real | **PASSOU**: `arquiteto`, `auditor` (76/76 reexecutado) e `implementador` chamados em sessão aberta na pasta do projeto, como teste de carga e papel, sem alterar arquivos (`2026-11-13-p13-repeticao-hook-subagentes-mcp.md`) |
 | Orquestração | A–F com evidências honestas | **PARCIAL**: A–F demonstrados pelo fluxo alternativo (`2026-11-13-p09-orquestracao.md`). Rodada com os subagentes registrados: **NÃO DEMONSTRADO** |
-| MCP | JSON exportado e chamada real | **PASSOU**: cliente stdio (5 = 5) e `resumir_demandas` chamada pelo próprio Claude Code (total 5). Tela `/mcp`: **NÃO TESTADO** (comando de interface) |
+| MCP | JSON exportado e chamada real | **PASSOU**: cliente stdio (5 = 5) e `resumir_demandas` chamada pelo próprio Claude Code (total 5). **Repetido no Node 26 em 14/11/2026:** cliente stdio (4 = 4), `resumir_demandas` e `listar_inativas` chamadas nesta sessão (`2026-11-14-mcp-reativado.md`). Tela `/mcp`: **NÃO TESTADO** (comando de interface) |
 | Hook | sentinela bloqueada, benigno permitido | **PASSOU**: regras 8/8 e, em sessão real, `GUARA_HOOK_TEST_BLOCK` bloqueado e `GUARA_OK` permitido |
 | GitHub | URL e commit | **PASSOU**: https://github.com/tiagobatista-stack/guara (privado), `main` = `37ca679` (`metodologia/evidencias/2026-11-13-p12-github.md`) |
 | Vercel | URL aberta e testada | **PASSOU**: https://guara-lemon.vercel.app (cadastro, Kanban, F5 e Saúde do sistema 10/10; `metodologia/evidencias/2026-11-13-p12-vercel.md`) |
@@ -39,7 +39,8 @@
 14. **Publicação (14/11/2026):** os itens 5 e 7 a 13 acima foram publicados. O responsável fez o push (o hook bloqueia o do Claude); `origin/main` = `9e03ff8`, e https://guara-lemon.vercel.app serve o mesmo bundle do build local (`index-BZCS2W7X.js`). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-ideias-toca.md`.
 15. **Campos essenciais (14/11/2026), item 13 das ideias do TOCA, na `main`:** "Falta: …" por natureza, no detalhe e na lista, e filtro "Preenchimento". O modelo não mudou. Foram 9 testes novos; total 216/216, build ok. Telas: NÃO CONFERIDO VISUALMENTE. **Publicado** (`origin/main` = `9254bf8`, bundle `index-BkBp1oms.js` na URL pública; `metodologia/evidencias/2026-11-14-publicacao-campos-essenciais.md`). Evidência em `metodologia/evidencias/2026-11-14-campos-essenciais.md`.
 16. **Feriados locais (14/11/2026), na `main`:** cartão na tela Alertas (chave `guara:feriados:v1`), usado em todas as contas em dias úteis. Foram 13 testes novos; total 229/229, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-feriados-locais.md`.
-17. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
+17. **MCP reativado (14/11/2026):** no Node 26, `testar-servidor.ts` deu 4 = 4 e as chamadas reais `resumir_demandas` e `listar_inativas` passaram. Falta só abrir a tela `/mcp`. Evidência em `metodologia/evidencias/2026-11-14-mcp-reativado.md`.
+18. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 
