@@ -6,6 +6,19 @@
 
 1. **Abrir a tela `/mcp` (P10).** O MCP foi reativado no Node 26 em 14/11/2026 (`2026-11-14-mcp-reativado.md`): teste stdio 4 = 4 e chamadas reais de `resumir_demandas` e `listar_inativas` nesta sessão. Falta só o responsável abrir `/mcp` no terminal e registrar o que aparece.
 2. **Conferir no navegador o que foi publicado em 14/11/2026.** Já está na URL pública (`9e03ff8`). Confira em https://guara-lemon.vercel.app, inclusive em tela de celular: dias úteis (Dashboard, Kanban, Demandas), tempo em andamento, demanda travada, triagem sem prazo (Alertas), aviso de demanda parecida, três números, tipo e natureza (seis filtros em Demandas) e a tela compartilhada. Até lá, as telas estão NÃO CONFERIDO VISUALMENTE. Os campos essenciais (item 13) também já estão publicados (`9254bf8`).
+3. **Mascotes: rodar os testes na `main` e conferir no navegador.** No branch `login-google` passaram (231/231); na `main` o commit veio por cherry-pick e ainda não foi testado (`2026-11-14-mascotes-redesenho.md`). Depois, ver os três rostos no assistente e na Saúde do sistema, em tela clara, escura e de celular, e os olhos acompanhando o ponteiro.
+
+## Mascotes (plano aprovado pelo responsável em 14/11/2026)
+
+Etapa 1 (redesenho ilustrado e olhos que seguem o ponteiro) feita. Também feitos, por ordem da avaliação de UX: destaque no painel, reação a avisos e rosto nas falas (`2026-11-14-mascotes-presenca-no-assistente.md`, 231/231; falta conferir no navegador). Da avaliação, ficam para depois: tirar o seletor do topo, presença fora do painel (celular) e sugestões de comando na área vazia da conversa. Faltam, em ordem, uma por vez:
+
+2. **Expressões e animações:** piscar; tédio (cerca de 1 min parado), sono (3 min) e dormir (6 min), com jeito próprio por espécie; acordar ao mexer; comemoração ao concluir etapa e ao zerar pendências; reação ao clique ou toque. Sem texto, som ou cobrança. Alertas acordam o mascote. Com "reduzir movimento", só fecha os olhos.
+3. **Nome e escolha salvos:** campo de nome por mascote (até cerca de 20 caracteres; vazio mostra a espécie), seletor com prévia visual, tudo no `localStorage`; o leitor de tela anuncia nome e espécie.
+4. **Sinalizar o estado do trabalho:** expressão que resume as demandas do dia, olhar que aponta para o que pede atenção, avisos como fala curta com origem e data.
+5. **Natureza da resposta no assistente:** pose para fato, inferência e sugestão, e outra para NÃO TESTADO; reforça o selo de texto, não substitui.
+6. **Estados vazios:** mascote com frase onde hoje há tela em branco.
+
+Fora do plano, por decisão: pontuação, ranking, medir tempo parado, opinar sobre o mérito do processo e interromper com pop-up ou som.
 
 ## Pendências da apostila
 

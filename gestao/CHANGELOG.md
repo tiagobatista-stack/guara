@@ -14,6 +14,8 @@
 - Tela compartilhada na tela Demandas, ideia vinda do TOCA: resumo das demandas em aberto por lista branca de campos, sem responsável nem descrição; SIMP e processo judicial só como "tem". O modelo não mudou. 207/207 testes.
 - Campos essenciais, ideia vinda do TOCA: "Falta: tipo, prazo." na lista e no detalhe de Demandas, conforme a natureza, e filtro "Preenchimento". Só avisa; nada virou obrigatório. 216/216 testes.
 - Feriados locais, ideia vinda do TOCA: cartão na tela Alertas para acrescentar feriados estaduais, municipais e recessos (inclusive anuais), desmarcar nacionais que não valem e contar Carnaval e Corpus Christi. Todas as contas em dias úteis passam a usá-los. 229/229 testes.
+- Mascotes redesenhados (etapa 1): rosto ilustrado próprio para lobo-guará, ariranha e capivara, nos três humores atuais, com olhos que acompanham o ponteiro ou o toque e respeitam "reduzir movimento". SVGs de consulta em `identidade-visual/fofofauna/`. 226/226 testes.
+- Mascote no assistente: maior (88 px, com fundo), atento quando há aviso e curioso depois de comando não reconhecido, com o motivo em texto; cada fala do assistente leva o rosto do mascote. Humor tranquilo de olhos abertos. 231/231 testes.
 
 ## [0.1.0] — 13/11/2026
 

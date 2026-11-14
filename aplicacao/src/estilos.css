@@ -302,9 +302,17 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .assistente-secao { padding: 16px; border-bottom: 1px solid var(--borda); font-size: 14px; }
 .conversa { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 16px; display: grid; gap: 8px; align-content: start; }
 .mensagem { padding: 8px; border-radius: 8px; font-size: 14px; background: var(--superficie-2); margin-right: 32px; }
+.fala { display: flex; align-items: flex-end; gap: 6px; margin-right: 16px; }
+.fala .mensagem { flex: 1; min-width: 0; margin-right: 0; }
 .mensagem--usuario { background: var(--guara-100); margin: 0 0 0 32px; }
 .mensagem-meta { display: block; margin-top: 4px; font-size: 11px; color: var(--texto-suave); }
 .formulario-conversa { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--borda); }
 .formulario-conversa label { flex: 1; }
 .campo { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--borda); background: transparent; }
 .seletor { border-radius: 6px; border: 1px solid var(--borda); background: transparent; font-size: 12px; }
+
+/* ---------- Mascotes ---------- */
+.mascote { flex-shrink: 0; overflow: visible; }
+.mascote-palco { flex-shrink: 0; display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: var(--guara-100); }
+.mascote-pupila { transform: translate(var(--olhar-x, 0px), var(--olhar-y, 0px)); transition: transform 120ms ease-out; }
+@media (prefers-reduced-motion: reduce) { .mascote-pupila { transition: none; } }
