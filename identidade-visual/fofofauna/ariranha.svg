@@ -1,0 +1,20 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-86 -98 172 172" role="img" aria-label="Ariranha">
+<title>Ariranha — Fofofauna (GUARÁ)</title>
+<g stroke="#3a2a1c" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M-36,24 Q-40,70 0,72 Q40,70 36,24 Z" fill="#7a5535"/>
+<path d="M-24,44 Q-10,34 2,42 Q14,34 26,44 Q24,60 8,64 Q-4,58 -14,66 Q-26,58 -24,44 Z" fill="#f6e8cc" stroke="none"/>
+<path d="M-58,-26 Q-62,-44 -48,-42 Z" fill="#5f4129"/>
+<path d="M58,-26 Q62,-44 48,-42 Z" fill="#5f4129"/>
+<path d="M-60,0 Q-60,-46 0,-46 Q60,-46 60,0 Q60,38 0,40 Q-60,38 -60,0 Z" fill="#7a5535"/>
+<ellipse cx="0" cy="12" rx="29" ry="18" fill="#9c7551" stroke="none"/>
+<path d="M-12,-2 Q0,-8 12,-2 Q10,10 0,10 Q-10,10 -12,-2 Z" fill="#0f0c0a" stroke="none"/>
+<ellipse cx="-3" cy="0" rx="3" ry="1.5" fill="#6b5a4c" stroke="none"/>
+<path d="M-25,8 Q-40,2 -54,4 M-25,14 Q-40,16 -53,22 M25,8 Q40,2 54,4 M25,14 Q40,16 53,22" fill="none" stroke="#f6e8cc" stroke-width="1.5"/>
+<ellipse cx="-27" cy="-15" rx="8.5" ry="9.5" fill="#fbf5e6" stroke-width="2"/>
+<g stroke="none"><circle cx="-27" cy="-15" r="5.2" fill="#1c1917"/><circle cx="-25.2" cy="-17.2" r="1.8" fill="#ffffff"/></g>
+<ellipse cx="27" cy="-15" rx="8.5" ry="9.5" fill="#fbf5e6" stroke-width="2"/>
+<g stroke="none"><circle cx="27" cy="-15" r="5.2" fill="#1c1917"/><circle cx="28.8" cy="-17.2" r="1.8" fill="#ffffff"/></g>
+<path d="M-36,-28 Q-27,-33 -18,-28 M18,-28 Q27,-33 36,-28" fill="none" stroke-width="2.2"/>
+<path d="M-8,17 Q0,24 8,17" fill="none" stroke-width="2.2"/>
+</g>
+</svg>

@@ -12,6 +12,8 @@
 - Três números por demanda, ideia vinda do TOCA: campos opcionais de processo administrativo, SIMP e processo judicial (CNJ, com dígitos verificadores conferidos), normalizados ao gravar, na lista, no detalhe, na pesquisa e no aviso de demanda parecida. Os exemplos levam o número `FIC-` no campo próprio. Formato `versao: 1` mantido. 185/185 testes.
 - Tipo (campo × gabinete) e natureza (demanda × tarefa comum), ideia vinda do TOCA: deduzidos do título no cadastro com o porquê à vista, a pessoa confere ou troca; na edição, só sugestão. Filtros, detalhe, lista e Kanban. Formato `versao: 1` mantido. 201/201 testes.
 - Tela compartilhada na tela Demandas, ideia vinda do TOCA: resumo das demandas em aberto por lista branca de campos, sem responsável nem descrição; SIMP e processo judicial só como "tem". O modelo não mudou. 207/207 testes.
+- Mascotes redesenhados (etapa 1): rosto ilustrado próprio para lobo-guará, ariranha e capivara, nos três humores atuais, com olhos que acompanham o ponteiro ou o toque e respeitam "reduzir movimento". SVGs de consulta em `identidade-visual/fofofauna/`. 226/226 testes.
+- Mascote no assistente: maior (88 px, com fundo), atento quando há aviso e curioso depois de comando não reconhecido, com o motivo em texto; cada fala do assistente leva o rosto do mascote. Humor tranquilo de olhos abertos. 231/231 testes.
 
 ## [0.1.0] — 13/11/2026
 

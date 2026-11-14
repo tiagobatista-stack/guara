@@ -3,7 +3,7 @@
 // (fato extraído, inferência ou sugestão) e a fonte.
 
 import { useState, type FormEvent } from 'react';
-import { Mascote, MASCOTES, type EspecieMascote } from '../../compartilhado/Mascote.tsx';
+import { Mascote, MASCOTES, type EspecieMascote, type HumorMascote } from '../../compartilhado/Mascote.tsx';
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { DATA_REFERENCIA, demandasFicticias } from '@dados/demandas.ts';
 import { avaliarPrazos } from '@catalogo/habilidades/avaliar-prazos/implementacao.ts';
@@ -37,6 +37,23 @@ function responder(comando: string): Mensagem {
   };
 }
 
+// Avisos mostrados no painel (texto fixo e fictício no MVP).
+const NOTIFICACOES = ['DEM-FIC-0002: prazo em 1 dia (fictício).'];
+
+// O humor só reflete o estado da tela: resposta de "não entendi" deixa o mascote curioso,
+// aviso pendente deixa atento. Ele não avalia o conteúdo das demandas.
+function humorDoPainel(mensagens: Mensagem[], avisos: number): HumorMascote {
+  const ultima = mensagens[mensagens.length - 1];
+  if (ultima?.autor === 'assistente' && ultima.natureza === 'sugestão') return 'curioso';
+  return avisos > 0 ? 'atento' : 'tranquilo';
+}
+
+const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: number) => string> = {
+  tranquilo: () => 'Tranquilo: nenhum aviso.',
+  atento: (avisos) => (avisos === 1 ? 'Atento: 1 aviso abaixo.' : `Atento: ${avisos} avisos abaixo.`),
+  curioso: () => 'Curioso: não entendi o último comando.',
+};
+
 export function PainelAssistente() {
   const [especie, setEspecie] = useState<EspecieMascote>('capivara');
   const [texto, setTexto] = useState('');
@@ -51,12 +68,17 @@ export function PainelAssistente() {
     setTexto('');
   };
 
+  const humor = humorDoPainel(mensagens, NOTIFICACOES.length);
+
   return (
     <div className="assistente">
       <div className="assistente-topo">
-        <Mascote especie={especie} humor="tranquilo" />
+        <div className="mascote-palco">
+          <Mascote especie={especie} humor={humor} tamanho={88} />
+        </div>
         <div>
           <p><strong>{MASCOTES[especie].nome}</strong></p>
+          <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](NOTIFICACOES.length)}</p>
           <label className="texto-pequeno texto-suave">
             Mascote principal{' '}
             <select value={especie} onChange={(e) => setEspecie(e.target.value as EspecieMascote)} className="seletor">
@@ -70,20 +92,35 @@ export function PainelAssistente() {
 
       <section aria-label="Notificações" className="assistente-secao">
         <h2><strong>Notificações</strong></h2>
-        <p className="texto-suave">DEM-FIC-0002: prazo em 1 dia (fictício).</p>
+        {NOTIFICACOES.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
+        {NOTIFICACOES.map((aviso) => (
+          <p key={aviso} className="texto-suave">{aviso}</p>
+        ))}
       </section>
 
       <ol className="conversa" aria-live="polite">
-        {mensagens.map((m, i) => (
-          <li key={i} className={m.autor === 'usuario' ? 'mensagem mensagem--usuario' : 'mensagem'}>
-            {m.texto}
-            {m.natureza && (
-              <span className="mensagem-meta">
-                {m.natureza} · fonte: {m.fonte}
-              </span>
-            )}
-          </li>
-        ))}
+        {mensagens.map((m, i) =>
+          m.autor === 'usuario' ? (
+            <li key={i} className="mensagem mensagem--usuario">
+              <span className="sr-only">Você: </span>
+              {m.texto}
+            </li>
+          ) : (
+            // O rosto pequeno ao lado mostra que a fala é do mascote; o nome vai para o leitor de tela.
+            <li key={i} className="fala">
+              <Mascote especie={especie} humor={m.natureza === 'sugestão' ? 'curioso' : 'tranquilo'} tamanho={28} decorativo />
+              <div className="mensagem">
+                <span className="sr-only">{MASCOTES[especie].nome}: </span>
+                {m.texto}
+                {m.natureza && (
+                  <span className="mensagem-meta">
+                    {m.natureza} · fonte: {m.fonte}
+                  </span>
+                )}
+              </div>
+            </li>
+          ),
+        )}
       </ol>
 
       <form onSubmit={enviar} className="formulario-conversa">
