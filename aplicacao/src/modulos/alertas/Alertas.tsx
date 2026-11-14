@@ -4,6 +4,7 @@
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { diasParado, listarInativas } from './inatividade.ts';
+import { textoBloqueio } from './bloqueio.ts';
 import { exportarDados, NOME_ARQUIVO, validarImportacao } from './dados-portaveis.ts';
 
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
@@ -113,11 +114,26 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
                 <span className="texto-pequeno texto--atencao">
                   · {d.status} · sem ação relevante há {diasParado(d, instante)} dia(s)
                 </span>
+                {d.bloqueio && (
+                  <>
+                    <p className="texto-pequeno">{textoBloqueio(d, instante)}. Ela continua travada?</p>
+                    <div className="acoes">
+                      <button type="button" className="botao botao--pequeno" aria-label={`"${d.titulo}" continua travada`}
+                        onClick={() => { const r = armazem.confirmarBloqueio(d.id); setAviso(r.ok ? { tipo: 'sucesso', texto: `Reavaliação registrada: "${d.titulo}" continua travada.` } : { tipo: 'erro', texto: r.mensagem }); }}>
+                        Ainda travada
+                      </button>
+                      <button type="button" className="botao botao--pequeno" aria-label={`"${d.titulo}" destravou`}
+                        onClick={() => { const r = armazem.destravar(d.id); setAviso(r.ok ? { tipo: 'sucesso', texto: `"${d.titulo}" destravada.` } : { tipo: 'erro', texto: r.mensagem }); }}>
+                        Destravou
+                      </button>
+                    </div>
+                  </>
+                )}
               </li>
             ))}
           </ul>
         )}
-        <p className="texto-pequeno texto-suave">Uma edição real ou mudança de status registra ação relevante e remove o alerta. Concluídas não geram alerta.</p>
+        <p className="texto-pequeno texto-suave">Uma edição real, uma mudança de status ou a reavaliação de uma demanda travada registra ação relevante e remove o alerta. Concluídas não geram alerta.</p>
       </div>
 
       <div className="cartao">

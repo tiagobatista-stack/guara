@@ -89,4 +89,35 @@ describe('tela Demandas', () => {
     expect(screen.queryByRole('button', { name: 'Nova demanda' })).toBeNull();
     expect(localStorage.getItem('guara:demandas:v1')).toBe('corrompido');
   });
+
+  it('marca como travada pelo detalhe, mostra na lista e no filtro, e destrava', () => {
+    const armazem = montar();
+    act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0002', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'Em Andamento', prazo: '' }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0002' }));
+    expect(screen.getByTestId('bloqueio-detalhe')).toHaveTextContent('não está travada');
+    fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'campo' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Demanda marcada como travada.');
+    expect(screen.getByTestId('bloqueio-detalhe')).toHaveTextContent('⛔ travada hoje: depende de campo');
+    expect(screen.getByRole('button', { name: 'Mudar motivo' })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
+    expect(screen.getByTestId('bloqueio-id-1')).toHaveTextContent('depende de campo');
+    fireEvent.change(screen.getByLabelText('Bloqueio'), { target: { value: 'livres' } });
+    expect(screen.getByText('Nenhuma demanda corresponde aos filtros.')).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Bloqueio'), { target: { value: 'travadas' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0002' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Destravou' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Demanda destravada.');
+    expect(screen.getByTestId('bloqueio-detalhe')).toHaveTextContent('não está travada');
+    expect(armazem.obter().demandas[0]).not.toHaveProperty('bloqueio');
+  });
+
+  it('demanda concluída não oferece travar', () => {
+    const armazem = montar();
+    act(() => { armazem.criar({ titulo: 'Arquivar processo FIC-0003', descricao: '', responsavel: '', prioridade: 'Baixa', status: 'Concluída', prazo: '' }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Arquivar processo FIC-0003' }));
+    expect(screen.queryByLabelText('Motivo do bloqueio')).toBeNull();
+  });
 });

@@ -6,6 +6,21 @@ export type Status = (typeof STATUS)[number];
 export const PRIORIDADES = ['Alta', 'Média', 'Baixa'] as const;
 export type Prioridade = (typeof PRIORIDADES)[number];
 
+/** Motivos de bloqueio, por botões (ideia do TOCA, `travada_modulo.py`). Só a categoria: texto livre poderia ter nomes. */
+export const MOTIVOS_BLOQUEIO = {
+  documento: 'falta documento',
+  setor: 'aguardando outro setor',
+  campo: 'depende de campo',
+  outro: 'outro motivo',
+} as const;
+export type MotivoBloqueio = keyof typeof MOTIVOS_BLOQUEIO;
+
+export interface Bloqueio {
+  motivo: MotivoBloqueio;
+  /** ISO 8601: quando a demanda travou (mudar o motivo não muda). */
+  desde: string;
+}
+
 export interface Demanda {
   id: string;
   titulo: string;
@@ -19,6 +34,8 @@ export interface Demanda {
   prazo?: string;
   /** ISO 8601; muda só ao criar, editar de fato ou mudar status. */
   ultimaAcaoRelevante: string;
+  /** Presente só enquanto a demanda está travada; não altera o status. */
+  bloqueio?: Bloqueio;
 }
 
 /** Campos que o usuário informa no formulário. */

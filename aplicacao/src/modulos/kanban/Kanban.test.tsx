@@ -104,4 +104,16 @@ describe('Kanban', () => {
     expect(within(screen.getByTestId('demanda-k1')).getByTestId('andamento-k1')).toHaveTextContent('última ação há 4 dias');
     expect(screen.queryAllByTestId('andamento-k2')).toHaveLength(0);
   });
+
+  it('cartão travado mostra o motivo no Kanban, sem mudar de coluna', () => {
+    const armazem = criarArmazem(localStorage, {
+      exemplos: () => [{ ...EXEMPLOS[0], bloqueio: { motivo: 'documento', desde: '2026-11-13T12:00:00.000Z' } }],
+    });
+    render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Kanban agora={() => new Date('2026-11-18T12:00:00.000Z')} />
+      </ContextoArmazem.Provider>,
+    );
+    expect(within(screen.getByTestId('coluna-A Fazer')).getByTestId('bloqueio-k1')).toHaveTextContent('⛔ travada há 3 dias úteis: falta documento');
+  });
 });

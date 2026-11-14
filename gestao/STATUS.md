@@ -30,7 +30,8 @@
 5. **Prazos em dias úteis (14/11/2026), lógica reescrita a partir do TOCA:** feriados nacionais e texto "faltam N dias úteis" no Dashboard, no Kanban e em Demandas. Foram 12 testes novos; total 135/135, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Ainda não commitado nem publicado. Evidência em `metodologia/evidencias/2026-11-14-prazos-dias-uteis.md`.
 6. **Node 26 conferido (14/11/2026):** `npm ci` limpo, 135/135, build ok e hook 8/8. O servidor MCP sobe no Node 26, mas falta exportar `servidor-mcp/dados/guara-dados.json` e reiniciar a sessão para a chamada real. Evidência em `metodologia/evidencias/2026-11-14-reverificacao-node26.md`.
 7. **Tempo em andamento (14/11/2026), item 7 das ideias do TOCA:** "em andamento · última ação há N dias" no Kanban e em Demandas, contado de `ultimaAcaoRelevante`. Foram 4 testes novos; total 139/139, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-tempo-em-andamento.md`.
-8. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
+8. **Demanda travada (14/11/2026), item 6 das ideias do TOCA:** campo opcional `bloqueio`, sem migração e sem mudar `versao: 1`; reavaliação pelo alerta de inatividade; regra 1 do PLANO ampliada. Foram 16 testes novos; total 155/155, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-demanda-travada.md`.
+9. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
 
 ## Comandos
 

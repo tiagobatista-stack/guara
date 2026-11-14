@@ -2,12 +2,13 @@
 // com confirmação (incremento 1 do PLANO.md). Dados no localStorage deste navegador.
 
 import { useMemo, useState } from 'react';
-import { PRIORIDADES, STATUS, type Demanda } from './modelo.ts';
+import { MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloqueio } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useArmazem, useEstadoDemandas } from './armazem.ts';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
+import { textoBloqueio } from '../alertas/bloqueio.ts';
 
 type Modo = { tipo: 'lista' } | { tipo: 'nova' } | { tipo: 'editar'; id: string } | { tipo: 'detalhe'; id: string };
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
@@ -34,6 +35,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const [modo, setModo] = useState<Modo>({ tipo: 'lista' });
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [aviso, setAviso] = useState<Aviso>(null);
+  const [motivo, setMotivo] = useState<MotivoBloqueio>('documento');
 
   const responsaveis = useMemo(
     () => [...new Set(demandas.map((d) => d.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -48,6 +50,9 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
     setAviso(r.ok ? { tipo: 'sucesso', texto: 'Demanda excluída.' } : { tipo: 'erro', texto: r.mensagem });
     if (r.ok) setModo({ tipo: 'lista' });
   };
+
+  const responder = (r: { ok: true } | { ok: false; mensagem: string }, sucesso: string) =>
+    setAviso(r.ok ? { tipo: 'sucesso', texto: sucesso } : { tipo: 'erro', texto: r.mensagem });
 
   const restaurar = () => {
     if (!window.confirm('Substituir TODOS os dados deste navegador pelos exemplos fictícios?')) return;
@@ -139,7 +144,30 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora())}</dd>
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
+            <dt>Bloqueio</dt><dd data-testid="bloqueio-detalhe">{textoBloqueio(emDetalhe, agora()) ?? 'não está travada'}</dd>
           </dl>
+          {emDetalhe.status !== 'Concluída' && (
+            <form className="filtros" aria-label="Bloqueio da demanda" onSubmit={(e) => {
+              e.preventDefault();
+              responder(armazem.travar(emDetalhe.id, motivo), emDetalhe.bloqueio ? 'Motivo do bloqueio gravado.' : 'Demanda marcada como travada.');
+            }}>
+              <label className="campo-grupo">
+                <span>Motivo do bloqueio</span>
+                <select className="campo" value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoBloqueio)}>
+                  {Object.entries(MOTIVOS_BLOQUEIO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                </select>
+              </label>
+              <div className="acoes">
+                <button type="submit" className="botao">{emDetalhe.bloqueio ? 'Mudar motivo' : 'Marcar como travada'}</button>
+                {emDetalhe.bloqueio && (
+                  <>
+                    <button type="button" className="botao" onClick={() => responder(armazem.confirmarBloqueio(emDetalhe.id), 'Reavaliação registrada: a demanda continua travada.')}>Ainda travada</button>
+                    <button type="button" className="botao botao--primario" onClick={() => responder(armazem.destravar(emDetalhe.id), 'Demanda destravada.')}>Destravou</button>
+                  </>
+                )}
+              </div>
+            </form>
+          )}
           <div className="acoes">
             <button type="button" className="botao" onClick={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }}>Editar</button>
             <button type="button" className="botao botao--perigo" onClick={() => excluir(emDetalhe)}>Excluir</button>
@@ -171,6 +199,14 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               </select>
             </label>
             <label className="campo-grupo">
+              <span>Bloqueio</span>
+              <select className="campo" value={filtros.bloqueio} onChange={(e) => setFiltros({ ...filtros, bloqueio: e.target.value as Filtros['bloqueio'] })}>
+                <option value="">Todas</option>
+                <option value="travadas">Só travadas</option>
+                <option value="livres">Sem bloqueio</option>
+              </select>
+            </label>
+            <label className="campo-grupo">
               <span>Responsável</span>
               <select className="campo" value={filtros.responsavel} onChange={(e) => setFiltros({ ...filtros, responsavel: e.target.value })}>
                 <option value="">Todos</option>
@@ -194,9 +230,10 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                     <dt>Prioridade</dt><dd>{d.prioridade}</dd>
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
                     <dt>Prazo</dt><dd>{comSituacao(d, agora())}</dd>
+                    {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora())}</dd></>}
                   </dl>
                   <div className="acoes">
-                    <button type="button" className="botao botao--pequeno" aria-label={`Detalhes de ${d.titulo}`} onClick={() => { setAviso(null); setModo({ tipo: 'detalhe', id: d.id }); }}>
+                    <button type="button" className="botao botao--pequeno" aria-label={`Detalhes de ${d.titulo}`} onClick={() => { setAviso(null); setMotivo(d.bloqueio?.motivo ?? 'documento'); setModo({ tipo: 'detalhe', id: d.id }); }}>
                       Detalhes
                     </button>
                     <button type="button" className="botao botao--pequeno" aria-label={`Editar ${d.titulo}`} onClick={() => { setAviso(null); setModo({ tipo: 'editar', id: d.id }); }}>

@@ -3,8 +3,8 @@
 // localStorage; só depois o estado em memória e a interface são atualizados.
 
 import { createContext, useContext, useSyncExternalStore } from 'react';
-import { CHAVE_DEMANDAS as CHAVE_DEMANDAS_ARMAZEM, type Demanda, type EntradaDemanda, type Status } from './modelo.ts';
-import { criarDemanda, editarDemanda, mudarStatus, type ErrosValidacao } from './regras.ts';
+import { CHAVE_DEMANDAS as CHAVE_DEMANDAS_ARMAZEM, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
+import { confirmarBloqueio, criarDemanda, destravarDemanda, editarDemanda, mudarStatus, travarDemanda, type ErrosValidacao } from './regras.ts';
 import { RepositorioLocal } from './repositorio-local.ts';
 import { demandasExemplo } from './exemplos.ts';
 import { DIAS_INATIVIDADE_PADRAO } from '../alertas/inatividade.ts';
@@ -150,6 +150,16 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
 
   const iso = () => agora().toISOString();
 
+  /** Aplica uma transição pura a uma demanda e grava; mesma identidade = nada mudou. */
+  function aplicar(id: string, transicao: (d: Demanda) => Demanda | null, recusa: string): RespostaAcao {
+    const atual = estado.demandas.find((d) => d.id === id);
+    if (!atual) return { ok: false, mensagem: 'Demanda não encontrada.' };
+    const nova = transicao(atual);
+    if (!nova) return { ok: false, mensagem: recusa };
+    if (nova === atual) return { ok: true, demanda: atual };
+    return gravar(estado.demandas.map((d) => (d.id === id ? nova : d))) ?? { ok: true, demanda: nova };
+  }
+
   /** Tenta voltar as chaves à fotografia; revertido = o armazenamento ficou igual a ela (lido de volta). */
   function reverter(chaves: string[], antes: (string | null)[]): boolean {
     chaves.forEach((k, i) => {
@@ -193,6 +203,16 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       const nova = mudarStatus(atual, status, iso());
       if (nova === atual) return { ok: true, demanda: atual };
       return gravar(estado.demandas.map((d) => (d.id === id ? nova : d))) ?? { ok: true, demanda: nova };
+    },
+    travar(id: string, motivo: MotivoBloqueio): RespostaAcao {
+      return aplicar(id, (d) => travarDemanda(d, motivo, iso()), 'Demanda concluída não pode ser travada.');
+    },
+    destravar(id: string): RespostaAcao {
+      return aplicar(id, (d) => destravarDemanda(d, iso()), '');
+    },
+    /** "Ainda travada": registra a reavaliação como ação relevante. */
+    confirmarBloqueio(id: string): RespostaAcao {
+      return aplicar(id, (d) => confirmarBloqueio(d, iso()), '');
     },
     excluir(id: string): RespostaAcao {
       if (!estado.demandas.some((d) => d.id === id)) return { ok: false, mensagem: 'Demanda não encontrada.' };

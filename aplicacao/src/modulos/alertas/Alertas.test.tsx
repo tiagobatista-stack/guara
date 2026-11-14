@@ -32,6 +32,22 @@ beforeEach(() => {
 });
 
 describe('tela Alertas', () => {
+  it('demanda travada e inativa pergunta se continua travada; "Ainda travada" e "Destravou" registram ação', () => {
+    localStorage.setItem(CHAVE_DEMANDAS, JSON.stringify({ versao: 1, demandas: [
+      { ...ANTIGA, bloqueio: { motivo: 'setor', desde: '2026-11-06T12:00:00.000Z' } },
+      { ...ANTIGA, id: 'outra', titulo: 'Outra travada (fictícia)', bloqueio: { motivo: 'documento', desde: '2026-11-06T12:00:00.000Z' } },
+    ] }));
+    const armazem = montar();
+    expect(screen.getByTestId('inativa-velha')).toHaveTextContent('⛔ travada há 5 dias úteis: aguardando outro setor. Ela continua travada?');
+    fireEvent.click(screen.getByRole('button', { name: '"Demanda parada (fictícia)" continua travada' }));
+    expect(screen.getByRole('status')).toHaveTextContent('continua travada');
+    expect(screen.queryByTestId('inativa-velha')).toBeNull();
+    expect(armazem.obter().demandas.find((d) => d.id === 'velha')?.bloqueio?.motivo).toBe('setor');
+    fireEvent.click(screen.getByRole('button', { name: '"Outra travada (fictícia)" destravou' }));
+    expect(screen.queryByTestId('inativa-outra')).toBeNull();
+    expect(armazem.obter().demandas.find((d) => d.id === 'outra')).not.toHaveProperty('bloqueio');
+  });
+
   it('alerta aparece com 5 dias e limiar 3, e some após ação relevante', () => {
     const armazem = montar();
     expect(screen.getByTestId('inativa-velha')).toHaveTextContent('há 5 dia(s)');

@@ -1,6 +1,6 @@
 // Regras puras de demanda (sem acesso a armazenamento), testáveis isoladamente.
 
-import { LIMITES, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type Status } from './modelo.ts';
+import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
 
 export type ErrosValidacao = Partial<Record<keyof EntradaDemanda, string>>;
 
@@ -63,7 +63,36 @@ export function editarDemanda(d: Demanda, e: EntradaDemanda, agoraIso: string): 
 
 export function mudarStatus(d: Demanda, status: Status, agoraIso: string): Demanda {
   if (d.status === status) return d;
+  // Concluir encerra o bloqueio: demanda concluída não fica travada.
+  if (status === 'Concluída') return { ...semBloqueio(d), status, ultimaAcaoRelevante: agoraIso };
   return { ...d, status, ultimaAcaoRelevante: agoraIso };
+}
+
+function semBloqueio(d: Demanda): Demanda {
+  const { bloqueio: _bloqueio, ...resto } = d;
+  void _bloqueio;
+  return resto;
+}
+
+export const ehMotivoBloqueio = (x: unknown): x is MotivoBloqueio =>
+  typeof x === 'string' && Object.prototype.hasOwnProperty.call(MOTIVOS_BLOQUEIO, x);
+
+/** Trava a demanda ou muda o motivo (mantendo o "desde"). Concluída não trava: devolve null. */
+export function travarDemanda(d: Demanda, motivo: MotivoBloqueio, agoraIso: string): Demanda | null {
+  if (d.status === 'Concluída') return null;
+  if (d.bloqueio?.motivo === motivo) return d;
+  return { ...d, bloqueio: { motivo, desde: d.bloqueio?.desde ?? agoraIso }, ultimaAcaoRelevante: agoraIso };
+}
+
+export function destravarDemanda(d: Demanda, agoraIso: string): Demanda {
+  if (!d.bloqueio) return d;
+  return { ...semBloqueio(d), ultimaAcaoRelevante: agoraIso };
+}
+
+/** "Ainda travada": a reavaliação conta como ação relevante e tira a demanda do alerta de inatividade. */
+export function confirmarBloqueio(d: Demanda, agoraIso: string): Demanda {
+  if (!d.bloqueio) return d;
+  return { ...d, ultimaAcaoRelevante: agoraIso };
 }
 
 export function paraEntrada(d: Demanda): EntradaDemanda {
@@ -82,9 +111,10 @@ export interface Filtros {
   status: Status | '';
   prioridade: Demanda['prioridade'] | '';
   responsavel: string;
+  bloqueio: '' | 'travadas' | 'livres';
 }
 
-export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '' };
+export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '' };
 
 export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[] {
   const texto = f.texto.trim().toLocaleLowerCase('pt-BR');
@@ -93,7 +123,8 @@ export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[
       (!texto || `${d.titulo} ${d.descricao}`.toLocaleLowerCase('pt-BR').includes(texto)) &&
       (!f.status || d.status === f.status) &&
       (!f.prioridade || d.prioridade === f.prioridade) &&
-      (!f.responsavel || d.responsavel === f.responsavel),
+      (!f.responsavel || d.responsavel === f.responsavel) &&
+      (!f.bloqueio || (f.bloqueio === 'travadas') === !!d.bloqueio),
   );
 }
 
@@ -111,6 +142,13 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     STATUS.includes(d.status as never) &&
     typeof d.criadaEm === 'string' && !Number.isNaN(Date.parse(d.criadaEm)) &&
     typeof d.ultimaAcaoRelevante === 'string' && !Number.isNaN(Date.parse(d.ultimaAcaoRelevante)) &&
-    (d.prazo === undefined || (typeof d.prazo === 'string' && dataValida(d.prazo)))
+    (d.prazo === undefined || (typeof d.prazo === 'string' && dataValida(d.prazo))) &&
+    (d.bloqueio === undefined || bloqueioValido(d.bloqueio))
   );
+}
+
+function bloqueioValido(x: unknown): boolean {
+  if (typeof x !== 'object' || x === null) return false;
+  const b = x as Record<string, unknown>;
+  return ehMotivoBloqueio(b.motivo) && typeof b.desde === 'string' && !Number.isNaN(Date.parse(b.desde));
 }

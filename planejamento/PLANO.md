@@ -25,6 +25,10 @@ interface Demanda {
   criadaEm: string;            // ISO 8601
   prazo?: string;              // AAAA-MM-DD, opcional
   ultimaAcaoRelevante: string; // ISO 8601
+  bloqueio?: {                 // opcional, só enquanto travada (14/11/2026, ideia do TOCA)
+    motivo: 'documento' | 'setor' | 'campo' | 'outro';
+    desde: string;             // ISO 8601; mudar o motivo não muda
+  };
 }
 
 interface Configuracao {
@@ -40,7 +44,7 @@ interface Configuracao {
 
 ## 3. Regras
 
-1. **Última ação relevante** muda só ao criar, ao editar de fato (algum campo alterado) ou ao mudar o status. Consultar, filtrar ou abrir o dashboard não conta.
+1. **Última ação relevante** muda só ao criar, ao editar de fato (algum campo alterado), ao mudar o status ou ao travar, mudar o motivo, reavaliar ("Ainda travada") ou destravar. Consultar, filtrar ou abrir o dashboard não conta.
 2. **Vencida:** status diferente de Concluída e `prazo` anterior ao início de hoje, no fuso do navegador.
 3. **Inativa:** status diferente de Concluída e (agora − `ultimaAcaoRelevante`) **maior que** `diasInatividade` dias corridos.
 4. **Exclusão:** só com confirmação explícita na interface, e persistida.
