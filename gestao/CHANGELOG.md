@@ -11,6 +11,7 @@
 - Aviso de demanda parecida, ideia vinda do TOCA: no cadastro, uma demanda em aberto com o mesmo processo, o mesmo título ou com todas as palavras do título digitado faz perguntar antes de gravar ("Criar mesmo assim", "Ver a existente", "Continuar editando"). O modelo não mudou. 174/174 testes.
 - Três números por demanda, ideia vinda do TOCA: campos opcionais de processo administrativo, SIMP e processo judicial (CNJ, com dígitos verificadores conferidos), normalizados ao gravar, na lista, no detalhe, na pesquisa e no aviso de demanda parecida. Os exemplos levam o número `FIC-` no campo próprio. Formato `versao: 1` mantido. 185/185 testes.
 - Tipo (campo × gabinete) e natureza (demanda × tarefa comum), ideia vinda do TOCA: deduzidos do título no cadastro com o porquê à vista, a pessoa confere ou troca; na edição, só sugestão. Filtros, detalhe, lista e Kanban. Formato `versao: 1` mantido. 201/201 testes.
+- Tela compartilhada na tela Demandas, ideia vinda do TOCA: resumo das demandas em aberto por lista branca de campos, sem responsável nem descrição; SIMP e processo judicial só como "tem". O modelo não mudou. 207/207 testes.
 
 ## [0.1.0] — 13/11/2026
 

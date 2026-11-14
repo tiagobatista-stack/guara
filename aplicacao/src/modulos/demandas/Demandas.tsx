@@ -9,6 +9,7 @@ import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
 import { acharParecida } from './parecida.ts';
 import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
 import { NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, TIPOS } from './classificacao.ts';
+import { resumosEmAberto } from './resumo.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -39,6 +40,8 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [aviso, setAviso] = useState<Aviso>(null);
   const [motivo, setMotivo] = useState<MotivoBloqueio>('documento');
+  // Tela compartilhada (projetor, reunião): só o resumo por lista branca, sem dado pessoal.
+  const [compartilhada, setCompartilhada] = useState(false);
 
   const responsaveis = useMemo(
     () => [...new Set(demandas.map((d) => d.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
@@ -76,9 +79,18 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           </p>
         </div>
         {modo.tipo === 'lista' && !erroArmazenamento && (
-          <button type="button" className="botao botao--primario" onClick={() => { setAviso(null); setModo({ tipo: 'nova' }); }}>
-            Nova demanda
-          </button>
+          <div className="acoes">
+            {compartilhada ? (
+              <button type="button" className="botao botao--primario" onClick={() => setCompartilhada(false)}>Sair da tela compartilhada</button>
+            ) : (
+              <>
+                <button type="button" className="botao" onClick={() => { setAviso(null); setCompartilhada(true); }}>Tela compartilhada</button>
+                <button type="button" className="botao botao--primario" onClick={() => { setAviso(null); setModo({ tipo: 'nova' }); }}>
+                  Nova demanda
+                </button>
+              </>
+            )}
+          </div>
         )}
       </div>
 
@@ -190,7 +202,34 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
         </article>
       )}
 
-      {modo.tipo === 'lista' && !erroArmazenamento && (
+      {modo.tipo === 'lista' && !erroArmazenamento && compartilhada && (
+        <>
+          <p role="status" className="aviso">
+            <strong>Tela compartilhada.</strong> Só aparecem as demandas em aberto, com título, status, prioridade, prazo, tipo, natureza,
+            andamento, bloqueio e processo administrativo. Responsável e descrição não aparecem; SIMP e processo judicial aparecem só como “tem”.
+            O título aparece como foi digitado: evite nomes de pessoas nele.
+          </p>
+          {(() => {
+            const resumos = resumosEmAberto(demandas, agora());
+            return resumos.length === 0 ? (
+              <p className="cartao texto-suave">Nenhuma demanda em aberto.</p>
+            ) : (
+              <ul className="lista-limpa grade grade--2" aria-label="Resumo das demandas em aberto">
+                {resumos.map((r) => (
+                  <li key={r.id} className="cartao" data-testid={`resumo-${r.id}`}>
+                    <p><strong>{r.titulo}</strong></p>
+                    <dl className="dados-definicao">
+                      {r.linhas.map(([rotulo, valor]) => <Fragment key={rotulo}><dt>{rotulo}</dt><dd>{valor}</dd></Fragment>)}
+                    </dl>
+                  </li>
+                ))}
+              </ul>
+            );
+          })()}
+        </>
+      )}
+
+      {modo.tipo === 'lista' && !erroArmazenamento && !compartilhada && (
         <>
           <form className="cartao filtros" role="search" aria-label="Pesquisar e filtrar demandas" onSubmit={(e) => e.preventDefault()}>
             <label className="campo-grupo">

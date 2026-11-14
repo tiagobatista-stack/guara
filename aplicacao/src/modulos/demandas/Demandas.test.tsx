@@ -245,4 +245,28 @@ describe('tela Demandas', () => {
       expect(screen.queryByText('Organizar arquivo', { selector: 'strong' })).toBeNull();
     });
   });
+
+  it('tela compartilhada: só o resumo, sem responsável, descrição nem números do MP; sair volta à lista', () => {
+    const armazem = montar();
+    act(() => {
+      armazem.criar({ titulo: 'Vistoria fictícia no lote 9', descricao: 'Falar com Fulana Fictícia', responsavel: 'Beltrano Fictício', prioridade: 'Alta', status: 'A Fazer', prazo: '', processo: 'FIC-2026-0009', simp: '000001-001/2099' });
+      armazem.criar({ titulo: 'Arquivar relatório fictício', descricao: '', responsavel: '', prioridade: 'Baixa', status: 'Concluída', prazo: '' });
+    });
+    fireEvent.click(screen.getByRole('button', { name: 'Tela compartilhada' }));
+
+    const pagina = document.body.textContent ?? '';
+    for (const proibido of ['Beltrano', 'Fulana', '000001-001/2099']) expect(pagina).not.toContain(proibido);
+    expect(screen.queryByLabelText('Responsável')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Nova demanda' })).toBeNull();
+    expect(screen.queryByRole('button', { name: /^Editar/ })).toBeNull();
+    const cartao = screen.getByTestId('resumo-id-1');
+    expect(cartao).toHaveTextContent('Vistoria fictícia no lote 9');
+    expect(cartao).toHaveTextContent('FIC-2026-0009');
+    expect(cartao).toHaveTextContent('tem (número fora do resumo)');
+    expect(screen.queryByTestId('resumo-id-2')).toBeNull();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Sair da tela compartilhada' }));
+    expect(screen.getByLabelText('Responsável')).toBeInTheDocument();
+    expect(screen.getByText('Beltrano Fictício', { selector: 'dd' })).toBeInTheDocument();
+  });
 });

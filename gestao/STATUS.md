@@ -35,7 +35,8 @@
 10. **Aviso de demanda parecida (14/11/2026), item 9 das ideias do TOCA:** no cadastro, aviso antes de gravar quando há demanda em aberto com o mesmo processo, o mesmo título ou o título digitado inteiro no dela. O modelo não mudou. Foram 10 testes novos (um deles achou um defeito na leitura do processo, corrigido); total 174/174, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-demanda-parecida.md`.
 11. **Três números por demanda (14/11/2026), item 10 das ideias do TOCA:** campos opcionais `processo`, `simp` e `judicial` (CNJ com mod 97), sem migração e sem mudar `versao: 1`; PLANO atualizado. Foram 11 testes novos; total 185/185, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-tres-numeros.md`.
 12. **Tipo campo × gabinete e natureza (14/11/2026), item 11 das ideias do TOCA:** campos opcionais `tipo` e `natureza`, deduzidos do título no cadastro e conferidos pela pessoa, sem migração; PLANO atualizado. Foram 16 testes novos; total 201/201, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-tipo-e-natureza.md`.
-13. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
+13. **Resumo sem dado pessoal (14/11/2026), item 12 das ideias do TOCA:** botão "Tela compartilhada" em Demandas, com resumo por lista branca (sem responsável nem descrição; SIMP e CNJ só como "tem"). O modelo não mudou. Foram 6 testes novos; total 207/207, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-resumo-sem-dado-pessoal.md`.
+14. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
 
 ## Comandos
 

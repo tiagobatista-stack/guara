@@ -5,7 +5,7 @@
 ## Próxima sessão (em ordem)
 
 1. **Reativar o MCP (P10).** No Node 26 o servidor já sobe e as dependências estão instaladas (`2026-11-14-reverificacao-node26.md`). Falta o responsável exportar `guara-dados.json` pela tela Alertas e salvá-lo em `servidor-mcp/dados/`; depois rode `node servidor-mcp/testar-servidor.ts`. Reinicie a sessão para o `guara-dados` reconectar e repita a chamada real de `resumir_demandas`. Abrir a tela `/mcp` ainda está NÃO TESTADO.
-2. **Conferir e publicar os dias úteis, o tempo em andamento, a demanda travada, a triagem sem prazo, o aviso de demanda parecida, os três números e o tipo e a natureza.** O commit `3b97357` foi feito só no repositório local. Confira no navegador o Dashboard, o Kanban e Demandas, inclusive em tela de celular; até lá, as telas estão NÃO CONFERIDO VISUALMENTE. O push para o GitHub, que gera o deploy na Vercel, pede autorização.
+2. **Conferir e publicar os dias úteis, o tempo em andamento, a demanda travada, a triagem sem prazo, o aviso de demanda parecida, os três números, o tipo e a natureza e a tela compartilhada.** O commit `3b97357` foi feito só no repositório local. Confira no navegador o Dashboard, o Kanban e Demandas, inclusive em tela de celular; até lá, as telas estão NÃO CONFERIDO VISUALMENTE. O push para o GitHub, que gera o deploy na Vercel, pede autorização.
 
 ## Pendências da apostila
 
@@ -18,7 +18,7 @@
 - **Origem judicial ou do MP:** campo `origem` com prioridade e destaque, como em `judicial_modulo.py`. Muda o modelo da apostila: confirme com o responsável e faça migração do formato `versao: 1`, com backup antes.
 - **Migrações versionadas:** lista de passos, como em `migracoes.py`. Necessária na primeira mudança de modelo que não for só um campo opcional novo (o bloqueio da demanda travada não precisou).
 - **Prazo escrito em português:** "prazo 10 dias úteis", "sexta que vem", "22/12 a 29/12", como em `prazo.py:extrair`. No formulário, a data entra só como sugestão e a pessoa confirma.
-- **Resumo sem dado pessoal:** visão para tela compartilhada montada por lista branca de campos, como em `resumo.py`.
 - **Campos essenciais:** mostrar o que falta preencher em cada demanda, como em `perguntas.py`.
 - **Extrair os três números do texto colado:** preencher processo, SIMP e CNJ a partir da descrição, como em `identificadores.py:extrair`; a pessoa confere antes de gravar.
+- **Tela compartilhada no Kanban:** o cartão mostra o responsável; um modo como o da tela Demandas, com o mesmo resumo por lista branca.
 - **Depois do MVP:** importar agenda `.ics` (`agenda_local.py`), histórico que guarda só o nome dos campos alterados, e uma verificação de termos proibidos (`verificar_generico.py`) no gate.
