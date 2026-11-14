@@ -5,9 +5,14 @@ import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { diasParado, listarInativas } from './inatividade.ts';
 import { textoBloqueio } from './bloqueio.ts';
+import { listarSemPrazo, PRAZO_SUGERIDO_DIAS_UTEIS, sugerirPrazo } from './triagem.ts';
+import { dataValida, paraEntrada } from '../demandas/regras.ts';
+import type { Demanda } from '../demandas/modelo.ts';
 import { exportarDados, NOME_ARQUIVO, validarImportacao } from './dados-portaveis.ts';
 
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
+
+const dataBr = (aaaammdd: string) => new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR');
 
 function baixar(nome: string, conteudo: string) {
   const url = URL.createObjectURL(new Blob([conteudo], { type: 'application/json' }));
@@ -26,11 +31,26 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   const arquivoRef = useRef<HTMLInputElement>(null);
   const instante = agora();
   const inativas = listarInativas(demandas, diasInatividade, instante);
+  const semPrazo = listarSemPrazo(demandas);
+  const sugestao = sugerirPrazo(instante);
+  // Data escolhida por demanda na triagem; sem escolha, vale a sugestão.
+  const [prazos, setPrazos] = useState<Record<string, string>>({});
 
   const salvarDias = (e: FormEvent) => {
     e.preventDefault();
     const r = armazem.definirDiasInatividade(Number(dias));
     setAviso(r.ok ? { tipo: 'sucesso', texto: `Limiar de inatividade gravado: ${dias} dia(s) corridos.` } : { tipo: 'erro', texto: r.mensagem });
+  };
+
+  const gravarPrazo = (d: Demanda, prazo: string) => {
+    if (!dataValida(prazo)) {
+      setAviso({ tipo: 'erro', texto: `Informe uma data válida para "${d.titulo}".` });
+      return;
+    }
+    const r = armazem.editar(d.id, { ...paraEntrada(d), prazo });
+    setAviso(r.ok
+      ? { tipo: 'sucesso', texto: `Prazo de "${d.titulo}" gravado: ${dataBr(prazo)}.` }
+      : { tipo: 'erro', texto: r.erros?.prazo ?? r.mensagem });
   };
 
   const exportar = () => {
@@ -134,6 +154,40 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
           </ul>
         )}
         <p className="texto-pequeno texto-suave">Uma edição real, uma mudança de status ou a reavaliação de uma demanda travada registra ação relevante e remove o alerta. Concluídas não geram alerta.</p>
+      </div>
+
+      <div className="cartao">
+        <h2 className="titulo-secao">Triagem: demandas sem prazo ({semPrazo.length})</h2>
+        {semPrazo.length === 0 ? (
+          <p className="texto-suave texto-medio">Toda demanda em aberto tem prazo.</p>
+        ) : (
+          <>
+            <p className="texto-pequeno texto-suave">
+              Sugestão: {PRAZO_SUGERIDO_DIAS_UTEIS} dias úteis a partir de hoje, {dataBr(sugestao.data)}
+              {sugestao.feriadosPulados.length > 0 && ` (pulando o feriado de ${sugestao.feriadosPulados.map(dataBr).join(', ')})`}.
+              Confira a data, troque se precisar e grave. Nada é gravado sem o clique.
+            </p>
+            <ul className="lista-limpa lista-divisoria texto-medio" aria-label="Demandas sem prazo">
+              {semPrazo.map((d) => {
+                const prazo = prazos[d.id] ?? sugestao.data;
+                return (
+                  <li key={d.id} data-testid={`sem-prazo-${d.id}`}>
+                    <p><strong>{d.titulo}</strong> <span className="texto-pequeno texto-suave">· {d.status} · criada em {new Date(d.criadaEm).toLocaleDateString('pt-BR')}</span></p>
+                    <form className="filtros" aria-label={`Prazo de "${d.titulo}"`} onSubmit={(e) => { e.preventDefault(); gravarPrazo(d, prazo); }}>
+                      <label className="campo-grupo">
+                        <span>Prazo</span>
+                        <input className="campo" type="date" value={prazo} onChange={(e) => setPrazos({ ...prazos, [d.id]: e.target.value })} />
+                      </label>
+                      <div className="acoes">
+                        <button type="submit" className="botao botao--pequeno" aria-label={`Gravar prazo de "${d.titulo}"`}>Gravar prazo</button>
+                      </div>
+                    </form>
+                  </li>
+                );
+              })}
+            </ul>
+          </>
+        )}
       </div>
 
       <div className="cartao">

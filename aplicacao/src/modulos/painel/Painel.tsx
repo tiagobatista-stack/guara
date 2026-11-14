@@ -5,6 +5,7 @@ import { useEstadoDemandas } from '../demandas/armazem.ts';
 import { DIAS_INATIVIDADE_PADRAO, diasParado } from '../alertas/inatividade.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { calcularMetricas } from './metricas.ts';
+import { listarSemPrazo } from '../alertas/triagem.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 
@@ -13,6 +14,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
   const limiarDias = limiarFixo ?? diasInatividade ?? DIAS_INATIVIDADE_PADRAO;
   const instante = agora();
   const m = calcularMetricas(demandas, instante, limiarDias);
+  const semPrazo = listarSemPrazo(demandas).length;
   const comPrazo = demandas.filter((d) => d.prazo && d.status !== 'Concluída').sort((a, b) => a.prazo!.localeCompare(b.prazo!));
 
   return (
@@ -56,6 +58,11 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
         </div>
         <div className="cartao">
           <h2 className="titulo-secao">Linha do tempo de prazos</h2>
+          {semPrazo > 0 && (
+            <p className="texto-pequeno texto--atencao" data-testid="sem-prazo">
+              {semPrazo === 1 ? '1 demanda em aberto está' : `${semPrazo} demandas em aberto estão`} sem prazo. Faça a triagem na tela Alertas.
+            </p>
+          )}
           {comPrazo.length === 0 ? (
             <p className="texto-suave texto-medio">Nenhum prazo em aberto.</p>
           ) : (

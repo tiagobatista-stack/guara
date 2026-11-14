@@ -116,4 +116,16 @@ describe('Kanban', () => {
     );
     expect(within(screen.getByTestId('coluna-A Fazer')).getByTestId('bloqueio-k1')).toHaveTextContent('⛔ travada há 3 dias úteis: falta documento');
   });
+
+  it('dashboard avisa quantas demandas em aberto estão sem prazo (concluída não conta)', () => {
+    const armazem = criarArmazem(localStorage, {
+      exemplos: () => [EXEMPLOS[0], EXEMPLOS[1], { ...EXEMPLOS[1], id: 'k3', status: 'Concluída' }, { ...EXEMPLOS[1], id: 'k4', prazo: '2026-11-30' }],
+    });
+    render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Painel agora={() => new Date('2026-11-13T12:00:00.000Z')} />
+      </ContextoArmazem.Provider>,
+    );
+    expect(screen.getByTestId('sem-prazo')).toHaveTextContent('2 demandas em aberto estão sem prazo. Faça a triagem na tela Alertas.');
+  });
 });

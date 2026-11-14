@@ -32,6 +32,34 @@ beforeEach(() => {
 });
 
 describe('tela Alertas', () => {
+  it('triagem: sugere 10 dias úteis, grava só no clique e a demanda sai da lista', () => {
+    const armazem = montar();
+    // AGORA = sexta 13/11/2026; a sugestão pula o feriado de 20/11.
+    expect(screen.getByText(/Sugestão: 10 dias úteis a partir de hoje, 30\/11\/2026 \(pulando o feriado de 20\/11\/2026\)/)).toBeInTheDocument();
+    expect(screen.getByLabelText('Prazo')).toHaveValue('2026-11-30');
+    expect(armazem.obter().demandas[0].prazo).toBeUndefined();
+
+    fireEvent.click(screen.getByRole('button', { name: 'Gravar prazo de "Demanda parada (fictícia)"' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Prazo de "Demanda parada (fictícia)" gravado: 30/11/2026.');
+    expect(armazem.obter().demandas[0].prazo).toBe('2026-11-30');
+    expect(localStorage.getItem(CHAVE_DEMANDAS)).toContain('"prazo":"2026-11-30"');
+    expect(screen.queryByTestId('sem-prazo-velha')).toBeNull();
+    expect(screen.getByText('Toda demanda em aberto tem prazo.')).toBeInTheDocument();
+  });
+
+  it('triagem: a pessoa troca a data antes de gravar; data vazia é recusada sem gravar', () => {
+    const armazem = montar();
+    const campo = screen.getByLabelText('Prazo');
+    fireEvent.change(campo, { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gravar prazo de "Demanda parada (fictícia)"' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Informe uma data válida');
+    expect(armazem.obter().demandas[0].prazo).toBeUndefined();
+
+    fireEvent.change(campo, { target: { value: '2026-12-04' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Gravar prazo de "Demanda parada (fictícia)"' }));
+    expect(armazem.obter().demandas[0].prazo).toBe('2026-12-04');
+  });
+
   it('demanda travada e inativa pergunta se continua travada; "Ainda travada" e "Destravou" registram ação', () => {
     localStorage.setItem(CHAVE_DEMANDAS, JSON.stringify({ versao: 1, demandas: [
       { ...ANTIGA, bloqueio: { motivo: 'setor', desde: '2026-11-06T12:00:00.000Z' } },
