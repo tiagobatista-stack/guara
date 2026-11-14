@@ -85,4 +85,23 @@ describe('Kanban', () => {
     expect(within(screen.getByTestId('demanda-k1')).getByText('23/11/2026 · faltam 5 dias úteis')).toBeInTheDocument();
     expect(within(screen.getByTestId('demanda-k3')).getByText('10/11/2026')).toBeInTheDocument();
   });
+
+  it('mostra o tempo em andamento só nas demandas "Em Andamento", no Kanban e na lista', () => {
+    const armazem = criarArmazem(localStorage, {
+      exemplos: () => [
+        { ...EXEMPLOS[0], status: 'Em Andamento', ultimaAcaoRelevante: '2026-11-09T09:00:00.000Z' },
+        EXEMPLOS[1],
+      ],
+    });
+    const agora = () => new Date('2026-11-13T12:00:00.000Z');
+    render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Kanban agora={agora} />
+        <Demandas agora={agora} />
+      </ContextoArmazem.Provider>,
+    );
+    expect(within(screen.getByTestId('coluna-Em Andamento')).getByTestId('andamento-k1')).toHaveTextContent('em andamento · última ação há 4 dias');
+    expect(within(screen.getByTestId('demanda-k1')).getByTestId('andamento-k1')).toHaveTextContent('última ação há 4 dias');
+    expect(screen.queryAllByTestId('andamento-k2')).toHaveLength(0);
+  });
 });

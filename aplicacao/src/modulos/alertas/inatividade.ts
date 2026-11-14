@@ -25,3 +25,13 @@ export function listarInativas<T extends DemandaParaAlerta>(demandas: readonly T
 export function diasParado(d: DemandaParaAlerta, agora: Date): number {
   return Math.floor((agora.getTime() - Date.parse(d.ultimaAcaoRelevante)) / DIA_MS);
 }
+
+/**
+ * Tempo em andamento, só para status "Em Andamento" (ideia do TOCA, "fazendo · há N d").
+ * Conta da última ação relevante, não do início do andamento: o modelo não guarda essa data.
+ */
+export function textoEmAndamento(d: DemandaParaAlerta, agora: Date): string | null {
+  if (d.status !== 'Em Andamento') return null;
+  const n = Math.max(0, diasParado(d, agora));
+  return n === 0 ? 'em andamento · última ação há menos de 1 dia' : `em andamento · última ação há ${n} ${n === 1 ? 'dia' : 'dias'}`;
+}

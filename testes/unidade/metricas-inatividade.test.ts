@@ -2,7 +2,7 @@
 
 import type { Demanda } from '../../aplicacao/src/modulos/demandas/modelo.ts';
 import { calcularMetricas, estaVencida } from '../../aplicacao/src/modulos/painel/metricas.ts';
-import { estaInativa, listarInativas } from '../../aplicacao/src/modulos/alertas/inatividade.ts';
+import { estaInativa, listarInativas, textoEmAndamento } from '../../aplicacao/src/modulos/alertas/inatividade.ts';
 
 const AGORA = new Date(2026, 10, 13, 10, 0, 0); // 13/11/2026 10:00, fuso local
 
@@ -62,5 +62,23 @@ describe('calcularMetricas', () => {
     expect(m.porStatus).toEqual({ 'A Fazer': 1, 'Em Andamento': 1, 'Em Validação': 0, 'Concluída': 1 });
     expect(m.vencidas.map((d) => d.id)).toEqual(['1']);
     expect(m.inativas.map((d) => d.id)).toEqual(['2']);
+  });
+});
+
+describe('tempo em andamento (conta da última ação relevante)', () => {
+  const ha = (ms: number) => new Date(AGORA.getTime() - ms).toISOString();
+  it('só aparece em "Em Andamento"', () => {
+    for (const status of ['A Fazer', 'Em Validação', 'Concluída'] as const)
+      expect(textoEmAndamento(demanda({ status, ultimaAcaoRelevante: ha(5 * 86_400_000) }), AGORA)).toBeNull();
+  });
+  it('menos de 1 dia, 1 dia (singular) e N dias corridos inteiros', () => {
+    const emAndamento = (ms: number) => textoEmAndamento(demanda({ status: 'Em Andamento', ultimaAcaoRelevante: ha(ms) }), AGORA);
+    expect(emAndamento(23 * 3_600_000)).toBe('em andamento · última ação há menos de 1 dia');
+    expect(emAndamento(86_400_000)).toBe('em andamento · última ação há 1 dia');
+    expect(emAndamento(4.9 * 86_400_000)).toBe('em andamento · última ação há 4 dias');
+  });
+  it('relógio atrasado (ação no futuro) não mostra dia negativo', () => {
+    expect(textoEmAndamento(demanda({ status: 'Em Andamento', ultimaAcaoRelevante: ha(-3_600_000) }), AGORA))
+      .toBe('em andamento · última ação há menos de 1 dia');
   });
 });

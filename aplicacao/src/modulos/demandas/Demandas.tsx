@@ -7,6 +7,7 @@ import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './re
 import { useArmazem, useEstadoDemandas } from './armazem.ts';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
+import { textoEmAndamento } from '../alertas/inatividade.ts';
 
 type Modo = { tipo: 'lista' } | { tipo: 'nova' } | { tipo: 'editar'; id: string } | { tipo: 'detalhe'; id: string };
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
@@ -132,6 +133,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           <p className="texto-medio">{emDetalhe.descricao || <span className="texto-suave">Sem descrição.</span>}</p>
           <dl className="dados-definicao">
             <dt>Status</dt><dd>{emDetalhe.status}</dd>
+            {textoEmAndamento(emDetalhe, agora()) && <><dt>Andamento</dt><dd>{textoEmAndamento(emDetalhe, agora())}</dd></>}
             <dt>Prioridade</dt><dd>{emDetalhe.prioridade}</dd>
             <dt>Responsável</dt><dd>{emDetalhe.responsavel || '—'}</dd>
             <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora())}</dd>
@@ -188,6 +190,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                   <p><strong>{d.titulo}</strong></p>
                   <dl className="dados-definicao">
                     <dt>Status</dt><dd>{d.status}</dd>
+                    {textoEmAndamento(d, agora()) && <><dt>Andamento</dt><dd data-testid={`andamento-${d.id}`}>{textoEmAndamento(d, agora())}</dd></>}
                     <dt>Prioridade</dt><dd>{d.prioridade}</dd>
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
                     <dt>Prazo</dt><dd>{comSituacao(d, agora())}</dd>
