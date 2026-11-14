@@ -1,12 +1,13 @@
 // Demandas: lista com pesquisa e filtros, cadastro, edição, detalhe e exclusão
 // com confirmação (incremento 1 do PLANO.md). Dados no localStorage deste navegador.
 
-import { useMemo, useState } from 'react';
+import { Fragment, useMemo, useState } from 'react';
 import { MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloqueio } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useArmazem, useEstadoDemandas } from './armazem.ts';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
 import { acharParecida } from './parecida.ts';
+import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -150,6 +151,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dt>Prioridade</dt><dd>{emDetalhe.prioridade}</dd>
             <dt>Responsável</dt><dd>{emDetalhe.responsavel || '—'}</dd>
             <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora())}</dd>
+            {NUMEROS.map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono">{emDetalhe[c] ?? '—'}</dd></Fragment>)}
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
             <dt>Bloqueio</dt><dd data-testid="bloqueio-detalhe">{textoBloqueio(emDetalhe, agora()) ?? 'não está travada'}</dd>
@@ -189,7 +191,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           <form className="cartao filtros" role="search" aria-label="Pesquisar e filtrar demandas" onSubmit={(e) => e.preventDefault()}>
             <label className="campo-grupo">
               <span>Pesquisar</span>
-              <input className="campo" type="search" value={filtros.texto} placeholder="Título ou descrição"
+              <input className="campo" type="search" value={filtros.texto} placeholder="Título, descrição ou número"
                 onChange={(e) => setFiltros({ ...filtros, texto: e.target.value })} />
             </label>
             <label className="campo-grupo">
@@ -238,6 +240,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                     <dt>Prioridade</dt><dd>{d.prioridade}</dd>
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
                     <dt>Prazo</dt><dd>{comSituacao(d, agora())}</dd>
+                    {NUMEROS.filter((c) => d[c]).map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono" data-testid={`${c}-${d.id}`}>{d[c]}</dd></Fragment>)}
                     {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora())}</dd></>}
                   </dl>
                   <div className="acoes">

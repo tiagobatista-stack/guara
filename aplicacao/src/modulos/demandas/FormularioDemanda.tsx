@@ -2,6 +2,9 @@ import { useState, type FormEvent } from 'react';
 import { LIMITES, PRIORIDADES, STATUS, type EntradaDemanda } from './modelo.ts';
 import { validarEntrada, type ErrosValidacao } from './regras.ts';
 import { textoMotivo, type Parecida } from './parecida.ts';
+import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
+
+const EXEMPLO_NUMERO = { processo: 'FIC-2026-0001', simp: 'NNNNNN-NNN/AAAA', judicial: 'NNNNNNN-DD.AAAA.J.TR.OOOO' } as const;
 
 export const ENTRADA_VAZIA: EntradaDemanda = {
   titulo: '',
@@ -10,6 +13,9 @@ export const ENTRADA_VAZIA: EntradaDemanda = {
   prioridade: 'Média',
   status: 'A Fazer',
   prazo: '',
+  processo: '',
+  simp: '',
+  judicial: '',
 };
 
 interface Props {
@@ -106,6 +112,18 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
           </select>
         </label>
       </div>
+
+      <fieldset className="grade grade--2">
+        <legend className="texto-medio">Números (opcionais)</legend>
+        {NUMEROS.map((c) => (
+          <label key={c} className="campo-grupo">
+            <span>{ROTULOS_NUMERO[c]}</span>
+            <input className="campo mono" value={entrada[c] ?? ''} placeholder={EXEMPLO_NUMERO[c]} autoComplete="off" spellCheck={false}
+              onChange={(e) => campo(c, e.target.value)} {...ajuda(c)} />
+            {mensagem(c)}
+          </label>
+        ))}
+      </fieldset>
 
       {parecida && (
         <div role="alert" className="aviso" data-testid="aviso-parecida">

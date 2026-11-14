@@ -21,7 +21,8 @@ export function demandasExemplo(): Demanda[] {
   return demandasFicticias.map((d) => ({
     id: d.id,
     titulo: d.titulo,
-    descricao: `${d.descricao} Processo ${d.processo}.`,
+    descricao: d.descricao,
+    processo: d.processo,
     responsavel: EQUIPE_DE[d.setor] ?? 'Equipe (fictícia)',
     prioridade: PRIORIDADE_DE[d.prioridade],
     status: STATUS_DE[d.situacao],

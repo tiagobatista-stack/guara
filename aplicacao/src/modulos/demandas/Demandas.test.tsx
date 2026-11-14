@@ -169,4 +169,26 @@ describe('tela Demandas', () => {
       expect(screen.getByRole('status')).toHaveTextContent('Alterações gravadas.');
     });
   });
+
+  it('três números: erro no campo certo, gravação normalizada e exibição na lista e no detalhe', () => {
+    const armazem = montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Nova demanda' }));
+    fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: 'Responder ofício fictício' } });
+    fireEvent.change(screen.getByLabelText('Processo administrativo'), { target: { value: 'fic-2026-0042' } });
+    fireEvent.change(screen.getByLabelText(/^SIMP/), { target: { value: '12-3' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByLabelText(/^SIMP/)).toHaveAttribute('aria-invalid', 'true');
+    expect(screen.getByText(/NNNNNN-NNN\/AAAA \(ex\.: 000001-001\/2099\)/)).toBeInTheDocument();
+    expect(JSON.parse(localStorage.getItem('guara:demandas:v1')!).demandas).toHaveLength(0);
+
+    fireEvent.change(screen.getByLabelText(/^SIMP/), { target: { value: 'SIMP 000001-001/2099' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Demanda criada e gravada.');
+    expect(armazem.obter().demandas[0]).toMatchObject({ processo: 'FIC-2026-0042', simp: '000001-001/2099' });
+    expect(armazem.obter().demandas[0]).not.toHaveProperty('judicial');
+    expect(screen.getByTestId('processo-id-1')).toHaveTextContent('FIC-2026-0042');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Responder ofício fictício' }));
+    expect(screen.getByText('Processo judicial (CNJ)').nextElementSibling).toHaveTextContent('—');
+  });
 });

@@ -29,6 +29,9 @@ interface Demanda {
     motivo: 'documento' | 'setor' | 'campo' | 'outro';
     desde: string;             // ISO 8601; mudar o motivo não muda
   };
+  processo?: string;           // opcional (14/11/2026): processo administrativo, ex.: FIC-2026-0001
+  simp?: string;               // opcional: SIMP do Ministério Público, NNNNNN-NNN/AAAA
+  judicial?: string;           // opcional: CNJ NNNNNNN-DD.AAAA.J.TR.OOOO, dígitos verificadores conferidos
 }
 
 interface Configuracao {

@@ -36,6 +36,10 @@ export interface Demanda {
   ultimaAcaoRelevante: string;
   /** Presente só enquanto a demanda está travada; não altera o status. */
   bloqueio?: Bloqueio;
+  /** Os três números (identificadores.ts), opcionais e já normalizados. */
+  processo?: string;
+  simp?: string;
+  judicial?: string;
 }
 
 /** Campos que o usuário informa no formulário. */
@@ -46,6 +50,10 @@ export interface EntradaDemanda {
   prioridade: Prioridade;
   status: Status;
   prazo: string;
+  /** Vazios ou ausentes = sem o número. */
+  processo?: string;
+  simp?: string;
+  judicial?: string;
 }
 
 export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80 } as const;

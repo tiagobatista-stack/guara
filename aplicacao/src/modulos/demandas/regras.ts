@@ -1,5 +1,6 @@
 // Regras puras de demanda (sem acesso a armazenamento), testáveis isoladamente.
 
+import { LER_NUMERO, NUMEROS, numeroGravadoValido } from './identificadores.ts';
 import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
 
 export type ErrosValidacao = Partial<Record<keyof EntradaDemanda, string>>;
@@ -21,6 +22,12 @@ export function validarEntrada(e: EntradaDemanda): ErrosValidacao {
   if (!PRIORIDADES.includes(e.prioridade)) erros.prioridade = 'Prioridade inválida.';
   if (!STATUS.includes(e.status)) erros.status = 'Status inválido.';
   if (e.prazo && !dataValida(e.prazo)) erros.prazo = 'Informe uma data válida.';
+  for (const c of NUMEROS) {
+    const texto = (e[c] ?? '').trim();
+    if (!texto) continue;
+    const r = LER_NUMERO[c](texto);
+    if (!r.ok) erros[c] = r.erro;
+  }
   return erros;
 }
 
@@ -32,7 +39,18 @@ function normalizar(e: EntradaDemanda): Omit<Demanda, 'id' | 'criadaEm' | 'ultim
     prioridade: e.prioridade,
     status: e.status,
     ...(e.prazo ? { prazo: e.prazo } : {}),
+    ...numerosNormalizados(e),
   };
+}
+
+/** Os números preenchidos, na forma normalizada (a entrada já foi validada). */
+function numerosNormalizados(e: EntradaDemanda): Partial<Pick<Demanda, 'processo' | 'simp' | 'judicial'>> {
+  const saida: Partial<Pick<Demanda, 'processo' | 'simp' | 'judicial'>> = {};
+  for (const c of NUMEROS) {
+    const r = LER_NUMERO[c]((e[c] ?? '').trim());
+    if ((e[c] ?? '').trim() && r.ok) saida[c] = r.valor;
+  }
+  return saida;
 }
 
 export type Resultado<T> = { ok: true; valor: T } | { ok: false; erros: ErrosValidacao };
@@ -54,11 +72,13 @@ export function editarDemanda(d: Demanda, e: EntradaDemanda, agoraIso: string): 
     novos.responsavel !== d.responsavel ||
     novos.prioridade !== d.prioridade ||
     novos.status !== d.status ||
-    (novos.prazo ?? '') !== (d.prazo ?? '');
+    (novos.prazo ?? '') !== (d.prazo ?? '') ||
+    NUMEROS.some((c) => (novos[c] ?? '') !== (d[c] ?? ''));
   if (!mudou) return { ok: true, valor: d };
-  const { prazo: _prazoAntigo, ...semPrazo } = d;
-  void _prazoAntigo;
-  return { ok: true, valor: { ...semPrazo, ...novos, ultimaAcaoRelevante: agoraIso } };
+  // Campos opcionais apagados no formulário saem da demanda.
+  const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, ...semOpcionais } = d;
+  void [_prazo, _processo, _simp, _judicial];
+  return { ok: true, valor: { ...semOpcionais, ...novos, ultimaAcaoRelevante: agoraIso } };
 }
 
 export function mudarStatus(d: Demanda, status: Status, agoraIso: string): Demanda {
@@ -103,6 +123,9 @@ export function paraEntrada(d: Demanda): EntradaDemanda {
     prioridade: d.prioridade,
     status: d.status,
     prazo: d.prazo ?? '',
+    processo: d.processo ?? '',
+    simp: d.simp ?? '',
+    judicial: d.judicial ?? '',
   };
 }
 
@@ -120,7 +143,7 @@ export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[
   const texto = f.texto.trim().toLocaleLowerCase('pt-BR');
   return lista.filter(
     (d) =>
-      (!texto || `${d.titulo} ${d.descricao}`.toLocaleLowerCase('pt-BR').includes(texto)) &&
+      (!texto || [d.titulo, d.descricao, d.processo, d.simp, d.judicial].join(' ').toLocaleLowerCase('pt-BR').includes(texto)) &&
       (!f.status || d.status === f.status) &&
       (!f.prioridade || d.prioridade === f.prioridade) &&
       (!f.responsavel || d.responsavel === f.responsavel) &&
@@ -143,7 +166,8 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     typeof d.criadaEm === 'string' && !Number.isNaN(Date.parse(d.criadaEm)) &&
     typeof d.ultimaAcaoRelevante === 'string' && !Number.isNaN(Date.parse(d.ultimaAcaoRelevante)) &&
     (d.prazo === undefined || (typeof d.prazo === 'string' && dataValida(d.prazo))) &&
-    (d.bloqueio === undefined || bloqueioValido(d.bloqueio))
+    (d.bloqueio === undefined || bloqueioValido(d.bloqueio)) &&
+    NUMEROS.every((c) => d[c] === undefined || numeroGravadoValido(c, d[c]))
   );
 }
 

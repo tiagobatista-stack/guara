@@ -33,7 +33,8 @@
 8. **Demanda travada (14/11/2026), item 6 das ideias do TOCA:** campo opcional `bloqueio`, sem migração e sem mudar `versao: 1`; reavaliação pelo alerta de inatividade; regra 1 do PLANO ampliada. Foram 16 testes novos; total 155/155, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-demanda-travada.md`.
 9. **Triagem de demanda sem prazo (14/11/2026), item 8 das ideias do TOCA:** seção na tela Alertas com prazo sugerido de 10 dias úteis, gravado só no clique, e aviso no Dashboard. O modelo não mudou. Foram 9 testes novos; total 164/164, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-triagem-sem-prazo.md`.
 10. **Aviso de demanda parecida (14/11/2026), item 9 das ideias do TOCA:** no cadastro, aviso antes de gravar quando há demanda em aberto com o mesmo processo, o mesmo título ou o título digitado inteiro no dela. O modelo não mudou. Foram 10 testes novos (um deles achou um defeito na leitura do processo, corrigido); total 174/174, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-demanda-parecida.md`.
-11. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
+11. **Três números por demanda (14/11/2026), item 10 das ideias do TOCA:** campos opcionais `processo`, `simp` e `judicial` (CNJ com mod 97), sem migração e sem mudar `versao: 1`; PLANO atualizado. Foram 11 testes novos; total 185/185, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-tres-numeros.md`.
+12. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas de dias úteis, commitar, reativar o MCP).
 
 ## Comandos
 
