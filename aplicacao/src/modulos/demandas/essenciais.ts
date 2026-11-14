@@ -1,0 +1,40 @@
+// Campos essenciais: o que falta preencher em cada demanda em aberto (ideia do TOCA, `perguntas.py`).
+// Regra pura. A lista mostra só o NOME do campo que falta, nunca o conteúdo.
+// - tarefa comum: prazo e responsável;
+// - demanda (ou natureza não definida): natureza, tipo, prazo e responsável;
+// - demanda: também o processo administrativo.
+// Concluída não cobra nada.
+
+import type { Demanda } from './modelo.ts';
+
+export const CAMPOS_ESSENCIAIS = ['natureza', 'tipo', 'prazo', 'responsavel', 'processo'] as const;
+export type CampoEssencial = (typeof CAMPOS_ESSENCIAIS)[number];
+
+export const ROTULOS_ESSENCIAL: Record<CampoEssencial, string> = {
+  natureza: 'natureza',
+  tipo: 'tipo',
+  prazo: 'prazo',
+  responsavel: 'responsável',
+  processo: 'processo',
+};
+
+/** Os campos essenciais que valem para a demanda, na ordem de CAMPOS_ESSENCIAIS. */
+export function essenciaisAplicaveis(d: Pick<Demanda, 'natureza'>): CampoEssencial[] {
+  if (d.natureza === 'comum') return ['prazo', 'responsavel'];
+  if (d.natureza === 'demanda') return ['tipo', 'prazo', 'responsavel', 'processo'];
+  return ['natureza', 'tipo', 'prazo', 'responsavel'];
+}
+
+const vazio = (v: unknown) => v === undefined || (typeof v === 'string' && v.trim() === '');
+
+/** O que falta preencher; vazio quando está completa ou concluída. */
+export function camposQueFaltam(d: Pick<Demanda, 'status' | CampoEssencial>): CampoEssencial[] {
+  if (d.status === 'Concluída') return [];
+  return essenciaisAplicaveis(d).filter((c) => vazio(d[c]));
+}
+
+/** "Falta: tipo, prazo." ou null. */
+export function textoFalta(d: Pick<Demanda, 'status' | CampoEssencial>): string | null {
+  const faltam = camposQueFaltam(d);
+  return faltam.length ? `Falta: ${faltam.map((c) => ROTULOS_ESSENCIAL[c]).join(', ')}.` : null;
+}

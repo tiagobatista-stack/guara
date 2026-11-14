@@ -12,6 +12,7 @@
 - Três números por demanda, ideia vinda do TOCA: campos opcionais de processo administrativo, SIMP e processo judicial (CNJ, com dígitos verificadores conferidos), normalizados ao gravar, na lista, no detalhe, na pesquisa e no aviso de demanda parecida. Os exemplos levam o número `FIC-` no campo próprio. Formato `versao: 1` mantido. 185/185 testes.
 - Tipo (campo × gabinete) e natureza (demanda × tarefa comum), ideia vinda do TOCA: deduzidos do título no cadastro com o porquê à vista, a pessoa confere ou troca; na edição, só sugestão. Filtros, detalhe, lista e Kanban. Formato `versao: 1` mantido. 201/201 testes.
 - Tela compartilhada na tela Demandas, ideia vinda do TOCA: resumo das demandas em aberto por lista branca de campos, sem responsável nem descrição; SIMP e processo judicial só como "tem". O modelo não mudou. 207/207 testes.
+- Campos essenciais, ideia vinda do TOCA: "Falta: tipo, prazo." na lista e no detalhe de Demandas, conforme a natureza, e filtro "Preenchimento". Só avisa; nada virou obrigatório. 216/216 testes.
 
 ## [0.1.0] — 13/11/2026
 

@@ -2,6 +2,7 @@
 
 import { LER_NUMERO, NUMEROS, numeroGravadoValido } from './identificadores.ts';
 import { NATUREZAS, TIPOS } from './classificacao.ts';
+import { camposQueFaltam } from './essenciais.ts';
 import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
 
 export type ErrosValidacao = Partial<Record<keyof EntradaDemanda, string>>;
@@ -147,9 +148,11 @@ export interface Filtros {
   /** 'sem' = tipo não definido. */
   tipo: '' | 'campo' | 'gabinete' | 'sem';
   natureza: '' | 'demanda' | 'comum' | 'sem';
+  /** Campos essenciais (essenciais.ts). */
+  preenchimento: '' | 'faltando' | 'completas';
 }
 
-export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '', tipo: '', natureza: '' };
+export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '', tipo: '', natureza: '', preenchimento: '' };
 
 export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[] {
   const texto = f.texto.trim().toLocaleLowerCase('pt-BR');
@@ -161,7 +164,8 @@ export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[
       (!f.responsavel || d.responsavel === f.responsavel) &&
       (!f.bloqueio || (f.bloqueio === 'travadas') === !!d.bloqueio) &&
       (!f.tipo || (f.tipo === 'sem' ? !d.tipo : d.tipo === f.tipo)) &&
-      (!f.natureza || (f.natureza === 'sem' ? !d.natureza : d.natureza === f.natureza)),
+      (!f.natureza || (f.natureza === 'sem' ? !d.natureza : d.natureza === f.natureza)) &&
+      (!f.preenchimento || (f.preenchimento === 'faltando') === camposQueFaltam(d).length > 0),
   );
 }
 

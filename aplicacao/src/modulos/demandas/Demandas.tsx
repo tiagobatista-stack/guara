@@ -10,6 +10,7 @@ import { acharParecida } from './parecida.ts';
 import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
 import { NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, TIPOS } from './classificacao.ts';
 import { resumosEmAberto } from './resumo.ts';
+import { textoFalta } from './essenciais.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -170,6 +171,10 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             {NUMEROS.map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono">{emDetalhe[c] ?? '—'}</dd></Fragment>)}
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
+            <dt>Preenchimento</dt>
+            <dd data-testid="preenchimento-detalhe">
+              {emDetalhe.status === 'Concluída' ? 'concluída: nada a cobrar' : textoFalta(emDetalhe) ?? 'campos essenciais preenchidos'}
+            </dd>
             <dt>Bloqueio</dt><dd data-testid="bloqueio-detalhe">{textoBloqueio(emDetalhe, agora()) ?? 'não está travada'}</dd>
           </dl>
           {emDetalhe.status !== 'Concluída' && (
@@ -276,6 +281,14 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               </select>
             </label>
             <label className="campo-grupo">
+              <span>Preenchimento</span>
+              <select className="campo" value={filtros.preenchimento} onChange={(e) => setFiltros({ ...filtros, preenchimento: e.target.value as Filtros['preenchimento'] })}>
+                <option value="">Todas</option>
+                <option value="faltando">Faltando dados</option>
+                <option value="completas">Completas</option>
+              </select>
+            </label>
+            <label className="campo-grupo">
               <span>Responsável</span>
               <select className="campo" value={filtros.responsavel} onChange={(e) => setFiltros({ ...filtros, responsavel: e.target.value })}>
                 <option value="">Todos</option>
@@ -303,6 +316,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
                     <dt>Prazo</dt><dd>{comSituacao(d, agora())}</dd>
                     {NUMEROS.filter((c) => d[c]).map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono" data-testid={`${c}-${d.id}`}>{d[c]}</dd></Fragment>)}
+                    {textoFalta(d) && <><dt>Preenchimento</dt><dd className="texto--atencao" data-testid={`falta-${d.id}`}>{textoFalta(d)}</dd></>}
                     {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora())}</dd></>}
                   </dl>
                   <div className="acoes">

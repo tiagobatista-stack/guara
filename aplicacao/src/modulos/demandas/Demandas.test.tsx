@@ -269,4 +269,26 @@ describe('tela Demandas', () => {
     expect(screen.getByLabelText('Responsável')).toBeInTheDocument();
     expect(screen.getByText('Beltrano Fictício', { selector: 'dd' })).toBeInTheDocument();
   });
+
+  it('campos essenciais: "Falta" na lista e no detalhe, filtro e sumiço ao completar', () => {
+    const armazem = montar();
+    act(() => {
+      armazem.criar({ titulo: 'Organizar arquivo do setor', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '' });
+      armazem.criar({ titulo: 'Reunião fictícia', descricao: '', responsavel: 'Equipe A', prioridade: 'Baixa', status: 'A Fazer', prazo: '2026-11-30', natureza: 'comum' });
+    });
+    expect(screen.getByTestId('falta-id-1')).toHaveTextContent('Falta: natureza, tipo, prazo, responsável.');
+    expect(screen.queryByTestId('falta-id-2')).toBeNull();
+
+    fireEvent.change(screen.getByLabelText('Preenchimento'), { target: { value: 'faltando' } });
+    expect(screen.getByText('Organizar arquivo do setor', { selector: 'strong' })).toBeInTheDocument();
+    expect(screen.queryByText('Reunião fictícia', { selector: 'strong' })).toBeNull();
+    fireEvent.change(screen.getByLabelText('Preenchimento'), { target: { value: '' } });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Reunião fictícia' }));
+    expect(screen.getByTestId('preenchimento-detalhe')).toHaveTextContent('campos essenciais preenchidos');
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
+
+    act(() => { armazem.editar('id-1', { titulo: 'Organizar arquivo do setor', descricao: '', responsavel: 'Equipe B', prioridade: 'Média', status: 'A Fazer', prazo: '2026-12-01', natureza: 'comum' }); });
+    expect(screen.queryByTestId('falta-id-1')).toBeNull();
+  });
 });
