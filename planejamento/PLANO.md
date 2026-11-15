@@ -35,6 +35,7 @@ interface Demanda {
   judicial?: string;           // opcional: CNJ NNNNNNN-DD.AAAA.J.TR.OOOO, dígitos verificadores conferidos
   tipo?: 'campo' | 'gabinete'; // opcional (14/11/2026): deduzido do título no cadastro, a pessoa confere
   natureza?: 'demanda' | 'comum'; // opcional: demanda ou tarefa comum, idem
+  coordenada?: { lat: number; lon: number }; // opcional (14/11/2026): graus decimais, SIRGAS 2000; fora da tela compartilhada
   historico?: {                // opcional (14/11/2026): status e bloqueio ao longo do tempo, só acrescenta, até 500 eventos
     quando: string;            // ISO 8601
     acao: 'criada' | 'status' | 'travou' | 'bloqueio-alterado' | 'ainda-travada' | 'destravou' | 'bloqueio-encerrado';

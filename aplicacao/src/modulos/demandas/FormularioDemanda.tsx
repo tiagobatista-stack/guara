@@ -3,6 +3,7 @@ import { LIMITES, PRIORIDADES, STATUS, type EntradaDemanda } from './modelo.ts';
 import { validarEntrada, type ErrosValidacao } from './regras.ts';
 import { textoMotivo, type Parecida } from './parecida.ts';
 import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
+import { formatarDecimal, formatarGms, lerCoordenada } from './coordenadas.ts';
 import {
   deduzirNatureza, deduzirTipo, NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, textoPorque, TIPOS,
   type Deducao, type Natureza, type Tipo,
@@ -114,6 +115,28 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
     salvar();
   };
 
+  // Mostra, enquanto se digita, o que foi entendido; o erro de verdade só aparece ao gravar.
+  const retornoCoordenada = () => {
+    const texto = (entrada.coordenada ?? '').trim();
+    if (!texto || erros.coordenada) return null;
+    const r = lerCoordenada(texto);
+    if (!r.ok) return <span className="texto-pequeno texto-suave" data-testid="leitura-coordenada">Ainda não entendi: {r.erro}</span>;
+    return (
+      <span className="texto-pequeno" data-testid="leitura-coordenada">
+        Entendido: {formatarGms(r.valor)} ({formatarDecimal(r.valor)}, SIRGAS 2000).
+        {r.avisos.map((a) => <span key={a} className="texto--atencao"> ⚠ {a}</span>)}
+        {r.trocaSugerida && (
+          <>
+            {' '}
+            <button type="button" className="botao botao--pequeno" onClick={() => campo('coordenada', formatarDecimal({ lat: r.valor.lon, lon: r.valor.lat }))}>
+              Trocar a ordem
+            </button>
+          </>
+        )}
+      </span>
+    );
+  };
+
   const ajuda = (k: keyof EntradaDemanda) =>
     erros[k] ? { 'aria-invalid': true, 'aria-describedby': `erro-${k}` } : {};
   const mensagem = (k: keyof EntradaDemanda) =>
@@ -202,6 +225,18 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
           </label>
         ))}
       </fieldset>
+
+      <div className="campo-grupo">
+        <label htmlFor="campo-coordenada">Coordenada (opcional)</label>
+        <input id="campo-coordenada" className="campo mono" value={entrada.coordenada ?? ''} placeholder="Ex.: -15.5, -55.5 ou 15° 30' S, 55° 30' W" autoComplete="off" spellCheck={false}
+          onChange={(e) => campo('coordenada', e.target.value)} {...ajuda('coordenada')} />
+        {mensagem('coordenada')}
+        {retornoCoordenada()}
+        <span className="texto-pequeno texto-suave">
+          Graus decimais, graus-minutos-segundos ou graus e minutos, com sinal ou com N/S/E/W (L e O também). A coordenada pode identificar
+          um imóvel: não aparece na tela compartilhada.
+        </span>
+      </div>
 
       {parecida && (
         <div role="alert" className="aviso" data-testid="aviso-parecida">

@@ -1,6 +1,7 @@
 // Modelo de demanda do MVP (planejamento/PLANO.md §2, alinhado à Apostila FluxoLab).
 
 import type { Natureza, Tipo } from './classificacao.ts';
+import type { Coordenada } from './coordenadas.ts';
 
 export const STATUS = ['A Fazer', 'Em Andamento', 'Em Validação', 'Concluída'] as const;
 export type Status = (typeof STATUS)[number];
@@ -72,6 +73,8 @@ export interface Demanda {
   /** Campo × gabinete e demanda × tarefa comum (classificacao.ts); ausentes = não definidos. */
   tipo?: Tipo;
   natureza?: Natureza;
+  /** Graus decimais, SIRGAS 2000 (coordenadas.ts). Pode identificar um imóvel: fica fora da tela compartilhada e do MCP. */
+  coordenada?: Coordenada;
   /** Status e bloqueio ao longo do tempo, do mais antigo ao mais novo. Ausente em demandas anteriores ao histórico. */
   historico?: EventoHistorico[];
 }
@@ -91,6 +94,8 @@ export interface EntradaDemanda {
   /** Ausente = não definido. */
   tipo?: Tipo;
   natureza?: Natureza;
+  /** Texto em qualquer formato aceito por lerCoordenada; vazio ou ausente = sem coordenada. */
+  coordenada?: string;
 }
 
 export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80, detalheBloqueioMax: 300, historicoMax: 500 } as const;

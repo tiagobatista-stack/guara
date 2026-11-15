@@ -5,6 +5,7 @@ import { NATUREZAS, TIPOS } from './classificacao.ts';
 import { camposQueFaltam } from './essenciais.ts';
 import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
 import { eventoValido, registrar } from './historico.ts';
+import { coordenadaValida, formatarDecimal, lerCoordenada, type Coordenada } from './coordenadas.ts';
 
 export type ErrosValidacao = Partial<Record<keyof EntradaDemanda, string>>;
 
@@ -33,6 +34,11 @@ export function validarEntrada(e: EntradaDemanda): ErrosValidacao {
     const r = LER_NUMERO[c](texto);
     if (!r.ok) erros[c] = r.erro;
   }
+  const coordenada = (e.coordenada ?? '').trim();
+  if (coordenada) {
+    const r = lerCoordenada(coordenada);
+    if (!r.ok) erros.coordenada = r.erro;
+  }
   return erros;
 }
 
@@ -47,8 +53,18 @@ function normalizar(e: EntradaDemanda): Omit<Demanda, 'id' | 'criadaEm' | 'ultim
     ...numerosNormalizados(e),
     ...(e.tipo ? { tipo: e.tipo } : {}),
     ...(e.natureza ? { natureza: e.natureza } : {}),
+    ...coordenadaNormalizada(e),
   };
 }
+
+/** A coordenada lida do texto (a entrada já foi validada). */
+function coordenadaNormalizada(e: EntradaDemanda): { coordenada?: Coordenada } {
+  const texto = (e.coordenada ?? '').trim();
+  const r = texto ? lerCoordenada(texto) : null;
+  return r?.ok ? { coordenada: r.valor } : {};
+}
+
+const mesmaCoordenada = (a?: Coordenada, b?: Coordenada) => a?.lat === b?.lat && a?.lon === b?.lon;
 
 /** Os números preenchidos, na forma normalizada (a entrada já foi validada). */
 function numerosNormalizados(e: EntradaDemanda): Partial<Pick<Demanda, 'processo' | 'simp' | 'judicial'>> {
@@ -83,11 +99,12 @@ export function editarDemanda(d: Demanda, e: EntradaDemanda, agoraIso: string): 
     (novos.prazo ?? '') !== (d.prazo ?? '') ||
     NUMEROS.some((c) => (novos[c] ?? '') !== (d[c] ?? '')) ||
     (novos.tipo ?? '') !== (d.tipo ?? '') ||
-    (novos.natureza ?? '') !== (d.natureza ?? '');
+    (novos.natureza ?? '') !== (d.natureza ?? '') ||
+    !mesmaCoordenada(novos.coordenada, d.coordenada);
   if (!mudou) return { ok: true, valor: d };
   // Campos opcionais apagados no formulário saem da demanda.
-  const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, tipo: _tipo, natureza: _natureza, ...semOpcionais } = d;
-  void [_prazo, _processo, _simp, _judicial, _tipo, _natureza];
+  const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, tipo: _tipo, natureza: _natureza, coordenada: _coordenada, ...semOpcionais } = d;
+  void [_prazo, _processo, _simp, _judicial, _tipo, _natureza, _coordenada];
   const editada: Demanda = { ...semOpcionais, ...novos, ultimaAcaoRelevante: agoraIso };
   return { ok: true, valor: novos.status === d.status ? editada : comMudancaDeStatus(d, editada, agoraIso) };
 }
@@ -157,6 +174,7 @@ export function paraEntrada(d: Demanda): EntradaDemanda {
     judicial: d.judicial ?? '',
     ...(d.tipo ? { tipo: d.tipo } : {}),
     ...(d.natureza ? { natureza: d.natureza } : {}),
+    coordenada: d.coordenada ? formatarDecimal(d.coordenada) : '',
   };
 }
 
@@ -209,6 +227,7 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     NUMEROS.every((c) => d[c] === undefined || numeroGravadoValido(c, d[c])) &&
     (d.tipo === undefined || TIPOS.includes(d.tipo as never)) &&
     (d.natureza === undefined || NATUREZAS.includes(d.natureza as never)) &&
+    (d.coordenada === undefined || coordenadaValida(d.coordenada)) &&
     (d.historico === undefined ||
       (Array.isArray(d.historico) && d.historico.length <= LIMITES.historicoMax && d.historico.every(eventoValido)))
   );

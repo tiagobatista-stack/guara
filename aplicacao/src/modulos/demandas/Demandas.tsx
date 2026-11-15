@@ -12,6 +12,7 @@ import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
 import { NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, TIPOS } from './classificacao.ts';
 import { resumosEmAberto } from './resumo.ts';
 import { textoFalta } from './essenciais.ts';
+import { formatarDecimal, formatarGms } from './coordenadas.ts';
 import { historicoRecente, textoEvento } from './historico.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
@@ -176,6 +177,10 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dt>Responsável</dt><dd>{emDetalhe.responsavel || '—'}</dd>
             <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora(), ajuste)}</dd>
             {NUMEROS.map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono">{emDetalhe[c] ?? '—'}</dd></Fragment>)}
+            <dt>Coordenada</dt>
+            <dd className="mono" data-testid="coordenada-detalhe">
+              {emDetalhe.coordenada ? `${formatarDecimal(emDetalhe.coordenada)} · ${formatarGms(emDetalhe.coordenada)} (SIRGAS 2000)` : '—'}
+            </dd>
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
             <dt>Preenchimento</dt>

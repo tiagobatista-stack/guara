@@ -8,6 +8,7 @@
 - Configurações avisam quando o navegador não deixa gravar as preferências do mascote (armazenamento bloqueado, cheio ou modo privado): as mudanças valem só até fechar a página. 319/319 testes.
 - Testes da navegação até Configurações pelo menu lateral e pelo "Mais" do celular. 321/321 testes.
 - Saúde do sistema: o mascote usa o nome dado nas Configurações (a espécie continua escolhida pelo estado). 322/322 testes.
+- Coordenada da demanda (ideia do TOCA): campo opcional que aceita graus decimais, GMS e graus e minutos, com sinal ou N/S/E/W/L/O, mostra o que entendeu ao digitar, sugere trocar a ordem e grava em graus decimais (SIRGAS 2000). Fora da tela compartilhada e do MCP. 356/356 testes.
 - Correção: o servidor MCP voltava a falhar ao carregar (`.tsx` no caminho dos imports); os dados das espécies dos mascotes foram para um arquivo `.ts` puro.
 - Preferências do mascote (principal e nomes) no arquivo exportado e aplicadas na importação, como campo opcional `mascote`; formato `versao: 1` mantido. 306/306 testes.
 - Conversa do assistente guardada neste navegador (`guara:conversa:v1`, até 60 falas), compartilhada pelo painel fixo e pela gaveta; gaveta do assistente e do menu como diálogo de verdade (foco, Esc, toque no fundo, Tab preso); atalhos "Ver prazos" e "O que você faz?". 304/304 testes.

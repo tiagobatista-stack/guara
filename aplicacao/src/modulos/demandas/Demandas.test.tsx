@@ -122,6 +122,37 @@ describe('tela Demandas', () => {
     expect(screen.getByText('Nenhum evento registrado: esta demanda é anterior ao histórico (14/11/2026).')).toBeInTheDocument();
   });
 
+  it('coordenada: mostra o que entendeu ao digitar, sugere trocar a ordem, grava em decimal e não vai para a tela compartilhada', () => {
+    const armazem = montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Nova demanda' }));
+    fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: 'Vistoria de campo FIC-0006' } });
+    const campo = screen.getByLabelText('Coordenada (opcional)');
+    fireEvent.change(campo, { target: { value: '-55.5, -15.5' } });
+    expect(screen.getByTestId('leitura-coordenada')).toHaveTextContent('Parece que a ordem está trocada');
+    fireEvent.click(screen.getByRole('button', { name: 'Trocar a ordem' }));
+    expect(campo).toHaveValue('-15.500000, -55.500000');
+    expect(screen.getByTestId('leitura-coordenada')).toHaveTextContent(`Entendido: 15° 30' 0" S, 55° 30' 0" W (-15.500000, -55.500000, SIRGAS 2000).`);
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(armazem.obter().demandas[0].coordenada).toEqual({ lat: -15.5, lon: -55.5 });
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Vistoria de campo FIC-0006' }));
+    expect(screen.getByTestId('coordenada-detalhe')).toHaveTextContent(`-15.500000, -55.500000 · 15° 30' 0" S, 55° 30' 0" W (SIRGAS 2000)`);
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Tela compartilhada' }));
+    expect(screen.queryByText(/55\.5/)).toBeNull();
+  });
+
+  it('coordenada em formato não aceito é recusada ao gravar, com a mensagem no campo', () => {
+    const armazem = montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Nova demanda' }));
+    fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: 'Vistoria de campo FIC-0007' } });
+    fireEvent.change(screen.getByLabelText('Coordenada (opcional)'), { target: { value: '21L 512345 8712345' } });
+    expect(screen.getByTestId('leitura-coordenada')).toHaveTextContent('Ainda não entendi: UTM ainda não é aceito');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByText('UTM ainda não é aceito: informe em graus (ex.: -15.5, -55.5).')).toBeInTheDocument();
+    expect(armazem.obter().demandas).toHaveLength(0);
+  });
+
   it('detalhe livre do bloqueio: grava, aparece só no detalhe da demanda e volta ao reabrir', () => {
     const armazem = montar();
     act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0003', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
