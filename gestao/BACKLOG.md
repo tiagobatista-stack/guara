@@ -6,7 +6,7 @@
 
 1. **Abrir a tela `/mcp` (P10).** O MCP foi reativado no Node 26 em 14/11/2026 (`2026-11-14-mcp-reativado.md`): teste stdio 4 = 4 e chamadas reais de `resumir_demandas` e `listar_inativas` nesta sessão. Falta só o responsável abrir `/mcp` no terminal e registrar o que aparece.
 2. **Conferir no navegador o que foi publicado em 14/11/2026.** Já está na URL pública (`9e03ff8`). Confira em https://guara-lemon.vercel.app, inclusive em tela de celular: dias úteis (Dashboard, Kanban, Demandas), tempo em andamento, demanda travada, triagem sem prazo (Alertas), aviso de demanda parecida, três números, tipo e natureza (seis filtros em Demandas) e a tela compartilhada. Até lá, as telas estão NÃO CONFERIDO VISUALMENTE. Os campos essenciais (item 13) também já estão publicados (`9254bf8`).
-3. **Mascotes: rodar os testes na `main` e conferir no navegador.** No branch `login-google` passaram (231/231); na `main` o commit veio por cherry-pick e ainda não foi testado (`2026-11-14-mascotes-redesenho.md`). Depois, ver os três rostos no assistente e na Saúde do sistema, em tela clara, escura e de celular, e os olhos acompanhando o ponteiro.
+3. **Mascotes: conferir no navegador.** Testes e build passaram na `main` (241/241, `2026-11-14-mascotes-presenca-no-assistente.md`). Falta ver os três rostos no assistente e na Saúde do sistema, em tela clara, escura e de celular, e os olhos acompanhando o ponteiro.
 
 ## Mascotes (plano aprovado pelo responsável em 14/11/2026)
 

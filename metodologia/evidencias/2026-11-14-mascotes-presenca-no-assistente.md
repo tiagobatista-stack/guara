@@ -27,8 +27,18 @@
 
 Os dois comandos foram executados pelo responsável no Windows (PowerShell), e a saída foi colada na conversa.
 
+### Na `main` (cherry-pick `34c4469`)
+
+O trabalho foi feito no branch `login-google` por engano de branch ativo e trazido para a `main` por cherry-pick. O código entrou sem conflito; `STATUS.md`, `BACKLOG.md` e `CHANGELOG.md` foram conciliados à mão.
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 3 | Instalação limpa na `main` | `npm ci` | 1ª tentativa: `EPERM` ao apagar o binário do Rolldown (arquivo em uso); 2ª: `added 97 packages`, `found 0 vulnerabilities` | PASSOU na 2ª tentativa |
+| 4 | Suíte completa na `main` | `npm test` | `Test Files 24 passed (24)` · `Tests 241 passed (241)` | PASSOU |
+| 5 | Build na `main` | `npm run build` | `tsc --noEmit` sem erros; `✓ 93 modules transformed`; `✓ built in 161ms` | PASSOU |
+
 ## Limitações
 
 - Telas no navegador: **NÃO CONFERIDO VISUALMENTE**, inclusive tema escuro e celular. O tamanho de 88 px foi aprovado pelo responsável pela tela; as demais mudanças vieram depois.
 - Seletor e rótulo "Mascote principal" continuam no topo (itens 5 a 7 da avaliação de UX ficam para depois).
-- Não commitado; branch `login-google`.
+- Publicação no site: NÃO TESTADO (depende do push da `main`).
