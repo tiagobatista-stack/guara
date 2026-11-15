@@ -313,6 +313,9 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 
 /* ---------- Mascotes ---------- */
 .mascote { flex-shrink: 0; overflow: visible; }
+.estado-vazio { display: flex; align-items: center; gap: 12px; }
+.estado-vazio p { margin: 0; }
+.estado-vazio--compacto { gap: 8px; }
 .mascote-palco { flex-shrink: 0; display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: var(--guara-100); }
 .mascote-pupila { transform: translate(var(--olhar-x, 0px), var(--olhar-y, 0px)); transition: transform 120ms ease-out; }
 .pagina--media { max-width: 720px; }

@@ -140,7 +140,7 @@ describe('Kanban e mascotes', () => {
         <Mascote especie="capivara" humor="tranquilo" />
       </ContextoArmazem.Provider>,
     );
-    const mascote = container.querySelector('svg.mascote')!;
+    const mascote = container.querySelector('svg.mascote--vivo')!;
 
     fireEvent.change(screen.getByLabelText('Mover "Revisar checklist de laboratório" para'), { target: { value: 'Em Andamento' } });
     expect(mascote).not.toHaveClass('mascote--comemorando');

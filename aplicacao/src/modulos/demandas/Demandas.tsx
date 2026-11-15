@@ -5,6 +5,7 @@ import { Fragment, useMemo, useState } from 'react';
 import { MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloqueio } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useAjusteFeriados, useArmazem, useEstadoDemandas } from './armazem.ts';
+import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { ENTRADA_VAZIA, FormularioDemanda } from './FormularioDemanda.tsx';
 import { acharParecida } from './parecida.ts';
 import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
@@ -218,7 +219,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           {(() => {
             const resumos = resumosEmAberto(demandas, agora(), ajuste);
             return resumos.length === 0 ? (
-              <p className="cartao texto-suave">Nenhuma demanda em aberto.</p>
+              <EstadoVazio cartao texto="Nenhuma demanda em aberto." />
             ) : (
               <ul className="lista-limpa grade grade--2" aria-label="Resumo das demandas em aberto">
                 {resumos.map((r) => (
@@ -299,9 +300,11 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           </form>
 
           {visiveis.length === 0 ? (
-            <p className="cartao texto-suave">
-              {demandas.length === 0 ? 'Nenhuma demanda cadastrada.' : 'Nenhuma demanda corresponde aos filtros.'}
-            </p>
+            demandas.length === 0 ? (
+              <EstadoVazio cartao texto="Nenhuma demanda cadastrada." dica="Use “Nova demanda” para registrar a primeira." />
+            ) : (
+              <EstadoVazio cartao texto="Nenhuma demanda corresponde aos filtros." dica="Mude ou limpe os filtros para ver as outras." />
+            )
           ) : (
             <ul className="lista-limpa grade grade--2" aria-label="Lista de demandas">
               {visiveis.map((d) => (

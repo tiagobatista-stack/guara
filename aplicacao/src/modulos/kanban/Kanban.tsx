@@ -5,6 +5,7 @@
 import { useState } from 'react';
 import { STATUS, type Demanda, type Status } from '../demandas/modelo.ts';
 import { useAjusteFeriados, useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
+import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -50,7 +51,7 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
                 {status} <span className="kanban-contagem" aria-label={`${cartoes.length} demanda(s)`}>{cartoes.length}</span>
               </h2>
               {cartoes.length === 0 ? (
-                <p className="texto-pequeno texto-suave">Nenhuma demanda.</p>
+                <EstadoVazio compacto texto="Nenhuma demanda." />
               ) : (
                 <ul className="lista-limpa kanban-lista">
                   {cartoes.map((d) => {

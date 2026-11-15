@@ -19,6 +19,7 @@
 - Mascotes piscam e dão um pulinho ao clique ou toque (CSS, desligado com "reduzir movimento").
 - Mascotes ficam entediados, sonolentos e dormem quando a página fica parada (cada espécie no seu ritmo), acordam com qualquer atividade e comemoram quando uma demanda vai para "Concluída" no Kanban. Nada é medido nem guardado. 251/251 testes.
 - Tela Configurações, com a seção Mascotes: escolha do mascote principal e nome para cada um (até 20 caracteres; vazio mostra a espécie), gravados neste navegador. O painel do assistente não tem mais o seletor. 261/261 testes.
+- Mascote nos estados vazios: Demandas, Kanban, Dashboard, Alertas e módulos ainda não implementados mostram o rosto do mascote principal com a frase e, quando há, a dica do próximo passo. 265/265 testes.
 
 ## [0.1.0] — 13/11/2026
 

@@ -3,6 +3,7 @@
 
 import { useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { useAjusteFeriados, useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
+import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { diasParado, listarInativas } from './inatividade.ts';
 import { textoBloqueio } from './bloqueio.ts';
 import { FeriadosLocais } from './FeriadosLocais.tsx';
@@ -129,7 +130,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Demandas inativas ({inativas.length})</h2>
         {inativas.length === 0 ? (
-          <p className="texto-suave texto-medio">Nenhuma demanda inativa com o limiar de {diasInatividade} dia(s).</p>
+          <EstadoVazio texto={`Nenhuma demanda inativa com o limiar de ${diasInatividade} dia(s).`} />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio" aria-label="Demandas inativas">
             {inativas.map((d) => (
@@ -163,7 +164,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Triagem: demandas sem prazo ({semPrazo.length})</h2>
         {semPrazo.length === 0 ? (
-          <p className="texto-suave texto-medio">Toda demanda em aberto tem prazo.</p>
+          <EstadoVazio texto="Toda demanda em aberto tem prazo." />
         ) : (
           <>
             <p className="texto-pequeno texto-suave">
