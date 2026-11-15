@@ -51,7 +51,8 @@
 26. **Mascote sinaliza o estado do trabalho (14/11/2026), etapa 4, na `main`:** avisos do painel do assistente calculados das demandas deste navegador (vencida, prazo próximo, parada), com origem e data, e humor que os resume. Foram 6 testes novos; total 271/271 em 28 arquivos, build ok. Falta o olhar que aponta para o aviso. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-estado-do-trabalho.md`.
 27. **Detalhe livre da demanda travada (14/11/2026), pedido do responsável, na `main`:** `bloqueio.detalhe` opcional (até 300 caracteres), sem migração; aparece só no detalhe da demanda. Foram 5 testes novos; total 276/276, build ok, MCP 4 = 4. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-detalhe-do-bloqueio.md`.
 28. **Histórico da demanda (14/11/2026), pedido do responsável, na `main`:** `historico` opcional (até 500 eventos) com criação, status e bloqueio, mostrado no detalhe da demanda; corrigido o bloqueio que não se encerrava ao concluir pelo formulário. Foram 11 testes novos; total 287/287, build ok, MCP 4 = 4. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-historico-da-demanda.md`.
-29. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+29. **Publicação (14/11/2026):** avisos reais no assistente, detalhe do bloqueio e histórico da demanda estão na URL pública (`origin/main` = `b0090e7`, bundle `index-DNRKpTRc.js`). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-historico.md`.
+30. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 
