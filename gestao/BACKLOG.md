@@ -6,19 +6,32 @@
 
 1. **Abrir a tela `/mcp` (P10).** O MCP foi reativado no Node 26 em 14/11/2026 (`2026-11-14-mcp-reativado.md`): teste stdio 4 = 4 e chamadas reais de `resumir_demandas` e `listar_inativas` nesta sessão. Falta só o responsável abrir `/mcp` no terminal e registrar o que aparece.
 2. **Conferir no navegador o que foi publicado em 14/11/2026.** Já está na URL pública (`9e03ff8`). Confira em https://guara-lemon.vercel.app, inclusive em tela de celular: dias úteis (Dashboard, Kanban, Demandas), tempo em andamento, demanda travada, triagem sem prazo (Alertas), aviso de demanda parecida, três números, tipo e natureza (seis filtros em Demandas) e a tela compartilhada. Até lá, as telas estão NÃO CONFERIDO VISUALMENTE. Os campos essenciais (item 13) também já estão publicados (`9254bf8`).
-3. **Mascotes: conferir no navegador.** Testes e build passaram na `main` (241/241, `2026-11-14-mascotes-presenca-no-assistente.md`). Falta ver os três rostos no assistente e na Saúde do sistema, em tela clara, escura e de celular, e os olhos acompanhando o ponteiro.
+3. **Mascotes: conferir no navegador.** Testes e build passaram (261/261), mas nenhuma tela foi conferida. Ver, em tema claro, escuro e de celular: os três rostos no assistente e na Saúde do sistema, os olhos seguindo o ponteiro, piscada, pulinho ao clicar, tédio e sono com a página parada, festa ao concluir demanda no Kanban, e a tela Configurações (nome com espaço, troca do principal).
 
 ## Mascotes (plano aprovado pelo responsável em 14/11/2026)
 
-Etapa 1 (redesenho ilustrado e olhos que seguem o ponteiro) feita. Também feitos, por ordem da avaliação de UX: destaque no painel, reação a avisos e rosto nas falas (`2026-11-14-mascotes-presenca-no-assistente.md`, 231/231; falta conferir no navegador). Da avaliação, ficam para depois: tirar o seletor do topo, presença fora do painel (celular) e sugestões de comando na área vazia da conversa. Faltam, em ordem, uma por vez:
+**Feito** (evidências em `metodologia/evidencias/2026-11-14-mascotes-*.md`; último total 261/261, build ok):
 
-2. **Expressões e animações:** feitas (piscar, toque, tédio, sono, dormir, acordar e comemoração no Kanban; `2026-11-14-mascotes-repouso-e-comemoracao.md`, 251/251). Falta conferir no navegador e ajustar tempos e ritmo ao gosto do responsável.
-3. **Nome e escolha salvos:** feito, na tela Configurações (`2026-11-14-mascotes-configuracoes.md`, 261/261). Ficou de fora: levar as preferências no exportar/importar da tela Alertas.
-4. **Sinalizar o estado do trabalho:** expressão que resume as demandas do dia, olhar que aponta para o que pede atenção, avisos como fala curta com origem e data.
-5. **Natureza da resposta no assistente:** pose para fato, inferência e sugestão, e outra para NÃO TESTADO; reforça o selo de texto, não substitui.
-6. **Estados vazios:** mascote com frase onde hoje há tela em branco.
+- Etapa 1: rosto ilustrado por espécie e olhos que seguem o ponteiro.
+- Etapa 2: piscar, reação ao toque, tédio, sono, dormir, acordar e comemoração no Kanban.
+- Etapa 3: mascote principal e nome de cada um, na tela Configurações.
+- Da avaliação de UX: destaque no painel (88 px), reação aos avisos, rosto nas falas e seletor fora do painel.
 
-Fora do plano, por decisão: pontuação, ranking, medir tempo parado, opinar sobre o mérito do processo e interromper com pop-up ou som.
+**A fazer, em ordem** (uma por vez, com `npm test` e `npm run build` em cada uma):
+
+1. **Estados vazios (etapa 6).** Mascote com uma frase curta onde hoje há tela em branco: lista de demandas sem resultado, coluna vazia do Kanban, Alertas sem pendência, módulos ainda não implementados. Leva o mascote às telas em que ele não aparece, inclusive no celular. Tom acolhedor e profissional, sem infantilizar.
+2. **Sinalizar o estado do trabalho (etapa 4): PARCIAL.** Feito: atento com aviso no painel e curioso depois de comando não reconhecido, com o motivo em texto. Falta: expressão que resume as demandas do dia a partir dos dados reais da tela (prazo próximo, vencida, parada), olhar que aponta para o cartão ou aviso que pede atenção, e avisos como fala curta com origem e data. Hoje o aviso do painel é um texto fixo e fictício.
+3. **Natureza da resposta no assistente (etapa 5).** Pose para fato, inferência e sugestão, e outra para NÃO TESTADO ou NÃO DEMONSTRADO; reforça o selo de texto, não substitui. Hoje só "sugestão" muda o rosto (curioso).
+4. **Presença no celular.** Com o painel do assistente fechado, o mascote não aparece e a festa do Kanban não é vista. Ideia: rosto pequeno no botão do assistente.
+5. **Sugestões de comando na conversa.** Usar a área vazia da conversa para o mascote oferecer "prazos" e "ajuda" como atalhos (hoje é preciso digitar).
+6. **Preferências no backup.** Exportar e importar dados (tela Alertas) não leva `guara:mascote:v1`.
+7. **Aviso de armazenamento bloqueado nas Configurações.** Hoje a preferência deixa de persistir sem aviso na tela.
+8. **Teste da navegação até Configurações** pelo menu lateral e pelo "Mais" do celular.
+9. **Saúde do sistema com nome próprio.** O mascote de lá é escolhido pelo estado (capivara ou lobo-guará) e não usa o nome dado pelo analista.
+10. **Ajuste de ritmo**, depois da conferência no navegador: intervalo da piscada, tempos de tédio e sono, altura dos pulos.
+11. **Confirmar a ocorrência das espécies nos biomas** antes de tratar a arte como definitiva (seção 7.1 do planejamento).
+
+**Fora do plano, por decisão:** pontuação, ranking, medir ou registrar tempo parado, opinar sobre o mérito do processo, interromper com pop-up ou som. Da avaliação inicial, não foram escolhidos: guia de primeiros passos, erros com tom humano, lembrete de decisão humana e convite à pausa.
 
 ## Pendências da apostila
 
@@ -33,4 +46,5 @@ Fora do plano, por decisão: pontuação, ranking, medir tempo parado, opinar so
 - **Extrair os três números do texto colado:** preencher processo, SIMP e CNJ a partir da descrição, como em `identificadores.py:extrair`; a pessoa confere antes de gravar.
 - **Tela compartilhada no Kanban:** o cartão mostra o responsável; um modo como o da tela Demandas, com o mesmo resumo por lista branca.
 - **Feriados locais no JSON portável:** exportar e importar `guara:feriados:v1` junto com a configuração (campo opcional, sem mudar `versao: 1`), incluindo o backup da importação.
+- **Coordenadas da demanda:** campo opcional `coordenada` (sem mudar `versao: 1`), como em `coordenadas.py`. (1) Leitura dos formatos do TOCA: graus decimais, GMS, graus e minutos decimais, os formatos do ArcGIS, «º ´ ´´» e «O» para oeste, gravada em graus decimais. (2) Conferência sem serviço externo, por exemplo se o ponto cai dentro do Brasil. (3) Link para abrir no mapa: envia a coordenada a um serviço externo, então só com decisão do responsável. Pode identificar o imóvel e a pessoa: fica fora da tela compartilhada (lista branca do resumo), e exemplos e testes usam coordenadas fictícias que não coincidam com registros reais (seção 20.9). Geoportal, mapas e roteiro de viagem ficam de fora (dependem de serviços externos).
 - **Depois do MVP:** importar agenda `.ics` (`agenda_local.py`), histórico que guarda só o nome dos campos alterados, e uma verificação de termos proibidos (`verificar_generico.py`) no gate.
