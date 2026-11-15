@@ -161,6 +161,7 @@ describe('tela Demandas', () => {
     fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: 'Aguardando ofício do setor de cadastro (fictício).' } });
     fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
     expect(screen.getByTestId('bloqueio-detalhe-livre')).toHaveTextContent('Aguardando ofício do setor de cadastro (fictício).');
+    expect(screen.getByLabelText('Detalhe do bloqueio (opcional)')).toHaveValue('');
     expect(armazem.obter().demandas[0].bloqueio?.detalhe).toBe('Aguardando ofício do setor de cadastro (fictício).');
 
     fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
@@ -171,10 +172,15 @@ describe('tela Demandas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sair da tela compartilhada' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0003' }));
-    expect(screen.getByLabelText('Detalhe do bloqueio (opcional)')).toHaveValue('Aguardando ofício do setor de cadastro (fictício).');
-    fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: '' } });
+    // A caixa abre em branco; em branco, atualizar o motivo mantém o detalhe gravado.
+    expect(screen.getByLabelText('Detalhe do bloqueio (opcional)')).toHaveValue('');
+    fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'documento' } });
     fireEvent.click(screen.getByRole('button', { name: 'Atualizar bloqueio' }));
     expect(screen.getByRole('status')).toHaveTextContent('Bloqueio atualizado.');
+    expect(armazem.obter().demandas[0].bloqueio?.detalhe).toBe('Aguardando ofício do setor de cadastro (fictício).');
+    // Apagar o detalhe é ação explícita.
+    fireEvent.click(screen.getByRole('button', { name: 'Apagar detalhe' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Detalhe do bloqueio apagado.');
     expect(screen.queryByTestId('bloqueio-detalhe-livre')).toBeNull();
     expect(armazem.obter().demandas[0].bloqueio).not.toHaveProperty('detalhe');
   });

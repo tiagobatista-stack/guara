@@ -49,7 +49,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const abrirDetalhe = (d: Demanda | undefined, id: string) => {
     setAviso(null);
     setMotivo(d?.bloqueio?.motivo ?? 'documento');
-    setDetalheBloqueio(d?.bloqueio?.detalhe ?? '');
+    setDetalheBloqueio('');
     setModo({ tipo: 'detalhe', id });
   };
   // Tela compartilhada (projetor, reunião): só o resumo por lista branca, sem dado pessoal.
@@ -193,44 +193,55 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             )}
           </dl>
           {emDetalhe.status !== 'Concluída' && (
-            <form className="filtros" aria-label="Bloqueio da demanda" onSubmit={(e) => {
-              e.preventDefault();
-              responder(armazem.travar(emDetalhe.id, motivo, detalheBloqueio), emDetalhe.bloqueio ? 'Bloqueio atualizado.' : 'Demanda marcada como travada.');
-            }}>
-              <label className="campo-grupo">
-                <span>Motivo do bloqueio</span>
-                <select className="campo" value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoBloqueio)}>
-                  {Object.entries(MOTIVOS_BLOQUEIO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                </select>
-              </label>
-              <div className="campo-grupo">
-                <label htmlFor="detalhe-bloqueio">Detalhe do bloqueio (opcional)</label>
-                <textarea
-                  id="detalhe-bloqueio"
-                  className="campo"
-                  rows={2}
-                  maxLength={LIMITES.detalheBloqueioMax}
-                  value={detalheBloqueio}
-                  onChange={(e) => setDetalheBloqueio(e.target.value)}
-                  aria-describedby="dica-detalhe-bloqueio"
-                />
-                <span id="dica-detalhe-bloqueio" className="texto-pequeno texto-suave">
-                  Ex.: aguardando resposta do ofício enviado ao setor de cadastro. Até {LIMITES.detalheBloqueioMax} caracteres. Evite nomes de pessoas: o texto vai no JSON exportado, mas não aparece na tela compartilhada nem no Kanban.
-                </span>
-              </div>
-              <div className="acoes">
-                <button type="submit" className="botao">{emDetalhe.bloqueio ? 'Atualizar bloqueio' : 'Marcar como travada'}</button>
-                {emDetalhe.bloqueio && (
-                  <>
-                    <button type="button" className="botao" onClick={() => responder(armazem.confirmarBloqueio(emDetalhe.id), 'Reavaliação registrada: a demanda continua travada.')}>Ainda travada</button>
-                    <button type="button" className="botao botao--primario" onClick={() => responder(armazem.destravar(emDetalhe.id), 'Demanda destravada.')}>Destravou</button>
-                  </>
-                )}
-              </div>
-            </form>
+            <section className="bloco-detalhe" aria-labelledby="titulo-bloqueio">
+              <h3 id="titulo-bloqueio" className="titulo-secao titulo-secao--bloco">Bloqueio</h3>
+              {emDetalhe.bloqueio && (
+                <div className="acoes acoes--sem-margem">
+                  <button type="button" className="botao botao--primario" onClick={() => responder(armazem.destravar(emDetalhe.id), 'Demanda destravada.')}>Destravou</button>
+                  <button type="button" className="botao" onClick={() => responder(armazem.confirmarBloqueio(emDetalhe.id), 'Reavaliação registrada: a demanda continua travada.')}>Ainda travada</button>
+                </div>
+              )}
+              <form className="formulario" aria-label="Bloqueio da demanda" onSubmit={(e) => {
+                e.preventDefault();
+                // Campo em branco numa demanda já travada mantém o detalhe gravado; apagar é ação explícita.
+                const detalhe = detalheBloqueio.trim() ? detalheBloqueio : (emDetalhe.bloqueio?.detalhe ?? '');
+                const r = armazem.travar(emDetalhe.id, motivo, detalhe);
+                responder(r, emDetalhe.bloqueio ? 'Bloqueio atualizado.' : 'Demanda marcada como travada.');
+                if (r.ok) setDetalheBloqueio('');
+              }}>
+                <label className="campo-grupo campo-grupo--curto">
+                  <span>Motivo do bloqueio</span>
+                  <select className="campo" value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoBloqueio)}>
+                    {Object.entries(MOTIVOS_BLOQUEIO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
+                  </select>
+                </label>
+                <div className="campo-grupo">
+                  <label htmlFor="detalhe-bloqueio">Detalhe do bloqueio (opcional)</label>
+                  <textarea
+                    id="detalhe-bloqueio"
+                    className="campo campo--area"
+                    rows={2}
+                    maxLength={LIMITES.detalheBloqueioMax}
+                    value={detalheBloqueio}
+                    onChange={(e) => setDetalheBloqueio(e.target.value)}
+                    aria-describedby="dica-detalhe-bloqueio"
+                  />
+                  <span id="dica-detalhe-bloqueio" className="texto-pequeno texto-suave">
+                    {emDetalhe.bloqueio?.detalhe && 'Em branco, mantém o detalhe atual. '}
+                    Ex.: aguardando resposta do ofício enviado ao setor de cadastro. Até {LIMITES.detalheBloqueioMax} caracteres. Evite nomes de pessoas: o texto vai no JSON exportado, mas não aparece na tela compartilhada nem no Kanban.
+                  </span>
+                </div>
+                <div className="acoes acoes--sem-margem">
+                  <button type="submit" className={emDetalhe.bloqueio ? 'botao' : 'botao botao--primario'}>{emDetalhe.bloqueio ? 'Atualizar bloqueio' : 'Marcar como travada'}</button>
+                  {emDetalhe.bloqueio?.detalhe && (
+                    <button type="button" className="botao botao--perigo" onClick={() => responder(armazem.travar(emDetalhe.id, emDetalhe.bloqueio!.motivo, ''), 'Detalhe do bloqueio apagado.')}>Apagar detalhe</button>
+                  )}
+                </div>
+              </form>
+            </section>
           )}
-          <section aria-labelledby="titulo-historico">
-            <h3 id="titulo-historico" className="titulo-secao">Histórico</h3>
+          <section className="bloco-detalhe" aria-labelledby="titulo-historico">
+            <h3 id="titulo-historico" className="titulo-secao titulo-secao--bloco">Histórico</h3>
             {historicoRecente(emDetalhe).length > 0 && (
               <ol className="linha-tempo" aria-label="Histórico da demanda, do mais novo ao mais antigo" data-testid="historico">
                 {historicoRecente(emDetalhe).map((e, i) => (
@@ -246,7 +257,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               </p>
             )}
           </section>
-          <div className="acoes">
+          <div className="acoes acoes--rodape">
             <button type="button" className="botao" onClick={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }}>Editar</button>
             <button type="button" className="botao botao--perigo" onClick={() => excluir(emDetalhe)}>Excluir</button>
             <button type="button" className="botao" onClick={() => setModo({ tipo: 'lista' })}>Voltar à lista</button>
