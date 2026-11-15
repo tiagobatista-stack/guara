@@ -53,7 +53,9 @@
 28. **Histórico da demanda (14/11/2026), pedido do responsável, na `main`:** `historico` opcional (até 500 eventos) com criação, status e bloqueio, mostrado no detalhe da demanda; corrigido o bloqueio que não se encerrava ao concluir pelo formulário. Foram 11 testes novos; total 287/287, build ok, MCP 4 = 4. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-historico-da-demanda.md`.
 29. **Publicação (14/11/2026):** avisos reais no assistente, detalhe do bloqueio e histórico da demanda estão na URL pública (`origin/main` = `b0090e7`, bundle `index-DNRKpTRc.js`). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-historico.md`.
 30. **Etapa 4 dos mascotes concluída (14/11/2026), na `main`:** o mascote olha para o aviso mais urgente com o ponteiro parado, e "prazos" usa os dados deste navegador. Foram 4 testes novos; total 291/291, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-olhar-e-prazos.md`.
-31. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+31. **Publicação da etapa 4 (14/11/2026):** URL pública com `index-R_LqMmV9.js`, o mesmo bundle de `3da479e`.
+32. **Natureza da resposta (14/11/2026), etapa 5 dos mascotes, na `main`:** humores pensativo e cauteloso; cada fala do assistente tem a pose da sua natureza; Saúde do sistema cautelosa quando NÃO TESTADO. Foram 2 testes novos (e os humores novos entraram nos testes de mascote); total 293/293, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-natureza-da-resposta.md`.
+33. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

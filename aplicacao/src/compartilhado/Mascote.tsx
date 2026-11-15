@@ -10,7 +10,8 @@
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type EspecieMascote = 'ariranha' | 'lobo-guara' | 'capivara';
-export type HumorMascote = 'tranquilo' | 'atento' | 'curioso';
+// pensativo: inferência; cauteloso: algo não testado ou não demonstrado (etapa 5). Reforçam o selo de texto, não o substituem.
+export type HumorMascote = 'tranquilo' | 'atento' | 'curioso' | 'pensativo' | 'cauteloso';
 
 export const MASCOTES: Record<EspecieMascote, { nome: string; bioma: string; pelagem: string; detalhe: string }> = {
   ariranha: { nome: 'Ariranha', bioma: 'Amazônia', pelagem: '#7a5535', detalhe: '#f6e8cc' },
@@ -284,6 +285,12 @@ function Sobrancelhas({ x, y, humor }: { x: number; y: number; humor: HumorMasco
     d = `M${-x - 9},${y - 2} L${-x + 8},${y + 3} M${x + 9},${y - 2} L${x - 8},${y + 3}`;
   } else if (humor === 'curioso') {
     d = `M${-x - 9},${y - 3} Q${-x},${y - 10} ${-x + 9},${y - 4} M${x - 9},${y + 2} Q${x},${y - 2} ${x + 9},${y + 2}`;
+  } else if (humor === 'pensativo') {
+    // Uma sobrancelha erguida, a outra reta.
+    d = `M${-x - 9},${y - 4} Q${-x},${y - 12} ${-x + 9},${y - 5} M${x - 9},${y + 1} L${x + 9},${y + 1}`;
+  } else if (humor === 'cauteloso') {
+    // Pontas de dentro erguidas: preocupação.
+    d = `M${-x - 9},${y + 2} L${-x + 8},${y - 4} M${x + 9},${y + 2} L${x - 8},${y - 4}`;
   } else {
     d = `M${-x - 9},${y + 2} Q${-x},${y - 3} ${-x + 9},${y + 2} M${x - 9},${y + 2} Q${x},${y - 3} ${x + 9},${y + 2}`;
   }
@@ -297,6 +304,10 @@ function Boca({ y, humor, forma = 'humor' }: { y: number; humor: HumorMascote; f
   if (forma === 'sono') return <path d={`M-4,${y + 2} H4`} fill="none" strokeWidth="2.2" />;
   if (forma === 'reta') return <path d={`M-6,${y + 2} H6`} fill="none" strokeWidth="2.2" />;
   if (humor === 'curioso') return <ellipse cx="0" cy={y + 3} rx="3.2" ry="3.8" fill="#7a2f2a" strokeWidth="1.8" />;
+  // "Hum": boca de lado.
+  if (humor === 'pensativo') return <path d={`M-2,${y + 3} Q3,${y + 1} 8,${y + 4}`} fill="none" strokeWidth="2.2" />;
+  // Boca ondulada: incerteza.
+  if (humor === 'cauteloso') return <path d={`M-8,${y + 3} Q-4,${y} 0,${y + 3} Q4,${y + 6} 8,${y + 3}`} fill="none" strokeWidth="2.2" />;
   const d = humor === 'tranquilo' ? `M-8,${y} Q0,${y + 7} 8,${y}` : `M-6,${y + 2} H6`;
   return <path d={d} fill="none" strokeWidth="2.2" />;
 }
@@ -454,7 +465,7 @@ export function Mascote({
           strokeWidth={detalhado ? 2.5 : 4}
           strokeLinejoin="round"
           strokeLinecap="round"
-          transform={humorVisivel === 'curioso' ? 'rotate(-5)' : undefined}
+          transform={humorVisivel === 'curioso' ? 'rotate(-5)' : humorVisivel === 'pensativo' ? 'rotate(4)' : undefined}
         >
           <Cabeca detalhado={detalhado} />
           <Olho x={-rosto.olhoX} y={rosto.olhoY} humor={humorVisivel} detalhado={detalhado} pisca={!decorativo} estado={estadoOlho} palpebra={palpebra} pelagem={m.pelagem} />

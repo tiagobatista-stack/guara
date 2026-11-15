@@ -25,30 +25,52 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string): Mensagem {
+function responder(comando: string, avisos: readonly Aviso[], origem: string): Mensagem[] {
   const c = comando.trim().toLowerCase();
   if (c.startsWith('prazos')) {
-    return { autor: 'assistente', natureza: 'fato', fonte: origem, texto: textoDosPrazos(avisos) };
+    const fato: Mensagem = { autor: 'assistente', natureza: 'fato', fonte: origem, texto: textoDosPrazos(avisos) };
+    if (avisos.length === 0) return [fato];
+    // A ordem é uma regra (vencidas, prazo próximo, paradas), não uma avaliação do mérito: por isso é inferência.
+    const [primeiro] = avisos;
+    return [
+      fato,
+      {
+        autor: 'assistente',
+        natureza: 'inferência',
+        fonte: 'ordem dos avisos: vencidas, prazo próximo e paradas; confira antes de agir',
+        texto: `Pela ordem das regras, a mais urgente é ${primeiro.id} (${primeiro.texto})`,
+      },
+    ];
   }
   if (c.startsWith('ajuda')) {
-    return { autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos", "ajuda".' };
+    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos", "ajuda".' }];
   }
-  return {
+  return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
     texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos" ou "ajuda".',
-  };
+  }];
 }
+
+// Pose de cada natureza de resposta (etapa 5): reforça o selo de texto, não o substitui.
+const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote> = {
+  fato: 'tranquilo',
+  inferência: 'pensativo',
+  sugestão: 'curioso',
+};
 
 // Avisos mostrados de uma vez; os demais ficam no Dashboard e em Alertas.
 const MAXIMO_DE_AVISOS = 5;
 
-// O humor resume o estado da tela: resposta de "não entendi" deixa o mascote curioso; demanda
-// vencida, com prazo próximo ou parada deixa atento. Ele conta prazos, não opina sobre o mérito.
+// O humor resume o estado da tela: resposta de "não entendi" deixa o mascote curioso, inferência
+// deixa pensativo; demanda vencida, com prazo próximo ou parada deixa atento. Ele conta prazos,
+// não opina sobre o mérito.
 function humorDoPainel(mensagens: Mensagem[], avisos: readonly Aviso[]): HumorMascote {
   const ultima = mensagens[mensagens.length - 1];
-  if (ultima?.autor === 'assistente' && ultima.natureza === 'sugestão') return 'curioso';
+  if (ultima?.autor === 'assistente' && (ultima.natureza === 'sugestão' || ultima.natureza === 'inferência')) {
+    return HUMOR_DA_NATUREZA[ultima.natureza];
+  }
   return avisos.length > 0 ? 'atento' : 'tranquilo';
 }
 
@@ -56,6 +78,8 @@ const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[]) => string>
   tranquilo: () => 'Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.',
   atento: (avisos) => `Atento: ${resumoDosAvisos(avisos)}.`,
   curioso: () => 'Curioso: não entendi o último comando.',
+  pensativo: () => 'Pensativo: a última resposta é uma inferência; confira antes de agir.',
+  cauteloso: () => 'Cauteloso: há algo ainda não testado.',
 };
 
 export function PainelAssistente({ agora = () => new Date() }: { agora?: () => Date }) {
@@ -74,7 +98,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const enviar = (e: FormEvent) => {
     e.preventDefault();
     if (!texto.trim()) return;
-    setMensagens((m) => [...m, { autor: 'usuario', texto }, responder(texto, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+    setMensagens((m) => [...m, { autor: 'usuario', texto }, ...responder(texto, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
     setTexto('');
   };
 
@@ -133,7 +157,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
           ) : (
             // O rosto pequeno ao lado mostra que a fala é do mascote; o nome vai para o leitor de tela.
             <li key={i} className="fala">
-              <Mascote especie={especie} humor={m.natureza === 'sugestão' ? 'curioso' : 'tranquilo'} tamanho={28} decorativo />
+              <Mascote especie={especie} humor={m.natureza ? HUMOR_DA_NATUREZA[m.natureza] : 'tranquilo'} tamanho={28} decorativo />
               <div className="mensagem">
                 <span className="sr-only">{nome}: </span>
                 {m.texto}

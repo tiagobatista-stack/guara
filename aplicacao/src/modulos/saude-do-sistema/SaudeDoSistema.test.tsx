@@ -26,6 +26,13 @@ describe('tela Saúde do sistema', () => {
     expect(screen.getByText(/10 de 10 habilidades OK/)).toBeInTheDocument();
   });
 
+  it('mascote cauteloso enquanto nada foi testado; tranquilo quando a verificação passa', () => {
+    render(<SaudeDoSistema />);
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), cauteloso' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+  });
+
   it('o revisor não pode ser desativado', () => {
     render(<SaudeDoSistema />);
     expect(within(screen.getByTestId('agente-revisor')).getByRole('button', { name: 'Não desativável' })).toBeDisabled();

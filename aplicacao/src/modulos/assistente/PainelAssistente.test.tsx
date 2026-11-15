@@ -79,9 +79,32 @@ describe('painel do assistente: mascote', () => {
     ]);
     enviar('prazos');
     const falas = document.querySelectorAll('.conversa li.fala');
-    const resposta = falas[falas.length - 1];
-    expect(resposta).toHaveTextContent('Vencidas: DEM-1. Prazo próximo: DEM-2. Paradas: nenhuma.');
-    expect(resposta).toHaveTextContent('fato · fonte: demandas deste navegador · 13/11/2026');
+    const [fato, inferencia] = [falas[falas.length - 2], falas[falas.length - 1]];
+    expect(fato).toHaveTextContent('Vencidas: DEM-1. Prazo próximo: DEM-2. Paradas: nenhuma.');
+    expect(fato).toHaveTextContent('fato · fonte: demandas deste navegador · 13/11/2026');
+    expect(inferencia).toHaveTextContent('Pela ordem das regras, a mais urgente é DEM-1 (Prazo antigo (fictício): vencido há 3 dias úteis.)');
+    expect(inferencia).toHaveTextContent('inferência · fonte: ordem dos avisos');
+  });
+
+  it('cada natureza de resposta tem sua pose, junto com o selo de texto; inferência deixa o mascote pensativo', () => {
+    const { container } = montar();
+    enviar('ajuda');
+    enviar('prazos');
+    enviar('bom dia');
+    const poses = [...container.querySelectorAll('.conversa li.fala')].map((fala) => [
+      fala.querySelector('svg')!.getAttribute('data-humor'),
+      fala.querySelector('.mensagem-meta')?.textContent?.split(' · ')[0] ?? null,
+    ]);
+    expect(poses).toEqual([
+      ['tranquilo', 'fato'], // saudação
+      ['tranquilo', 'fato'], // ajuda
+      ['tranquilo', 'fato'], // prazos
+      ['pensativo', 'inferência'],
+      ['curioso', 'sugestão'],
+    ]);
+    enviar('prazos');
+    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), pensativo' })).toBeInTheDocument();
+    expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Pensativo: a última resposta é uma inferência; confira antes de agir.');
   });
 
   it('mostra no máximo 5 avisos e indica onde ver os demais', () => {

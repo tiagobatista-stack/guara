@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { comemorarMascotes, Mascote, MASCOTES, type EspecieMascote, type HumorMascote } from './Mascote.tsx';
 
 const ESPECIES = Object.keys(MASCOTES) as EspecieMascote[];
-const HUMORES: HumorMascote[] = ['tranquilo', 'atento', 'curioso'];
+const HUMORES: HumorMascote[] = ['tranquilo', 'atento', 'curioso', 'pensativo', 'cauteloso'];
 
 function moverPonteiro(x: number, y: number) {
   // O jsdom não tem PointerEvent; um MouseEvent com o mesmo tipo carrega clientX e clientY.

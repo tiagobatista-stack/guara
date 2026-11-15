@@ -71,7 +71,7 @@ export function SaudeDoSistema() {
       : Object.values(relatorio.habilidades).some((r) => r.estado === 'ATENÇÃO')
         ? 'ATENÇÃO'
         : 'OK';
-  const humor: HumorMascote = estadoGeral === 'OK' ? 'tranquilo' : estadoGeral === 'NÃO TESTADO' ? 'curioso' : 'atento';
+  const humor: HumorMascote = estadoGeral === 'OK' ? 'tranquilo' : estadoGeral === 'NÃO TESTADO' ? 'cauteloso' : 'atento';
 
   const metricasAgente = (id: string) => {
     const etapas = execucoes.flatMap((ex) => ex.etapas.filter((e) => e.agente === id).map((e) => ({ ...e, quando: ex.iniciadoEm })));
