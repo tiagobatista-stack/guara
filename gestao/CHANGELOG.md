@@ -18,6 +18,7 @@
 - Mascote no assistente: maior (88 px, com fundo), atento quando há aviso e curioso depois de comando não reconhecido, com o motivo em texto; cada fala do assistente leva o rosto do mascote. Humor tranquilo de olhos abertos. 231/231 testes.
 - Mascotes piscam e dão um pulinho ao clique ou toque (CSS, desligado com "reduzir movimento").
 - Mascotes ficam entediados, sonolentos e dormem quando a página fica parada (cada espécie no seu ritmo), acordam com qualquer atividade e comemoram quando uma demanda vai para "Concluída" no Kanban. Nada é medido nem guardado. 251/251 testes.
+- Tela Configurações, com a seção Mascotes: escolha do mascote principal e nome para cada um (até 20 caracteres; vazio mostra a espécie), gravados neste navegador. O painel do assistente não tem mais o seletor. 261/261 testes.
 
 ## [0.1.0] — 13/11/2026
 

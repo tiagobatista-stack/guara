@@ -15,6 +15,7 @@ import { listarInativas } from '../modulos/alertas/inatividade.ts';
 import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
 import { PainelAssistente } from '../modulos/assistente/PainelAssistente.tsx';
+import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 
 function useRota(): [string, (id: string) => void] {
@@ -33,6 +34,7 @@ function Conteudo({ rota }: { rota: string }) {
   if (rota === 'kanban') return <Kanban />;
   if (rota === 'alertas') return <Alertas />;
   if (rota === 'saude-do-sistema') return <SaudeDoSistema />;
+  if (rota === 'configuracoes') return <Configuracoes />;
   const m = modulos.find((x) => x.id === rota);
   return <EmConstrucao titulo={m?.rotulo ?? rota} />;
 }
@@ -74,11 +76,9 @@ export function Aplicacao() {
             <span className="marca-descricao">Estagiário digital</span>
           </span>
         </div>
-        {ativos.map((m) => itemMenu(m.id))}
+        {ativos.filter((m) => m.id !== 'configuracoes').map((m) => itemMenu(m.id))}
         <div className="menu-rodape">
-          <button type="button" className="menu-item" disabled title="Configurações (não implementado)">
-            <Icone nome="configuracoes" /> <span className="menu-rotulo">Configurações</span>
-          </button>
+          {itemMenu('configuracoes')}
           <button type="button" className="menu-item" disabled title="Sair (sem autenticação nesta versão)">
             <Icone nome="sair" /> <span className="menu-rotulo">Sair</span>
           </button>

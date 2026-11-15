@@ -20,6 +20,7 @@ export const modulos: ContratoModulo[] = [
   { id: 'documentos', versao: '0.0.0', rotulo: 'Documentos', icone: 'documentos', principal: false, ativo: true, implementado: false },
   { id: 'agenda', versao: '0.0.0', rotulo: 'Agenda', icone: 'agenda', principal: false, ativo: true, implementado: false },
   { id: 'conhecimento', versao: '0.0.0', rotulo: 'Conhecimento', icone: 'conhecimento', principal: false, ativo: true, implementado: false },
+  { id: 'configuracoes', versao: '0.1.0', rotulo: 'Configurações', icone: 'configuracoes', principal: false, ativo: true, implementado: true },
   { id: 'saude-do-sistema', versao: '0.1.0', rotulo: 'Saúde do sistema', icone: 'saude', principal: true, ativo: true, implementado: true },
 ];
 

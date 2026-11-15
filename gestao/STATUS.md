@@ -44,7 +44,8 @@
 19. **Presença do mascote no assistente (14/11/2026):** 88 px com fundo, olhos abertos no tranquilo, humor conforme avisos e último comando (com o motivo em texto), rosto do mascote em cada fala. Foram 5 testes novos; total 231/231, build ok (executados pelo responsável no Windows). Telas: NÃO CONFERIDO VISUALMENTE. Mesmo commit do item 18. Evidência em `metodologia/evidencias/2026-11-14-mascotes-presenca-no-assistente.md`.
 20. **Mascotes: piscar e reação ao toque (14/11/2026), na `main`:** piscada com intervalo por espécie e pulinho ao clique, em CSS, desligados com "reduzir movimento". 3 testes novos (esperado 244). Testes e build: o responsável informou "testado", sem colar a saída. Evidência em `metodologia/evidencias/2026-11-14-mascotes-piscar-e-toque.md`.
 21. **Mascotes: tédio, sono, dormir e comemoração (14/11/2026), na `main`:** repouso por tempo sem atividade, com ritmo por espécie, e festa ao concluir demanda no Kanban. Foram 7 testes novos; total 251/251, build ok (executados pelo responsável no Windows, sobre `bfd6808`). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-mascotes-repouso-e-comemoracao.md`.
-22. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+22. **Mascotes nas Configurações (14/11/2026), na `main`:** tela Configurações nova, com mascote principal e nome de cada um (`guara:mascote:v1`); o painel do assistente perdeu o seletor. Foram 10 testes novos; total 261/261 em 26 arquivos, build ok (executados pelo responsável no Windows). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-mascotes-configuracoes.md`.
+23. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

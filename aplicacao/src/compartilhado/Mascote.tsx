@@ -307,10 +307,13 @@ export function Mascote({
   humor,
   tamanho = 56,
   decorativo = false,
+  nome,
 }: {
   especie: EspecieMascote;
   humor: HumorMascote;
   tamanho?: number;
+  /** Nome dado pelo analista; quando existe, o leitor de tela anuncia o nome antes da espécie. */
+  nome?: string;
   /** Rosto pequeno de apoio (ao lado de uma fala, por exemplo): escondido do leitor de tela e com os olhos parados. */
   decorativo?: boolean;
 }) {
@@ -427,7 +430,7 @@ export function Mascote({
       height={tamanho}
       viewBox="-86 -98 172 172"
       role={decorativo ? undefined : 'img'}
-      aria-label={decorativo ? undefined : `${m.nome} (${m.bioma}), ${humor}`}
+      aria-label={decorativo ? undefined : `${nome && nome !== m.nome ? `${nome}, ` : ''}${m.nome} (${m.bioma}), ${humor}`}
       aria-hidden={decorativo ? true : undefined}
       data-especie={especie}
       data-humor={humor}

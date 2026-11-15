@@ -315,6 +315,12 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .mascote { flex-shrink: 0; overflow: visible; }
 .mascote-palco { flex-shrink: 0; display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: var(--guara-100); }
 .mascote-pupila { transform: translate(var(--olhar-x, 0px), var(--olhar-y, 0px)); transition: transform 120ms ease-out; }
+.pagina--media { max-width: 720px; }
+.configuracao-mascotes { display: grid; gap: 16px; }
+.opcoes-mascote { display: grid; gap: 12px; }
+.opcao-mascote { display: flex; align-items: center; gap: 16px; padding: 12px; border: 1px solid var(--borda); border-radius: 12px; }
+.opcao-mascote--principal { border-color: var(--guara-500); background: var(--guara-100); }
+.opcao-mascote-campos { flex: 1; min-width: 0; display: grid; gap: 8px; }
 .mascote--vivo { cursor: pointer; -webkit-tap-highlight-color: transparent; }
 .mascote-olho { animation: mascote-piscar var(--piscada, 5s) infinite; }
 .mascote-corpo { transform-origin: 0px 40px; }

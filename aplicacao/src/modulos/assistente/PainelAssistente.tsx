@@ -3,7 +3,8 @@
 // (fato extraído, inferência ou sugestão) e a fonte.
 
 import { useState, type FormEvent } from 'react';
-import { Mascote, MASCOTES, type EspecieMascote, type HumorMascote } from '../../compartilhado/Mascote.tsx';
+import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascote.tsx';
+import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { DATA_REFERENCIA, demandasFicticias } from '@dados/demandas.ts';
 import { avaliarPrazos } from '@catalogo/habilidades/avaliar-prazos/implementacao.ts';
@@ -55,7 +56,11 @@ const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: number) => string> = {
 };
 
 export function PainelAssistente() {
-  const [especie, setEspecie] = useState<EspecieMascote>('capivara');
+  // Mascote principal e nome vêm das Configurações.
+  const preferencias = usePreferenciasMascote();
+  const especie = preferencias.principal;
+  const nome = nomeDoMascote(preferencias, especie);
+  const temNomeProprio = nome !== MASCOTES[especie].nome;
   const [texto, setTexto] = useState('');
   const [mensagens, setMensagens] = useState<Mensagem[]>([
     { autor: 'assistente', natureza: 'fato', fonte: 'sistema', texto: 'Olá! Trabalho só com dados fictícios. Digite "ajuda".' },
@@ -74,19 +79,14 @@ export function PainelAssistente() {
     <div className="assistente">
       <div className="assistente-topo">
         <div className="mascote-palco">
-          <Mascote especie={especie} humor={humor} tamanho={88} />
+          <Mascote especie={especie} humor={humor} tamanho={88} nome={nome} />
         </div>
         <div>
-          <p><strong>{MASCOTES[especie].nome}</strong></p>
+          <p>
+            <strong data-testid="nome-do-mascote">{nome}</strong>
+            {temNomeProprio && <span className="texto-pequeno texto-suave"> · {MASCOTES[especie].nome}</span>}
+          </p>
           <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](NOTIFICACOES.length)}</p>
-          <label className="texto-pequeno texto-suave">
-            Mascote principal{' '}
-            <select value={especie} onChange={(e) => setEspecie(e.target.value as EspecieMascote)} className="seletor">
-              {Object.entries(MASCOTES).map(([id, m]) => (
-                <option key={id} value={id}>{m.nome} ({m.bioma})</option>
-              ))}
-            </select>
-          </label>
         </div>
       </div>
 
@@ -110,7 +110,7 @@ export function PainelAssistente() {
             <li key={i} className="fala">
               <Mascote especie={especie} humor={m.natureza === 'sugestão' ? 'curioso' : 'tranquilo'} tamanho={28} decorativo />
               <div className="mensagem">
-                <span className="sr-only">{MASCOTES[especie].nome}: </span>
+                <span className="sr-only">{nome}: </span>
                 {m.texto}
                 {m.natureza && (
                   <span className="mensagem-meta">

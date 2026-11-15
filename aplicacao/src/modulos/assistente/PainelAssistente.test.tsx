@@ -1,11 +1,14 @@
 import { fireEvent, render, screen } from '@testing-library/react';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
+import { escolherPrincipal, nomearMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { PainelAssistente } from './PainelAssistente.tsx';
 
 function enviar(comando: string) {
   fireEvent.change(screen.getByLabelText('Mensagem ao assistente'), { target: { value: comando } });
   fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 }
+
+beforeEach(() => localStorage.clear());
 
 describe('painel do assistente: mascote', () => {
   it('com aviso pendente, o mascote fica atento e diz o motivo em texto', () => {
@@ -38,10 +41,14 @@ describe('painel do assistente: mascote', () => {
     expect(doUsuario).toHaveTextContent('Você: ajuda');
   });
 
-  it('trocar o mascote principal troca também o rosto das falas, sem mudar o humor', () => {
+  it('o mascote principal e o nome vêm das preferências; o painel não tem seletor', () => {
+    escolherPrincipal('lobo-guara');
+    nomearMascote('lobo-guara', 'Tobias');
     const { container } = render(<PainelAssistente />);
-    fireEvent.change(screen.getByRole('combobox'), { target: { value: 'lobo-guara' } });
-    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
+    expect(screen.queryByRole('combobox')).toBeNull();
+    expect(screen.getByRole('img', { name: 'Tobias, Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
+    expect(screen.getByTestId('nome-do-mascote')).toHaveTextContent('Tobias');
     expect(container.querySelector('li.fala svg')!.getAttribute('data-especie')).toBe('lobo-guara');
+    expect(container.querySelector('li.fala')).toHaveTextContent('Tobias:');
   });
 });
