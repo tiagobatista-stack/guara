@@ -14,7 +14,7 @@ import { Alertas } from '../modulos/alertas/Alertas.tsx';
 import { listarInativas } from '../modulos/alertas/inatividade.ts';
 import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
-import { PainelAssistente } from '../modulos/assistente/PainelAssistente.tsx';
+import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosDoDia } from '../modulos/assistente/PainelAssistente.tsx';
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 
@@ -46,6 +46,8 @@ export function Aplicacao() {
   const ativos = modulos.filter((m) => m.ativo);
   const { demandas, diasInatividade, avisoPersistencia } = useEstadoDemandas();
   const totalAlertas = listarInativas(demandas, diasInatividade, new Date()).length;
+  const avisos = useAvisosDoDia(new Date());
+  const rotuloAssistente = rotuloAbrirAssistente(avisos);
 
   const itemMenu = (id: string) => {
     const m = modulos.find((x) => x.id === id)!;
@@ -103,8 +105,8 @@ export function Aplicacao() {
             <Icone nome="sino" />
             {totalAlertas > 0 && <span className="sino-contagem" aria-hidden="true">{totalAlertas}</span>}
           </button>
-          <button type="button" className="botao-assistente" onClick={() => setConversaAberta(true)}>
-            <Icone nome="conversa" /> Assistente
+          <button type="button" className="botao-assistente" onClick={() => setConversaAberta(true)} aria-label={rotuloAssistente}>
+            <RostoDoAssistente tamanho={28} avisos={avisos} /> Assistente
           </button>
         </header>
 
@@ -132,8 +134,10 @@ export function Aplicacao() {
         </div>
       )}
 
-      <button type="button" className="botao-flutuante" onClick={() => setConversaAberta(true)} aria-label="Abrir assistente">
-        <Icone nome="conversa" className="icone icone--grande" />
+      {/* No celular, o mascote fica no botão flutuante: assim continua visível com o painel fechado. */}
+      <button type="button" className="botao-flutuante" onClick={() => setConversaAberta(true)} aria-label={rotuloAssistente}>
+        <RostoDoAssistente tamanho={44} avisos={avisos} />
+        {avisos.length > 0 && <span className="sino-contagem botao-flutuante-contagem" aria-hidden="true">{avisos.length}</span>}
       </button>
 
       <nav aria-label="Navegação inferior" className="barra-inferior">

@@ -25,6 +25,7 @@
 - Histórico da demanda: criação, cada mudança de status e cada ação do bloqueio (com motivo e detalhe) viram eventos, mostrados no detalhe da demanda. Concluir pelo formulário de edição agora também encerra o bloqueio. 287/287 testes.
 - Mascote olha para o aviso mais urgente quando o ponteiro está parado, e o comando "prazos" usa os mesmos dados dos avisos (antes usava os fictícios fixos). Etapa 4 concluída. 291/291 testes.
 - Mascote com pose pela natureza da resposta: tranquilo para fato, pensativo para inferência, curioso para sugestão e cauteloso para o que não foi testado (Saúde do sistema). "prazos" agora traz também a inferência de qual é a mais urgente. 293/293 testes.
+- Mascote no celular e no tablet: o rosto do mascote principal fica no botão que abre o assistente, atento quando há aviso, com a contagem e o resumo no nome acessível; também comemora com o painel fechado. 295/295 testes.
 
 ## [0.1.0] — 13/11/2026
 

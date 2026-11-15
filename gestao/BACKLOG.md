@@ -18,18 +18,18 @@
 - Da avaliação de UX: destaque no painel (88 px), reação aos avisos, rosto nas falas e seletor fora do painel.
 - Etapa 4: avisos reais no painel com origem e data, humor que os resume, olhar para o aviso mais urgente e "prazos" com os dados deste navegador (291/291; falta conferir no navegador).
 - Etapa 5: pose pela natureza da resposta (fato tranquilo, inferência pensativo, sugestão curioso, NÃO TESTADO cauteloso na Saúde do sistema; 293/293, falta conferir no navegador).
+- Presença no celular e no tablet: rosto vivo do principal no botão que abre o assistente, atento com aviso (295/295; falta conferir em celular real).
 - Etapa 6: estados vazios com o rosto do principal em Demandas, Kanban, Dashboard, Alertas e módulos não implementados (265/265; falta conferir no navegador).
 
 **A fazer, em ordem** (uma por vez, com `npm test` e `npm run build` em cada uma):
 
-1. **Presença no celular.** Com o painel do assistente fechado, o mascote não aparece e a festa do Kanban não é vista. Ideia: rosto pequeno no botão do assistente.
-2. **Sugestões de comando na conversa.** Usar a área vazia da conversa para o mascote oferecer "prazos" e "ajuda" como atalhos (hoje é preciso digitar).
-3. **Preferências no backup.** Exportar e importar dados (tela Alertas) não leva `guara:mascote:v1`.
-4. **Aviso de armazenamento bloqueado nas Configurações.** Hoje a preferência deixa de persistir sem aviso na tela.
-5. **Teste da navegação até Configurações** pelo menu lateral e pelo "Mais" do celular.
-6. **Saúde do sistema com nome próprio.** O mascote de lá é escolhido pelo estado (capivara ou lobo-guará) e não usa o nome dado pelo analista.
-7. **Ajuste de ritmo**, depois da conferência no navegador: intervalo da piscada, tempos de tédio e sono, altura dos pulos.
-8. **Confirmar a ocorrência das espécies nos biomas** antes de tratar a arte como definitiva (seção 7.1 do planejamento).
+1. **Sugestões de comando na conversa.** Usar a área vazia da conversa para o mascote oferecer "prazos" e "ajuda" como atalhos (hoje é preciso digitar).
+2. **Preferências no backup.** Exportar e importar dados (tela Alertas) não leva `guara:mascote:v1`.
+3. **Aviso de armazenamento bloqueado nas Configurações.** Hoje a preferência deixa de persistir sem aviso na tela.
+4. **Teste da navegação até Configurações** pelo menu lateral e pelo "Mais" do celular.
+5. **Saúde do sistema com nome próprio.** O mascote de lá é escolhido pelo estado (capivara ou lobo-guará) e não usa o nome dado pelo analista.
+6. **Ajuste de ritmo**, depois da conferência no navegador: intervalo da piscada, tempos de tédio e sono, altura dos pulos.
+7. **Confirmar a ocorrência das espécies nos biomas** antes de tratar a arte como definitiva (seção 7.1 do planejamento).
 
 **Fora do plano, por decisão:** pontuação, ranking, medir ou registrar tempo parado, opinar sobre o mérito do processo, interromper com pop-up ou som. Da avaliação inicial, não foram escolhidos: guia de primeiros passos, erros com tom humano, lembrete de decisão humana e convite à pausa.
 

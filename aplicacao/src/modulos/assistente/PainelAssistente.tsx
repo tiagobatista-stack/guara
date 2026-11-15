@@ -82,6 +82,29 @@ const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[]) => string>
   cauteloso: () => 'Cauteloso: há algo ainda não testado.',
 };
 
+/** Avisos do dia sobre as demandas deste navegador, com o limiar e os feriados gravados. */
+export function useAvisosDoDia(instante: Date): Aviso[] {
+  const { demandas, diasInatividade } = useEstadoDemandas();
+  const ajuste = useAjusteFeriados(instante);
+  return avisosDoDia(demandas, instante, diasInatividade, ajuste);
+}
+
+/** Nome acessível dos botões que abrem o assistente, com o resumo dos avisos. */
+export const rotuloAbrirAssistente = (avisos: readonly Aviso[]) =>
+  avisos.length ? `Abrir assistente: ${resumoDosAvisos(avisos)}` : 'Abrir assistente';
+
+/**
+ * Rosto do mascote principal nos botões que abrem o assistente (celular e tablet), onde o painel
+ * fica fechado: atento quando há aviso, e reage, dorme e comemora como o do painel.
+ */
+export function RostoDoAssistente({ tamanho, avisos }: { tamanho: number; avisos: readonly Aviso[] }) {
+  const preferencias = usePreferenciasMascote();
+  const especie = preferencias.principal;
+  return (
+    <Mascote especie={especie} humor={avisos.length ? 'atento' : 'tranquilo'} tamanho={tamanho} nome={nomeDoMascote(preferencias, especie)} />
+  );
+}
+
 export function PainelAssistente({ agora = () => new Date() }: { agora?: () => Date }) {
   // Mascote principal e nome vêm das Configurações.
   const preferencias = usePreferenciasMascote();
@@ -102,10 +125,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     setTexto('');
   };
 
-  const { demandas, diasInatividade } = useEstadoDemandas();
   const instante = agora();
-  const ajuste = useAjusteFeriados(instante);
-  const avisos = avisosDoDia(demandas, instante, diasInatividade, ajuste);
+  const avisos = useAvisosDoDia(instante);
   const origem = `fato · fonte: demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
   const humor = humorDoPainel(mensagens, avisos);
 
