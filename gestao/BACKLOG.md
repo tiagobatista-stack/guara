@@ -40,7 +40,7 @@
 9. **Notificação que abre a demanda.** Tocar no aviso navega para a demanda citada.
 10. **Espaço da conversa no desktop.** Com cinco avisos, a conversa vira uma faixa estreita; recolher as notificações depois de lidas ou limitar a três.
 11. **Menos rostos.** Tirar o rosto pequeno das notificações (a seção já é do mascote); manter nas falas.
-12. **Botão para apagar a conversa** (a função `limparConversa` já existe) conversa no backup exportado e preferência do mascote restaurada pelo "Desfazer última importação".
+12. **Botão para apagar a conversa** (a função `limparConversa` já existe), conversa no backup exportado e preferência do mascote restaurada pelo "Desfazer última importação".
 
 **Fora do plano, por decisão:** pontuação, ranking, medir ou registrar tempo parado, opinar sobre o mérito do processo, interromper com pop-up ou som. Da avaliação inicial, não foram escolhidos: guia de primeiros passos, erros com tom humano, lembrete de decisão humana e convite à pausa.
 
