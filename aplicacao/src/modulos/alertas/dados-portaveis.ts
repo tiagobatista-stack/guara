@@ -3,6 +3,7 @@
 
 import type { Demanda } from '../demandas/modelo.ts';
 import { ehDemandaValida } from '../demandas/regras.ts';
+import { validarPreferencias, type PreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 
 export const FORMATO = 'guara-dados';
 export const NOME_ARQUIVO = 'guara-dados.json';
@@ -16,9 +17,11 @@ export interface DadosPortaveis {
   exportadoEm: string;
   configuracao: { diasInatividade: number };
   demandas: Demanda[];
+  /** Mascote principal e nomes (preferência visual). Opcional: arquivos antigos não o têm e o formato continua `versao: 1`. */
+  mascote?: PreferenciasMascote;
 }
 
-export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date): string {
+export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date, mascote?: PreferenciasMascote): string {
   const dados: DadosPortaveis = {
     formato: FORMATO,
     versao: 1,
@@ -26,6 +29,7 @@ export function exportarDados(demandas: readonly Demanda[], diasInatividade: num
     exportadoEm: agora.toISOString(),
     configuracao: { diasInatividade },
     demandas: [...demandas],
+    ...(mascote ? { mascote } : {}),
   };
   return JSON.stringify(dados, null, 2);
 }
@@ -67,6 +71,8 @@ export function validarImportacao(texto: string): ResultadoImportacao {
       exportadoEm: typeof d.exportadoEm === 'string' ? d.exportadoEm : '',
       configuracao: { diasInatividade: dias ?? 3 },
       demandas: d.demandas,
+      // Parte inválida da preferência volta ao padrão em vez de recusar o arquivo: é só visual.
+      ...(d.mascote !== undefined ? { mascote: validarPreferencias(d.mascote) } : {}),
     },
   };
 }

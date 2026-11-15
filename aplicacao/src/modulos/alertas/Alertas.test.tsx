@@ -7,6 +7,7 @@ import { CHAVE_BACKUP, ContextoArmazem, criarArmazem, criarArmazenamentoEmMemori
 import { CHAVE_DEMANDAS, type Demanda } from '../demandas/modelo.ts';
 import { exportarDados } from './dados-portaveis.ts';
 import { Alertas } from './Alertas.tsx';
+import { escolherPrincipal, nomearMascote, obterPreferencias } from '../../compartilhado/preferencias-mascote.ts';
 
 const AGORA = new Date('2026-11-13T12:00:00.000Z');
 const ANTIGA: Demanda = {
@@ -149,6 +150,32 @@ describe('tela Alertas', () => {
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 2'));
     expect(armazem.obter().demandas.map((d) => d.id)).toEqual(['nova1', 'nova2']);
     expect(screen.getByRole('button', { name: 'Desfazer última importação' })).toBeEnabled();
+  });
+
+  it('exportar leva o mascote principal e os nomes; importar aplica a preferência do arquivo', async () => {
+    const armazem = montar();
+    act(() => { escolherPrincipal('lobo-guara'); nomearMascote('lobo-guara', 'Tobias'); });
+    const baixar = vi.spyOn(URL, 'createObjectURL').mockReturnValue('blob:x');
+    vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    fireEvent.click(screen.getByRole('button', { name: /Exportar/ }));
+    const conteudo = await (baixar.mock.calls[0][0] as Blob).text();
+    expect(JSON.parse(conteudo).mascote).toEqual({ principal: 'lobo-guara', nomes: { 'lobo-guara': 'Tobias' } });
+
+    const novo = JSON.stringify({ ...JSON.parse(exportarDados([{ ...ANTIGA, id: 'nova1' }], 3, AGORA)), mascote: { principal: 'ariranha', nomes: { ariranha: 'Nina', capivara: 42 } } });
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    expect(obterPreferencias()).toEqual({ principal: 'ariranha', nomes: { ariranha: 'Nina' } });
+    expect(armazem.obter().demandas.map((d) => d.id)).toEqual(['nova1']);
+  });
+
+  it('arquivo antigo, sem o campo do mascote, importa sem mexer na preferência', async () => {
+    montar();
+    act(() => escolherPrincipal('lobo-guara'));
+    vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
+    fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(exportarDados([{ ...ANTIGA, id: 'nova1' }], 3, AGORA))] } });
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    expect(obterPreferencias().principal).toBe('lobo-guara');
   });
 
   it('desfazer importação volta o campo de limiar ao valor restaurado', async () => {

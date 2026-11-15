@@ -11,6 +11,7 @@ import { listarSemPrazo, PRAZO_SUGERIDO_DIAS_UTEIS, sugerirPrazo } from './triag
 import { dataValida, paraEntrada } from '../demandas/regras.ts';
 import type { Demanda } from '../demandas/modelo.ts';
 import { exportarDados, NOME_ARQUIVO, validarImportacao } from './dados-portaveis.ts';
+import { definirPreferencias, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
 
@@ -28,6 +29,7 @@ function baixar(nome: string, conteudo: string) {
 export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   const armazem = useArmazem();
   const { demandas, diasInatividade, temBackup, erroArmazenamento, conteudoIlegivelDoBackup } = useEstadoDemandas();
+  const preferenciasMascote = usePreferenciasMascote();
   const [dias, setDias] = useState(String(diasInatividade));
   const [aviso, setAviso] = useState<Aviso>(null);
   const arquivoRef = useRef<HTMLInputElement>(null);
@@ -57,7 +59,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   };
 
   const exportar = () => {
-    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante));
+    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote));
     setAviso({ tipo: 'sucesso', texto: `Arquivo ${NOME_ARQUIVO} gerado com ${demandas.length} demanda(s).` });
   };
 
@@ -89,7 +91,11 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
     setAviso(g.ok
       ? { tipo: 'sucesso', texto: `Importadas ${r.dados.demandas.length} demanda(s). Backup anterior gravado.` }
       : { tipo: 'erro', texto: g.mensagem });
-    if (g.ok) setDias(String(r.dados.configuracao.diasInatividade));
+    if (g.ok) {
+      setDias(String(r.dados.configuracao.diasInatividade));
+      // Preferência visual, fora do armazém das demandas: o desfazer da importação não a restaura.
+      if (r.dados.mascote) definirPreferencias(r.dados.mascote);
+    }
   };
 
   const restaurarBackup = () => {

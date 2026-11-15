@@ -104,6 +104,11 @@ export function nomearMascote(especie: EspecieMascote, nome: string) {
   gravar({ ...p, nomes });
 }
 
+/** Substitui as preferências inteiras (importação de backup). */
+export function definirPreferencias(p: PreferenciasMascote) {
+  gravar(validarPreferencias(p));
+}
+
 function assinar(ouvinte: () => void): () => void {
   ouvintes.add(ouvinte);
   window.addEventListener('storage', ouvinte);
