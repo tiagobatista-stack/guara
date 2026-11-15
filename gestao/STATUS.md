@@ -68,7 +68,8 @@
 43. **Publicação de `ff70b1d` (14/11/2026):** URL pública com `index-BczTcvUX.js`, o mesmo bundle do build.
 44. **Navegação até Configurações testada (14/11/2026), na `main`:** menu lateral e "Mais" do celular. 2 testes novos, só testes; total 321/321, build ok. Evidência em `metodologia/evidencias/2026-11-14-navegacao-configuracoes.md`.
 45. **Saúde do sistema com nome próprio (14/11/2026), na `main`:** o mascote da tela usa o nome dado nas Configurações. 1 teste novo; total 322/322, build ok. Tela: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-saude-com-nome-proprio.md`.
-46. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+46. **MCP quebrado desde `4b6fd96`, corrigido (14/11/2026):** `.tsx` na cadeia de imports do servidor. Evidência em `metodologia/evidencias/2026-11-14-mcp-sem-tsx.md`.
+47. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

@@ -9,15 +9,11 @@
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
-export type EspecieMascote = 'ariranha' | 'lobo-guara' | 'capivara';
+import { MASCOTES, type EspecieMascote } from './especies-mascote.ts';
+
+export { MASCOTES, type EspecieMascote };
 // pensativo: inferência; cauteloso: algo não testado ou não demonstrado (etapa 5). Reforçam o selo de texto, não o substituem.
 export type HumorMascote = 'tranquilo' | 'atento' | 'curioso' | 'pensativo' | 'cauteloso';
-
-export const MASCOTES: Record<EspecieMascote, { nome: string; bioma: string; pelagem: string; detalhe: string }> = {
-  ariranha: { nome: 'Ariranha', bioma: 'Amazônia', pelagem: '#7a5535', detalhe: '#f6e8cc' },
-  'lobo-guara': { nome: 'Lobo-guará', bioma: 'Cerrado', pelagem: '#d17a30', detalhe: '#2a2018' },
-  capivara: { nome: 'Capivara', bioma: 'Pantanal', pelagem: '#a37d58', detalhe: '#c29d7a' },
-};
 
 const TRACO = '#3a2a1c';
 const ESCURO = '#1c1917';

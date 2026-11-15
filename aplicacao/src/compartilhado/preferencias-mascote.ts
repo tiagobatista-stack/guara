@@ -3,7 +3,7 @@
 // Fica no localStorage deste navegador; com o armazenamento bloqueado, vale só até fechar a página.
 
 import { useSyncExternalStore } from 'react';
-import { MASCOTES, type EspecieMascote } from './Mascote.tsx';
+import { MASCOTES, type EspecieMascote } from './especies-mascote.ts';
 
 export const CHAVE_MASCOTE = 'guara:mascote:v1';
 export const TAMANHO_MAXIMO_NOME = 20;
