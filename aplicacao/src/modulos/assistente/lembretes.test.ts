@@ -30,20 +30,24 @@ describe('lembretes: regras', () => {
     expect(separarAvisos([aviso('D1')], obterLembretes(), ate).visiveis).toHaveLength(1);
   });
 
-  it('opções de adiamento: as próximas 8h e 14h, em ordem, com rótulo de hoje ou amanhã', () => {
+  it('opções de adiamento: as próximas 8h e 14h em dia útil, em ordem, com rótulo de hoje, amanhã ou dia da semana', () => {
     expect(opcoesDeAdiamento(AGORA).map((o) => [o.rotulo, o.ate.toISOString()])).toEqual([
       ['Hoje às 14h', new Date(2026, 10, 13, 14).toISOString()],
-      ['Amanhã às 8h', new Date(2026, 10, 14, 8).toISOString()],
+      ['Segunda às 8h', new Date(2026, 10, 16, 8).toISOString()], // pula sábado e domingo
     ]);
-    const tarde = new Date(2026, 10, 13, 15, 30);
-    expect(opcoesDeAdiamento(tarde).map((o) => o.rotulo)).toEqual(['Amanhã às 8h', 'Amanhã às 14h']);
-    expect(opcoesDeAdiamento(new Date(2026, 10, 13, 8, 0)).map((o) => o.rotulo)).toEqual(['Hoje às 14h', 'Amanhã às 8h']);
+    const quinta = new Date(2026, 10, 12, 15, 30);
+    expect(opcoesDeAdiamento(quinta).map((o) => o.rotulo)).toEqual(['Amanhã às 8h', 'Amanhã às 14h']);
+    // Quinta 19/11 à tarde: sexta 20/11 é feriado nacional (Consciência Negra); cai na segunda 23/11.
+    expect(opcoesDeAdiamento(new Date(2026, 10, 19, 15)).map((o) => o.rotulo)).toEqual(['Segunda às 8h', 'Segunda às 14h']);
+    // Feriado local: segunda 16/11 removida pela configuração; cai na terça.
+    expect(opcoesDeAdiamento(AGORA, { extras: ['2026-11-16'] }).map((o) => o.rotulo)).toEqual(['Hoje às 14h', 'Terça às 8h']);
   });
 
   it('texto do retorno: hoje, amanhã ou a data', () => {
     expect(textoDoRetorno(new Date(2026, 10, 13, 14), AGORA)).toBe('hoje às 14h');
     expect(textoDoRetorno(new Date(2026, 10, 14, 8), AGORA)).toBe('amanhã às 8h');
-    expect(textoDoRetorno(new Date(2026, 10, 17, 8), AGORA)).toBe('17/11 às 8h');
+    expect(textoDoRetorno(new Date(2026, 10, 17, 8), AGORA)).toBe('terça às 8h');
+    expect(textoDoRetorno(new Date(2026, 10, 24, 8), AGORA)).toBe('24/11 às 8h');
   });
 
   it('mostrar de novo apaga o registro; registros de demandas sem aviso são limpos', () => {

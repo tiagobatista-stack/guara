@@ -23,6 +23,20 @@
 ## Limitações
 
 - O lembrete adiado volta quando a tela é renderizada de novo depois da hora (abrir a gaveta, mudar dados); não há relógio que force a volta no minuto exato com a tela parada.
-- As opções 8h e 14h seguem o dia do calendário, não o dia útil: adiar numa sexta à tarde cai no sábado às 8h. Vale decidir se deve pular para segunda.
 - `guara:avisos:v1` não entra no backup exportado.
 - Telas: NÃO CONFERIDO VISUALMENTE (três botões por aviso no celular podem ficar apertados). Não publicado.
+
+## Complemento (14/11/2026): adiar pula fim de semana e feriado
+
+**Pedido do responsável:** "adiar deve pular fim de semana e feriado".
+
+| Mudança | Arquivo |
+|---|---|
+| `opcoesDeAdiamento` recebe o ajuste de feriados (nacionais e locais, o mesmo dos prazos) e avança até o primeiro dia útil; rótulos "Hoje", "Amanhã", dia da semana (até 6 dias) ou data | `aplicacao/src/modulos/assistente/lembretes.ts` |
+| O painel passa o ajuste de feriados gravado | `aplicacao/src/modulos/assistente/PainelAssistente.tsx` |
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 1 | Sexta 13/11 10h: "Hoje às 14h" e "Segunda às 8h"; quinta 19/11 à tarde pula o feriado de 20/11 e cai na segunda 23/11; feriado local em 16/11 cai na terça | `lembretes.test.ts` | conferido na suíte | PASSOU |
+| 2 | Suíte completa | `npm test` | `Tests 318 passed (318)` | PASSOU |
+| 3 | Build | `npm run build` | `✓ built` | PASSOU |

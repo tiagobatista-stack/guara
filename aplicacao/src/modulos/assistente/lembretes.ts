@@ -6,6 +6,7 @@
 
 import { useSyncExternalStore } from 'react';
 import type { Aviso } from './avisos.ts';
+import { dataLocal, ehDiaUtil, feriadosEntre, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 
 export const CHAVE_LEMBRETES = 'guara:avisos:v1';
 /** Horas do dia em que um lembrete adiado volta. */
@@ -61,29 +62,40 @@ export function separarAvisos(avisos: readonly Aviso[], lembretes: Lembretes, ag
   return { visiveis, ocultos };
 }
 
-/** Próximas ocasiões de retorno (8h e 14h), a partir de agora, uma por hora configurada, em ordem. */
-export function opcoesDeAdiamento(agora: Date): { ate: Date; rotulo: string }[] {
-  const hoje = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate());
+/**
+ * Próximas ocasiões de retorno (8h e 14h), a partir de agora, uma por hora configurada, em ordem.
+ * Pula sábado, domingo e feriado (nacionais e locais), como os prazos em dias úteis.
+ */
+export function opcoesDeAdiamento(agora: Date, ajuste: AjusteFeriados = {}): { ate: Date; rotulo: string }[] {
+  const inicio = dataLocal(agora);
+  const limite = new Date(agora);
+  limite.setDate(limite.getDate() + 30);
+  const feriados = feriadosEntre(inicio, dataLocal(limite), ajuste);
   const opcoes: { ate: Date; rotulo: string }[] = [];
   for (const hora of HORAS_DE_RETORNO) {
-    const ate = new Date(hoje);
-    ate.setHours(hora, 0, 0, 0);
+    const ate = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), hora, 0, 0, 0);
     if (ate <= agora) ate.setDate(ate.getDate() + 1);
-    const dia = ate.getDate() === agora.getDate() && ate.getMonth() === agora.getMonth() ? 'Hoje' : 'Amanhã';
-    opcoes.push({ ate, rotulo: `${dia} às ${hora}h` });
+    while (!ehDiaUtil(dataLocal(ate), feriados)) ate.setDate(ate.getDate() + 1);
+    opcoes.push({ ate, rotulo: `${diaDoRetorno(ate, agora)} às ${hora}h` });
   }
   return opcoes.sort((a, b) => a.ate.getTime() - b.ate.getTime());
 }
 
-/** "hoje às 14h" ou "amanhã às 8h" ou "17/11 às 8h". */
+const DIAS_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
+
+/** "Hoje", "Amanhã", "Segunda" (até 6 dias) ou a data. */
+function diaDoRetorno(ate: Date, agora: Date): string {
+  const dias = Math.round((Date.UTC(ate.getFullYear(), ate.getMonth(), ate.getDate()) - Date.UTC(agora.getFullYear(), agora.getMonth(), agora.getDate())) / 86_400_000);
+  if (dias === 0) return 'Hoje';
+  if (dias === 1) return 'Amanhã';
+  if (dias < 7) return DIAS_DA_SEMANA[ate.getDay()][0].toUpperCase() + DIAS_DA_SEMANA[ate.getDay()].slice(1);
+  return ate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+}
+
+/** "hoje às 14h", "amanhã às 8h", "segunda às 8h" ou "17/11 às 8h". */
 export function textoDoRetorno(ate: Date, agora: Date): string {
-  const mesmoDia = (a: Date, b: Date) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
-  const amanha = new Date(agora);
-  amanha.setDate(amanha.getDate() + 1);
-  const hora = `${ate.getHours()}h`;
-  if (mesmoDia(ate, agora)) return `hoje às ${hora}`;
-  if (mesmoDia(ate, amanha)) return `amanhã às ${hora}`;
-  return `${ate.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' })} às ${hora}`;
+  const dia = diaDoRetorno(ate, agora);
+  return `${dia[0].toLowerCase()}${dia.slice(1)} às ${ate.getHours()}h`;
 }
 
 // ---------- Armazém ----------

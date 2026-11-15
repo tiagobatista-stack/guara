@@ -182,7 +182,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const alternarRecolhidas = () => {
     setRecolhidas((v) => { gravarRecolhidas(!v); return !v; });
   };
-  const opcoes = opcoesDeAdiamento(instante);
+  const opcoes = opcoesDeAdiamento(instante, useAjusteFeriados(instante));
 
   // Demanda concluída ou excluída não precisa mais do registro de ciente ou adiamento.
   useEffect(() => limparLembretesSemAviso(todos), [todos]);
