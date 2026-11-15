@@ -80,7 +80,7 @@ describe('armazém de demandas (localStorage)', () => {
 
   it('exemplos só na primeira inicialização; dados existentes são preservados', () => {
     // Na entrada a coordenada é texto; na demanda gravada, números: o exemplo vem sem ela.
-    const exemplo = { ...ENTRADA, coordenada: undefined, id: 'EX-1', criadaEm: '2026-11-01T00:00:00.000Z', ultimaAcaoRelevante: '2026-11-01T00:00:00.000Z' };
+    const exemplo = { ...ENTRADA, coordenada: undefined, vistoria: undefined, id: 'EX-1', criadaEm: '2026-11-01T00:00:00.000Z', ultimaAcaoRelevante: '2026-11-01T00:00:00.000Z' };
     const comExemplos = () => criarArmazem(localStorage, { exemplos: () => [exemplo] });
     expect(comExemplos().obter().demandas.map((d) => d.id)).toEqual(['EX-1']);
     comExemplos().excluir('EX-1');

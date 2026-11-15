@@ -13,6 +13,7 @@ import { NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, TIPOS } from './classificaca
 import { resumosEmAberto } from './resumo.ts';
 import { textoFalta } from './essenciais.ts';
 import { formatarDecimal, formatarGms } from './coordenadas.ts';
+import { textoVistoria } from './vistoria.ts';
 import { historicoRecente, textoEvento } from './historico.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
@@ -181,6 +182,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dd className="mono" data-testid="coordenada-detalhe">
               {emDetalhe.coordenada ? `${formatarDecimal(emDetalhe.coordenada)} · ${formatarGms(emDetalhe.coordenada)} (SIRGAS 2000)` : '—'}
             </dd>
+            {textoVistoria(emDetalhe) && <><dt>Vistoria</dt><dd data-testid="vistoria-detalhe">{textoVistoria(emDetalhe)}</dd></>}
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
             <dt>Preenchimento</dt>
@@ -347,6 +349,14 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               </select>
             </label>
             <label className="campo-grupo">
+              <span>Vistoria</span>
+              <select className="campo" value={filtros.vistoria} onChange={(e) => setFiltros({ ...filtros, vistoria: e.target.value as Filtros['vistoria'] })}>
+                <option value="">Todas</option>
+                <option value="agendada">Com data</option>
+                <option value="sem-data">Em aberto (sem data)</option>
+              </select>
+            </label>
+            <label className="campo-grupo">
               <span>Responsável</span>
               <select className="campo" value={filtros.responsavel} onChange={(e) => setFiltros({ ...filtros, responsavel: e.target.value })}>
                 <option value="">Todos</option>
@@ -376,6 +386,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
                     <dt>Prazo</dt><dd>{comSituacao(d, agora(), ajuste)}</dd>
                     {NUMEROS.filter((c) => d[c]).map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono" data-testid={`${c}-${d.id}`}>{d[c]}</dd></Fragment>)}
+                    {textoVistoria(d) && <><dt>Vistoria</dt><dd data-testid={`vistoria-${d.id}`}>{textoVistoria(d)}</dd></>}
                     {textoFalta(d) && <><dt>Preenchimento</dt><dd className="texto--atencao" data-testid={`falta-${d.id}`}>{textoFalta(d)}</dd></>}
                     {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora(), ajuste)}</dd></>}
                   </dl>

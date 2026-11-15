@@ -3,7 +3,8 @@
 import { LER_NUMERO, NUMEROS, numeroGravadoValido } from './identificadores.ts';
 import { NATUREZAS, TIPOS } from './classificacao.ts';
 import { camposQueFaltam } from './essenciais.ts';
-import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
+import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status, type Vistoria } from './modelo.ts';
+import { situacaoVistoria } from './vistoria.ts';
 import { eventoValido, registrar } from './historico.ts';
 import { coordenadaValida, formatarDecimal, lerCoordenada, type Coordenada } from './coordenadas.ts';
 
@@ -39,8 +40,23 @@ export function validarEntrada(e: EntradaDemanda): ErrosValidacao {
     const r = lerCoordenada(coordenada);
     if (!r.ok) erros.coordenada = r.erro;
   }
+  if (e.tipo === 'campo') {
+    if (e.vistoria !== 'data' && e.vistoria !== 'aberta') erros.vistoria = 'Informe a data da vistoria ou marque como vistoria em aberto.';
+    else if (e.vistoria === 'data' && !dataValida(e.vistoriaData ?? '')) erros.vistoriaData = 'Informe uma data válida para a vistoria.';
+  }
   return erros;
 }
+
+/** A vistoria só existe em demanda de campo (a entrada já foi validada). */
+function vistoriaNormalizada(e: EntradaDemanda): { vistoria?: Vistoria } {
+  if (e.tipo !== 'campo') return {};
+  return e.vistoria === 'data' ? { vistoria: { data: e.vistoriaData } } : { vistoria: {} };
+}
+
+const vistoriaValida = (x: unknown): boolean =>
+  typeof x === 'object' && x !== null && !Array.isArray(x) &&
+  Object.keys(x).every((k) => k === 'data') &&
+  ((x as Vistoria).data === undefined || (typeof (x as Vistoria).data === 'string' && dataValida((x as Vistoria).data!)));
 
 function normalizar(e: EntradaDemanda): Omit<Demanda, 'id' | 'criadaEm' | 'ultimaAcaoRelevante'> {
   return {
@@ -54,6 +70,7 @@ function normalizar(e: EntradaDemanda): Omit<Demanda, 'id' | 'criadaEm' | 'ultim
     ...(e.tipo ? { tipo: e.tipo } : {}),
     ...(e.natureza ? { natureza: e.natureza } : {}),
     ...coordenadaNormalizada(e),
+    ...vistoriaNormalizada(e),
   };
 }
 
@@ -100,11 +117,12 @@ export function editarDemanda(d: Demanda, e: EntradaDemanda, agoraIso: string): 
     NUMEROS.some((c) => (novos[c] ?? '') !== (d[c] ?? '')) ||
     (novos.tipo ?? '') !== (d.tipo ?? '') ||
     (novos.natureza ?? '') !== (d.natureza ?? '') ||
-    !mesmaCoordenada(novos.coordenada, d.coordenada);
+    !mesmaCoordenada(novos.coordenada, d.coordenada) ||
+    JSON.stringify(novos.vistoria ?? null) !== JSON.stringify(d.vistoria ?? null);
   if (!mudou) return { ok: true, valor: d };
   // Campos opcionais apagados no formulário saem da demanda.
-  const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, tipo: _tipo, natureza: _natureza, coordenada: _coordenada, ...semOpcionais } = d;
-  void [_prazo, _processo, _simp, _judicial, _tipo, _natureza, _coordenada];
+  const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, tipo: _tipo, natureza: _natureza, coordenada: _coordenada, vistoria: _vistoria, ...semOpcionais } = d;
+  void [_prazo, _processo, _simp, _judicial, _tipo, _natureza, _coordenada, _vistoria];
   const editada: Demanda = { ...semOpcionais, ...novos, ultimaAcaoRelevante: agoraIso };
   return { ok: true, valor: novos.status === d.status ? editada : comMudancaDeStatus(d, editada, agoraIso) };
 }
@@ -175,6 +193,7 @@ export function paraEntrada(d: Demanda): EntradaDemanda {
     ...(d.tipo ? { tipo: d.tipo } : {}),
     ...(d.natureza ? { natureza: d.natureza } : {}),
     coordenada: d.coordenada ? formatarDecimal(d.coordenada) : '',
+    ...(d.vistoria ? (d.vistoria.data ? { vistoria: 'data' as const, vistoriaData: d.vistoria.data } : { vistoria: 'aberta' as const }) : {}),
   };
 }
 
@@ -189,9 +208,11 @@ export interface Filtros {
   natureza: '' | 'demanda' | 'comum' | 'sem';
   /** Campos essenciais (essenciais.ts). */
   preenchimento: '' | 'faltando' | 'completas';
+  /** Só demandas de campo: 'agendada' tem data; 'sem-data' = em aberto ou não informada (vistoria.ts). */
+  vistoria: '' | 'agendada' | 'sem-data';
 }
 
-export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '', tipo: '', natureza: '', preenchimento: '' };
+export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '', tipo: '', natureza: '', preenchimento: '', vistoria: '' };
 
 export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[] {
   const texto = f.texto.trim().toLocaleLowerCase('pt-BR');
@@ -204,7 +225,8 @@ export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[
       (!f.bloqueio || (f.bloqueio === 'travadas') === !!d.bloqueio) &&
       (!f.tipo || (f.tipo === 'sem' ? !d.tipo : d.tipo === f.tipo)) &&
       (!f.natureza || (f.natureza === 'sem' ? !d.natureza : d.natureza === f.natureza)) &&
-      (!f.preenchimento || (f.preenchimento === 'faltando') === camposQueFaltam(d).length > 0),
+      (!f.preenchimento || (f.preenchimento === 'faltando') === camposQueFaltam(d).length > 0) &&
+      (!f.vistoria || (situacaoVistoria(d) !== null && (f.vistoria === 'agendada') === (situacaoVistoria(d) === 'agendada'))),
   );
 }
 
@@ -228,6 +250,7 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     (d.tipo === undefined || TIPOS.includes(d.tipo as never)) &&
     (d.natureza === undefined || NATUREZAS.includes(d.natureza as never)) &&
     (d.coordenada === undefined || coordenadaValida(d.coordenada)) &&
+    (d.vistoria === undefined || vistoriaValida(d.vistoria)) &&
     (d.historico === undefined ||
       (Array.isArray(d.historico) && d.historico.length <= LIMITES.historicoMax && d.historico.every(eventoValido)))
   );

@@ -7,7 +7,7 @@
 
 import type { Demanda } from './modelo.ts';
 
-export const CAMPOS_ESSENCIAIS = ['natureza', 'tipo', 'prazo', 'responsavel', 'processo'] as const;
+export const CAMPOS_ESSENCIAIS = ['natureza', 'tipo', 'prazo', 'responsavel', 'processo', 'vistoria'] as const;
 export type CampoEssencial = (typeof CAMPOS_ESSENCIAIS)[number];
 
 export const ROTULOS_ESSENCIAL: Record<CampoEssencial, string> = {
@@ -16,19 +16,23 @@ export const ROTULOS_ESSENCIAL: Record<CampoEssencial, string> = {
   prazo: 'prazo',
   responsavel: 'responsável',
   processo: 'processo',
+  vistoria: 'vistoria',
 };
 
-/** Os campos essenciais que valem para a demanda, na ordem de CAMPOS_ESSENCIAIS. */
-export function essenciaisAplicaveis(d: Pick<Demanda, 'natureza'>): CampoEssencial[] {
-  if (d.natureza === 'comum') return ['prazo', 'responsavel'];
-  if (d.natureza === 'demanda') return ['tipo', 'prazo', 'responsavel', 'processo'];
-  return ['natureza', 'tipo', 'prazo', 'responsavel'];
+/** Os campos essenciais que valem para a demanda, na ordem de CAMPOS_ESSENCIAIS. A vistoria vale só para tipo campo. */
+export function essenciaisAplicaveis(d: Pick<Demanda, 'natureza' | 'tipo'>): CampoEssencial[] {
+  const base: CampoEssencial[] =
+    d.natureza === 'comum' ? ['prazo', 'responsavel']
+    : d.natureza === 'demanda' ? ['tipo', 'prazo', 'responsavel', 'processo']
+    : ['natureza', 'tipo', 'prazo', 'responsavel'];
+  return d.tipo === 'campo' ? [...base, 'vistoria'] : base;
 }
 
 const vazio = (v: unknown) => v === undefined || (typeof v === 'string' && v.trim() === '');
 
 /** O que falta preencher; vazio quando está completa ou concluída. */
 export function camposQueFaltam(d: Pick<Demanda, 'status' | CampoEssencial>): CampoEssencial[] {
+  // "Em aberto" é uma resposta: só falta a vistoria quando o campo nunca foi informado.
   if (d.status === 'Concluída') return [];
   return essenciaisAplicaveis(d).filter((c) => vazio(d[c]));
 }

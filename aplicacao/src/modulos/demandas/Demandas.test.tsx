@@ -132,6 +132,7 @@ describe('tela Demandas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Trocar a ordem' }));
     expect(campo).toHaveValue('-15.500000, -55.500000');
     expect(screen.getByTestId('leitura-coordenada')).toHaveTextContent(`Entendido: 15° 30' 0" S, 55° 30' 0" W (-15.500000, -55.500000, SIRGAS 2000).`);
+    fireEvent.click(screen.getByLabelText('Vistoria em aberto')); // o título "Vistoria…" deduz tipo campo
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(armazem.obter().demandas[0].coordenada).toEqual({ lat: -15.5, lon: -55.5 });
 
@@ -151,6 +152,27 @@ describe('tela Demandas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByText('UTM ainda não é aceito: informe em graus (ex.: -15.5, -55.5).')).toBeInTheDocument();
     expect(armazem.obter().demandas).toHaveLength(0);
+  });
+
+  it('vistoria: o bloco só aparece para tipo campo, exige data ou "em aberto" e aparece no detalhe e no filtro', () => {
+    const armazem = montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Nova demanda' }));
+    fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: 'Organizar arquivo fictício' } });
+    expect(screen.queryByTestId('bloco-vistoria')).toBeNull();
+    fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'campo' } });
+    expect(screen.getByTestId('bloco-vistoria')).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByText('Informe a data da vistoria ou marque como vistoria em aberto.')).toBeInTheDocument();
+    expect(armazem.obter().demandas).toHaveLength(0);
+    fireEvent.click(screen.getByLabelText('Informar a data'));
+    fireEvent.change(screen.getByLabelText('Data da vistoria'), { target: { value: '2026-12-12' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(armazem.obter().demandas[0].vistoria).toEqual({ data: '2026-12-12' });
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Organizar arquivo fictício' }));
+    expect(screen.getByTestId('vistoria-detalhe')).toHaveTextContent('12/12/2026');
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
+    fireEvent.change(screen.getByLabelText('Vistoria'), { target: { value: 'sem-data' } });
+    expect(screen.getByText('Nenhuma demanda corresponde aos filtros.')).toBeInTheDocument();
   });
 
   it('detalhe livre do bloqueio: grava, aparece só no detalhe da demanda e volta ao reabrir', () => {
@@ -332,7 +354,7 @@ describe('tela Demandas', () => {
     it('filtro por tipo na lista', () => {
       const armazem = montar();
       act(() => {
-        armazem.criar({ titulo: 'Vistoria fictícia A', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '', tipo: 'campo' });
+        armazem.criar({ titulo: 'Vistoria fictícia A', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '', tipo: 'campo', vistoria: 'aberta' });
         armazem.criar({ titulo: 'Organizar arquivo', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '' });
       });
       fireEvent.change(screen.getByLabelText('Tipo'), { target: { value: 'campo' } });

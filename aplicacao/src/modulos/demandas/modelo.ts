@@ -51,6 +51,10 @@ export interface EventoHistorico {
   detalhe?: string;
 }
 
+export interface Vistoria {
+  data?: string;
+}
+
 export interface Demanda {
   id: string;
   titulo: string;
@@ -75,6 +79,8 @@ export interface Demanda {
   natureza?: Natureza;
   /** Graus decimais, SIRGAS 2000 (coordenadas.ts). Pode identificar um imóvel: fica fora da tela compartilhada e do MCP. */
   coordenada?: Coordenada;
+  /** Só tipo campo (vistoria.ts): com `data` (AAAA-MM-DD) está encaixada numa vistoria; sem `data`, em aberto. Ausente = não informada. */
+  vistoria?: Vistoria;
   /** Status e bloqueio ao longo do tempo, do mais antigo ao mais novo. Ausente em demandas anteriores ao histórico. */
   historico?: EventoHistorico[];
 }
@@ -96,6 +102,9 @@ export interface EntradaDemanda {
   natureza?: Natureza;
   /** Texto em qualquer formato aceito por lerCoordenada; vazio ou ausente = sem coordenada. */
   coordenada?: string;
+  /** Só vale com tipo campo: 'data' (usa `vistoriaData`) ou 'aberta'. Ausente = não informada. */
+  vistoria?: 'data' | 'aberta';
+  vistoriaData?: string;
 }
 
 export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80, detalheBloqueioMax: 300, historicoMax: 500 } as const;

@@ -214,6 +214,30 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
         </div>
       </div>
 
+      {entrada.tipo === 'campo' && (
+        <fieldset className="campo-grupo" data-testid="bloco-vistoria" aria-describedby={erros.vistoria ? 'erro-vistoria' : undefined}>
+          <legend className="texto-medio">Vistoria *</legend>
+          <span className="texto-pequeno texto-suave">
+            Informe a data prevista ou deixe em aberto, se a demanda ainda não foi encaixada numa vistoria.
+          </span>
+          <label>
+            <input type="radio" name="vistoria" checked={entrada.vistoria === 'data'} onChange={() => campo('vistoria', 'data')} /> Informar a data
+          </label>
+          {entrada.vistoria === 'data' && (
+            <label className="campo-grupo">
+              <span>Data da vistoria</span>
+              <input className="campo" type="date" value={entrada.vistoriaData ?? ''}
+                onChange={(e) => campo('vistoriaData', e.target.value)} {...ajuda('vistoriaData')} />
+              {mensagem('vistoriaData')}
+            </label>
+          )}
+          <label>
+            <input type="radio" name="vistoria" checked={entrada.vistoria === 'aberta'} onChange={() => campo('vistoria', 'aberta')} /> Vistoria em aberto
+          </label>
+          {mensagem('vistoria')}
+        </fieldset>
+      )}
+
       <fieldset className="grade grade--2">
         <legend className="texto-medio">Números (opcionais)</legend>
         {NUMEROS.map((c) => (

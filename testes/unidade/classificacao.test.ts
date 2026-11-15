@@ -63,7 +63,7 @@ describe('tipo e natureza na demanda', () => {
     expect(ehDemandaValida({ ...BASE, natureza: '' })).toBe(false);
   });
   it('editar grava, compara e apaga quando volta a "não definido"', () => {
-    const r = editarDemanda(BASE, { ...entrada, tipo: 'campo', natureza: 'demanda' }, '2026-11-14T10:00:00.000Z');
+    const r = editarDemanda(BASE, { ...entrada, tipo: 'campo', natureza: 'demanda', vistoria: 'aberta' }, '2026-11-14T10:00:00.000Z');
     const d = r.ok ? r.valor : BASE;
     expect(d).toMatchObject({ tipo: 'campo', natureza: 'demanda', ultimaAcaoRelevante: '2026-11-14T10:00:00.000Z' });
     const igual = editarDemanda(d, paraEntrada(d), '2026-11-15T10:00:00.000Z');
