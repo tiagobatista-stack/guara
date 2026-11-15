@@ -21,6 +21,8 @@ export interface Bloqueio {
   motivo: MotivoBloqueio;
   /** ISO 8601: quando a demanda travou (mudar o motivo não muda). */
   desde: string;
+  /** Detalhe livre, opcional (pedido do responsável em 14/11/2026). Só aparece no detalhe da demanda. */
+  detalhe?: string;
 }
 
 export interface Demanda {
@@ -64,6 +66,6 @@ export interface EntradaDemanda {
   natureza?: Natureza;
 }
 
-export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80 } as const;
+export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80, detalheBloqueioMax: 300 } as const;
 
 export const CHAVE_DEMANDAS = 'guara:demandas:v1';

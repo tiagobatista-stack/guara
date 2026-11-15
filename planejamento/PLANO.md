@@ -28,6 +28,7 @@ interface Demanda {
   bloqueio?: {                 // opcional, só enquanto travada (14/11/2026, ideia do TOCA)
     motivo: 'documento' | 'setor' | 'campo' | 'outro';
     desde: string;             // ISO 8601; mudar o motivo não muda
+    detalhe?: string;          // opcional, texto livre até 300 caracteres; fora da tela compartilhada
   };
   processo?: string;           // opcional (14/11/2026): processo administrativo, ex.: FIC-2026-0001
   simp?: string;               // opcional: SIMP do Ministério Público, NNNNNN-NNN/AAAA

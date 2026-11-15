@@ -2,7 +2,7 @@
 // com confirmação (incremento 1 do PLANO.md). Dados no localStorage deste navegador.
 
 import { Fragment, useMemo, useState } from 'react';
-import { MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloqueio } from './modelo.ts';
+import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloqueio } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useAjusteFeriados, useArmazem, useEstadoDemandas } from './armazem.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
@@ -43,6 +43,13 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [aviso, setAviso] = useState<Aviso>(null);
   const [motivo, setMotivo] = useState<MotivoBloqueio>('documento');
+  const [detalheBloqueio, setDetalheBloqueio] = useState('');
+  const abrirDetalhe = (d: Demanda | undefined, id: string) => {
+    setAviso(null);
+    setMotivo(d?.bloqueio?.motivo ?? 'documento');
+    setDetalheBloqueio(d?.bloqueio?.detalhe ?? '');
+    setModo({ tipo: 'detalhe', id });
+  };
   // Tela compartilhada (projetor, reunião): só o resumo por lista branca, sem dado pessoal.
   const [compartilhada, setCompartilhada] = useState(false);
 
@@ -121,10 +128,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           deduzirAoDigitar
           verificarParecida={(entrada) => acharParecida(entrada, demandas)}
           aoVerExistente={(id) => {
-            const existente = buscar(id);
-            setAviso(null);
-            setMotivo(existente?.bloqueio?.motivo ?? 'documento');
-            setModo({ tipo: 'detalhe', id });
+            abrirDetalhe(buscar(id), id);
           }}
           aoSalvar={(entrada) => {
             const r = armazem.criar(entrada);
@@ -178,11 +182,14 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               {emDetalhe.status === 'Concluída' ? 'concluída: nada a cobrar' : textoFalta(emDetalhe) ?? 'campos essenciais preenchidos'}
             </dd>
             <dt>Bloqueio</dt><dd data-testid="bloqueio-detalhe">{textoBloqueio(emDetalhe, agora(), ajuste) ?? 'não está travada'}</dd>
+            {emDetalhe.bloqueio?.detalhe && (
+              <><dt>Detalhe do bloqueio</dt><dd data-testid="bloqueio-detalhe-livre">{emDetalhe.bloqueio.detalhe}</dd></>
+            )}
           </dl>
           {emDetalhe.status !== 'Concluída' && (
             <form className="filtros" aria-label="Bloqueio da demanda" onSubmit={(e) => {
               e.preventDefault();
-              responder(armazem.travar(emDetalhe.id, motivo), emDetalhe.bloqueio ? 'Motivo do bloqueio gravado.' : 'Demanda marcada como travada.');
+              responder(armazem.travar(emDetalhe.id, motivo, detalheBloqueio), emDetalhe.bloqueio ? 'Bloqueio atualizado.' : 'Demanda marcada como travada.');
             }}>
               <label className="campo-grupo">
                 <span>Motivo do bloqueio</span>
@@ -190,8 +197,23 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                   {Object.entries(MOTIVOS_BLOQUEIO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
                 </select>
               </label>
+              <div className="campo-grupo">
+                <label htmlFor="detalhe-bloqueio">Detalhe do bloqueio (opcional)</label>
+                <textarea
+                  id="detalhe-bloqueio"
+                  className="campo"
+                  rows={2}
+                  maxLength={LIMITES.detalheBloqueioMax}
+                  value={detalheBloqueio}
+                  onChange={(e) => setDetalheBloqueio(e.target.value)}
+                  aria-describedby="dica-detalhe-bloqueio"
+                />
+                <span id="dica-detalhe-bloqueio" className="texto-pequeno texto-suave">
+                  Ex.: aguardando resposta do ofício enviado ao setor de cadastro. Até {LIMITES.detalheBloqueioMax} caracteres. Evite nomes de pessoas: o texto vai no JSON exportado, mas não aparece na tela compartilhada nem no Kanban.
+                </span>
+              </div>
               <div className="acoes">
-                <button type="submit" className="botao">{emDetalhe.bloqueio ? 'Mudar motivo' : 'Marcar como travada'}</button>
+                <button type="submit" className="botao">{emDetalhe.bloqueio ? 'Atualizar bloqueio' : 'Marcar como travada'}</button>
                 {emDetalhe.bloqueio && (
                   <>
                     <button type="button" className="botao" onClick={() => responder(armazem.confirmarBloqueio(emDetalhe.id), 'Reavaliação registrada: a demanda continua travada.')}>Ainda travada</button>
@@ -324,7 +346,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                     {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora(), ajuste)}</dd></>}
                   </dl>
                   <div className="acoes">
-                    <button type="button" className="botao botao--pequeno" aria-label={`Detalhes de ${d.titulo}`} onClick={() => { setAviso(null); setMotivo(d.bloqueio?.motivo ?? 'documento'); setModo({ tipo: 'detalhe', id: d.id }); }}>
+                    <button type="button" className="botao botao--pequeno" aria-label={`Detalhes de ${d.titulo}`} onClick={() => abrirDetalhe(d, d.id)}>
                       Detalhes
                     </button>
                     <button type="button" className="botao botao--pequeno" aria-label={`Editar ${d.titulo}`} onClick={() => { setAviso(null); setModo({ tipo: 'editar', id: d.id }); }}>

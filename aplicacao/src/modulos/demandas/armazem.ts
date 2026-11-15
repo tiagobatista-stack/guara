@@ -3,8 +3,8 @@
 // localStorage; só depois o estado em memória e a interface são atualizados.
 
 import { createContext, useContext, useMemo, useSyncExternalStore } from 'react';
-import { CHAVE_DEMANDAS as CHAVE_DEMANDAS_ARMAZEM, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
-import { confirmarBloqueio, criarDemanda, destravarDemanda, editarDemanda, mudarStatus, travarDemanda, type ErrosValidacao } from './regras.ts';
+import { CHAVE_DEMANDAS as CHAVE_DEMANDAS_ARMAZEM, LIMITES, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
+import { confirmarBloqueio, criarDemanda, destravarDemanda, editarDemanda, limparDetalheBloqueio, mudarStatus, travarDemanda, type ErrosValidacao } from './regras.ts';
 import { RepositorioLocal } from './repositorio-local.ts';
 import { demandasExemplo } from './exemplos.ts';
 import { DIAS_INATIVIDADE_PADRAO } from '../alertas/inatividade.ts';
@@ -222,8 +222,12 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       if (nova === atual) return { ok: true, demanda: atual };
       return gravar(estado.demandas.map((d) => (d.id === id ? nova : d))) ?? { ok: true, demanda: nova };
     },
-    travar(id: string, motivo: MotivoBloqueio): RespostaAcao {
-      return aplicar(id, (d) => travarDemanda(d, motivo, iso()), 'Demanda concluída não pode ser travada.');
+    travar(id: string, motivo: MotivoBloqueio, detalhe = ''): RespostaAcao {
+      const limpo = limparDetalheBloqueio(detalhe);
+      if (limpo.length > LIMITES.detalheBloqueioMax) {
+        return { ok: false, mensagem: `O detalhe do bloqueio tem no máximo ${LIMITES.detalheBloqueioMax} caracteres.` };
+      }
+      return aplicar(id, (d) => travarDemanda(d, motivo, iso(), limpo), 'Demanda concluída não pode ser travada.');
     },
     destravar(id: string): RespostaAcao {
       return aplicar(id, (d) => destravarDemanda(d, iso()), '');

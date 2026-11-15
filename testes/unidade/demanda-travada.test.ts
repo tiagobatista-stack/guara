@@ -8,6 +8,7 @@ import {
 } from '../../aplicacao/src/modulos/demandas/regras.ts';
 import { textoBloqueio } from '../../aplicacao/src/modulos/alertas/bloqueio.ts';
 import { validarImportacao } from '../../aplicacao/src/modulos/alertas/dados-portaveis.ts';
+import { montarResumo } from '../../aplicacao/src/modulos/demandas/resumo.ts';
 
 const T0 = '2026-11-13T12:00:00.000Z';
 const T1 = '2026-11-16T12:00:00.000Z';
@@ -99,5 +100,47 @@ describe('armazém', () => {
     const antes = localStorage.getItem(CHAVE_DEMANDAS);
     expect(a.travar('d1', 'documento')).toEqual({ ok: false, mensagem: 'Demanda concluída não pode ser travada.' });
     expect(localStorage.getItem(CHAVE_DEMANDAS)).toBe(antes);
+  });
+});
+
+describe('detalhe livre do bloqueio (pedido do responsável, 14/11/2026)', () => {
+  beforeEach(() => localStorage.clear());
+  const DETALHE = 'Aguardando resposta do ofício enviado ao setor de cadastro (fictício).';
+
+  it('grava o detalhe junto com o motivo; mudar só o detalhe mantém o "desde" e conta como ação relevante', () => {
+    const t = travarDemanda(BASE, 'setor', T0, DETALHE)!;
+    expect(t.bloqueio).toEqual({ motivo: 'setor', desde: T0, detalhe: DETALHE });
+    expect(travarDemanda(t, 'setor', T1, DETALHE)).toBe(t);
+    const outro = travarDemanda(t, 'setor', T1, 'Ofício reiterado (fictício).')!;
+    expect(outro.bloqueio).toEqual({ motivo: 'setor', desde: T0, detalhe: 'Ofício reiterado (fictício).' });
+    expect(outro.ultimaAcaoRelevante).toBe(T1);
+    expect(travarDemanda(outro, 'setor', T1, '')!.bloqueio).toEqual({ motivo: 'setor', desde: T0 });
+  });
+
+  it('o armazém limpa espaços, recusa acima de 300 caracteres sem gravar e o detalhe sobrevive ao recarregar', () => {
+    const a = criarArmazem(localStorage, { agora: () => new Date(T0), exemplos: () => [{ ...BASE }] });
+    const antes = localStorage.getItem(CHAVE_DEMANDAS);
+    expect(a.travar('d1', 'documento', 'x'.repeat(301))).toEqual({ ok: false, mensagem: 'O detalhe do bloqueio tem no máximo 300 caracteres.' });
+    expect(localStorage.getItem(CHAVE_DEMANDAS)).toBe(antes);
+    expect(a.travar('d1', 'documento', `  ${DETALHE}\n  `).ok).toBe(true);
+    const b = criarArmazem(localStorage, { agora: () => new Date(T1), exemplos: () => [] });
+    expect(b.obter().demandas[0].bloqueio).toEqual({ motivo: 'documento', desde: T0, detalhe: DETALHE });
+    expect(a.travar('d1', 'documento', '   ').ok).toBe(true);
+    expect(a.obter().demandas[0].bloqueio).toEqual({ motivo: 'documento', desde: T0 });
+  });
+
+  it('validação: detalhe vazio, de outro tipo ou longo demais torna a demanda inválida; sem detalhe continua válida', () => {
+    const ok = { ...BASE, bloqueio: { motivo: 'campo', desde: T0, detalhe: DETALHE } };
+    expect(ehDemandaValida(ok)).toBe(true);
+    expect(ehDemandaValida({ ...BASE, bloqueio: { motivo: 'campo', desde: T0 } })).toBe(true);
+    expect(ehDemandaValida({ ...BASE, bloqueio: { motivo: 'campo', desde: T0, detalhe: '  ' } })).toBe(false);
+    expect(ehDemandaValida({ ...BASE, bloqueio: { motivo: 'campo', desde: T0, detalhe: 42 } })).toBe(false);
+    expect(ehDemandaValida({ ...BASE, bloqueio: { motivo: 'campo', desde: T0, detalhe: 'x'.repeat(301) } })).toBe(false);
+  });
+
+  it('o detalhe não entra no texto do bloqueio nem na tela compartilhada', () => {
+    const t = travarDemanda(BASE, 'setor', T0, DETALHE)!;
+    expect(textoBloqueio(t, new Date(T0))).toBe('⛔ travada hoje: aguardando outro setor');
+    expect(JSON.stringify(montarResumo(t, new Date(T0)))).not.toContain('ofício');
   });
 });

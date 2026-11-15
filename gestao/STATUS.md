@@ -49,7 +49,8 @@
 24. **Mascotes nos estados vazios (14/11/2026), etapa 6, na `main`:** componente `EstadoVazio` com o rosto do principal (decorativo) em Demandas, Kanban, Dashboard, Alertas e módulos não implementados. Foram 4 testes novos; total 265/265 em 27 arquivos, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-estados-vazios.md`.
 25. **Publicação dos estados vazios (14/11/2026):** push do responsável (`e87f442`); a URL pública serve `index-DWTUf_83.js`, o mesmo bundle do build. Evidência em `metodologia/evidencias/2026-11-14-publicacao-estados-vazios.md`.
 26. **Mascote sinaliza o estado do trabalho (14/11/2026), etapa 4, na `main`:** avisos do painel do assistente calculados das demandas deste navegador (vencida, prazo próximo, parada), com origem e data, e humor que os resume. Foram 6 testes novos; total 271/271 em 28 arquivos, build ok. Falta o olhar que aponta para o aviso. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-estado-do-trabalho.md`.
-27. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+27. **Detalhe livre da demanda travada (14/11/2026), pedido do responsável, na `main`:** `bloqueio.detalhe` opcional (até 300 caracteres), sem migração; aparece só no detalhe da demanda. Foram 5 testes novos; total 276/276, build ok, MCP 4 = 4. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-detalhe-do-bloqueio.md`.
+28. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

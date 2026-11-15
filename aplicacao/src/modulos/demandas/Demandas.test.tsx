@@ -90,6 +90,32 @@ describe('tela Demandas', () => {
     expect(localStorage.getItem('guara:demandas:v1')).toBe('corrompido');
   });
 
+  it('detalhe livre do bloqueio: grava, aparece só no detalhe da demanda e volta ao reabrir', () => {
+    const armazem = montar();
+    act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0003', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0003' }));
+    fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'setor' } });
+    fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: 'Aguardando ofício do setor de cadastro (fictício).' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
+    expect(screen.getByTestId('bloqueio-detalhe-livre')).toHaveTextContent('Aguardando ofício do setor de cadastro (fictício).');
+    expect(armazem.obter().demandas[0].bloqueio?.detalhe).toBe('Aguardando ofício do setor de cadastro (fictício).');
+
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
+    expect(screen.getByTestId('bloqueio-id-1')).toHaveTextContent('aguardando outro setor');
+    expect(screen.queryByText(/Aguardando ofício/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Tela compartilhada' }));
+    expect(screen.queryByText(/Aguardando ofício/)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Sair da tela compartilhada' }));
+
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0003' }));
+    expect(screen.getByLabelText('Detalhe do bloqueio (opcional)')).toHaveValue('Aguardando ofício do setor de cadastro (fictício).');
+    fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Atualizar bloqueio' }));
+    expect(screen.getByRole('status')).toHaveTextContent('Bloqueio atualizado.');
+    expect(screen.queryByTestId('bloqueio-detalhe-livre')).toBeNull();
+    expect(armazem.obter().demandas[0].bloqueio).not.toHaveProperty('detalhe');
+  });
+
   it('marca como travada pelo detalhe, mostra na lista e no filtro, e destrava', () => {
     const armazem = montar();
     act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0002', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'Em Andamento', prazo: '' }); });
@@ -99,7 +125,7 @@ describe('tela Demandas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
     expect(screen.getByRole('status')).toHaveTextContent('Demanda marcada como travada.');
     expect(screen.getByTestId('bloqueio-detalhe')).toHaveTextContent('⛔ travada hoje: depende de campo');
-    expect(screen.getByRole('button', { name: 'Mudar motivo' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Atualizar bloqueio' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
     expect(screen.getByTestId('bloqueio-id-1')).toHaveTextContent('depende de campo');

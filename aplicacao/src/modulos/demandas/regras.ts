@@ -105,11 +105,18 @@ function semBloqueio(d: Demanda): Demanda {
 export const ehMotivoBloqueio = (x: unknown): x is MotivoBloqueio =>
   typeof x === 'string' && Object.prototype.hasOwnProperty.call(MOTIVOS_BLOQUEIO, x);
 
-/** Trava a demanda ou muda o motivo (mantendo o "desde"). Concluída não trava: devolve null. */
-export function travarDemanda(d: Demanda, motivo: MotivoBloqueio, agoraIso: string): Demanda | null {
+/** Detalhe do bloqueio sem espaços sobrando; '' quando não há detalhe. */
+export const limparDetalheBloqueio = (detalhe: string): string => detalhe.replace(/\s+/g, ' ').trim();
+
+/**
+ * Trava a demanda ou muda o motivo e o detalhe (mantendo o "desde"). Concluída não trava: devolve null.
+ * O detalhe já deve vir limpo e dentro do limite (o armazém confere).
+ */
+export function travarDemanda(d: Demanda, motivo: MotivoBloqueio, agoraIso: string, detalhe = ''): Demanda | null {
   if (d.status === 'Concluída') return null;
-  if (d.bloqueio?.motivo === motivo) return d;
-  return { ...d, bloqueio: { motivo, desde: d.bloqueio?.desde ?? agoraIso }, ultimaAcaoRelevante: agoraIso };
+  if (d.bloqueio?.motivo === motivo && (d.bloqueio.detalhe ?? '') === detalhe) return d;
+  const bloqueio = { motivo, desde: d.bloqueio?.desde ?? agoraIso, ...(detalhe ? { detalhe } : {}) };
+  return { ...d, bloqueio, ultimaAcaoRelevante: agoraIso };
 }
 
 export function destravarDemanda(d: Demanda, agoraIso: string): Demanda {
@@ -194,5 +201,9 @@ export function ehDemandaValida(x: unknown): x is Demanda {
 function bloqueioValido(x: unknown): boolean {
   if (typeof x !== 'object' || x === null) return false;
   const b = x as Record<string, unknown>;
-  return ehMotivoBloqueio(b.motivo) && typeof b.desde === 'string' && !Number.isNaN(Date.parse(b.desde));
+  return (
+    ehMotivoBloqueio(b.motivo) && typeof b.desde === 'string' && !Number.isNaN(Date.parse(b.desde)) &&
+    (b.detalhe === undefined ||
+      (typeof b.detalhe === 'string' && b.detalhe.trim() !== '' && b.detalhe.length <= LIMITES.detalheBloqueioMax))
+  );
 }
