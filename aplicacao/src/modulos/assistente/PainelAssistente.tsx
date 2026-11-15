@@ -8,6 +8,8 @@ import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/prefe
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { DATA_REFERENCIA, demandasFicticias } from '@dados/demandas.ts';
 import { avaliarPrazos } from '@catalogo/habilidades/avaliar-prazos/implementacao.ts';
+import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
+import { avisosDoDia, resumoDosAvisos, type Aviso } from './avisos.ts';
 
 interface Mensagem {
   autor: 'usuario' | 'assistente';
@@ -38,24 +40,24 @@ function responder(comando: string): Mensagem {
   };
 }
 
-// Avisos mostrados no painel (texto fixo e fictício no MVP).
-const NOTIFICACOES = ['DEM-FIC-0002: prazo em 1 dia (fictício).'];
+// Avisos mostrados de uma vez; os demais ficam no Dashboard e em Alertas.
+const MAXIMO_DE_AVISOS = 5;
 
-// O humor só reflete o estado da tela: resposta de "não entendi" deixa o mascote curioso,
-// aviso pendente deixa atento. Ele não avalia o conteúdo das demandas.
-function humorDoPainel(mensagens: Mensagem[], avisos: number): HumorMascote {
+// O humor resume o estado da tela: resposta de "não entendi" deixa o mascote curioso; demanda
+// vencida, com prazo próximo ou parada deixa atento. Ele conta prazos, não opina sobre o mérito.
+function humorDoPainel(mensagens: Mensagem[], avisos: readonly Aviso[]): HumorMascote {
   const ultima = mensagens[mensagens.length - 1];
   if (ultima?.autor === 'assistente' && ultima.natureza === 'sugestão') return 'curioso';
-  return avisos > 0 ? 'atento' : 'tranquilo';
+  return avisos.length > 0 ? 'atento' : 'tranquilo';
 }
 
-const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: number) => string> = {
-  tranquilo: () => 'Tranquilo: nenhum aviso.',
-  atento: (avisos) => (avisos === 1 ? 'Atento: 1 aviso abaixo.' : `Atento: ${avisos} avisos abaixo.`),
+const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[]) => string> = {
+  tranquilo: () => 'Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.',
+  atento: (avisos) => `Atento: ${resumoDosAvisos(avisos)}.`,
   curioso: () => 'Curioso: não entendi o último comando.',
 };
 
-export function PainelAssistente() {
+export function PainelAssistente({ agora = () => new Date() }: { agora?: () => Date }) {
   // Mascote principal e nome vêm das Configurações.
   const preferencias = usePreferenciasMascote();
   const especie = preferencias.principal;
@@ -73,7 +75,12 @@ export function PainelAssistente() {
     setTexto('');
   };
 
-  const humor = humorDoPainel(mensagens, NOTIFICACOES.length);
+  const { demandas, diasInatividade } = useEstadoDemandas();
+  const instante = agora();
+  const ajuste = useAjusteFeriados(instante);
+  const avisos = avisosDoDia(demandas, instante, diasInatividade, ajuste);
+  const origem = `fato · fonte: demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
+  const humor = humorDoPainel(mensagens, avisos);
 
   return (
     <div className="assistente">
@@ -86,16 +93,31 @@ export function PainelAssistente() {
             <strong data-testid="nome-do-mascote">{nome}</strong>
             {temNomeProprio && <span className="texto-pequeno texto-suave"> · {MASCOTES[especie].nome}</span>}
           </p>
-          <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](NOTIFICACOES.length)}</p>
+          <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](avisos)}</p>
         </div>
       </div>
 
       <section aria-label="Notificações" className="assistente-secao">
         <h2><strong>Notificações</strong></h2>
-        {NOTIFICACOES.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
-        {NOTIFICACOES.map((aviso) => (
-          <p key={aviso} className="texto-suave">{aviso}</p>
-        ))}
+        {avisos.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
+        {avisos.length > 0 && (
+          <ul className="lista-limpa avisos-assistente">
+            {avisos.slice(0, MAXIMO_DE_AVISOS).map((aviso) => (
+              // Cada aviso é uma fala curta do mascote, com a origem e a data do cálculo.
+              <li key={aviso.id} className="fala" data-testid={`aviso-${aviso.id}`} data-tipo={aviso.tipo}>
+                <Mascote especie={especie} humor="atento" tamanho={28} decorativo />
+                <div className="mensagem">
+                  <span className="sr-only">{nome}: </span>
+                  {aviso.texto}
+                  <span className="mensagem-meta">{origem}</span>
+                </div>
+              </li>
+            ))}
+          </ul>
+        )}
+        {avisos.length > MAXIMO_DE_AVISOS && (
+          <p className="texto-pequeno texto-suave">E mais {avisos.length - MAXIMO_DE_AVISOS}: veja o Dashboard e a tela Alertas.</p>
+        )}
       </section>
 
       <ol className="conversa" aria-live="polite">

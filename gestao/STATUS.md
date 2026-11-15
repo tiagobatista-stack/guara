@@ -47,7 +47,9 @@
 22. **Mascotes nas Configurações (14/11/2026), na `main`:** tela Configurações nova, com mascote principal e nome de cada um (`guara:mascote:v1`); o painel do assistente perdeu o seletor. Foram 10 testes novos; total 261/261 em 26 arquivos, build ok (executados pelo responsável no Windows). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-mascotes-configuracoes.md`.
 23. **Publicação dos mascotes (14/11/2026):** o responsável fez o push; `origin/main` = `e9db6dc`, e a URL pública serve o mesmo bundle do build local (`index-CoUyrRiP.js`). Telas: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-mascotes.md`.
 24. **Mascotes nos estados vazios (14/11/2026), etapa 6, na `main`:** componente `EstadoVazio` com o rosto do principal (decorativo) em Demandas, Kanban, Dashboard, Alertas e módulos não implementados. Foram 4 testes novos; total 265/265 em 27 arquivos, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-estados-vazios.md`.
-25. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+25. **Publicação dos estados vazios (14/11/2026):** push do responsável (`e87f442`); a URL pública serve `index-DWTUf_83.js`, o mesmo bundle do build. Evidência em `metodologia/evidencias/2026-11-14-publicacao-estados-vazios.md`.
+26. **Mascote sinaliza o estado do trabalho (14/11/2026), etapa 4, na `main`:** avisos do painel do assistente calculados das demandas deste navegador (vencida, prazo próximo, parada), com origem e data, e humor que os resume. Foram 6 testes novos; total 271/271 em 28 arquivos, build ok. Falta o olhar que aponta para o aviso. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-estado-do-trabalho.md`.
+27. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

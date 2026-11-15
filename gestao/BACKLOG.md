@@ -20,7 +20,7 @@
 
 **A fazer, em ordem** (uma por vez, com `npm test` e `npm run build` em cada uma):
 
-1. **Sinalizar o estado do trabalho (etapa 4): PARCIAL.** Feito: atento com aviso no painel e curioso depois de comando não reconhecido, com o motivo em texto. Falta: expressão que resume as demandas do dia a partir dos dados reais da tela (prazo próximo, vencida, parada), olhar que aponta para o cartão ou aviso que pede atenção, e avisos como fala curta com origem e data. Hoje o aviso do painel é um texto fixo e fictício.
+1. **Sinalizar o estado do trabalho (etapa 4): PARCIAL.** Feito: avisos do painel calculados das demandas deste navegador (vencida, prazo próximo, parada), como fala curta com origem e data, e humor que os resume (`2026-11-14-mascotes-estado-do-trabalho.md`, 271/271). Falta: olhar que aponta para o cartão ou aviso que pede atenção, e o comando "prazos" usar os mesmos dados (hoje usa os fictícios de `dados-ficticios/`).
 2. **Natureza da resposta no assistente (etapa 5).** Pose para fato, inferência e sugestão, e outra para NÃO TESTADO ou NÃO DEMONSTRADO; reforça o selo de texto, não substitui. Hoje só "sugestão" muda o rosto (curioso).
 3. **Presença no celular.** Com o painel do assistente fechado, o mascote não aparece e a festa do Kanban não é vista. Ideia: rosto pequeno no botão do assistente.
 4. **Sugestões de comando na conversa.** Usar a área vazia da conversa para o mascote oferecer "prazos" e "ajuda" como atalhos (hoje é preciso digitar).
