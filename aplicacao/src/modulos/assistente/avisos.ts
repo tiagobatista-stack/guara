@@ -15,6 +15,8 @@ export interface Aviso {
   tipo: TipoAviso;
   id: string;
   texto: string;
+  /** Tipo do aviso e status da demanda: quando muda, "ciente" e "adiar" deixam de valer. */
+  situacao: string;
 }
 
 const ORDEM: Record<TipoAviso, number> = { vencida: 0, 'prazo-proximo': 1, parada: 2 };
@@ -24,19 +26,21 @@ export function avisosDoDia(demandas: readonly Demanda[], agora: Date, limiarDia
   for (const d of demandas) {
     if (d.status === 'Concluída') continue;
     const prazo = situacaoDaDemanda(d, agora, ajuste);
+    const novo = (tipo: TipoAviso, texto: string, chave: number) =>
+      avisos.push({ tipo, id: d.id, texto, chave, situacao: `${tipo}|${d.status}` });
     if (prazo?.vencido) {
-      avisos.push({ tipo: 'vencida', id: d.id, texto: `${d.titulo}: ${prazo.texto}.`, chave: prazo.diasUteis });
+      novo('vencida', `${d.titulo}: ${prazo.texto}.`, prazo.diasUteis);
     } else if (prazo && prazo.diasUteis <= DIAS_PRAZO_PROXIMO) {
-      avisos.push({ tipo: 'prazo-proximo', id: d.id, texto: `${d.titulo}: ${prazo.texto}.`, chave: prazo.diasUteis });
+      novo('prazo-proximo', `${d.titulo}: ${prazo.texto}.`, prazo.diasUteis);
     } else if (estaInativa(d, limiarDias, agora)) {
       const dias = diasParado(d, agora);
-      avisos.push({ tipo: 'parada', id: d.id, texto: `${d.titulo}: parada há ${dias} dia(s) sem ação relevante.`, chave: -dias });
+      novo('parada', `${d.titulo}: parada há ${dias} dia(s) sem ação relevante.`, -dias);
     }
   }
   // Mais urgente primeiro: vencidas há mais tempo, prazos mais curtos, paradas há mais tempo.
   return avisos
     .sort((a, b) => ORDEM[a.tipo] - ORDEM[b.tipo] || a.chave - b.chave || a.id.localeCompare(b.id))
-    .map(({ tipo, id, texto }) => ({ tipo, id, texto }));
+    .map(({ tipo, id, texto, situacao }) => ({ tipo, id, texto, situacao }));
 }
 
 const CONTAGEM: Record<TipoAviso, [string, string]> = {

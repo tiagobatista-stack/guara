@@ -5,6 +5,7 @@ import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import type { EntradaDemanda } from '../demandas/modelo.ts';
 import { PainelAssistente } from './PainelAssistente.tsx';
 import { CHAVE_CONVERSA, limparConversa, MAXIMO_DE_FALAS } from './conversa.ts';
+import { mostrarDeNovo, obterLembretes } from './lembretes.ts';
 
 // Sexta, 13/11/2026.
 const AGORA = () => new Date('2026-11-13T12:00:00.000Z');
@@ -30,7 +31,7 @@ function enviar(comando: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 }
 
-beforeEach(() => { localStorage.clear(); limparConversa(); localStorage.clear(); });
+beforeEach(() => { localStorage.clear(); limparConversa(); mostrarDeNovo('x'); localStorage.clear(); });
 afterEach(() => vi.restoreAllMocks());
 
 describe('painel do assistente: mascote', () => {
@@ -209,5 +210,68 @@ describe('painel do assistente: mascote', () => {
     const campo = screen.getByLabelText('Mensagem ao assistente');
     expect(campo).toHaveAttribute('enterkeyhint', 'send');
     expect(campo).toHaveAttribute('autocomplete', 'off');
+  });
+
+  it('"Ciente" esconde o aviso e acalma o mascote; o aviso volta quando a demanda muda de status', () => {
+    const { armazem } = montar();
+    fireEvent.click(within(screen.getByRole('group', { name: 'Lembrete de DEM-1' })).getByRole('button', { name: 'Ciente' }));
+    expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
+    expect(screen.getByText('Nenhum aviso novo.')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+    expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: 1 aviso(s) ciente(s) ou adiado(s)');
+
+    fireEvent.click(screen.getByRole('button', { name: '1 ciente(s) e 0 adiado(s)' }));
+    expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent('(ciente)');
+
+    act(() => { armazem.mudarStatus('DEM-1', 'Em Andamento'); });
+    expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+  });
+
+  it('adiar esconde o lembrete até a hora escolhida; "Mostrar de novo" desfaz', () => {
+    montar();
+    const acoes = within(screen.getByRole('group', { name: 'Lembrete de DEM-1' }));
+    const opcoes = acoes.getAllByRole('button', { name: /às (8|14)h$/ });
+    expect(opcoes).toHaveLength(2);
+    fireEvent.click(opcoes[0]);
+    expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
+    expect(new Date(obterLembretes()['DEM-1'].adiadoAte!).getTime()).toBeGreaterThan(AGORA().getTime());
+
+    fireEvent.click(screen.getByRole('button', { name: '0 ciente(s) e 1 adiado(s)' }));
+    expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent(/adiado até (hoje|amanhã) às (8|14)h/);
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
+    expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
+    expect(obterLembretes()).toEqual({});
+  });
+
+  it('o comando "prazos" continua listando também os avisos cientes (é um fato, não um lembrete)', () => {
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Ciente' }));
+    enviar('prazos');
+    expect(screen.getByText(/Prazo próximo: DEM-1/)).toBeInTheDocument();
+  });
+
+  it('demanda concluída limpa o registro de ciente', () => {
+    const { armazem } = montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Ciente' }));
+    expect(Object.keys(obterLembretes())).toEqual(['DEM-1']);
+    act(() => { armazem.mudarStatus('DEM-1', 'Concluída'); });
+    expect(obterLembretes()).toEqual({});
+  });
+
+  it('a seção de notificações pode ser recolhida, fica só a conversa, e a escolha vale ao remontar o painel', () => {
+    const primeira = montar();
+    const recolher = screen.getByRole('button', { name: /Notificações.*recolher/ });
+    expect(recolher).toHaveAttribute('aria-expanded', 'true');
+    fireEvent.click(recolher);
+    expect(screen.getByTestId('aviso-DEM-1')).not.toBeVisible();
+    expect(screen.getByRole('button', { name: /1 novo\(s\), recolhidas; mostrar/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByLabelText('Mensagem ao assistente')).toBeInTheDocument();
+    primeira.unmount();
+
+    montar([]); // a demanda DEM-1 já está no localStorage
+    expect(screen.getByTestId('aviso-DEM-1')).not.toBeVisible();
+    fireEvent.click(screen.getByRole('button', { name: /Notificações/ }));
+    expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
   });
 });

@@ -9,6 +9,7 @@ import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
 import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
+import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
 
@@ -69,6 +70,24 @@ const SAUDACAO: Mensagem = {
 // Avisos mostrados de uma vez; os demais ficam no Dashboard e em Alertas.
 const MAXIMO_DE_AVISOS = 5;
 
+// A pessoa pode recolher a seção de notificações para ficar só com a conversa; a escolha fica
+// neste navegador, porque a gaveta é desmontada a cada fechamento.
+const CHAVE_NOTIFICACOES_RECOLHIDAS = 'guara:assistente:notificacoes-recolhidas:v1';
+function lerRecolhidas(): boolean {
+  try {
+    return window.localStorage.getItem(CHAVE_NOTIFICACOES_RECOLHIDAS) === '1';
+  } catch {
+    return false;
+  }
+}
+function gravarRecolhidas(valor: boolean) {
+  try {
+    window.localStorage.setItem(CHAVE_NOTIFICACOES_RECOLHIDAS, valor ? '1' : '0');
+  } catch {
+    // Armazenamento bloqueado: a escolha vale só até fechar a página.
+  }
+}
+
 // O humor resume o estado da tela: resposta de "não entendi" deixa o mascote curioso, inferência
 // deixa pensativo; demanda vencida, com prazo próximo ou parada deixa atento. Ele conta prazos,
 // não opina sobre o mérito.
@@ -80,8 +99,10 @@ function humorDoPainel(mensagens: Mensagem[], avisos: readonly Aviso[]): HumorMa
   return avisos.length > 0 ? 'atento' : 'tranquilo';
 }
 
-const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[]) => string> = {
-  tranquilo: () => 'Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.',
+const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[], ocultos: number) => string> = {
+  tranquilo: (_avisos, ocultos) => ocultos
+    ? `Tranquilo: ${ocultos} aviso(s) ciente(s) ou adiado(s); nada novo pede atenção.`
+    : 'Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.',
   atento: (avisos) => `Atento: ${resumoDosAvisos(avisos)}.`,
   curioso: () => 'Curioso: não entendi o último comando.',
   pensativo: () => 'Pensativo: a última resposta é uma inferência; confira antes de agir.',
@@ -93,6 +114,16 @@ export function useAvisosDoDia(instante: Date): Aviso[] {
   const { demandas, diasInatividade } = useEstadoDemandas();
   const ajuste = useAjusteFeriados(instante);
   return avisosDoDia(demandas, instante, diasInatividade, ajuste);
+}
+
+/**
+ * Avisos do dia separados em visíveis e escondidos (ciente ou adiado). O assistente só insiste nos
+ * visíveis; as outras telas continuam mostrando tudo.
+ */
+export function useAvisosVisiveis(instante: Date) {
+  const avisos = useAvisosDoDia(instante);
+  const lembretes = useLembretes();
+  return { todos: avisos, ...separarAvisos(avisos, lembretes, instante) };
 }
 
 /** Nome acessível dos botões que abrem o assistente, com o resumo dos avisos. */
@@ -133,7 +164,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
 
   const enviarComando = (comando: string) => {
     if (!comando.trim()) return;
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -143,9 +174,18 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   };
 
   const instante = agora();
-  const avisos = useAvisosDoDia(instante);
+  const { todos, visiveis: avisos, ocultos } = useAvisosVisiveis(instante);
   const origem = `fato · fonte: demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
   const humor = humorDoPainel(mensagens, avisos);
+  const [mostrandoOcultos, setMostrandoOcultos] = useState(false);
+  const [recolhidas, setRecolhidas] = useState(lerRecolhidas);
+  const alternarRecolhidas = () => {
+    setRecolhidas((v) => { gravarRecolhidas(!v); return !v; });
+  };
+  const opcoes = opcoesDeAdiamento(instante);
+
+  // Demanda concluída ou excluída não precisa mais do registro de ciente ou adiamento.
+  useEffect(() => limparLembretesSemAviso(todos), [todos]);
 
   return (
     <div className="assistente">
@@ -158,13 +198,21 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
             <strong data-testid="nome-do-mascote">{nome}</strong>
             {temNomeProprio && <span className="texto-pequeno texto-suave"> · {MASCOTES[especie].nome}</span>}
           </p>
-          <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](avisos)}</p>
+          <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](avisos, ocultos.length)}</p>
         </div>
       </div>
 
-      <section aria-label="Notificações" className="assistente-secao">
-        <h2><strong>Notificações</strong></h2>
-        {avisos.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
+      <section aria-label="Notificações" className={recolhidas ? 'assistente-secao assistente-secao--recolhida' : 'assistente-secao'}>
+        <h2 className="titulo-notificacoes">
+          <button type="button" className="botao-titulo" aria-expanded={!recolhidas} aria-controls="notificacoes-do-assistente" onClick={alternarRecolhidas}>
+            <strong>Notificações</strong>
+            {recolhidas && avisos.length > 0 && <span className="sino-contagem" aria-hidden="true">{avisos.length}</span>}
+            <span className="sr-only">{recolhidas ? ` (${avisos.length} novo(s), recolhidas; mostrar)` : ' (recolher)'}</span>
+          </button>
+        </h2>
+        <div id="notificacoes-do-assistente" hidden={recolhidas}>
+        {avisos.length === 0 && ocultos.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
+        {avisos.length === 0 && ocultos.length > 0 && <p className="texto-suave">Nenhum aviso novo.</p>}
         {avisos.length > 0 && (
           <ul className="lista-limpa avisos-assistente">
             {avisos.slice(0, MAXIMO_DE_AVISOS).map((aviso, i) => (
@@ -175,6 +223,15 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                   <span className="sr-only">{nome}: </span>
                   {aviso.texto}
                   <span className="mensagem-meta">{origem}</span>
+                  {/* Decisões da pessoa sobre o lembrete: não mudam a demanda nem as outras telas. */}
+                  <div className="acoes-aviso" role="group" aria-label={`Lembrete de ${aviso.id}`}>
+                    <button type="button" className="botao botao--pequeno" onClick={() => marcarCiente(aviso, agora())}>Ciente</button>
+                    {opcoes.map((o) => (
+                      <button key={o.rotulo} type="button" className="botao botao--pequeno" onClick={() => adiarLembrete(aviso, o.ate)}>
+                        {o.rotulo}
+                      </button>
+                    ))}
+                  </div>
                 </div>
               </li>
             ))}
@@ -183,6 +240,26 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         {avisos.length > MAXIMO_DE_AVISOS && (
           <p className="texto-pequeno texto-suave">E mais {avisos.length - MAXIMO_DE_AVISOS}: veja o Dashboard e a tela Alertas.</p>
         )}
+        {ocultos.length > 0 && (
+          <div className="avisos-ocultos">
+            <button type="button" className="botao botao--pequeno" aria-expanded={mostrandoOcultos} onClick={() => setMostrandoOcultos((v) => !v)}>
+              {ocultos.filter((o) => o.motivo === 'ciente').length} ciente(s) e {ocultos.filter((o) => o.motivo === 'adiado').length} adiado(s)
+            </button>
+            {mostrandoOcultos && (
+              <ul className="lista-limpa avisos-assistente">
+                {ocultos.map(({ aviso, motivo, ate }) => (
+                  <li key={aviso.id} className="mensagem texto-pequeno" data-testid={`oculto-${aviso.id}`}>
+                    {aviso.texto} <span className="texto-suave">({motivo === 'adiado' && ate ? `adiado até ${textoDoRetorno(ate, instante)}` : 'ciente'})</span>
+                    <div className="acoes-aviso">
+                      <button type="button" className="botao botao--pequeno" onClick={() => mostrarDeNovo(aviso.id)}>Mostrar de novo</button>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+        )}
+        </div>
       </section>
 
       <ol ref={conversa} className="conversa" aria-live="polite">

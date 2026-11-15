@@ -22,6 +22,7 @@
 - Atalhos "prazos" e "ajuda" na conversa (297/297; falta conferir no navegador).
 - Etapa 6: estados vazios com o rosto do principal em Demandas, Kanban, Dashboard, Alertas e módulos não implementados (265/265; falta conferir no navegador).
 - Preferências do mascote no backup: campo opcional `mascote` em `guara-dados.json` (306/306). O desfazer da importação não restaura a preferência.
+- Notificações com "Ciente" (até a demanda mudar de situação), adiar para 8h ou 14h, lista dos ocultos e seção recolhível (318/318; falta conferir no celular).
 - Da avaliação de UX do chat (14/11/2026): conversa guardada no navegador (`guara:conversa:v1`), gaveta com foco, Esc, toque no fundo e Tab preso; atalhos "Ver prazos" e "O que você faz?"; campo com teclado de enviar (304/304; falta conferir no navegador e com leitor de tela).
 
 **A fazer, em ordem** (uma por vez, com `npm test` e `npm run build` em cada uma):
@@ -40,7 +41,8 @@
 9. **Notificação que abre a demanda.** Tocar no aviso navega para a demanda citada.
 10. **Espaço da conversa no desktop.** Com cinco avisos, a conversa vira uma faixa estreita; recolher as notificações depois de lidas ou limitar a três.
 11. **Menos rostos.** Tirar o rosto pequeno das notificações (a seção já é do mascote); manter nas falas.
-12. **Botão para apagar a conversa** (a função `limparConversa` já existe), conversa no backup exportado e preferência do mascote restaurada pelo "Desfazer última importação".
+12. **Lembretes: decisões pendentes.** Adiar deve pular fim de semana e feriado (hoje segue o calendário)? `guara:avisos:v1` no backup exportado. Ideias não escolhidas da conversa de 14/11: ciente e adiar de todos de uma vez, horário de silêncio e preferência por tipo nas Configurações, histórico do ciente no detalhe da demanda.
+13. **Botão para apagar a conversa** (a função `limparConversa` já existe), conversa no backup exportado e preferência do mascote restaurada pelo "Desfazer última importação".
 
 **Fora do plano, por decisão:** pontuação, ranking, medir ou registrar tempo parado, opinar sobre o mérito do processo, interromper com pop-up ou som. Da avaliação inicial, não foram escolhidos: guia de primeiros passos, erros com tom humano, lembrete de decisão humana e convite à pausa.
 

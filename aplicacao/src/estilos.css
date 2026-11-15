@@ -311,6 +311,12 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .fala { display: flex; align-items: flex-end; gap: 6px; margin-right: 16px; }
 .fala .mensagem { flex: 1; min-width: 0; margin-right: 0; }
 .avisos-assistente { display: grid; gap: 8px; }
+.titulo-notificacoes { margin: 0; font-size: 14px; }
+.botao-titulo { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
+.botao-titulo .sino-contagem { position: static; }
+.assistente-secao--recolhida { padding-top: 8px; padding-bottom: 8px; }
+.acoes-aviso { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.avisos-ocultos { margin-top: 8px; display: grid; gap: 8px; }
 .mensagem--usuario { background: var(--guara-100); margin: 0 0 0 32px; }
 .mensagem-meta { display: block; margin-top: 4px; font-size: 11px; color: var(--texto-suave); }
 .rodape-conversa { border-top: 1px solid var(--borda); }

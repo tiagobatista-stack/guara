@@ -4,6 +4,7 @@
 
 ### Adicionado
 
+- Notificações do assistente com "Ciente" (some até a demanda mudar de situação), adiar para as próximas 8h ou 14h, lista dos ocultos com "Mostrar de novo" e seção recolhível para ficar só a conversa (`guara:avisos:v1`). As outras telas não mudam. 318/318 testes.
 - Preferências do mascote (principal e nomes) no arquivo exportado e aplicadas na importação, como campo opcional `mascote`; formato `versao: 1` mantido. 306/306 testes.
 - Conversa do assistente guardada neste navegador (`guara:conversa:v1`, até 60 falas), compartilhada pelo painel fixo e pela gaveta; gaveta do assistente e do menu como diálogo de verdade (foco, Esc, toque no fundo, Tab preso); atalhos "Ver prazos" e "O que você faz?". 304/304 testes.
 - Prazo em dias úteis com feriados nacionais (Páscoa calculada, sem rede) em `alertas/dias-uteis.ts`, com a lógica reescrita a partir do TOCA. O Dashboard, o Kanban e Demandas mostram "faltam N dias úteis" ou "vencido há N dias úteis". A regra de vencida não mudou. 135/135 testes.

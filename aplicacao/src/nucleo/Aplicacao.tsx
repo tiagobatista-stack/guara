@@ -14,7 +14,7 @@ import { Alertas } from '../modulos/alertas/Alertas.tsx';
 import { listarInativas } from '../modulos/alertas/inatividade.ts';
 import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
-import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosDoDia } from '../modulos/assistente/PainelAssistente.tsx';
+import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosVisiveis } from '../modulos/assistente/PainelAssistente.tsx';
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 import { Gaveta } from '../compartilhado/Gaveta.tsx';
@@ -50,7 +50,8 @@ export function Aplicacao() {
   const ativos = modulos.filter((m) => m.ativo);
   const { demandas, diasInatividade, avisoPersistencia } = useEstadoDemandas();
   const totalAlertas = listarInativas(demandas, diasInatividade, new Date()).length;
-  const avisos = useAvisosDoDia(new Date());
+  // Só os avisos que a pessoa ainda não marcou como cientes nem adiou.
+  const { visiveis: avisos } = useAvisosVisiveis(new Date());
   const rotuloAssistente = rotuloAbrirAssistente(avisos);
 
   const itemMenu = (id: string) => {

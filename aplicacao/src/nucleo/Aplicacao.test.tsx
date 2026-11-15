@@ -6,6 +6,7 @@ import { ContextoArmazem, criarArmazem, criarArmazenamentoEmMemoria } from '../m
 import { exportarDados, validarImportacao } from '../modulos/alertas/dados-portaveis.ts';
 import { Aplicacao } from './Aplicacao.tsx';
 import { comemorarMascotes } from '../compartilhado/Mascote.tsx';
+import { marcarCiente, mostrarDeNovo } from '../modulos/assistente/lembretes.ts';
 
 it('aviso de persistência continua visível após importar com o fallback em memória', () => {
   const armazem = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [] });
@@ -54,4 +55,27 @@ it('com o painel fechado, o mascote do botão flutuante também comemora', () =>
   );
   act(() => comemorarMascotes());
   expect(container.querySelector('.botao-flutuante svg.mascote--vivo')).toHaveClass('mascote--comemorando');
+});
+
+it('aviso marcado como ciente sai da contagem do botão flutuante; as outras telas não mudam', () => {
+  localStorage.clear();
+  mostrarDeNovo('x');
+  const armazem = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [] });
+  const { container } = render(
+    <ContextoArmazem.Provider value={armazem}>
+      <Aplicacao />
+    </ContextoArmazem.Provider>,
+  );
+  let id = '';
+  act(() => {
+    const r = armazem.criar({ titulo: 'Prazo antigo (fictício)', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '2020-01-02' });
+    id = (r as { id?: string }).id ?? armazem.obter().demandas[0].id;
+  });
+  const flutuante = container.querySelector('.botao-flutuante')!;
+  expect(flutuante).toHaveAccessibleName('Abrir assistente: 1 vencida');
+  act(() => { marcarCiente({ id, tipo: 'vencida', texto: '', situacao: 'vencida|A Fazer' }, new Date()); });
+  expect(flutuante).toHaveAccessibleName('Abrir assistente');
+  expect(flutuante.querySelector('.botao-flutuante-contagem')).toBeNull();
+  // A regra de vencida das outras telas não muda: o Dashboard continua contando.
+  expect(screen.getAllByText(/vencida/i).length).toBeGreaterThan(0);
 });
