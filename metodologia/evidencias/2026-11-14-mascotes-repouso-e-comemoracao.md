@@ -32,8 +32,10 @@ A ariranha vaga o olhar mais depressa quando entediada. O lobo-guará dorme com 
 
 | # | Verificação | Comando | Resultado | Situação |
 |---|---|---|---|---|
-| 1 | Suíte completa (esperado: 251 testes em 24 arquivos) | `npm test` | não executado nesta sessão (ambiente Linux sem as dependências) | **NÃO TESTADO** |
-| 2 | Build | `npm run build` | não executado | **NÃO TESTADO** |
+| 1 | Suíte completa, com os 7 testes novos | `npm test` | `Test Files 24 passed (24)` · `Tests 251 passed (251)` | PASSOU |
+| 2 | Build | `npm run build` | `tsc --noEmit` sem erros; `✓ 93 modules transformed`; `✓ built in 129ms` | PASSOU |
+
+Executados pelo responsável no Windows, sobre o commit `bfd6808`; a saída foi colada na conversa. A contagem de 251 confirma também os 244 da etapa anterior (piscar e toque).
 
 ## Limitações
 
@@ -41,4 +43,4 @@ A ariranha vaga o olhar mais depressa quando entediada. O lobo-guará dorme com 
 - O mascote aparece no painel do assistente e na Saúde do sistema. No celular, com o painel fechado, a festa do Kanban não é vista.
 - No painel do assistente o humor é "atento" enquanto houver aviso, e o aviso do MVP é fixo; mesmo assim o mascote entra em repouso com a página parada, e o texto "Atento: 1 aviso abaixo." continua visível.
 - Comemoração só no Kanban; a tela Demandas não muda status.
-- Commitado a pedido do responsável **antes de os testes e o build rodarem**. Rodar os dois antes do push.
+- O commit `bfd6808` foi feito antes dos testes, a pedido do responsável, e por isso leva "NÃO TESTADO" no título; os testes passaram depois, sem mudança no código.
