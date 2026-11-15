@@ -263,6 +263,14 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .feedback--erro { background: var(--falha-fundo); color: var(--falha-texto); border-color: var(--falha-borda); }
 .botao--perigo { color: var(--falha-texto); border-color: var(--falha-borda); }
 
+/* Blocos do detalhe da demanda: bloqueio, histórico e ações, separados por linha. */
+.bloco-detalhe { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--borda); display: grid; gap: 12px; }
+.titulo-secao--bloco { margin-bottom: 0; }
+.acoes--sem-margem { margin-top: 0; }
+.campo-grupo--curto { max-width: 360px; }
+.bloco-detalhe .linha-tempo { margin-top: 0; }
+.acoes--rodape { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--borda); }
+
 /* ---------- Kanban ---------- */
 .pagina--larga { max-width: 1400px; }
 .kanban { display: grid; gap: 12px; grid-template-columns: 1fr; }
