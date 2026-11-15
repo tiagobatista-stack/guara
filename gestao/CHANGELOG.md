@@ -16,6 +16,7 @@
 - Feriados locais, ideia vinda do TOCA: cartão na tela Alertas para acrescentar feriados estaduais, municipais e recessos (inclusive anuais), desmarcar nacionais que não valem e contar Carnaval e Corpus Christi. Todas as contas em dias úteis passam a usá-los. 229/229 testes.
 - Mascotes redesenhados (etapa 1): rosto ilustrado próprio para lobo-guará, ariranha e capivara, nos três humores atuais, com olhos que acompanham o ponteiro ou o toque e respeitam "reduzir movimento". SVGs de consulta em `identidade-visual/fofofauna/`. 226/226 testes.
 - Mascote no assistente: maior (88 px, com fundo), atento quando há aviso e curioso depois de comando não reconhecido, com o motivo em texto; cada fala do assistente leva o rosto do mascote. Humor tranquilo de olhos abertos. 231/231 testes.
+- Mascotes piscam e dão um pulinho ao clique ou toque (CSS, desligado com "reduzir movimento").
 
 ## [0.1.0] — 13/11/2026
 

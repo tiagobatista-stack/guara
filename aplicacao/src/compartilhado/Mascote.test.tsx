@@ -1,4 +1,4 @@
-import { act, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { Mascote, MASCOTES, type EspecieMascote, type HumorMascote } from './Mascote.tsx';
 
@@ -115,6 +115,38 @@ describe('Mascote', () => {
     darCaixa(svg);
     act(() => moverPonteiro(1000, 128));
     expect(olhar(svg)).toEqual({ x: '', y: '' });
+  });
+
+  it('pisca: os dois olhos levam a animação, com intervalo próprio da espécie; o decorativo não pisca', () => {
+    const { container, unmount } = render(<Mascote especie="capivara" humor="tranquilo" />);
+    const svg = container.querySelector('svg')!;
+    expect(svg.querySelectorAll('.mascote-olho')).toHaveLength(2);
+    expect(svg.style.getPropertyValue('--piscada')).toBe('6.7s');
+    unmount();
+    const decorativo = render(<Mascote especie="capivara" humor="tranquilo" decorativo />);
+    expect(decorativo.container.querySelectorAll('.mascote-olho')).toHaveLength(0);
+  });
+
+  it('reage ao clique com um pulinho curto, que termina sozinho', () => {
+    vi.useFakeTimers();
+    const { container } = render(<Mascote especie="ariranha" humor="tranquilo" />);
+    const svg = container.querySelector('svg')!;
+    expect(svg).not.toHaveClass('mascote--reagindo');
+    fireEvent.click(svg);
+    expect(svg).toHaveClass('mascote--reagindo');
+    act(() => {
+      vi.advanceTimersByTime(700);
+    });
+    expect(svg).not.toHaveClass('mascote--reagindo');
+    // o humor e o rótulo não mudam com o clique
+    expect(svg.getAttribute('aria-label')).toBe('Ariranha (Amazônia), tranquilo');
+  });
+
+  it('o decorativo não reage ao clique', () => {
+    const { container } = render(<Mascote especie="ariranha" humor="tranquilo" decorativo />);
+    const svg = container.querySelector('svg')!;
+    fireEvent.click(svg);
+    expect(svg).not.toHaveClass('mascote--reagindo');
   });
 
   it('para de ouvir o ponteiro quando sai da tela', () => {

@@ -42,7 +42,8 @@
 17. **MCP reativado (14/11/2026):** no Node 26, `testar-servidor.ts` deu 4 = 4 e as chamadas reais `resumir_demandas` e `listar_inativas` passaram. Falta só abrir a tela `/mcp`. Evidência em `metodologia/evidencias/2026-11-14-mcp-reativado.md`.
 18. **Mascotes, etapa 1 (14/11/2026):** rosto ilustrado próprio por espécie, três humores mantidos, olhos que acompanham o ponteiro e respeitam "reduzir movimento". Foram 7 testes novos; total 226/226, build ok (executados pelo responsável no Windows, depois de `npm ci`). Telas: NÃO CONFERIDO VISUALMENTE. Feito no branch `login-google` (`3c25ab4`, no GitHub) e trazido para a `main` por cherry-pick (`34c4469`); na `main`, depois de `npm ci`: 241/241 em 24 arquivos, build ok (executados pelo responsável no Windows). Não publicado no site até o push da `main`. Evidência em `metodologia/evidencias/2026-11-14-mascotes-redesenho.md`.
 19. **Presença do mascote no assistente (14/11/2026):** 88 px com fundo, olhos abertos no tranquilo, humor conforme avisos e último comando (com o motivo em texto), rosto do mascote em cada fala. Foram 5 testes novos; total 231/231, build ok (executados pelo responsável no Windows). Telas: NÃO CONFERIDO VISUALMENTE. Mesmo commit do item 18. Evidência em `metodologia/evidencias/2026-11-14-mascotes-presenca-no-assistente.md`.
-20. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+20. **Mascotes: piscar e reação ao toque (14/11/2026), na `main`:** piscada com intervalo por espécie e pulinho ao clique, em CSS, desligados com "reduzir movimento". 3 testes novos (esperado 244). Testes e build: o responsável informou "testado", sem colar a saída. Evidência em `metodologia/evidencias/2026-11-14-mascotes-piscar-e-toque.md`.
+21. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

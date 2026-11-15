@@ -315,4 +315,15 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .mascote { flex-shrink: 0; overflow: visible; }
 .mascote-palco { flex-shrink: 0; display: grid; place-items: center; width: 104px; height: 104px; border-radius: 50%; background: var(--guara-100); }
 .mascote-pupila { transform: translate(var(--olhar-x, 0px), var(--olhar-y, 0px)); transition: transform 120ms ease-out; }
-@media (prefers-reduced-motion: reduce) { .mascote-pupila { transition: none; } }
+.mascote--vivo { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+.mascote-olho { animation: mascote-piscar var(--piscada, 5s) infinite; }
+.mascote-corpo { transform-origin: 0px 40px; }
+.mascote--reagindo .mascote-corpo { animation: mascote-pulinho 600ms ease-out; }
+.mascote--reagindo .mascote-olho { animation: mascote-piscar-rapido 600ms ease-out; }
+@keyframes mascote-piscar { 0%, 95%, 100% { transform: scaleY(1); } 97.5% { transform: scaleY(0.1); } }
+@keyframes mascote-piscar-rapido { 0%, 20%, 70%, 100% { transform: scaleY(1); } 40%, 50% { transform: scaleY(0.15); } }
+@keyframes mascote-pulinho { 0%, 100% { transform: none; } 30% { transform: translateY(-7px) scale(1.06); } 60% { transform: translateY(1px) scale(0.98); } }
+@media (prefers-reduced-motion: reduce) {
+  .mascote-pupila { transition: none; }
+  .mascote-olho, .mascote--reagindo .mascote-corpo, .mascote--reagindo .mascote-olho { animation: none; }
+}

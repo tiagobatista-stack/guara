@@ -1,9 +1,10 @@
 // Mascotes Fofofauna em SVG próprio, estilo ilustrado (redesenho, etapa 1).
 // Os mascotes apresentam resultados: não são agentes e não alteram capacidades.
 // Os olhos acompanham o ponteiro (ou o último toque) e voltam ao centro depois de um tempo parado.
-// Com "reduzir movimento" ativado no sistema, os olhos ficam parados.
+// O mascote pisca de tempos em tempos e dá um pulinho quando recebe um clique ou toque.
+// Com "reduzir movimento" ativado no sistema, os olhos ficam parados e as animações não rodam.
 
-import { useEffect, useRef, type ReactNode } from 'react';
+import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
 
 export type EspecieMascote = 'ariranha' | 'lobo-guara' | 'capivara';
 export type HumorMascote = 'tranquilo' | 'atento' | 'curioso';
@@ -32,6 +33,10 @@ type Ouvinte = (ponto: Ponto | null) => void;
 
 const ALCANCE_DO_OLHAR = 2.6; // deslocamento máximo da pupila, em unidades do desenho
 const DESCANSO_MS = 4000; // sem movimento por esse tempo, o olhar volta ao centro
+const REACAO_MS = 600; // duração do pulinho ao clique ou toque (igual à animação em estilos.css)
+
+// Intervalo entre piscadas, diferente por espécie para não piscarem juntas.
+const PISCADA: Record<EspecieMascote, string> = { ariranha: '4.3s', 'lobo-guara': '5.6s', capivara: '6.7s' };
 
 const ouvintes = new Set<Ouvinte>();
 let ultimoPonto: Ponto | null = null;
@@ -156,16 +161,17 @@ const CABECAS: Record<EspecieMascote, (props: { detalhado: boolean }) => ReactNo
 
 // ---------- Olhos, sobrancelhas e boca (mudam com o humor) ----------
 
-function Olho({ x, y, humor, detalhado }: { x: number; y: number; humor: HumorMascote; detalhado: boolean }) {
+function Olho({ x, y, humor, detalhado, pisca }: { x: number; y: number; humor: HumorMascote; detalhado: boolean; pisca: boolean }) {
   const alturaOlho = humor === 'atento' ? 10.5 : 9.5;
   return (
-    <>
+    // O olho fecha em torno do próprio centro quando pisca (animação em estilos.css).
+    <g className={pisca ? 'mascote-olho' : undefined} style={{ transformOrigin: `${x}px ${y}px` }}>
       <ellipse cx={x} cy={y} rx="8.5" ry={alturaOlho} fill="#fbf5e6" strokeWidth="2" />
       <g className="mascote-pupila" stroke="none">
         <circle cx={x} cy={y} r="5.2" fill={ESCURO} />
         {detalhado && <circle cx={x + 1.8} cy={y - 2.2} r="1.8" fill="#ffffff" />}
       </g>
-    </>
+    </g>
   );
 }
 
@@ -207,6 +213,18 @@ export function Mascote({
   // Em tamanhos pequenos, o traço engrossa e os detalhes finos (bigodes, brilhos) somem.
   const detalhado = tamanho >= 40;
   const referencia = useRef<SVGSVGElement>(null);
+  const [reagindo, setReagindo] = useState(false);
+  const fimDaReacao = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+
+  useEffect(() => () => clearTimeout(fimDaReacao.current), []);
+
+  // Clique ou toque: só um gesto de simpatia, sem função nem informação.
+  const reagir = () => {
+    if (decorativo) return;
+    clearTimeout(fimDaReacao.current);
+    setReagindo(true);
+    fimDaReacao.current = setTimeout(() => setReagindo(false), REACAO_MS);
+  };
 
   useEffect(() => {
     const svg = referencia.current;
@@ -232,7 +250,9 @@ export function Mascote({
   return (
     <svg
       ref={referencia}
-      className="mascote"
+      className={`mascote${decorativo ? '' : ' mascote--vivo'}${reagindo ? ' mascote--reagindo' : ''}`}
+      style={{ '--piscada': PISCADA[especie] } as CSSProperties}
+      onClick={reagir}
       width={tamanho}
       height={tamanho}
       viewBox="-86 -98 172 172"
@@ -242,18 +262,20 @@ export function Mascote({
       data-especie={especie}
       data-humor={humor}
     >
-      <g
-        stroke={TRACO}
-        strokeWidth={detalhado ? 2.5 : 4}
-        strokeLinejoin="round"
-        strokeLinecap="round"
-        transform={humor === 'curioso' ? 'rotate(-5)' : undefined}
-      >
-        <Cabeca detalhado={detalhado} />
-        <Olho x={-rosto.olhoX} y={rosto.olhoY} humor={humor} detalhado={detalhado} />
-        <Olho x={rosto.olhoX} y={rosto.olhoY} humor={humor} detalhado={detalhado} />
-        <Sobrancelhas x={rosto.olhoX} y={rosto.sobrancelhaY} humor={humor} />
-        <Boca y={rosto.bocaY} humor={humor} />
+      <g className="mascote-corpo">
+        <g
+          stroke={TRACO}
+          strokeWidth={detalhado ? 2.5 : 4}
+          strokeLinejoin="round"
+          strokeLinecap="round"
+          transform={humor === 'curioso' ? 'rotate(-5)' : undefined}
+        >
+          <Cabeca detalhado={detalhado} />
+          <Olho x={-rosto.olhoX} y={rosto.olhoY} humor={humor} detalhado={detalhado} pisca={!decorativo} />
+          <Olho x={rosto.olhoX} y={rosto.olhoY} humor={humor} detalhado={detalhado} pisca={!decorativo} />
+          <Sobrancelhas x={rosto.olhoX} y={rosto.sobrancelhaY} humor={humor} />
+          <Boca y={rosto.bocaY} humor={humor} />
+        </g>
       </g>
     </svg>
   );

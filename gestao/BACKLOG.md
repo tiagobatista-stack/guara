@@ -12,7 +12,7 @@
 
 Etapa 1 (redesenho ilustrado e olhos que seguem o ponteiro) feita. Também feitos, por ordem da avaliação de UX: destaque no painel, reação a avisos e rosto nas falas (`2026-11-14-mascotes-presenca-no-assistente.md`, 231/231; falta conferir no navegador). Da avaliação, ficam para depois: tirar o seletor do topo, presença fora do painel (celular) e sugestões de comando na área vazia da conversa. Faltam, em ordem, uma por vez:
 
-2. **Expressões e animações:** piscar; tédio (cerca de 1 min parado), sono (3 min) e dormir (6 min), com jeito próprio por espécie; acordar ao mexer; comemoração ao concluir etapa e ao zerar pendências; reação ao clique ou toque. Sem texto, som ou cobrança. Alertas acordam o mascote. Com "reduzir movimento", só fecha os olhos.
+2. **Expressões e animações:** piscar e reação ao toque feitos (`2026-11-14-mascotes-piscar-e-toque.md`). Faltam: tédio (cerca de 1 min parado), sono (3 min) e dormir (6 min), com jeito próprio por espécie; acordar ao mexer; comemoração ao concluir etapa e ao zerar pendências; reação ao clique ou toque. Sem texto, som ou cobrança. Alertas acordam o mascote. Com "reduzir movimento", só fecha os olhos.
 3. **Nome e escolha salvos:** campo de nome por mascote (até cerca de 20 caracteres; vazio mostra a espécie), seletor com prévia visual, tudo no `localStorage`; o leitor de tela anuncia nome e espécie.
 4. **Sinalizar o estado do trabalho:** expressão que resume as demandas do dia, olhar que aponta para o que pede atenção, avisos como fala curta com origem e data.
 5. **Natureza da resposta no assistente:** pose para fato, inferência e sugestão, e outra para NÃO TESTADO; reforça o selo de texto, não substitui.
