@@ -6,6 +6,7 @@ import type { Demanda } from '../demandas/modelo.ts';
 import { Demandas } from '../demandas/Demandas.tsx';
 import { Painel } from '../painel/Painel.tsx';
 import { Kanban } from './Kanban.tsx';
+import { Mascote } from '../../compartilhado/Mascote.tsx';
 
 const EXEMPLOS: Demanda[] = [
   { id: 'k1', titulo: 'Revisar checklist de laboratório', descricao: '', responsavel: 'Equipe A', prioridade: 'Alta', status: 'A Fazer', criadaEm: '2026-11-13T09:00:00.000Z', ultimaAcaoRelevante: '2026-11-13T09:00:00.000Z' },
@@ -127,5 +128,28 @@ describe('Kanban', () => {
       </ContextoArmazem.Provider>,
     );
     expect(screen.getByTestId('sem-prazo')).toHaveTextContent('2 demandas em aberto estão sem prazo. Faça a triagem na tela Alertas.');
+  });
+});
+
+describe('Kanban e mascotes', () => {
+  it('concluir uma demanda faz o mascote comemorar; concluir a última em aberto dá a festa grande', () => {
+    const armazem = criarArmazem(localStorage, { exemplos: () => EXEMPLOS.map((d) => ({ ...d })) });
+    const { container } = render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Kanban />
+        <Mascote especie="capivara" humor="tranquilo" />
+      </ContextoArmazem.Provider>,
+    );
+    const mascote = container.querySelector('svg.mascote')!;
+
+    fireEvent.change(screen.getByLabelText('Mover "Revisar checklist de laboratório" para'), { target: { value: 'Em Andamento' } });
+    expect(mascote).not.toHaveClass('mascote--comemorando');
+
+    fireEvent.change(screen.getByLabelText('Mover "Revisar checklist de laboratório" para'), { target: { value: 'Concluída' } });
+    expect(mascote).toHaveClass('mascote--comemorando');
+    expect(mascote).not.toHaveClass('mascote--festa-grande');
+
+    fireEvent.change(screen.getByLabelText('Mover "Conferir evidências de testes" para'), { target: { value: 'Concluída' } });
+    expect(mascote).toHaveClass('mascote--comemorando', 'mascote--festa-grande');
   });
 });

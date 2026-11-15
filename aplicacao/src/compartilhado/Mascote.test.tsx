@@ -1,6 +1,6 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { Mascote, MASCOTES, type EspecieMascote, type HumorMascote } from './Mascote.tsx';
+import { comemorarMascotes, Mascote, MASCOTES, type EspecieMascote, type HumorMascote } from './Mascote.tsx';
 
 const ESPECIES = Object.keys(MASCOTES) as EspecieMascote[];
 const HUMORES: HumorMascote[] = ['tranquilo', 'atento', 'curioso'];
@@ -147,6 +147,104 @@ describe('Mascote', () => {
     const svg = container.querySelector('svg')!;
     fireEvent.click(svg);
     expect(svg).not.toHaveClass('mascote--reagindo');
+  });
+
+  it('sem atividade, fica entediado, sonolento e dorme; ao mexer, acorda com um pulinho', () => {
+    vi.useFakeTimers();
+    quadroImediato();
+    const { container } = render(<Mascote especie="ariranha" humor="tranquilo" />);
+    const svg = container.querySelector('svg')!;
+    const passar = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+
+    passar(55_000);
+    expect(svg.getAttribute('data-repouso')).toBe('acordado');
+    passar(10_000);
+    expect(svg.getAttribute('data-repouso')).toBe('entediado');
+    expect(svg).toHaveClass('mascote--entediado');
+    passar(120_000);
+    expect(svg.getAttribute('data-repouso')).toBe('sonolento');
+    passar(180_000);
+    expect(svg.getAttribute('data-repouso')).toBe('dormindo');
+    expect(svg.querySelector('.mascote-z')).not.toBeNull();
+    expect(svg.querySelectorAll('.mascote-pupila')).toHaveLength(0);
+    // dormir não muda o que o leitor de tela anuncia
+    expect(svg.getAttribute('aria-label')).toBe('Ariranha (Amazônia), tranquilo');
+
+    act(() => moverPonteiro(10, 10));
+    expect(svg.getAttribute('data-repouso')).toBe('acordado');
+    expect(svg).toHaveClass('mascote--reagindo');
+    expect(svg.querySelector('.mascote-z')).toBeNull();
+    expect(svg.querySelectorAll('.mascote-pupila')).toHaveLength(2);
+  });
+
+  it('cada espécie tem seu ritmo: a capivara se entedia antes do lobo-guará, que dorme de olho meio aberto', () => {
+    vi.useFakeTimers();
+    const capivara = render(<Mascote especie="capivara" humor="tranquilo" />).container.querySelector('svg')!;
+    const lobo = render(<Mascote especie="lobo-guara" humor="tranquilo" />).container.querySelector('svg')!;
+    const passar = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+
+    passar(50_000);
+    expect(capivara.getAttribute('data-repouso')).toBe('entediado');
+    expect(lobo.getAttribute('data-repouso')).toBe('acordado');
+    passar(30_000);
+    expect(lobo.getAttribute('data-repouso')).toBe('entediado');
+    passar(380_000);
+    expect(capivara.getAttribute('data-repouso')).toBe('dormindo');
+    expect(lobo.getAttribute('data-repouso')).toBe('dormindo');
+    expect(capivara.querySelectorAll('.mascote-pupila')).toHaveLength(0);
+    expect(lobo.querySelectorAll('.mascote-pupila')).toHaveLength(1);
+  });
+
+  it('uma mudança de humor acorda o mascote', () => {
+    vi.useFakeTimers();
+    const { container, rerender } = render(<Mascote especie="capivara" humor="tranquilo" />);
+    const svg = container.querySelector('svg')!;
+    act(() => { vi.advanceTimersByTime(50_000); });
+    expect(svg.getAttribute('data-repouso')).toBe('entediado');
+    rerender(<Mascote especie="capivara" humor="atento" />);
+    expect(svg.getAttribute('data-repouso')).toBe('acordado');
+  });
+
+  it('o decorativo não se entedia nem dorme', () => {
+    vi.useFakeTimers();
+    const { container } = render(<Mascote especie="capivara" humor="tranquilo" decorativo />);
+    act(() => { vi.advanceTimersByTime(400_000); });
+    expect(container.querySelector('svg')!.getAttribute('data-repouso')).toBe('acordado');
+  });
+
+  it('comemora quando o aplicativo pede: festa pequena dura menos que a grande', () => {
+    vi.useFakeTimers();
+    const { container } = render(<Mascote especie="lobo-guara" humor="atento" />);
+    const svg = container.querySelector('svg')!;
+    const passar = (ms: number) => act(() => { vi.advanceTimersByTime(ms); });
+
+    act(() => comemorarMascotes());
+    expect(svg).toHaveClass('mascote--comemorando');
+    expect(svg).not.toHaveClass('mascote--festa-grande');
+    expect(svg.querySelectorAll('.mascote-pupila')).toHaveLength(0); // olhos de riso
+    passar(1300);
+    expect(svg).not.toHaveClass('mascote--comemorando');
+    expect(svg.querySelectorAll('.mascote-pupila')).toHaveLength(2);
+
+    act(() => comemorarMascotes('grande'));
+    expect(svg).toHaveClass('mascote--comemorando', 'mascote--festa-grande');
+    passar(1300);
+    expect(svg).toHaveClass('mascote--comemorando');
+    passar(1200);
+    expect(svg).not.toHaveClass('mascote--comemorando');
+    // a festa não muda o humor anunciado
+    expect(svg.getAttribute('aria-label')).toBe('Lobo-guará (Cerrado), atento');
+  });
+
+  it('comemorar acorda quem estava dormindo', () => {
+    vi.useFakeTimers();
+    const { container } = render(<Mascote especie="capivara" humor="tranquilo" />);
+    const svg = container.querySelector('svg')!;
+    act(() => { vi.advanceTimersByTime(300_000); });
+    expect(svg.getAttribute('data-repouso')).toBe('dormindo');
+    act(() => comemorarMascotes());
+    expect(svg.getAttribute('data-repouso')).toBe('acordado');
+    expect(svg).toHaveClass('mascote--comemorando');
   });
 
   it('para de ouvir o ponteiro quando sai da tela', () => {

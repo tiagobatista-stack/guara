@@ -2,6 +2,8 @@
 // Os mascotes apresentam resultados: não são agentes e não alteram capacidades.
 // Os olhos acompanham o ponteiro (ou o último toque) e voltam ao centro depois de um tempo parado.
 // O mascote pisca de tempos em tempos e dá um pulinho quando recebe um clique ou toque.
+// Sem atividade na página, fica entediado, depois sonolento e por fim dorme; qualquer atividade
+// ou mudança de humor o acorda. Comemora quando o aplicativo chama comemorarMascotes().
 // Com "reduzir movimento" ativado no sistema, os olhos ficam parados e as animações não rodam.
 
 import { useEffect, useRef, useState, type CSSProperties, type ReactNode } from 'react';
@@ -86,6 +88,75 @@ function prefereMenosMovimento(): boolean {
   return typeof window.matchMedia === 'function' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
+// ---------- Repouso: tédio, sono e dormir quando a página fica sem atividade ----------
+
+export type RepousoMascote = 'acordado' | 'entediado' | 'sonolento' | 'dormindo';
+
+// Tempo sem atividade para cada estado. Só o mascote muda: nada é registrado, medido ou avisado.
+const LIMITES_MS = { entediado: 60_000, sonolento: 180_000, dormindo: 360_000 };
+// Jeito de cada espécie: a capivara adormece mais cedo, o lobo-guará resiste mais.
+const RITMO: Record<EspecieMascote, number> = { capivara: 0.75, ariranha: 1, 'lobo-guara': 1.25 };
+const MENOR_LIMITE_MS = LIMITES_MS.entediado * Math.min(...Object.values(RITMO));
+const VIGIA_MS = 5000;
+const EVENTOS_DE_ATIVIDADE = ['pointermove', 'pointerdown', 'keydown', 'wheel'] as const;
+
+const ouvintesAtividade = new Set<() => void>();
+let ultimaAtividade = Date.now();
+let vigia: ReturnType<typeof setInterval> | undefined;
+
+function avisarAtividade() {
+  ouvintesAtividade.forEach((ouvinte) => ouvinte());
+}
+
+function registrarAtividade() {
+  const parado = Date.now() - ultimaAtividade;
+  ultimaAtividade = Date.now();
+  // Só há mascote fora do estado acordado depois do menor limite; antes disso não há o que avisar.
+  if (parado >= MENOR_LIMITE_MS) avisarAtividade();
+}
+
+/** Acorda todos os mascotes da página (um alerta novo, por exemplo). */
+export function acordarMascotes() {
+  ultimaAtividade = Date.now();
+  avisarAtividade();
+}
+
+function acompanharAtividade(ouvinte: () => void): () => void {
+  if (ouvintesAtividade.size === 0) {
+    ultimaAtividade = Date.now();
+    EVENTOS_DE_ATIVIDADE.forEach((evento) => window.addEventListener(evento, registrarAtividade, { passive: true }));
+    vigia = setInterval(avisarAtividade, VIGIA_MS);
+  }
+  ouvintesAtividade.add(ouvinte);
+  return () => {
+    ouvintesAtividade.delete(ouvinte);
+    if (ouvintesAtividade.size === 0) {
+      EVENTOS_DE_ATIVIDADE.forEach((evento) => window.removeEventListener(evento, registrarAtividade));
+      clearInterval(vigia);
+    }
+  };
+}
+
+function repousoAgora(especie: EspecieMascote): RepousoMascote {
+  const parado = (Date.now() - ultimaAtividade) / RITMO[especie];
+  if (parado >= LIMITES_MS.dormindo) return 'dormindo';
+  if (parado >= LIMITES_MS.sonolento) return 'sonolento';
+  if (parado >= LIMITES_MS.entediado) return 'entediado';
+  return 'acordado';
+}
+
+// ---------- Comemoração ----------
+
+export type FestaMascote = 'pequena' | 'grande';
+const DURACAO_FESTA_MS: Record<FestaMascote, number> = { pequena: 1200, grande: 2400 };
+const ouvintesFesta = new Set<(festa: FestaMascote) => void>();
+
+/** Faz os mascotes da página comemorarem: 'pequena' ao concluir uma etapa, 'grande' ao zerar as pendências. */
+export function comemorarMascotes(festa: FestaMascote = 'pequena') {
+  acordarMascotes();
+  ouvintesFesta.forEach((ouvinte) => ouvinte(festa));
+}
+
 // ---------- Cabeças ----------
 
 function CabecaLoboGuara({ detalhado }: { detalhado: boolean }) {
@@ -161,16 +232,47 @@ const CABECAS: Record<EspecieMascote, (props: { detalhado: boolean }) => ReactNo
 
 // ---------- Olhos, sobrancelhas e boca (mudam com o humor) ----------
 
-function Olho({ x, y, humor, detalhado, pisca }: { x: number; y: number; humor: HumorMascote; detalhado: boolean; pisca: boolean }) {
+type EstadoOlho = 'normal' | 'feliz' | 'fechado';
+
+function Olho({
+  x,
+  y,
+  humor,
+  detalhado,
+  pisca,
+  estado = 'normal',
+  palpebra = null,
+  pelagem,
+}: {
+  x: number;
+  y: number;
+  humor: HumorMascote;
+  detalhado: boolean;
+  pisca: boolean;
+  estado?: EstadoOlho;
+  /** Altura da pálpebra em relação ao centro do olho (negativo = mais aberta); null = sem pálpebra. */
+  palpebra?: number | null;
+  pelagem: string;
+}) {
+  if (estado === 'feliz') return <path d={`M${x - 8},${y + 3} Q${x},${y - 8} ${x + 8},${y + 3}`} fill="none" strokeWidth="2.6" />;
+  if (estado === 'fechado') return <path d={`M${x - 8},${y} Q${x},${y + 7} ${x + 8},${y}`} fill="none" strokeWidth="2.6" />;
   const alturaOlho = humor === 'atento' ? 10.5 : 9.5;
+  const meiaLargura = palpebra === null ? 0 : 8.5 * Math.sqrt(Math.max(0, 1 - (palpebra / alturaOlho) ** 2));
   return (
     // O olho fecha em torno do próprio centro quando pisca (animação em estilos.css).
-    <g className={pisca ? 'mascote-olho' : undefined} style={{ transformOrigin: `${x}px ${y}px` }}>
+    <g className={pisca && palpebra === null ? 'mascote-olho' : undefined} style={{ transformOrigin: `${x}px ${y}px` }}>
       <ellipse cx={x} cy={y} rx="8.5" ry={alturaOlho} fill="#fbf5e6" strokeWidth="2" />
       <g className="mascote-pupila" stroke="none">
         <circle cx={x} cy={y} r="5.2" fill={ESCURO} />
         {detalhado && <circle cx={x + 1.8} cy={y - 2.2} r="1.8" fill="#ffffff" />}
       </g>
+      {palpebra !== null && (
+        <path
+          d={`M${(x - meiaLargura).toFixed(1)},${y + palpebra} A8.5 ${alturaOlho} 0 0 1 ${(x + meiaLargura).toFixed(1)},${y + palpebra} Z`}
+          fill={pelagem}
+          strokeWidth="2"
+        />
+      )}
     </g>
   );
 }
@@ -187,7 +289,12 @@ function Sobrancelhas({ x, y, humor }: { x: number; y: number; humor: HumorMasco
   return <path d={d} fill="none" strokeWidth="2.2" />;
 }
 
-function Boca({ y, humor }: { y: number; humor: HumorMascote }) {
+type FormaBoca = 'humor' | 'reta' | 'sono' | 'festa';
+
+function Boca({ y, humor, forma = 'humor' }: { y: number; humor: HumorMascote; forma?: FormaBoca }) {
+  if (forma === 'festa') return <path d={`M-9,${y} Q0,${y + 12} 9,${y} Z`} fill="#7a2f2a" strokeWidth="2" />;
+  if (forma === 'sono') return <path d={`M-4,${y + 2} H4`} fill="none" strokeWidth="2.2" />;
+  if (forma === 'reta') return <path d={`M-6,${y + 2} H6`} fill="none" strokeWidth="2.2" />;
   if (humor === 'curioso') return <ellipse cx="0" cy={y + 3} rx="3.2" ry="3.8" fill="#7a2f2a" strokeWidth="1.8" />;
   const d = humor === 'tranquilo' ? `M-8,${y} Q0,${y + 7} 8,${y}` : `M-6,${y + 2} H6`;
   return <path d={d} fill="none" strokeWidth="2.2" />;
@@ -215,8 +322,46 @@ export function Mascote({
   const referencia = useRef<SVGSVGElement>(null);
   const [reagindo, setReagindo] = useState(false);
   const fimDaReacao = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const [repouso, setRepouso] = useState<RepousoMascote>('acordado');
+  const repousoAnterior = useRef<RepousoMascote>('acordado');
+  const [festa, setFesta] = useState<FestaMascote | null>(null);
+  const fimDaFesta = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const humorAnterior = useRef(humor);
 
-  useEffect(() => () => clearTimeout(fimDaReacao.current), []);
+  useEffect(
+    () => () => {
+      clearTimeout(fimDaReacao.current);
+      clearTimeout(fimDaFesta.current);
+    },
+    [],
+  );
+
+  // Repouso: acompanha a atividade da página. Rostos decorativos ficam sempre acordados.
+  useEffect(() => {
+    if (decorativo) return undefined;
+    return acompanharAtividade(() => setRepouso(repousoAgora(especie)));
+  }, [decorativo, especie]);
+
+  // Mudança de humor (um aviso que chega, por exemplo) acorda o mascote.
+  useEffect(() => {
+    if (humorAnterior.current === humor) return;
+    humorAnterior.current = humor;
+    acordarMascotes();
+  }, [humor]);
+
+  // Comemoração pedida pelo aplicativo.
+  useEffect(() => {
+    if (decorativo) return undefined;
+    const ouvinte = (pedida: FestaMascote) => {
+      clearTimeout(fimDaFesta.current);
+      setFesta(pedida);
+      fimDaFesta.current = setTimeout(() => setFesta(null), DURACAO_FESTA_MS[pedida]);
+    };
+    ouvintesFesta.add(ouvinte);
+    return () => {
+      ouvintesFesta.delete(ouvinte);
+    };
+  }, [decorativo]);
 
   // Clique ou toque: só um gesto de simpatia, sem função nem informação.
   const reagir = () => {
@@ -225,6 +370,31 @@ export function Mascote({
     setReagindo(true);
     fimDaReacao.current = setTimeout(() => setReagindo(false), REACAO_MS);
   };
+
+  // Ao acordar, um pequeno susto (o mesmo pulinho do clique).
+  useEffect(() => {
+    const acordou = repousoAnterior.current !== 'acordado' && repouso === 'acordado';
+    repousoAnterior.current = repouso;
+    if (acordou) reagir();
+    // reagir só usa refs e setState, por isso não entra nas dependências.
+  }, [repouso]);
+
+  // O que aparece no rosto: a festa vem primeiro, depois o repouso, depois o humor.
+  const desperto = repouso === 'acordado' && !festa;
+  const humorVisivel: HumorMascote = desperto ? humor : 'tranquilo';
+  const estadoOlho: EstadoOlho = festa ? 'feliz' : repouso === 'dormindo' ? 'fechado' : 'normal';
+  const palpebra = festa ? null : repouso === 'entediado' ? -3 : repouso === 'sonolento' ? 2 : null;
+  // O lobo-guará dorme de olho meio aberto: o olho direito fica só com a pálpebra baixa.
+  const vigiaDormindo = !festa && repouso === 'dormindo' && especie === 'lobo-guara';
+  const formaBoca: FormaBoca = festa ? 'festa' : repouso === 'dormindo' ? 'sono' : repouso === 'acordado' ? 'humor' : 'reta';
+  const classes = [
+    'mascote',
+    decorativo ? '' : 'mascote--vivo',
+    reagindo ? 'mascote--reagindo' : '',
+    !festa && repouso !== 'acordado' ? `mascote--${repouso}` : '',
+    festa ? 'mascote--comemorando' : '',
+    festa === 'grande' ? 'mascote--festa-grande' : '',
+  ].filter(Boolean).join(' ');
 
   useEffect(() => {
     const svg = referencia.current;
@@ -250,8 +420,8 @@ export function Mascote({
   return (
     <svg
       ref={referencia}
-      className={`mascote${decorativo ? '' : ' mascote--vivo'}${reagindo ? ' mascote--reagindo' : ''}`}
-      style={{ '--piscada': PISCADA[especie] } as CSSProperties}
+      className={classes}
+      style={{ '--piscada': PISCADA[especie], '--vagar': especie === 'ariranha' ? '4s' : '7s' } as CSSProperties}
       onClick={reagir}
       width={tamanho}
       height={tamanho}
@@ -261,6 +431,7 @@ export function Mascote({
       aria-hidden={decorativo ? true : undefined}
       data-especie={especie}
       data-humor={humor}
+      data-repouso={repouso}
     >
       <g className="mascote-corpo">
         <g
@@ -268,15 +439,29 @@ export function Mascote({
           strokeWidth={detalhado ? 2.5 : 4}
           strokeLinejoin="round"
           strokeLinecap="round"
-          transform={humor === 'curioso' ? 'rotate(-5)' : undefined}
+          transform={humorVisivel === 'curioso' ? 'rotate(-5)' : undefined}
         >
           <Cabeca detalhado={detalhado} />
-          <Olho x={-rosto.olhoX} y={rosto.olhoY} humor={humor} detalhado={detalhado} pisca={!decorativo} />
-          <Olho x={rosto.olhoX} y={rosto.olhoY} humor={humor} detalhado={detalhado} pisca={!decorativo} />
-          <Sobrancelhas x={rosto.olhoX} y={rosto.sobrancelhaY} humor={humor} />
-          <Boca y={rosto.bocaY} humor={humor} />
+          <Olho x={-rosto.olhoX} y={rosto.olhoY} humor={humorVisivel} detalhado={detalhado} pisca={!decorativo} estado={estadoOlho} palpebra={palpebra} pelagem={m.pelagem} />
+          <Olho
+            x={rosto.olhoX}
+            y={rosto.olhoY}
+            humor={humorVisivel}
+            detalhado={detalhado}
+            pisca={!decorativo}
+            estado={vigiaDormindo ? 'normal' : estadoOlho}
+            palpebra={vigiaDormindo ? 4 : palpebra}
+            pelagem={m.pelagem}
+          />
+          <Sobrancelhas x={rosto.olhoX} y={rosto.sobrancelhaY} humor={humorVisivel} />
+          <Boca y={rosto.bocaY} humor={humorVisivel} forma={formaBoca} />
         </g>
       </g>
+      {!festa && repouso === 'dormindo' && detalhado && (
+        <text className="mascote-z" x="50" y="-62" fontSize="26" fontWeight="700" fill={TRACO} style={{ transformOrigin: '50px -62px' }}>
+          z
+        </text>
+      )}
     </svg>
   );
 }

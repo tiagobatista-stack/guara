@@ -9,6 +9,7 @@ import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { ROTULOS_TIPO } from '../demandas/classificacao.ts';
+import { comemorarMascotes } from '../../compartilhado/Mascote.tsx';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : 'sem prazo');
 
@@ -22,6 +23,11 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
   const mover = (d: Demanda, destino: Status) => {
     if (destino === d.status) return;
     const r = armazem.mudarStatus(d.id, destino);
+    // Concluir uma demanda faz os mascotes comemorarem; se era a última em aberto, a festa é maior.
+    if (r.ok && destino === 'Concluída') {
+      const restam = demandas.filter((outra) => outra.id !== d.id && outra.status !== 'Concluída').length;
+      comemorarMascotes(restam === 0 ? 'grande' : 'pequena');
+    }
     setAviso(r.ok ? { tipo: 'sucesso', texto: `"${d.titulo}" movida para ${destino}.` } : { tipo: 'erro', texto: r.mensagem });
   };
 
