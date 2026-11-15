@@ -65,7 +65,9 @@
 40. **Preferências do mascote no backup (14/11/2026), na `main`:** campo opcional `mascote` em `guara-dados.json` (formato `versao: 1` mantido); exportar leva e importar aplica. 2 testes novos; total 306/306, build ok. O desfazer da importação não restaura a preferência. Evidência em `metodologia/evidencias/2026-11-14-mascotes-preferencias-no-backup.md`.
 41. **Notificações do assistente: ciente, adiar e recolher (14/11/2026), na `main`:** "Ciente" esconde o aviso até a demanda mudar de situação; "Hoje/Amanhã/Segunda às 8h/14h" adia só o lembrete, pulando fim de semana e feriado; lista dos ocultos com "Mostrar de novo"; botão que recolhe a seção deixando só a conversa; contagem do botão flutuante só com os visíveis. 12 testes novos; total 318/318, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-lembretes-ciente-adiar-recolher.md`.
 42. **Aviso de armazenamento bloqueado nas Configurações (14/11/2026), na `main`:** as preferências do mascote que ficam só na memória agora têm aviso na tela. 1 teste novo; total 319/319, build ok. Tela: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-configuracoes-sem-gravacao.md`.
-43. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+43. **Publicação de `ff70b1d` (14/11/2026):** URL pública com `index-BczTcvUX.js`, o mesmo bundle do build.
+44. **Navegação até Configurações testada (14/11/2026), na `main`:** menu lateral e "Mais" do celular. 2 testes novos, só testes; total 321/321, build ok. Evidência em `metodologia/evidencias/2026-11-14-navegacao-configuracoes.md`.
+45. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 
