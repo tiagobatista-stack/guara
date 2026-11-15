@@ -2,7 +2,7 @@
 // MVP: comandos determinísticos, sem modelo de IA. Toda resposta indica a natureza
 // (fato extraído, inferência ou sugestão) e a fonte.
 
-import { useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascote.tsx';
 import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
@@ -114,9 +114,16 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const [texto, setTexto] = useState('');
   // O mascote olha para o primeiro aviso (o mais urgente) quando o ponteiro está parado.
   const [primeiroAviso, setPrimeiroAviso] = useState<HTMLLIElement | null>(null);
+  const conversa = useRef<HTMLOListElement>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([
     { autor: 'assistente', natureza: 'fato', fonte: 'sistema', texto: 'Olá! Trabalho só com dados fictícios. Digite "ajuda".' },
   ]);
+
+  // A cada fala nova, a conversa rola até a última (no celular, a área da conversa é pequena).
+  useEffect(() => {
+    const ultima = conversa.current?.lastElementChild;
+    if (ultima && typeof ultima.scrollIntoView === 'function') ultima.scrollIntoView({ block: 'nearest' });
+  }, [mensagens.length]);
 
   const enviar = (e: FormEvent) => {
     e.preventDefault();
@@ -168,7 +175,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         )}
       </section>
 
-      <ol className="conversa" aria-live="polite">
+      <ol ref={conversa} className="conversa" aria-live="polite">
         {mensagens.map((m, i) =>
           m.autor === 'usuario' ? (
             <li key={i} className="mensagem mensagem--usuario">

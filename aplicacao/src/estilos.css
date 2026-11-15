@@ -139,6 +139,9 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .gaveta { display: flex; flex-direction: column; width: 100%; max-width: 380px; height: 100%; background: var(--superficie); }
 .gaveta--inferior { position: absolute; left: 0; right: 0; bottom: 0; height: auto; max-width: none; border-radius: 16px 16px 0 0; padding: 16px; }
 .gaveta-topo { display: flex; align-items: center; justify-content: space-between; padding: 8px; }
+/* Na gaveta, o painel ocupa só o que sobra abaixo do "fechar", e os avisos não tomam a conversa. */
+.gaveta .assistente { flex: 1; height: auto; min-height: 0; }
+.gaveta .assistente-secao { max-height: 30dvh; overflow-y: auto; }
 
 .botao-icone { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 

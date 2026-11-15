@@ -107,6 +107,19 @@ describe('painel do assistente: mascote', () => {
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Pensativo: a última resposta é uma inferência; confira antes de agir.');
   });
 
+  it('a cada envio, a conversa rola até a última fala', () => {
+    const rolar = vi.fn();
+    Element.prototype.scrollIntoView = rolar;
+    montar();
+    enviar('ajuda');
+    const ultima = rolar.mock.contexts.at(-1) as Element;
+    expect(ultima).toHaveTextContent('Comandos disponíveis: "prazos", "ajuda".');
+    enviar('bom dia');
+    expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendo linguagem livre');
+    expect(rolar).toHaveBeenLastCalledWith({ block: 'nearest' });
+    delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
   it('mostra no máximo 5 avisos e indica onde ver os demais', () => {
     montar(['10', '11', '12', '13', '16', '17', '18'].map((dia) => entrada(`Demanda ${dia} (fictícia)`, `2026-11-${dia}`)));
     expect(screen.getAllByTestId(/^aviso-/)).toHaveLength(5);

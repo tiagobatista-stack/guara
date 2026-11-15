@@ -57,7 +57,8 @@
 32. **Natureza da resposta (14/11/2026), etapa 5 dos mascotes, na `main`:** humores pensativo e cauteloso; cada fala do assistente tem a pose da sua natureza; Saúde do sistema cautelosa quando NÃO TESTADO. Foram 2 testes novos (e os humores novos entraram nos testes de mascote); total 293/293, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-natureza-da-resposta.md`.
 33. **Publicação da etapa 5 (14/11/2026):** URL pública com `index-BPahiGzq.js`, o mesmo bundle de `c578994`.
 34. **Mascote no celular e no tablet (14/11/2026), na `main`:** rosto vivo do principal no botão flutuante e no botão "Assistente", atento com aviso e com o resumo no nome acessível. Foram 2 testes novos; total 295/295, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-presenca-no-celular.md`.
-35. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+35. **Correção da conversa no celular (14/11/2026), relato do responsável, na `main`:** rolagem até a última fala e altura da gaveta corrigida. 1 teste novo (falha sem a correção); total 296/296, build ok. A parte de CSS: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-conversa-no-celular.md`.
+36. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

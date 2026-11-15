@@ -26,6 +26,7 @@
 - Mascote olha para o aviso mais urgente quando o ponteiro está parado, e o comando "prazos" usa os mesmos dados dos avisos (antes usava os fictícios fixos). Etapa 4 concluída. 291/291 testes.
 - Mascote com pose pela natureza da resposta: tranquilo para fato, pensativo para inferência, curioso para sugestão e cauteloso para o que não foi testado (Saúde do sistema). "prazos" agora traz também a inferência de qual é a mais urgente. 293/293 testes.
 - Mascote no celular e no tablet: o rosto do mascote principal fica no botão que abre o assistente, atento quando há aviso, com a contagem e o resumo no nome acessível; também comemora com o painel fechado. 295/295 testes.
+- Correção: no celular, a conversa do assistente agora rola até a última fala, e a gaveta não passa mais da altura da tela (os avisos ganharam rolagem própria). 296/296 testes.
 
 ## [0.1.0] — 13/11/2026
 
