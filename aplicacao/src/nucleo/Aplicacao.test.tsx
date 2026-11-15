@@ -110,11 +110,12 @@ it('no celular, "Mais" abre o menu completo, que leva às Configurações e fech
   expect(screen.queryByRole('dialog', { name: 'Menu completo' })).toBeNull();
 });
 
-it('menu lateral leva aos Atalhos, com os sistemas externos', () => {
+it('menu lateral leva a Atalhos e contatos, com os sistemas externos e a lista de contatos', () => {
   montarApp();
   const menu = screen.getByRole('navigation', { name: 'Menu principal' });
-  fireEvent.click(within(menu).getByRole('button', { name: 'Atalhos' }));
-  expect(screen.getByRole('heading', { level: 1, name: 'Atalhos' })).toBeInTheDocument();
+  fireEvent.click(within(menu).getByRole('button', { name: 'Atalhos e contatos' }));
+  expect(screen.getByRole('heading', { level: 1, name: 'Atalhos e contatos' })).toBeInTheDocument();
   expect(window.location.hash).toBe('#/atalhos');
   expect(screen.getByRole('link', { name: 'SIGADOC (abre em nova aba)' })).toBeInTheDocument();
+  expect(screen.getByRole('heading', { level: 2, name: 'Contatos' })).toBeInTheDocument();
 });

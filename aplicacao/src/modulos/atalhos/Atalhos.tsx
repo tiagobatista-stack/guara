@@ -1,8 +1,9 @@
-// Atalhos: links para os sistemas externos do dia a dia, que o analista inclui, edita e exclui.
+// Atalhos e contatos: links para os sistemas externos do dia a dia, que o analista inclui, edita e exclui.
 // O GUARÁ só abre o sistema numa aba nova; o login e o trabalho acontecem lá (princípio 1).
 
 import { useState, type FormEvent } from 'react';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
+import { Contatos } from './Contatos.tsx';
 import {
   editarAtalho,
   excluirAtalho,
@@ -119,7 +120,8 @@ export function Atalhos() {
 
   return (
     <section aria-labelledby="titulo-atalhos" className="pagina pagina--media">
-      <h1 id="titulo-atalhos" className="titulo-pagina">Atalhos</h1>
+      <h1 id="titulo-atalhos" className="titulo-pagina">Atalhos e contatos</h1>
+      <h2 className="titulo-secao">Sistemas externos</h2>
       <p className="texto-suave texto-medio">
         Sistemas externos que você usa no dia a dia. O GUARÁ só abre o sistema numa aba nova: o login e o trabalho
         acontecem lá. Não salve senhas aqui.
@@ -153,6 +155,8 @@ export function Atalhos() {
           <FormularioAtalho prefixo="incluir" inicial={{ nome: '', url: '' }} rotuloEnviar="Incluir atalho" aoEnviar={incluirAtalho} />
         )}
       </section>
+
+      <Contatos />
     </section>
   );
 }

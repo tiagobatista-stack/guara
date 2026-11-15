@@ -2,7 +2,7 @@
 // O GUARÁ só abre o endereço numa aba nova: não faz login, não guarda senha e não lê nada do sistema (princípio 1).
 // Fica no localStorage deste navegador; com o armazenamento bloqueado, vale só até fechar a página.
 
-import { useSyncExternalStore } from 'react';
+import { criarListaLocal, novoId } from './lista-local.ts';
 
 export const CHAVE_ATALHOS = 'guara:atalhos:v1';
 export const TAMANHO_MAXIMO_NOME_ATALHO = 40;
@@ -68,59 +68,15 @@ export function validarLista(x: unknown): Atalho[] {
   return lista;
 }
 
-// ---------- Armazém pequeno, no mesmo esquema das preferências do mascote ----------
+// ---------- Armazém: sem nada gravado, os três iniciais; lista vazia gravada continua vazia ----------
 
-const ouvintes = new Set<() => void>();
-let brutoLido: string | null | undefined;
-let atual: Atalho[] = [...ATALHOS_PADRAO];
-let soNaMemoria = false;
+const armazem = criarListaLocal<Atalho>(CHAVE_ATALHOS, () => [...ATALHOS_PADRAO], validarLista);
 
-function lerBruto(): string | null | undefined {
-  try {
-    return window.localStorage.getItem(CHAVE_ATALHOS);
-  } catch {
-    return undefined;
-  }
-}
-
-/** Atalhos atuais. Sem nada gravado, os três iniciais; lista vazia gravada continua vazia. */
-export function obterAtalhos(): Atalho[] {
-  if (soNaMemoria) return atual;
-  const bruto = lerBruto();
-  if (bruto === undefined) {
-    soNaMemoria = true;
-    return atual;
-  }
-  if (bruto !== brutoLido) {
-    brutoLido = bruto;
-    try {
-      atual = bruto === null ? [...ATALHOS_PADRAO] : validarLista(JSON.parse(bruto));
-    } catch {
-      atual = [...ATALHOS_PADRAO];
-    }
-  }
-  return atual;
-}
-
-function gravar(nova: Atalho[]) {
-  atual = nova;
-  const bruto = JSON.stringify(nova);
-  try {
-    window.localStorage.setItem(CHAVE_ATALHOS, bruto);
-    brutoLido = bruto;
-    soNaMemoria = false;
-  } catch {
-    soNaMemoria = true;
-  }
-  ouvintes.forEach((ouvinte) => ouvinte());
-}
-
-function novoId(lista: readonly Atalho[]): string {
-  let id: string;
-  do id = `atalho-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 7)}`;
-  while (lista.some((a) => a.id === id));
-  return id;
-}
+export const obterAtalhos = armazem.obter;
+export const useAtalhos = armazem.useLista;
+export const atalhosSoNaMemoria = armazem.soNaMemoria;
+export const useAtalhosSoNaMemoria = armazem.useSoNaMemoria;
+const gravar = armazem.gravar;
 
 /** Inclui um atalho no fim da lista. Devolve a mensagem do problema, ou null quando deu certo. */
 export function incluirAtalho(nome: string, url: string): string | null {
@@ -128,7 +84,7 @@ export function incluirAtalho(nome: string, url: string): string | null {
   if (lista.length >= MAXIMO_ATALHOS) return `O limite é de ${MAXIMO_ATALHOS} atalhos. Exclua um antes de incluir outro.`;
   const v = validarAtalho(nome, url);
   if (!v.ok) return v.erro;
-  gravar([...lista, { id: novoId(lista), nome: v.nome, url: v.url }]);
+  gravar([...lista, { id: novoId('atalho', lista), nome: v.nome, url: v.url }]);
   return null;
 }
 
@@ -150,26 +106,4 @@ export function excluirAtalho(id: string) {
 /** Volta aos três atalhos iniciais. */
 export function restaurarAtalhosIniciais() {
   gravar([...ATALHOS_PADRAO]);
-}
-
-function assinar(ouvinte: () => void): () => void {
-  ouvintes.add(ouvinte);
-  window.addEventListener('storage', ouvinte);
-  return () => {
-    ouvintes.delete(ouvinte);
-    window.removeEventListener('storage', ouvinte);
-  };
-}
-
-export function useAtalhos(): Atalho[] {
-  return useSyncExternalStore(assinar, obterAtalhos);
-}
-
-export function atalhosSoNaMemoria(): boolean {
-  obterAtalhos();
-  return soNaMemoria;
-}
-
-export function useAtalhosSoNaMemoria(): boolean {
-  return useSyncExternalStore(assinar, atalhosSoNaMemoria);
 }
