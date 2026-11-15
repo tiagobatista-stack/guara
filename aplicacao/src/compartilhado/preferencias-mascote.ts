@@ -121,3 +121,13 @@ function assinar(ouvinte: () => void): () => void {
 export function usePreferenciasMascote(): PreferenciasMascote {
   return useSyncExternalStore(assinar, obterPreferencias);
 }
+
+/** true quando o navegador não deixou ler ou gravar: as preferências valem só até fechar a página. */
+export function preferenciasSoNaMemoria(): boolean {
+  obterPreferencias();
+  return soNaMemoria;
+}
+
+export function usePreferenciasSoNaMemoria(): boolean {
+  return useSyncExternalStore(assinar, preferenciasSoNaMemoria);
+}

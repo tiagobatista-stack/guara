@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
-import { CHAVE_MASCOTE } from '../../compartilhado/preferencias-mascote.ts';
+import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { CHAVE_MASCOTE, escolherPrincipal, obterPreferencias } from '../../compartilhado/preferencias-mascote.ts';
 import { PainelAssistente } from '../assistente/PainelAssistente.tsx';
 import { Configuracoes } from './Configuracoes.tsx';
 
@@ -59,5 +59,27 @@ describe('Configurações: mascotes', () => {
     render(<Configuracoes />);
     expect(within(screen.getByTestId('mascote-ariranha')).getByRole('radio')).toBeChecked();
     expect(screen.getByLabelText('Nome do mascote Ariranha')).toHaveValue('Nina');
+  });
+});
+
+describe('Configurações: armazenamento bloqueado', () => {
+  it('sem gravação, avisa que as mudanças valem só até fechar a página; com gravação de volta, o aviso some', () => {
+    render(<Configuracoes />);
+    expect(screen.queryByTestId('aviso-preferencias-sem-gravacao')).toBeNull();
+
+    const gravar = vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('cota excedida', 'QuotaExceededError');
+    });
+    fireEvent.click(within(screen.getByTestId('mascote-ariranha')).getByRole('radio'));
+    expect(screen.getByRole('alert')).toHaveTextContent('As mudanças valem só até fechar ou recarregar a página.');
+    // A escolha vale nesta página mesmo sem gravar.
+    expect(obterPreferencias().principal).toBe('ariranha');
+    expect(within(screen.getByTestId('mascote-ariranha')).getByRole('radio')).toBeChecked();
+
+    gravar.mockRestore();
+    fireEvent.click(within(screen.getByTestId('mascote-capivara')).getByRole('radio'));
+    expect(screen.queryByTestId('aviso-preferencias-sem-gravacao')).toBeNull();
+    expect(JSON.parse(localStorage.getItem(CHAVE_MASCOTE)!).principal).toBe('capivara');
+    escolherPrincipal('capivara');
   });
 });

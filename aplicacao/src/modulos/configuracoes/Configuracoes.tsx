@@ -8,6 +8,7 @@ import {
   nomearMascote,
   TAMANHO_MAXIMO_NOME,
   usePreferenciasMascote,
+  usePreferenciasSoNaMemoria,
 } from '../../compartilhado/preferencias-mascote.ts';
 
 // O campo guarda o texto como foi digitado (com espaços no meio da digitação);
@@ -36,6 +37,7 @@ function CampoNome({ especie, inicial }: { especie: EspecieMascote; inicial: str
 
 export function Configuracoes() {
   const preferencias = usePreferenciasMascote();
+  const soNaMemoria = usePreferenciasSoNaMemoria();
   const especies = Object.keys(MASCOTES) as EspecieMascote[];
 
   return (
@@ -50,6 +52,13 @@ export function Configuracoes() {
             navegador: não muda permissões, dados nem o que o sistema faz.
           </p>
         </div>
+
+        {soNaMemoria && (
+          <p role="alert" className="aviso" data-testid="aviso-preferencias-sem-gravacao">
+            Este navegador não deixou gravar as preferências (armazenamento bloqueado, cheio ou em modo privado). As mudanças
+            valem só até fechar ou recarregar a página.
+          </p>
+        )}
 
         <ul className="lista-limpa opcoes-mascote">
           {especies.map((especie) => {
