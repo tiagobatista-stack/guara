@@ -1,18 +1,21 @@
-import type { Operacao, Ponto } from '../../aplicacao/src/modulos/operacoes/modelo.ts';
+import type { Operacao, Ponto, Viagem } from '../../aplicacao/src/modulos/operacoes/modelo.ts';
 import {
-  contarPontosPendentes, distanciaMetros, lerData, operacaoValida, pontosProximos, pontosSemData, pontosSemEquipe,
+  contarPontosPendentes, distanciaMetros, lerData, operacaoValida, pontoPendente, pontosProximos, pontosSemViagem, viagemDoPonto,
   agruparPontos, demandasEncaixadas, nomesDeGrupos, periodoDosPontos, problemasDeDatas, textoLocalProximo, vinculosDasDemandas, validarListaOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/regras.ts';
 import {
-  alterarPeriodo, alterarPonto, criarOperacao, definirGrupo, desvincularDemandaDePonto, incluirDemandaComoPonto, vincularDemandaAPonto, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
+  alterarPeriodo, alterarPonto, criarOperacao, criarViagem, definirGrupo, desvincularDemandaDePonto, incluirDemandaComoPonto, vincularDemandaAPonto, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/armazem.ts';
 
 const ponto = (id: string, extra: Partial<Ponto> = {}): Ponto => ({
   id, coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Município Fictício', notas: '', demandas: [], situacao: 'planejado', ...extra,
 });
 const operacao = (pontos: Ponto[], extra: Partial<Operacao> = {}): Operacao => ({
-  id: 'op1', nome: 'Operação fictícia', inicio: '2026-09-18', fim: '2026-09-25', pontos, criadaEm: '2026-09-01T12:00:00.000Z', ...extra,
+  id: 'op1', nome: 'Operação fictícia', inicio: '2026-09-18', fim: '2026-09-25', viagens: [], pontos, criadaEm: '2026-09-01T12:00:00.000Z', ...extra,
 });
+const viagem = (id: string, extra: Partial<Viagem> = {}): Viagem => ({ id, equipe: 'Equipe A', integrantes: [], veiculos: [], notas: '', ...extra });
+/** Ponto no formato antigo (equipe e datas no ponto), como estava gravado antes das viagens. */
+const pontoAntigo = (id: string, extra: Record<string, unknown>) => ({ ...ponto(id), ...extra }) as Ponto;
 
 describe('datas', () => {
   it.each([
@@ -35,12 +38,22 @@ describe('datas', () => {
 
 describe('validação do que vem do armazenamento', () => {
   it('aceita operação bem formada e recusa o resto', () => {
-    expect(operacaoValida(operacao([ponto('p1', { equipe: 'Equipe A', saida: '2026-09-18' })]))).toBe(true);
+    expect(operacaoValida(operacao([pontoAntigo('p1', { equipe: 'Equipe A', saida: '2026-09-18' })]))).toBe(true);
+    expect(operacaoValida(operacao([ponto('p1', { viagem: 'v1' })], { viagens: [viagem('v1', { saida: '2026-09-18' })] }))).toBe(true);
+    expect(operacaoValida(operacao([], { viagens: [viagem('v1', { saida: '2026-09-20', retorno: '2026-09-19' })] }))).toBe(false);
     expect(operacaoValida(operacao([], { fim: '2026-09-01' }))).toBe(false);
     expect(operacaoValida(operacao([], { nome: ' ' }))).toBe(false);
     expect(operacaoValida(operacao([ponto('p1', { situacao: 'x' as never })]))).toBe(false);
     expect(operacaoValida(operacao([ponto('p1', { coordenada: { lat: 200, lon: 0 } })]))).toBe(false);
-    expect(operacaoValida(operacao([ponto('p1', { saida: '2026-13-01' })]))).toBe(false);
+    expect(operacaoValida(operacao([pontoAntigo('p1', { saida: '2026-13-01' })]))).toBe(false);
+  });
+  it('formato antigo (sem viagens) é migrado: equipe e datas do ponto viram a viagem', () => {
+    const { viagens: _v, ...antiga } = operacao([pontoAntigo('p1', { equipe: 'Equipe A', saida: '2026-09-18' }), ponto('p2')]);
+    const [o] = validarListaOperacoes([antiga]);
+    expect(o.viagens).toEqual([viagem('vg-1', { saida: '2026-09-18' })]);
+    expect(o.pontos[0]).toMatchObject({ id: 'p1', viagem: 'vg-1' });
+    expect(o.pontos[0]).not.toHaveProperty('equipe');
+    expect(o.pontos[1]).not.toHaveProperty('viagem');
   });
   it('lista corrompida vira vazia e item inválido é descartado', () => {
     expect(validarListaOperacoes('texto')).toEqual([]);
@@ -49,21 +62,21 @@ describe('validação do que vem do armazenamento', () => {
 });
 
 describe('o que falta encaixar', () => {
-  const pontos = [
-    ponto('a', { equipe: 'Equipe A', saida: '2026-09-18' }),
-    ponto('b', { saida: '2026-09-18' }),
-    ponto('c', { equipe: 'Equipe A' }),
-    ponto('d'),
+  const op = operacao([
+    ponto('a', { viagem: 'com-data' }),
+    ponto('b', { viagem: 'sem-data' }),
+    ponto('c'),
+    ponto('d', { viagem: 'nao-existe' }),
     ponto('e', { situacao: 'vistoriado' }),
     ponto('f', { situacao: 'cancelado' }),
-    ponto('g', { equipe: '  ' }),
-  ];
-  it('sem equipe e sem data consideram só os planejados', () => {
-    expect(pontosSemEquipe(pontos).map((p) => p.id)).toEqual(['b', 'd', 'g']);
-    expect(pontosSemData(pontos).map((p) => p.id)).toEqual(['c', 'd', 'g']);
+  ], { viagens: [viagem('com-data', { saida: '2026-09-18' }), viagem('sem-data')] });
+  it('sem viagem e pendente consideram só os planejados; viagem inexistente conta como sem viagem', () => {
+    expect(pontosSemViagem(op).map((p) => p.id)).toEqual(['c', 'd']);
+    expect(op.pontos.filter((p) => pontoPendente(op, p)).map((p) => p.id)).toEqual(['b', 'c', 'd']);
+    expect(viagemDoPonto(op, op.pontos[0])?.id).toBe('com-data');
   });
   it('contagem do Painel soma as operações', () => {
-    expect(contarPontosPendentes([operacao(pontos), operacao([ponto('x')], { id: 'op2' })])).toBe(5);
+    expect(contarPontosPendentes([op, operacao([ponto('x')], { id: 'op2' })])).toBe(4);
   });
 });
 
@@ -74,9 +87,9 @@ describe('mesmo local', () => {
   });
   it('acha pontos de outras operações e demandas dentro do raio, do mais perto ao mais longe', () => {
     const alvo = ponto('alvo');
-    const perto = ponto('perto', { coordenada: { lat: -11.5003, lon: -58.5 }, equipe: 'Equipe B', retorno: '2025-09-22', situacao: 'vistoriado' }); // ~33 m
+    const perto = ponto('perto', { coordenada: { lat: -11.5003, lon: -58.5 }, viagem: 'vB', situacao: 'vistoriado' }); // ~33 m
     const longe = ponto('longe', { coordenada: { lat: -11.6, lon: -58.5 } });
-    const outra = operacao([perto, longe], { id: 'op0', nome: 'Operação 2025' });
+    const outra = operacao([perto, longe], { id: 'op0', nome: 'Operação 2025', viagens: [viagem('vB', { equipe: 'Equipe B', saida: '2025-09-18', retorno: '2025-09-22' })] });
     const demandas = [
       { id: 'd1', titulo: 'Demanda fictícia', coordenada: { lat: -11.5, lon: -58.5008 } }, // ~87 m
       { id: 'd2', titulo: 'Sem coordenada' },
@@ -125,11 +138,11 @@ describe('período opcional', () => {
     expect(incluirPontos(r.id, [{ ...base, saida: '2026-09-18', retorno: '2026-09-22' }])).toBeNull();
     expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-10', fim: '2026-09-22' });
   });
-  it('alterarPeriodo define, limpa e recusa período que deixa pontos de fora', () => {
+  it('alterarPeriodo define, limpa e recusa período que deixa viagens de fora', () => {
     const r = criarOperacao({ nome: 'A', inicio: '', fim: '', origem: '' }, 'x');
     if (!r.ok) throw new Error();
     incluirPontos(r.id, [{ ...base, saida: '2026-09-18', retorno: '2026-09-22' }]);
-    expect(alterarPeriodo(r.id, '2026-09-20', '2026-09-25')).toBe('Há pontos com data fora desse período: ajuste as datas dos pontos primeiro.');
+    expect(alterarPeriodo(r.id, '2026-09-20', '2026-09-25')).toBe('Há viagens com data fora desse período: ajuste as datas das viagens primeiro.');
     expect(alterarPeriodo(r.id, '2026-09-01', '2026-09-30')).toBeNull();
     expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-01', fim: '2026-09-30' });
     expect(alterarPeriodo(r.id, '', '')).toBeNull();
@@ -150,7 +163,7 @@ describe('armazém', () => {
     expect(JSON.parse(localStorage.getItem('guara:operacoes:v1')!)).toHaveLength(1);
   });
 
-  it('inclui pontos, atribui equipe e datas, agrupa, liga a demanda e exclui', () => {
+  it('inclui pontos, encaixa na viagem, agrupa, liga a demanda e exclui', () => {
     const r = criarOperacao({ nome: 'Op', inicio: '2026-09-18', fim: '2026-09-25', origem: '' }, '2026-09-01T12:00:00.000Z');
     if (!r.ok) throw new Error();
     const { id: _id, ...base } = ponto('x');
@@ -158,15 +171,21 @@ describe('armazém', () => {
     const [p1, p2] = obterOperacoes()[0].pontos;
     expect(p1.id).not.toBe(p2.id);
 
-    expect(alterarPonto(r.id, p1.id, { equipe: 'Equipe A', saida: '2026-09-18', retorno: '2026-09-22', grupo: 'Fazenda X', demandas: ['d1', 'd2'] })).toBeNull();
-    expect(obterOperacoes()[0].pontos[0]).toMatchObject({ equipe: 'Equipe A', grupo: 'Fazenda X', demandas: ['d1', 'd2'] });
-    expect(alterarPonto(r.id, p1.id, { retorno: '2026-09-10' })).toBe('O retorno é anterior à saída.');
-    expect(alterarPonto(r.id, p1.id, { saida: '2026-10-01', retorno: '2026-10-02' })).toBe('A data de saída fica fora do período da operação.');
+    // As datas são da viagem: a validação de datas acontece nela.
+    const vazia = { equipe: 'Equipe A', integrantes: [], veiculos: [], notas: '' };
+    expect(criarViagem(r.id, { ...vazia, saida: '2026-09-18', retorno: '2026-09-10' })).toEqual({ ok: false, erro: 'O retorno é anterior à saída.' });
+    expect(criarViagem(r.id, { ...vazia, saida: '2026-10-01', retorno: '2026-10-02' })).toEqual({ ok: false, erro: 'A data de saída fica fora do período da operação.' });
+    const v = criarViagem(r.id, { ...vazia, saida: '2026-09-18', retorno: '2026-09-22' });
+    if (!v.ok) throw new Error();
+
+    expect(alterarPonto(r.id, p1.id, { viagem: v.id, grupo: 'Fazenda X', demandas: ['d1', 'd2'] })).toBeNull();
+    expect(obterOperacoes()[0].pontos[0]).toMatchObject({ viagem: v.id, grupo: 'Fazenda X', demandas: ['d1', 'd2'] });
+    expect(alterarPonto(r.id, p1.id, { viagem: 'nao-existe' })).toBe('Viagem não encontrada.');
 
     // Apagar o texto remove o campo.
-    expect(alterarPonto(r.id, p1.id, { grupo: '', equipe: '' })).toBeNull();
+    expect(alterarPonto(r.id, p1.id, { grupo: '', viagem: '' })).toBeNull();
     expect(obterOperacoes()[0].pontos[0]).not.toHaveProperty('grupo');
-    expect(obterOperacoes()[0].pontos[0]).not.toHaveProperty('equipe');
+    expect(obterOperacoes()[0].pontos[0]).not.toHaveProperty('viagem');
 
     expect(alterarPonto(r.id, p2.id, { situacao: 'vistoriado' })).toBeNull();
     excluirPonto(r.id, p1.id);
@@ -178,8 +197,8 @@ describe('armazém', () => {
   it('ponto com data fora do período não entra', () => {
     const r = criarOperacao({ nome: 'Op', inicio: '2026-09-18', fim: '2026-09-25', origem: '' }, 'x');
     if (!r.ok) throw new Error();
-    const { id: _id, ...base } = ponto('x', { saida: '2026-12-01' });
-    expect(incluirPontos(r.id, [base])).toBe('A data de saída fica fora do período da operação.');
+    const { id: _id, ...base } = ponto('x');
+    expect(incluirPontos(r.id, [{ ...base, saida: '2026-12-01' }])).toBe('A data de saída fica fora do período da operação.');
     expect(obterOperacoes()[0].pontos).toEqual([]);
   });
 
@@ -209,13 +228,12 @@ describe('vínculo com demandas', () => {
     expect([...demandasEncaixadas([op])].sort()).toEqual(['d1', 'd2']);
   });
 
-  it('agendar cria ponto planejado, sem equipe e sem data, ligado à demanda; não duplica', () => {
+  it('agendar cria ponto planejado, sem viagem, ligado à demanda; não duplica', () => {
     const id = nova();
     expect(incluirDemandaComoPonto(id, { demandaId: 'd1', coordenada: { lat: -11.5, lon: -58.5 }, municipio: ' Lugar ' })).toBeNull();
     const p = obterOperacoes()[0].pontos[0];
     expect(p).toMatchObject({ coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Lugar', demandas: ['d1'], situacao: 'planejado' });
-    expect(p).not.toHaveProperty('equipe');
-    expect(p).not.toHaveProperty('saida');
+    expect(p).not.toHaveProperty('viagem');
     expect(incluirDemandaComoPonto(id, { demandaId: 'd1', coordenada: p.coordenada, municipio: '' })).toBe('Esta demanda já está nesta operação.');
     expect(incluirDemandaComoPonto('inexistente', { demandaId: 'd1', coordenada: p.coordenada, municipio: '' })).toBe('Operação não encontrada.');
     expect(obterOperacoes()[0].pontos).toHaveLength(1);
@@ -255,13 +273,14 @@ describe('grupos de pontos', () => {
 
   it('agruparPontos: grupos em ordem alfabética, "sem grupo" por último, equipes distintas; sem grupo nenhum, vazio', () => {
     const pontos = [
-      ponto('a', { grupo: 'Fazenda Z', equipe: 'Equipe B' }),
-      ponto('b', { grupo: 'Fazenda X', equipe: 'Equipe A' }),
-      ponto('c', { grupo: 'Fazenda X', equipe: 'Equipe B' }),
+      ponto('a', { grupo: 'Fazenda Z', viagem: 'vB' }),
+      ponto('b', { grupo: 'Fazenda X', viagem: 'vA' }),
+      ponto('c', { grupo: 'Fazenda X', viagem: 'vB' }),
       ponto('d'),
-      ponto('e', { grupo: 'Fazenda X', equipe: 'Equipe A' }),
+      ponto('e', { grupo: 'Fazenda X', viagem: 'vA' }),
     ];
-    const g = agruparPontos(pontos);
+    const op = operacao(pontos, { viagens: [viagem('vA'), viagem('vB', { equipe: 'Equipe B' })] });
+    const g = agruparPontos(pontos, (p) => viagemDoPonto(op, p)?.equipe);
     expect(g.map((x) => x.nome)).toEqual(['Fazenda X', 'Fazenda Z', '']);
     expect(g[0].pontos.map((p) => p.id)).toEqual(['b', 'c', 'e']);
     expect(g[0].equipes).toEqual(['Equipe A', 'Equipe B']);

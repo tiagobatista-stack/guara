@@ -8,7 +8,7 @@ import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { calcularMetricas } from './metricas.ts';
 import { listarSemPrazo } from '../alertas/triagem.ts';
 import { useOperacoes } from '../operacoes/armazem.ts';
-import { contarPontosPendentes, demandasEncaixadas } from '../operacoes/regras.ts';
+import { contarPontosPendentes, dataLocal, demandasEncaixadas, pendenciasDeCampo } from '../operacoes/regras.ts';
 import { listarSemVistoria } from '../demandas/vistoria.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
@@ -22,6 +22,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
   const semPrazo = listarSemPrazo(demandas).length;
   const operacoes = useOperacoes();
   const pontosPendentes = contarPontosPendentes(operacoes);
+  const campo = pendenciasDeCampo(operacoes, dataLocal(instante));
   const semVistoria = listarSemVistoria(demandas, demandasEncaixadas(operacoes)).length;
   const comPrazo =demandas.filter((d) => d.prazo && d.status !== 'Concluída').sort((a, b) => a.prazo!.localeCompare(b.prazo!));
 
@@ -78,7 +79,17 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
           )}
           {pontosPendentes > 0 && (
             <p className="texto-pequeno texto--atencao" data-testid="pontos-pendentes">
-              {pontosPendentes === 1 ? '1 ponto de operação está' : `${pontosPendentes} pontos de operação estão`} sem equipe ou sem data. Veja em Operações.
+              {pontosPendentes === 1 ? '1 ponto de operação está' : `${pontosPendentes} pontos de operação estão`} sem viagem ou com viagem sem data de saída. Veja em Operações.
+            </p>
+          )}
+          {campo.semResultado.length > 0 && (
+            <p className="texto-pequeno texto--atencao" data-testid="pontos-sem-resultado">
+              {campo.semResultado.length === 1 ? '1 ponto de operação está' : `${campo.semResultado.length} pontos de operação estão`} sem resultado depois do retorno da viagem.
+            </p>
+          )}
+          {campo.aReprogramar.length > 0 && (
+            <p className="texto-pequeno texto--atencao" data-testid="pontos-a-reprogramar">
+              {campo.aReprogramar.length === 1 ? '1 ponto não fiscalizado precisa ser reprogramado' : `${campo.aReprogramar.length} pontos não fiscalizados precisam ser reprogramados`} em outra operação.
             </p>
           )}
           {comPrazo.length === 0 ? (
