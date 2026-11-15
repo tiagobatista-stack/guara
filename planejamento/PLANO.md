@@ -36,7 +36,7 @@ interface Demanda {
   tipo?: 'campo' | 'gabinete'; // opcional (14/11/2026): deduzido do título no cadastro, a pessoa confere
   natureza?: 'demanda' | 'comum'; // opcional: demanda ou tarefa comum, idem
   coordenada?: { lat: number; lon: number }; // opcional (14/11/2026): graus decimais, SIRGAS 2000; fora da tela compartilhada
-  vistoria?: { data?: string }; // opcional (15/11/2026), só tipo campo: com data = encaixada numa vistoria; sem data = em aberto; ausente = não informada. Fora da tela compartilhada e do MCP
+  vistoria?: { data?: string }; // opcional (15/11/2026), só tipo campo: com data = encaixada numa vistoria; sem data = em aberto; ausente = não informada. Fora da tela compartilhada e do MCP. Encaixada numa operação = algum ponto não cancelado lista a demanda (`Ponto.demandas`, fonte única do vínculo; a data específica é a do relatório)
   historico?: {                // opcional (14/11/2026): status e bloqueio ao longo do tempo, só acrescenta, até 500 eventos
     quando: string;            // ISO 8601
     acao: 'criada' | 'status' | 'travou' | 'bloqueio-alterado' | 'ainda-travada' | 'destravou' | 'bloqueio-encerrado';

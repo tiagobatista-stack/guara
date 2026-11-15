@@ -1,10 +1,10 @@
 import type { Operacao, Ponto } from '../../aplicacao/src/modulos/operacoes/modelo.ts';
 import {
   contarPontosPendentes, distanciaMetros, lerData, operacaoValida, pontosProximos, pontosSemData, pontosSemEquipe,
-  periodoDosPontos, problemasDeDatas, textoLocalProximo, validarListaOperacoes,
+  demandasEncaixadas, periodoDosPontos, problemasDeDatas, textoLocalProximo, vinculosDasDemandas, validarListaOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/regras.ts';
 import {
-  alterarPeriodo, alterarPonto, criarOperacao, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
+  alterarPeriodo, alterarPonto, criarOperacao, desvincularDemandaDePonto, incluirDemandaComoPonto, vincularDemandaAPonto, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/armazem.ts';
 
 const ponto = (id: string, extra: Partial<Ponto> = {}): Ponto => ({
@@ -186,5 +186,66 @@ describe('armazém', () => {
   it('gravação corrompida volta a vazio', () => {
     localStorage.setItem('guara:operacoes:v1', '{isto não é json');
     expect(obterOperacoes()).toEqual([]);
+  });
+});
+
+describe('vínculo com demandas', () => {
+  beforeEach(() => localStorage.clear());
+  const nova = () => {
+    const r = criarOperacao({ nome: 'Op', inicio: '2026-09-18', fim: '2026-09-25', origem: '' }, 'x');
+    if (!r.ok) throw new Error();
+    return r.id;
+  };
+
+  it('vinculosDasDemandas e demandasEncaixadas ignoram ponto cancelado', () => {
+    const op = operacao([
+      ponto('a', { demandas: ['d1', 'd2'] }),
+      ponto('b', { demandas: ['d1'], situacao: 'vistoriado' }),
+      ponto('c', { demandas: ['d3'], situacao: 'cancelado' }),
+    ]);
+    const mapa = vinculosDasDemandas([op]);
+    expect(mapa.get('d1')?.map((v) => v.ponto.id)).toEqual(['a', 'b']);
+    expect(mapa.has('d3')).toBe(false);
+    expect([...demandasEncaixadas([op])].sort()).toEqual(['d1', 'd2']);
+  });
+
+  it('agendar cria ponto planejado, sem equipe e sem data, ligado à demanda; não duplica', () => {
+    const id = nova();
+    expect(incluirDemandaComoPonto(id, { demandaId: 'd1', coordenada: { lat: -11.5, lon: -58.5 }, municipio: ' Lugar ' })).toBeNull();
+    const p = obterOperacoes()[0].pontos[0];
+    expect(p).toMatchObject({ coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Lugar', demandas: ['d1'], situacao: 'planejado' });
+    expect(p).not.toHaveProperty('equipe');
+    expect(p).not.toHaveProperty('saida');
+    expect(incluirDemandaComoPonto(id, { demandaId: 'd1', coordenada: p.coordenada, municipio: '' })).toBe('Esta demanda já está nesta operação.');
+    expect(incluirDemandaComoPonto('inexistente', { demandaId: 'd1', coordenada: p.coordenada, municipio: '' })).toBe('Operação não encontrada.');
+    expect(obterOperacoes()[0].pontos).toHaveLength(1);
+  });
+
+  it('cancelado não impede agendar de novo na mesma operação', () => {
+    const id = nova();
+    const c = { lat: -11.5, lon: -58.5 };
+    incluirDemandaComoPonto(id, { demandaId: 'd1', coordenada: c, municipio: '' });
+    alterarPonto(id, obterOperacoes()[0].pontos[0].id, { situacao: 'cancelado' });
+    expect(incluirDemandaComoPonto(id, { demandaId: 'd1', coordenada: c, municipio: '' })).toBeNull();
+  });
+
+  it('vincular a ponto existente, recusar repetido e desvincular', () => {
+    const id = nova();
+    const { id: _x, ...base } = ponto('x', { situacao: 'vistoriado' });
+    incluirPontos(id, [base]);
+    const pid = obterOperacoes()[0].pontos[0].id;
+    expect(vincularDemandaAPonto(id, pid, 'd1')).toBeNull();
+    expect(vincularDemandaAPonto(id, pid, 'd1')).toBe('Esta demanda já está ligada a este ponto.');
+    expect(vincularDemandaAPonto(id, 'nada', 'd1')).toBe('Ponto não encontrado.');
+    expect(obterOperacoes()[0].pontos[0].demandas).toEqual(['d1']);
+    expect(desvincularDemandaDePonto(id, pid, 'd1')).toBeNull();
+    expect(obterOperacoes()[0].pontos[0].demandas).toEqual([]);
+  });
+
+  it('respeita o limite de demandas por ponto', () => {
+    const id = nova();
+    const { id: _x, ...base } = ponto('x');
+    incluirPontos(id, [{ ...base, demandas: Array.from({ length: 20 }, (_, i) => `d${i}`) }]);
+    expect(vincularDemandaAPonto(id, obterOperacoes()[0].pontos[0].id, 'extra')).toBe('O limite é de 20 demandas por ponto.');
   });
 });

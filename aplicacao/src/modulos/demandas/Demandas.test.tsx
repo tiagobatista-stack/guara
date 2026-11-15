@@ -3,6 +3,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from './armazem.ts';
 import { Demandas } from './Demandas.tsx';
+import { criarOperacao, incluirPontos, obterOperacoes } from '../operacoes/armazem.ts';
 
 function montar() {
   let n = 0;
@@ -407,5 +408,116 @@ describe('tela Demandas', () => {
 
     act(() => { armazem.editar('id-1', { titulo: 'Organizar arquivo do setor', descricao: '', responsavel: 'Equipe B', prioridade: 'Média', status: 'A Fazer', prazo: '2026-12-01', natureza: 'comum' }); });
     expect(screen.queryByTestId('falta-id-1')).toBeNull();
+  });
+});
+
+describe('vínculo com operação, na ficha da demanda', () => {
+  const COORD = { lat: -11.5, lon: -58.5 };
+  const demandaDeCampo = (armazem: ReturnType<typeof montar>, extra: Record<string, string> = {}) => {
+    act(() => {
+      armazem.criar({ titulo: 'Vistoria fictícia em campo', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '', tipo: 'campo', vistoria: 'aberta', ...extra });
+    });
+    return armazem.obter().demandas[0];
+  };
+  const novaOperacao = () => {
+    const r = criarOperacao({ nome: 'Operação fictícia', inicio: '2026-09-18', fim: '2026-09-25', origem: '' }, '2026-09-01T12:00:00.000Z');
+    if (!r.ok) throw new Error();
+    return r.id;
+  };
+  const abrir = (titulo: string) => fireEvent.click(screen.getByRole('button', { name: `Detalhes de ${titulo}` }));
+
+  it('agenda com a coordenada da demanda: cria o ponto na operação e a vistoria passa a "em operação"', () => {
+    const armazem = montar();
+    const opId = novaOperacao();
+    const d = demandaDeCampo(armazem, { coordenada: '-11.5, -58.5' });
+    abrir(d.titulo);
+    expect(screen.getByTestId('sem-vinculo')).toBeInTheDocument();
+    const form = screen.getByRole('form', { name: 'Agendar em uma operação' });
+    fireEvent.change(within(form).getByLabelText('Operação para agendar'), { target: { value: opId } });
+    fireEvent.change(within(form).getByLabelText('Município do ponto (opcional)'), { target: { value: 'Lugar Fictício' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Agendar vistoria na operação' }));
+    expect(screen.getByTestId('mensagem-operacao')).toHaveTextContent('Vistoria agendada');
+    const ponto = obterOperacoes()[0].pontos[0];
+    expect(ponto).toMatchObject({ coordenada: COORD, municipio: 'Lugar Fictício', demandas: [d.id], situacao: 'planejado' });
+    expect(screen.getByTestId(`vinculo-${ponto.id}`)).toHaveTextContent('Operação fictícia');
+    expect(screen.getByTestId('vistoria-detalhe')).toHaveTextContent('em operação (data a registrar)');
+  });
+
+  it('sem coordenada na demanda: pede a coordenada, recusa a inválida e grava a válida também na demanda', () => {
+    const armazem = montar();
+    const opId = novaOperacao();
+    const d = demandaDeCampo(armazem);
+    abrir(d.titulo);
+    const form = screen.getByRole('form', { name: 'Agendar em uma operação' });
+    fireEvent.change(within(form).getByLabelText('Operação para agendar'), { target: { value: opId } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Agendar vistoria na operação' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Esta demanda não tem coordenada: informe a do ponto.');
+    fireEvent.change(within(form).getByLabelText('Coordenada do ponto'), { target: { value: 'abc' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Agendar vistoria na operação' }));
+    expect(screen.getByRole('alert')).toBeInTheDocument();
+    expect(obterOperacoes()[0].pontos).toHaveLength(0);
+    fireEvent.change(within(form).getByLabelText('Coordenada do ponto'), { target: { value: '-11.5, -58.5' } });
+    expect(screen.getByTestId('leitura-coordenada-ponto')).toHaveTextContent('Entendido:');
+    fireEvent.click(within(form).getByRole('button', { name: 'Agendar vistoria na operação' }));
+    expect(obterOperacoes()[0].pontos[0].coordenada).toEqual(COORD);
+    expect(armazem.obter().demandas[0].coordenada).toEqual(COORD);
+    expect(screen.getByTestId('mensagem-operacao')).toHaveTextContent('A coordenada também foi gravada na demanda.');
+  });
+
+  it('vincula a um ponto já vistoriado: avisa que falta a data do relatório e deixa desvincular', () => {
+    const armazem = montar();
+    const opId = novaOperacao();
+    incluirPontos(opId, [{ coordenada: COORD, municipio: 'Lugar', notas: '', demandas: [], situacao: 'vistoriado', equipe: 'Equipe A', numero: 3 }]);
+    const d = demandaDeCampo(armazem);
+    abrir(d.titulo);
+    const form = screen.getByRole('form', { name: 'Vincular a um ponto existente' });
+    fireEvent.change(within(form).getByLabelText('Operação do ponto'), { target: { value: opId } });
+    fireEvent.change(within(form).getByLabelText('Ponto'), { target: { value: obterOperacoes()[0].pontos[0].id } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Vincular ao ponto' }));
+    expect(obterOperacoes()[0].pontos[0].demandas).toEqual([d.id]);
+    expect(screen.getByTestId('aviso-vistoriado-sem-data')).toHaveTextContent('Registre a data do relatório');
+    fireEvent.click(screen.getByRole('button', { name: 'Desvincular de Operação fictícia' }));
+    expect(obterOperacoes()[0].pontos[0].demandas).toEqual([]);
+    expect(screen.queryByTestId('aviso-vistoriado-sem-data')).toBeNull();
+  });
+
+  it('com a data da vistoria registrada, o aviso do ponto vistoriado some', () => {
+    const armazem = montar();
+    const opId = novaOperacao();
+    incluirPontos(opId, [{ coordenada: COORD, municipio: '', notas: '', demandas: [], situacao: 'vistoriado' }]);
+    const d = demandaDeCampo(armazem, { vistoria: 'data', vistoriaData: '2026-09-20' });
+    abrir(d.titulo);
+    const form = screen.getByRole('form', { name: 'Vincular a um ponto existente' });
+    fireEvent.change(within(form).getByLabelText('Operação do ponto'), { target: { value: opId } });
+    fireEvent.change(within(form).getByLabelText('Ponto'), { target: { value: obterOperacoes()[0].pontos[0].id } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Vincular ao ponto' }));
+    expect(screen.queryByTestId('aviso-vistoriado-sem-data')).toBeNull();
+    expect(screen.getByTestId('vistoria-detalhe')).toHaveTextContent('20/09/2026');
+  });
+
+  it('sem operação cadastrada, orienta a criar uma', () => {
+    const armazem = montar();
+    const d = demandaDeCampo(armazem);
+    abrir(d.titulo);
+    expect(screen.getByText(/Nenhuma operação cadastrada/)).toBeInTheDocument();
+    expect(screen.queryByRole('form', { name: 'Agendar em uma operação' })).toBeNull();
+  });
+
+  it('o filtro "Falta encaixar" tira da lista a demanda que já está numa operação', () => {
+    const armazem = montar();
+    const opId = novaOperacao();
+    act(() => {
+      armazem.criar({ titulo: 'Campo encaixada fictícia', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '', tipo: 'campo', vistoria: 'aberta' });
+      armazem.criar({ titulo: 'Campo solta fictícia', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '', tipo: 'campo', vistoria: 'aberta' });
+    });
+    const [encaixada] = armazem.obter().demandas;
+    act(() => {
+      incluirPontos(opId, [{ coordenada: COORD, municipio: '', notas: '', demandas: [encaixada.id], situacao: 'planejado' }]);
+    });
+    fireEvent.change(screen.getByLabelText('Vistoria'), { target: { value: 'sem-encaixe' } });
+    expect(screen.queryByText('Campo encaixada fictícia', { selector: 'strong' })).toBeNull();
+    expect(screen.getByText('Campo solta fictícia', { selector: 'strong' })).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Vistoria'), { target: { value: 'sem-data' } });
+    expect(screen.getByText('Campo encaixada fictícia', { selector: 'strong' })).toBeInTheDocument();
   });
 });

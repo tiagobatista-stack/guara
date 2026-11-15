@@ -208,13 +208,21 @@ export interface Filtros {
   natureza: '' | 'demanda' | 'comum' | 'sem';
   /** Campos essenciais (essenciais.ts). */
   preenchimento: '' | 'faltando' | 'completas';
-  /** Só demandas de campo: 'agendada' tem data; 'sem-data' = em aberto ou não informada (vistoria.ts). */
-  vistoria: '' | 'agendada' | 'sem-data';
+  /** Só demandas de campo (vistoria.ts): 'agendada' tem data; 'sem-data' não tem data; 'sem-encaixe' não tem data nem operação. */
+  vistoria: '' | 'agendada' | 'sem-data' | 'sem-encaixe';
 }
 
 export const FILTROS_VAZIOS: Filtros = { texto: '', status: '', prioridade: '', responsavel: '', bloqueio: '', tipo: '', natureza: '', preenchimento: '', vistoria: '' };
 
-export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[] {
+function vistoriaCombina(filtro: Filtros['vistoria'], s: ReturnType<typeof situacaoVistoria>): boolean {
+  if (!s) return false;
+  if (filtro === 'agendada') return s === 'agendada';
+  if (filtro === 'sem-data') return s !== 'agendada';
+  return s === 'aberta' || s === 'nao-informada';
+}
+
+/** `encaixadas`: ids das demandas ligadas a pontos de operação (operacoes/regras.ts). */
+export function filtrarDemandas(lista: readonly Demanda[], f: Filtros, encaixadas?: ReadonlySet<string>): Demanda[] {
   const texto = f.texto.trim().toLocaleLowerCase('pt-BR');
   return lista.filter(
     (d) =>
@@ -226,7 +234,7 @@ export function filtrarDemandas(lista: readonly Demanda[], f: Filtros): Demanda[
       (!f.tipo || (f.tipo === 'sem' ? !d.tipo : d.tipo === f.tipo)) &&
       (!f.natureza || (f.natureza === 'sem' ? !d.natureza : d.natureza === f.natureza)) &&
       (!f.preenchimento || (f.preenchimento === 'faltando') === camposQueFaltam(d).length > 0) &&
-      (!f.vistoria || (situacaoVistoria(d) !== null && (f.vistoria === 'agendada') === (situacaoVistoria(d) === 'agendada'))),
+      (!f.vistoria || vistoriaCombina(f.vistoria, situacaoVistoria(d, encaixadas))),
   );
 }
 

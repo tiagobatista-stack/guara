@@ -172,3 +172,25 @@ export function textoLocalProximo(l: LocalProximo): string {
   partes.push(`a ${Math.round(l.distanciaM)} m`);
   return partes.join(', ');
 }
+
+// ---------- Vínculo com demandas ----------
+
+export interface VinculoDemanda {
+  operacao: Operacao;
+  ponto: Ponto;
+}
+
+/** Demanda → pontos que a listam, em qualquer operação. Ponto cancelado não conta como encaixe. */
+export function vinculosDasDemandas(operacoes: readonly Operacao[]): Map<string, VinculoDemanda[]> {
+  const mapa = new Map<string, VinculoDemanda[]>();
+  for (const operacao of operacoes) {
+    for (const ponto of operacao.pontos) {
+      if (ponto.situacao === 'cancelado') continue;
+      for (const id of ponto.demandas) mapa.set(id, [...(mapa.get(id) ?? []), { operacao, ponto }]);
+    }
+  }
+  return mapa;
+}
+
+/** Ids das demandas já encaixadas em alguma operação. */
+export const demandasEncaixadas = (operacoes: readonly Operacao[]): Set<string> => new Set(vinculosDasDemandas(operacoes).keys());

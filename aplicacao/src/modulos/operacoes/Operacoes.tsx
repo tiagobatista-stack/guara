@@ -10,11 +10,48 @@ import { LIMITES_OPERACAO, ROTULOS_SITUACAO, SITUACOES_PONTO, type Operacao, typ
 import {
   alterarPeriodo, alterarPonto, criarOperacao, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
 } from './armazem.ts';
+import { exportarCsv, exportarGeoJson, nomeDoArquivo, SRC_EXPORTACAO } from './exportar.ts';
 import { pontosProximos, pontosSemData, pontosSemEquipe, textoLocalProximo } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
 const textoPeriodo = (p: { inicio?: string; fim?: string }) =>
   p.inicio || p.fim ? `${p.inicio ? dataBr(p.inicio) : '…'} a ${p.fim ? dataBr(p.fim) : '…'}` : 'sem período definido';
+
+function baixar(nome: string, conteudo: string, tipo: string) {
+  const url = URL.createObjectURL(new Blob([conteudo], { type: tipo }));
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = nome;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+// ---------- Exportação para o QGIS ----------
+
+function ExportarPontos({ operacao, agora }: { operacao: Operacao; agora: () => Date }) {
+  const vazia = operacao.pontos.length === 0;
+  const hoje = () => agora().toISOString().slice(0, 10);
+  return (
+    <section className="cartao" aria-labelledby="titulo-exportar">
+      <h3 id="titulo-exportar" className="titulo-secao">Exportar pontos</h3>
+      <p className="texto-pequeno texto-suave">
+        Arquivos em UTF-8 com coordenadas em SIRGAS 2000 ({SRC_EXPORTACAO}), para abrir no QGIS. No CSV, use Camada → Adicionar camada → Texto
+        delimitado, com X = COORD_X (longitude), Y = COORD_Y (latitude) e SRC {SRC_EXPORTACAO}. O GeoJSON já informa o SRC. Exporta todos os pontos da operação.
+      </p>
+      <p className="texto-pequeno texto--atencao">
+        O arquivo contém coordenadas e notas: guarde e compartilhe conforme a classificação dos dados.
+      </p>
+      <div className="acoes">
+        <button type="button" className="botao" disabled={vazia} onClick={() => baixar(nomeDoArquivo(operacao, 'csv', hoje()), exportarCsv(operacao), 'text/csv;charset=utf-8')}>
+          Exportar CSV
+        </button>
+        <button type="button" className="botao" disabled={vazia} onClick={() => baixar(nomeDoArquivo(operacao, 'geojson', hoje()), exportarGeoJson(operacao), 'application/geo+json;charset=utf-8')}>
+          Exportar GeoJSON (QGIS)
+        </button>
+      </div>
+    </section>
+  );
+}
 
 // ---------- Importação por CSV ----------
 
@@ -46,7 +83,7 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
   const importar = () => {
     const problema = incluirPontos(operacao.id, validos.map((l) => l.ponto!));
     if (problema) return setMensagem(problema);
-    setMensagem(`${validos.length} ponto(s) importado(s).`);
+    setMensagem(`${validos.length} ponto(s) importado(s). A operação mudou: exporte a lista atualizada abaixo, se precisar.`);
     setResultado(null);
     setTexto('');
   };
@@ -252,7 +289,7 @@ function PeriodoOperacao({ operacao }: { operacao: Operacao }) {
 
 // ---------- Uma operação ----------
 
-function DetalheOperacao({ operacao, todas, aoVoltar }: { operacao: Operacao; todas: readonly Operacao[]; aoVoltar: () => void }) {
+function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Operacao; todas: readonly Operacao[]; aoVoltar: () => void; agora: () => Date }) {
   const [equipe, setEquipe] = useState('');
   const [situacao, setSituacao] = useState<'' | SituacaoPonto>('');
   const [soPendentes, setSoPendentes] = useState(false);
@@ -278,6 +315,7 @@ function DetalheOperacao({ operacao, todas, aoVoltar }: { operacao: Operacao; to
       </p>
 
       <ImportarCsv operacao={operacao} />
+      <ExportarPontos operacao={operacao} agora={agora} />
 
       <form className="filtros grade grade--2" aria-label="Filtros dos pontos" onSubmit={(e) => e.preventDefault()}>
         <label className="campo-grupo"><span>Equipe</span>
@@ -335,7 +373,7 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
         </p>
       )}
       {emDetalhe ? (
-        <DetalheOperacao operacao={emDetalhe} todas={operacoes} aoVoltar={() => setAberta(null)} />
+        <DetalheOperacao operacao={emDetalhe} todas={operacoes} aoVoltar={() => setAberta(null)} agora={agora} />
       ) : (
         <>
           <p className="texto-suave texto-medio">

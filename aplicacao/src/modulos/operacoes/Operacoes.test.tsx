@@ -217,6 +217,45 @@ describe('período opcional e tirado do arquivo', () => {
   });
 });
 
+describe('exportação dos pontos', () => {
+  it('botões ficam desabilitados sem pontos e baixam CSV e GeoJSON com o nome e o tipo certos', async () => {
+    montar();
+    criarEAbrir();
+    expect(screen.getByRole('button', { name: 'Exportar CSV' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Exportar GeoJSON (QGIS)' })).toBeDisabled();
+    fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
+    fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    expect(screen.getByTestId('mensagem-importacao')).toHaveTextContent('exporte a lista atualizada');
+
+    const blobs: Blob[] = [];
+    const criarUrl = vi.fn((b: Blob) => { blobs.push(b); return 'blob:x'; });
+    const original = { criar: URL.createObjectURL, revogar: URL.revokeObjectURL };
+    URL.createObjectURL = criarUrl as unknown as typeof URL.createObjectURL;
+    URL.revokeObjectURL = vi.fn();
+    const nomes: string[] = [];
+    const clique = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) { nomes.push(this.download); });
+    try {
+      fireEvent.click(screen.getByRole('button', { name: 'Exportar CSV' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Exportar GeoJSON (QGIS)' }));
+    } finally {
+      URL.createObjectURL = original.criar;
+      URL.revokeObjectURL = original.revogar;
+      clique.mockRestore();
+    }
+    expect(nomes).toHaveLength(2);
+    expect(nomes[0]).toMatch(/^operacao-ficticia-pontos-\d{4}-\d{2}-\d{2}\.csv$/);
+    expect(nomes[1]).toMatch(/\.geojson$/);
+    expect(blobs[0].type).toContain('text/csv');
+    expect(blobs[1].type).toContain('application/geo+json');
+    // Blob.text() descarta o BOM ao decodificar: confere os bytes.
+    const bytes = new Uint8Array(await blobs[0].arrayBuffer());
+    expect([...bytes.slice(0, 3)]).toEqual([0xef, 0xbb, 0xbf]);
+    expect(new TextDecoder().decode(bytes.slice(3)).startsWith('N_PONTO,EQUIPE,COORD_X,COORD_Y')).toBe(true);
+    expect(JSON.parse(await blobs[1].text()).features).toHaveLength(2);
+  });
+});
+
 describe('aviso no Painel', () => {
   it('conta os pontos planejados sem equipe ou sem data', () => {
     const armazem = criarArmazem(localStorage, { gerarId: () => 'id', exemplos: () => [] });
@@ -226,5 +265,22 @@ describe('aviso no Painel', () => {
     incluirPontos(r.id, [base, { ...base, equipe: 'Equipe A', saida: '2026-09-18' }]);
     render(<ContextoArmazem.Provider value={armazem}><Painel /></ContextoArmazem.Provider>);
     expect(screen.getByTestId('pontos-pendentes')).toHaveTextContent('1 ponto de operação está sem equipe ou sem data.');
+  });
+});
+
+describe('Painel: demanda encaixada numa operação não conta como "falta encaixar"', () => {
+  it('a contagem cai quando a demanda de campo é ligada a um ponto', () => {
+    const armazem = criarArmazem(localStorage, { gerarId: () => 'dem-1', exemplos: () => [] });
+    act(() => {
+      armazem.criar({ titulo: 'Campo fictícia', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '', tipo: 'campo', vistoria: 'aberta' });
+    });
+    const r = criarOperacao({ nome: 'Op', inicio: '', fim: '', origem: '' }, 'x');
+    if (!r.ok) throw new Error();
+    render(<ContextoArmazem.Provider value={armazem}><Painel /></ContextoArmazem.Provider>);
+    expect(screen.getByTestId('sem-vistoria')).toHaveTextContent('1 demanda de campo ainda não foi encaixada');
+    act(() => {
+      incluirPontos(r.id, [{ coordenada: { lat: -11.5, lon: -58.5 }, municipio: '', notas: '', demandas: ['dem-1'], situacao: 'planejado' }]);
+    });
+    expect(screen.queryByTestId('sem-vistoria')).toBeNull();
   });
 });

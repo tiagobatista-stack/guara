@@ -14,6 +14,9 @@ import { resumosEmAberto } from './resumo.ts';
 import { textoFalta } from './essenciais.ts';
 import { formatarDecimal, formatarGms } from './coordenadas.ts';
 import { textoVistoria } from './vistoria.ts';
+import { VinculoOperacao } from './VinculoOperacao.tsx';
+import { useOperacoes } from '../operacoes/armazem.ts';
+import { demandasEncaixadas } from '../operacoes/regras.ts';
 import { historicoRecente, textoEvento } from './historico.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
@@ -42,6 +45,8 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const armazem = useArmazem();
   const { demandas, erroArmazenamento, conteudoBruto } = useEstadoDemandas();
   const ajuste = useAjusteFeriados(agora());
+  const operacoes = useOperacoes();
+  const encaixadas = useMemo(() => demandasEncaixadas(operacoes), [operacoes]);
   const [modo, setModo] = useState<Modo>({ tipo: 'lista' });
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [aviso, setAviso] = useState<Aviso>(null);
@@ -60,7 +65,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
     () => [...new Set(demandas.map((d) => d.responsavel).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
     [demandas],
   );
-  const visiveis = useMemo(() => filtrarDemandas(demandas, filtros), [demandas, filtros]);
+  const visiveis = useMemo(() => filtrarDemandas(demandas, filtros, encaixadas), [demandas, filtros, encaixadas]);
   const buscar = (id: string) => demandas.find((d) => d.id === id);
 
   const excluir = (d: Demanda) => {
@@ -182,7 +187,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dd className="mono" data-testid="coordenada-detalhe">
               {emDetalhe.coordenada ? `${formatarDecimal(emDetalhe.coordenada)} · ${formatarGms(emDetalhe.coordenada)} (SIRGAS 2000)` : '—'}
             </dd>
-            {textoVistoria(emDetalhe) && <><dt>Vistoria</dt><dd data-testid="vistoria-detalhe">{textoVistoria(emDetalhe)}</dd></>}
+            {textoVistoria(emDetalhe, encaixadas) && <><dt>Vistoria</dt><dd data-testid="vistoria-detalhe">{textoVistoria(emDetalhe, encaixadas)}</dd></>}
             <dt>Criada em</dt><dd>{dataHora(emDetalhe.criadaEm)}</dd>
             <dt>Última ação relevante</dt><dd>{dataHora(emDetalhe.ultimaAcaoRelevante)}</dd>
             <dt>Preenchimento</dt>
@@ -194,6 +199,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               <><dt>Detalhe do bloqueio</dt><dd data-testid="bloqueio-detalhe-livre">{emDetalhe.bloqueio.detalhe}</dd></>
             )}
           </dl>
+          <VinculoOperacao demanda={emDetalhe} aoEditar={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }} />
           {emDetalhe.status !== 'Concluída' && (
             <section className="bloco-detalhe" aria-labelledby="titulo-bloqueio">
               <h3 id="titulo-bloqueio" className="titulo-secao titulo-secao--bloco">Bloqueio</h3>
@@ -353,7 +359,8 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               <select className="campo" value={filtros.vistoria} onChange={(e) => setFiltros({ ...filtros, vistoria: e.target.value as Filtros['vistoria'] })}>
                 <option value="">Todas</option>
                 <option value="agendada">Com data</option>
-                <option value="sem-data">Em aberto (sem data)</option>
+                <option value="sem-data">Sem data de vistoria</option>
+                <option value="sem-encaixe">Falta encaixar (sem data e sem operação)</option>
               </select>
             </label>
             <label className="campo-grupo">
@@ -386,7 +393,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
                     <dt>Responsável</dt><dd>{d.responsavel || '—'}</dd>
                     <dt>Prazo</dt><dd>{comSituacao(d, agora(), ajuste)}</dd>
                     {NUMEROS.filter((c) => d[c]).map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono" data-testid={`${c}-${d.id}`}>{d[c]}</dd></Fragment>)}
-                    {textoVistoria(d) && <><dt>Vistoria</dt><dd data-testid={`vistoria-${d.id}`}>{textoVistoria(d)}</dd></>}
+                    {textoVistoria(d, encaixadas) && <><dt>Vistoria</dt><dd data-testid={`vistoria-${d.id}`}>{textoVistoria(d, encaixadas)}</dd></>}
                     {textoFalta(d) && <><dt>Preenchimento</dt><dd className="texto--atencao" data-testid={`falta-${d.id}`}>{textoFalta(d)}</dd></>}
                     {d.bloqueio && <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${d.id}`}>{textoBloqueio(d, agora(), ajuste)}</dd></>}
                   </dl>

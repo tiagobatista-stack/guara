@@ -84,8 +84,8 @@ describe('vistoria: situação, lista e filtro', () => {
   const todas = [agendada, aberta, antiga, gabinete, concluida];
 
   it('situação por demanda', () => {
-    expect([agendada, aberta, antiga, gabinete].map(situacaoVistoria)).toEqual(['agendada', 'aberta', 'nao-informada', null]);
-    expect([agendada, aberta, antiga, gabinete].map(textoVistoria)).toEqual(['12/12/2026', 'em aberto', 'não informada', null]);
+    expect([agendada, aberta, antiga, gabinete].map((d) => situacaoVistoria(d))).toEqual(['agendada', 'aberta', 'nao-informada', null]);
+    expect([agendada, aberta, antiga, gabinete].map((d) => textoVistoria(d))).toEqual(['12/12/2026', 'em aberto', 'não informada', null]);
   });
   it('lista só as de campo abertas sem data, da mais antiga para a mais nova', () => {
     expect(listarSemVistoria(todas).map((d) => d.id)).toEqual(['c', 'b']);
@@ -97,5 +97,32 @@ describe('vistoria: situação, lista e filtro', () => {
   it('campos essenciais: só falta "vistoria" quando nunca foi informada', () => {
     expect(camposQueFaltam({ ...aberta, prazo: '2026-12-01', responsavel: 'x', natureza: 'comum' })).toEqual([]);
     expect(camposQueFaltam({ ...antiga, prazo: '2026-12-01', responsavel: 'x', natureza: 'comum' })).toEqual(['vistoria']);
+  });
+});
+
+describe('vistoria: encaixada em operação', () => {
+  const aberta = criar({ vistoria: 'aberta' }, 'b');
+  const agendada = criar({ vistoria: 'data', vistoriaData: '2026-12-12' }, 'a');
+  const gabinete = criar({ tipo: 'gabinete' }, 'g');
+  const encaixadas = new Set(['a', 'b', 'g']);
+
+  it('em operação vale para quem não tem data; a data específica vence; fora do campo continua sem vistoria', () => {
+    expect(situacaoVistoria(aberta, encaixadas)).toBe('em-operacao');
+    expect(textoVistoria(aberta, encaixadas)).toBe('em operação (data a registrar)');
+    expect(situacaoVistoria(agendada, encaixadas)).toBe('agendada');
+    expect(situacaoVistoria(gabinete, encaixadas)).toBeNull();
+    expect(situacaoVistoria(aberta)).toBe('aberta');
+  });
+  it('listarSemVistoria desconta as encaixadas', () => {
+    const outra = criar({ vistoria: 'aberta' }, 'c');
+    expect(listarSemVistoria([aberta, outra], encaixadas).map((d) => d.id)).toEqual(['c']);
+    expect(listarSemVistoria([aberta, outra]).map((d) => d.id)).toEqual(['b', 'c']);
+  });
+  it('filtro "sem-encaixe" tira as encaixadas; "sem-data" as mantém', () => {
+    const outra = criar({ vistoria: 'aberta' }, 'c');
+    const todas = [agendada, aberta, outra];
+    expect(filtrarDemandas(todas, { ...FILTROS_VAZIOS, vistoria: 'sem-encaixe' }, encaixadas).map((d) => d.id)).toEqual(['c']);
+    expect(filtrarDemandas(todas, { ...FILTROS_VAZIOS, vistoria: 'sem-data' }, encaixadas).map((d) => d.id)).toEqual(['b', 'c']);
+    expect(filtrarDemandas(todas, { ...FILTROS_VAZIOS, vistoria: 'agendada' }, encaixadas).map((d) => d.id)).toEqual(['a']);
   });
 });

@@ -112,3 +112,33 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
 export function excluirPonto(operacaoId: string, pontoId: string): void {
   lista.gravar(obterOperacoes().map((o) => (o.id === operacaoId ? { ...o, pontos: o.pontos.filter((p) => p.id !== pontoId) } : o)));
 }
+
+export interface DadosDemandaComoPonto {
+  demandaId: string;
+  coordenada: Ponto['coordenada'];
+  municipio: string;
+}
+
+/** Agenda a demanda numa operação: cria um ponto planejado (sem equipe e sem datas) ligado a ela. Devolve o problema ou null. */
+export function incluirDemandaComoPonto(operacaoId: string, d: DadosDemandaComoPonto): string | null {
+  const op = obterOperacoes().find((o) => o.id === operacaoId);
+  if (!op) return 'Operação não encontrada.';
+  if (op.pontos.some((p) => p.situacao !== 'cancelado' && p.demandas.includes(d.demandaId))) return 'Esta demanda já está nesta operação.';
+  return incluirPontos(operacaoId, [
+    { coordenada: d.coordenada, municipio: d.municipio.trim().slice(0, LIMITES_OPERACAO.municipio), notas: '', demandas: [d.demandaId], situacao: 'planejado' },
+  ]);
+}
+
+/** Liga a demanda a um ponto que já existe (por exemplo, um ponto já vistoriado). */
+export function vincularDemandaAPonto(operacaoId: string, pontoId: string, demandaId: string): string | null {
+  const ponto = obterOperacoes().find((o) => o.id === operacaoId)?.pontos.find((p) => p.id === pontoId);
+  if (!ponto) return 'Ponto não encontrado.';
+  if (ponto.demandas.includes(demandaId)) return 'Esta demanda já está ligada a este ponto.';
+  return alterarPonto(operacaoId, pontoId, { demandas: [...ponto.demandas, demandaId] });
+}
+
+export function desvincularDemandaDePonto(operacaoId: string, pontoId: string, demandaId: string): string | null {
+  const ponto = obterOperacoes().find((o) => o.id === operacaoId)?.pontos.find((p) => p.id === pontoId);
+  if (!ponto) return 'Ponto não encontrado.';
+  return alterarPonto(operacaoId, pontoId, { demandas: ponto.demandas.filter((id) => id !== demandaId) });
+}
