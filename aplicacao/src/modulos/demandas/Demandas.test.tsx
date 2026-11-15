@@ -90,6 +90,38 @@ describe('tela Demandas', () => {
     expect(localStorage.getItem('guara:demandas:v1')).toBe('corrompido');
   });
 
+  it('histórico no detalhe: criação, status e bloqueio, do mais novo ao mais antigo; demanda antiga avisa que não tem', () => {
+    const armazem = montar();
+    act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0004', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
+    act(() => { armazem.mudarStatus('id-1', 'Em Andamento'); });
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0004' }));
+    fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'documento' } });
+    fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: 'Aguardando certidão (fictícia).' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
+    const itens = within(screen.getByTestId('historico')).getAllByRole('listitem').map((li) => li.textContent);
+    expect(itens).toHaveLength(3);
+    expect(itens[0]).toContain('travou: falta documento · “Aguardando certidão (fictícia).”');
+    expect(itens[1]).toContain('mudou o status: A Fazer → Em Andamento');
+    expect(itens[2]).toContain('criada em A Fazer');
+    expect(screen.queryByText(/anterior ao histórico/)).toBeNull();
+  });
+
+  it('demanda gravada antes do histórico avisa que não tem eventos', () => {
+    const antiga = {
+      id: 'antiga', titulo: 'Demanda antiga (fictícia)', descricao: '', responsavel: 'Equipe A', prioridade: 'Média' as const,
+      status: 'A Fazer' as const, criadaEm: '2026-11-01T12:00:00.000Z', ultimaAcaoRelevante: '2026-11-01T12:00:00.000Z',
+    };
+    const armazem = criarArmazem(localStorage, { exemplos: () => [antiga] });
+    render(
+      <ContextoArmazem.Provider value={armazem}>
+        <Demandas />
+      </ContextoArmazem.Provider>,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Demanda antiga (fictícia)' }));
+    expect(screen.queryByTestId('historico')).toBeNull();
+    expect(screen.getByText('Nenhum evento registrado: esta demanda é anterior ao histórico (14/11/2026).')).toBeInTheDocument();
+  });
+
   it('detalhe livre do bloqueio: grava, aparece só no detalhe da demanda e volta ao reabrir', () => {
     const armazem = montar();
     act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0003', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });

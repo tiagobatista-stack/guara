@@ -25,6 +25,31 @@ export interface Bloqueio {
   detalhe?: string;
 }
 
+/** Ações registradas no histórico da demanda (pedido do responsável em 14/11/2026). */
+export const ACOES_HISTORICO = {
+  criada: 'criada',
+  status: 'mudou o status',
+  travou: 'travou',
+  'bloqueio-alterado': 'mudou o bloqueio',
+  'ainda-travada': 'reavaliada: ainda travada',
+  destravou: 'destravou',
+  'bloqueio-encerrado': 'bloqueio encerrado ao concluir',
+} as const;
+export type AcaoHistorico = keyof typeof ACOES_HISTORICO;
+
+/** Um evento do histórico. Só se acrescenta: a tela não edita nem apaga eventos. */
+export interface EventoHistorico {
+  /** ISO 8601. */
+  quando: string;
+  acao: AcaoHistorico;
+  /** Mudança de status: de onde veio (ausente em "criada") e para onde foi. */
+  de?: Status;
+  para?: Status;
+  /** Eventos do bloqueio: motivo e detalhe naquele momento. */
+  motivo?: MotivoBloqueio;
+  detalhe?: string;
+}
+
 export interface Demanda {
   id: string;
   titulo: string;
@@ -47,6 +72,8 @@ export interface Demanda {
   /** Campo × gabinete e demanda × tarefa comum (classificacao.ts); ausentes = não definidos. */
   tipo?: Tipo;
   natureza?: Natureza;
+  /** Status e bloqueio ao longo do tempo, do mais antigo ao mais novo. Ausente em demandas anteriores ao histórico. */
+  historico?: EventoHistorico[];
 }
 
 /** Campos que o usuário informa no formulário. */
@@ -66,6 +93,6 @@ export interface EntradaDemanda {
   natureza?: Natureza;
 }
 
-export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80, detalheBloqueioMax: 300 } as const;
+export const LIMITES = { tituloMin: 3, tituloMax: 120, descricaoMax: 2000, responsavelMax: 80, detalheBloqueioMax: 300, historicoMax: 500 } as const;
 
 export const CHAVE_DEMANDAS = 'guara:demandas:v1';

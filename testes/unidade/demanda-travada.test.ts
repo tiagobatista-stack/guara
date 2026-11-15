@@ -35,11 +35,13 @@ describe('regras do bloqueio', () => {
     expect(mudarStatus(t, 'Concluída', T1)).not.toHaveProperty('bloqueio');
     expect(mudarStatus(t, 'Em Validação', T1).bloqueio?.motivo).toBe('campo');
   });
-  it('destravar remove o bloqueio; "ainda travada" só renova a última ação', () => {
+  it('destravar remove o bloqueio; "ainda travada" renova a última ação e registra a reavaliação', () => {
     const t = travarDemanda(BASE, 'outro', T0)!;
     expect(destravarDemanda(t, T1)).not.toHaveProperty('bloqueio');
     expect(destravarDemanda(t, T1).ultimaAcaoRelevante).toBe(T1);
-    expect(confirmarBloqueio(t, T1)).toEqual({ ...t, ultimaAcaoRelevante: T1 });
+    expect(confirmarBloqueio(t, T1)).toEqual({
+      ...t, ultimaAcaoRelevante: T1, historico: [...t.historico!, { quando: T1, acao: 'ainda-travada', motivo: 'outro' }],
+    });
     expect(confirmarBloqueio(BASE, T1)).toBe(BASE);
     expect(destravarDemanda(BASE, T1)).toBe(BASE);
   });

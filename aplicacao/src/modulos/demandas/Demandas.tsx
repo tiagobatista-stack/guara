@@ -12,6 +12,7 @@ import { NUMEROS, ROTULOS_NUMERO } from './identificadores.ts';
 import { NATUREZAS, ROTULOS_NATUREZA, ROTULOS_TIPO, TIPOS } from './classificacao.ts';
 import { resumosEmAberto } from './resumo.ts';
 import { textoFalta } from './essenciais.ts';
+import { historicoRecente, textoEvento } from './historico.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
@@ -223,6 +224,23 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               </div>
             </form>
           )}
+          <section aria-labelledby="titulo-historico">
+            <h3 id="titulo-historico" className="titulo-secao">Histórico</h3>
+            {historicoRecente(emDetalhe).length > 0 && (
+              <ol className="linha-tempo" aria-label="Histórico da demanda, do mais novo ao mais antigo" data-testid="historico">
+                {historicoRecente(emDetalhe).map((e, i) => (
+                  <li key={i}>
+                    <span className="texto-suave">{new Date(e.quando).toLocaleString('pt-BR', { dateStyle: 'short', timeStyle: 'short' })}</span> · {textoEvento(e)}
+                  </li>
+                ))}
+              </ol>
+            )}
+            {!emDetalhe.historico?.some((e) => e.acao === 'criada') && (
+              <p className="texto-pequeno texto-suave">
+                {emDetalhe.historico?.length ? 'Os eventos anteriores ao histórico (14/11/2026) não foram registrados.' : 'Nenhum evento registrado: esta demanda é anterior ao histórico (14/11/2026).'}
+              </p>
+            )}
+          </section>
           <div className="acoes">
             <button type="button" className="botao" onClick={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }}>Editar</button>
             <button type="button" className="botao botao--perigo" onClick={() => excluir(emDetalhe)}>Excluir</button>

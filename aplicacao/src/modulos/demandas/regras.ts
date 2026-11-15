@@ -4,6 +4,7 @@ import { LER_NUMERO, NUMEROS, numeroGravadoValido } from './identificadores.ts';
 import { NATUREZAS, TIPOS } from './classificacao.ts';
 import { camposQueFaltam } from './essenciais.ts';
 import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
+import { eventoValido, registrar } from './historico.ts';
 
 export type ErrosValidacao = Partial<Record<keyof EntradaDemanda, string>>;
 
@@ -64,7 +65,8 @@ export type Resultado<T> = { ok: true; valor: T } | { ok: false; erros: ErrosVal
 export function criarDemanda(e: EntradaDemanda, agoraIso: string, gerarId: () => string): Resultado<Demanda> {
   const erros = validarEntrada(e);
   if (Object.keys(erros).length) return { ok: false, erros };
-  return { ok: true, valor: { id: gerarId(), ...normalizar(e), criadaEm: agoraIso, ultimaAcaoRelevante: agoraIso } };
+  const nova: Demanda = { id: gerarId(), ...normalizar(e), criadaEm: agoraIso, ultimaAcaoRelevante: agoraIso };
+  return { ok: true, valor: registrar(nova, { quando: agoraIso, acao: 'criada', para: nova.status }) };
 }
 
 /** Edita a demanda; só atualiza a última ação relevante se algum campo mudou de fato. */
@@ -86,15 +88,26 @@ export function editarDemanda(d: Demanda, e: EntradaDemanda, agoraIso: string): 
   // Campos opcionais apagados no formulário saem da demanda.
   const { prazo: _prazo, processo: _processo, simp: _simp, judicial: _judicial, tipo: _tipo, natureza: _natureza, ...semOpcionais } = d;
   void [_prazo, _processo, _simp, _judicial, _tipo, _natureza];
-  return { ok: true, valor: { ...semOpcionais, ...novos, ultimaAcaoRelevante: agoraIso } };
+  const editada: Demanda = { ...semOpcionais, ...novos, ultimaAcaoRelevante: agoraIso };
+  return { ok: true, valor: novos.status === d.status ? editada : comMudancaDeStatus(d, editada, agoraIso) };
+}
+
+/** Registra a troca de status; concluir encerra o bloqueio (demanda concluída não fica travada). */
+function comMudancaDeStatus(antes: Demanda, depois: Demanda, agoraIso: string): Demanda {
+  let d = registrar(depois, { quando: agoraIso, acao: 'status', de: antes.status, para: depois.status });
+  if (depois.status === 'Concluída' && d.bloqueio) {
+    d = registrar(semBloqueio(d), { quando: agoraIso, acao: 'bloqueio-encerrado', ...dadosDoBloqueio(d) });
+  }
+  return d;
 }
 
 export function mudarStatus(d: Demanda, status: Status, agoraIso: string): Demanda {
   if (d.status === status) return d;
-  // Concluir encerra o bloqueio: demanda concluída não fica travada.
-  if (status === 'Concluída') return { ...semBloqueio(d), status, ultimaAcaoRelevante: agoraIso };
-  return { ...d, status, ultimaAcaoRelevante: agoraIso };
+  return comMudancaDeStatus(d, { ...d, status, ultimaAcaoRelevante: agoraIso }, agoraIso);
 }
+
+const dadosDoBloqueio = (d: Demanda) =>
+  d.bloqueio ? { motivo: d.bloqueio.motivo, ...(d.bloqueio.detalhe ? { detalhe: d.bloqueio.detalhe } : {}) } : {};
 
 function semBloqueio(d: Demanda): Demanda {
   const { bloqueio: _bloqueio, ...resto } = d;
@@ -116,18 +129,19 @@ export function travarDemanda(d: Demanda, motivo: MotivoBloqueio, agoraIso: stri
   if (d.status === 'Concluída') return null;
   if (d.bloqueio?.motivo === motivo && (d.bloqueio.detalhe ?? '') === detalhe) return d;
   const bloqueio = { motivo, desde: d.bloqueio?.desde ?? agoraIso, ...(detalhe ? { detalhe } : {}) };
-  return { ...d, bloqueio, ultimaAcaoRelevante: agoraIso };
+  const nova: Demanda = { ...d, bloqueio, ultimaAcaoRelevante: agoraIso };
+  return registrar(nova, { quando: agoraIso, acao: d.bloqueio ? 'bloqueio-alterado' : 'travou', ...dadosDoBloqueio(nova) });
 }
 
 export function destravarDemanda(d: Demanda, agoraIso: string): Demanda {
   if (!d.bloqueio) return d;
-  return { ...semBloqueio(d), ultimaAcaoRelevante: agoraIso };
+  return registrar({ ...semBloqueio(d), ultimaAcaoRelevante: agoraIso }, { quando: agoraIso, acao: 'destravou', ...dadosDoBloqueio(d) });
 }
 
 /** "Ainda travada": a reavaliação conta como ação relevante e tira a demanda do alerta de inatividade. */
 export function confirmarBloqueio(d: Demanda, agoraIso: string): Demanda {
   if (!d.bloqueio) return d;
-  return { ...d, ultimaAcaoRelevante: agoraIso };
+  return registrar({ ...d, ultimaAcaoRelevante: agoraIso }, { quando: agoraIso, acao: 'ainda-travada', ...dadosDoBloqueio(d) });
 }
 
 export function paraEntrada(d: Demanda): EntradaDemanda {
@@ -194,7 +208,9 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     (d.bloqueio === undefined || bloqueioValido(d.bloqueio)) &&
     NUMEROS.every((c) => d[c] === undefined || numeroGravadoValido(c, d[c])) &&
     (d.tipo === undefined || TIPOS.includes(d.tipo as never)) &&
-    (d.natureza === undefined || NATUREZAS.includes(d.natureza as never))
+    (d.natureza === undefined || NATUREZAS.includes(d.natureza as never)) &&
+    (d.historico === undefined ||
+      (Array.isArray(d.historico) && d.historico.length <= LIMITES.historicoMax && d.historico.every(eventoValido)))
   );
 }
 

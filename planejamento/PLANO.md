@@ -35,6 +35,12 @@ interface Demanda {
   judicial?: string;           // opcional: CNJ NNNNNNN-DD.AAAA.J.TR.OOOO, dígitos verificadores conferidos
   tipo?: 'campo' | 'gabinete'; // opcional (14/11/2026): deduzido do título no cadastro, a pessoa confere
   natureza?: 'demanda' | 'comum'; // opcional: demanda ou tarefa comum, idem
+  historico?: {                // opcional (14/11/2026): status e bloqueio ao longo do tempo, só acrescenta, até 500 eventos
+    quando: string;            // ISO 8601
+    acao: 'criada' | 'status' | 'travou' | 'bloqueio-alterado' | 'ainda-travada' | 'destravou' | 'bloqueio-encerrado';
+    de?: Status; para?: Status;            // mudança de status
+    motivo?: MotivoBloqueio; detalhe?: string; // eventos do bloqueio, com o detalhe daquele momento
+  }[];
 }
 
 interface Configuracao {
@@ -51,6 +57,7 @@ interface Configuracao {
 ## 3. Regras
 
 1. **Última ação relevante** muda só ao criar, ao editar de fato (algum campo alterado), ao mudar o status ou ao travar, mudar o motivo, reavaliar ("Ainda travada") ou destravar. Consultar, filtrar ou abrir o dashboard não conta.
+   **Histórico:** criar, cada mudança de status (pelo Kanban ou pelo formulário) e cada ação do bloqueio acrescentam um evento. Concluir uma demanda travada encerra o bloqueio e registra "bloqueio encerrado ao concluir". Editar os outros campos não gera evento.
 2. **Vencida:** status diferente de Concluída e `prazo` anterior ao início de hoje, no fuso do navegador.
 3. **Inativa:** status diferente de Concluída e (agora − `ultimaAcaoRelevante`) **maior que** `diasInatividade` dias corridos.
 4. **Exclusão:** só com confirmação explícita na interface, e persistida.
