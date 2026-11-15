@@ -58,7 +58,8 @@
 33. **Publicação da etapa 5 (14/11/2026):** URL pública com `index-BPahiGzq.js`, o mesmo bundle de `c578994`.
 34. **Mascote no celular e no tablet (14/11/2026), na `main`:** rosto vivo do principal no botão flutuante e no botão "Assistente", atento com aviso e com o resumo no nome acessível. Foram 2 testes novos; total 295/295, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-presenca-no-celular.md`.
 35. **Correção da conversa no celular (14/11/2026), relato do responsável, na `main`:** rolagem até a última fala e altura da gaveta corrigida. 1 teste novo (falha sem a correção); total 296/296, build ok. A parte de CSS: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-conversa-no-celular.md`.
-36. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+36. **Publicação (14/11/2026):** mascote no celular e correção da conversa na URL pública (`origin/main` = `d0c7b2d`, bundle `index-CCt-fixf.js`, CSS da gaveta conferido). No celular: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-celular.md`.
+37. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 
