@@ -22,6 +22,7 @@
 - Atalhos "prazos" e "ajuda" na conversa (297/297; falta conferir no navegador).
 - Aviso nas Configurações quando o navegador não deixa gravar as preferências (319/319).
 - Teste da navegação até Configurações pelo menu lateral e pelo "Mais" (321/321).
+- Saúde do sistema com o nome dado ao mascote (322/322).
 - Etapa 6: estados vazios com o rosto do principal em Demandas, Kanban, Dashboard, Alertas e módulos não implementados (265/265; falta conferir no navegador).
 - Preferências do mascote no backup: campo opcional `mascote` em `guara-dados.json` (306/306). O desfazer da importação não restaura a preferência.
 - Notificações com "Ciente" (até a demanda mudar de situação), adiar para 8h ou 14h do próximo dia útil (pula fim de semana e feriado), lista dos ocultos e seção recolhível (318/318; falta conferir no celular).
@@ -29,20 +30,19 @@
 
 **A fazer, em ordem** (uma por vez, com `npm test` e `npm run build` em cada uma):
 
-1. **Saúde do sistema com nome próprio.** O mascote de lá é escolhido pelo estado (capivara ou lobo-guará) e não usa o nome dado pelo analista.
-2. **Ajuste de ritmo**, depois da conferência no navegador: intervalo da piscada, tempos de tédio e sono, altura dos pulos.
-3. **Confirmar a ocorrência das espécies nos biomas** antes de tratar a arte como definitiva (seção 7.1 do planejamento).
+1. **Ajuste de ritmo**, depois da conferência no navegador: intervalo da piscada, tempos de tédio e sono, altura dos pulos.
+2. **Confirmar a ocorrência das espécies nos biomas** antes de tratar a arte como definitiva (seção 7.1 do planejamento).
 
 **Da avaliação de UX do chat (14/11/2026), ainda não feitos, em ordem:**
 
-4. **Campo de texto que promete menos.** Quase todo texto livre falha ("não entendo linguagem livre"). Aceitar sinônimos simples ("prazo", "vencidas", "o que você faz") e dar mais peso aos atalhos.
-5. **Resposta de "prazos" com valor próprio.** Hoje repete em IDs os avisos já listados acima; dizer o que vence primeiro e em quantos dias úteis.
-6. **Origem uma vez só nas notificações.** As cinco linhas "fato · fonte: demandas deste navegador · data" repetidas; levar para o cabeçalho da seção.
-7. **Notificação que abre a demanda.** Tocar no aviso navega para a demanda citada.
-8. **Espaço da conversa no desktop.** Com cinco avisos, a conversa vira uma faixa estreita; recolher as notificações depois de lidas ou limitar a três.
-9. **Menos rostos.** Tirar o rosto pequeno das notificações (a seção já é do mascote); manter nas falas.
-10. **Lembretes: pendências.** `guara:avisos:v1` no backup exportado. Ideias não escolhidas da conversa de 14/11: ciente e adiar de todos de uma vez, horário de silêncio e preferência por tipo nas Configurações, histórico do ciente no detalhe da demanda.
-11. **Botão para apagar a conversa** (a função `limparConversa` já existe), conversa no backup exportado e preferência do mascote restaurada pelo "Desfazer última importação".
+3. **Campo de texto que promete menos.** Quase todo texto livre falha ("não entendo linguagem livre"). Aceitar sinônimos simples ("prazo", "vencidas", "o que você faz") e dar mais peso aos atalhos.
+4. **Resposta de "prazos" com valor próprio.** Hoje repete em IDs os avisos já listados acima; dizer o que vence primeiro e em quantos dias úteis.
+5. **Origem uma vez só nas notificações.** As cinco linhas "fato · fonte: demandas deste navegador · data" repetidas; levar para o cabeçalho da seção.
+6. **Notificação que abre a demanda.** Tocar no aviso navega para a demanda citada.
+7. **Espaço da conversa no desktop.** Com cinco avisos, a conversa vira uma faixa estreita; recolher as notificações depois de lidas ou limitar a três.
+8. **Menos rostos.** Tirar o rosto pequeno das notificações (a seção já é do mascote); manter nas falas.
+9. **Lembretes: pendências.** `guara:avisos:v1` no backup exportado. Ideias não escolhidas da conversa de 14/11: ciente e adiar de todos de uma vez, horário de silêncio e preferência por tipo nas Configurações, histórico do ciente no detalhe da demanda.
+10. **Botão para apagar a conversa** (a função `limparConversa` já existe), conversa no backup exportado e preferência do mascote restaurada pelo "Desfazer última importação".
 
 **Fora do plano, por decisão:** pontuação, ranking, medir ou registrar tempo parado, opinar sobre o mérito do processo, interromper com pop-up ou som. Da avaliação inicial, não foram escolhidos: guia de primeiros passos, erros com tom humano, lembrete de decisão humana e convite à pausa.
 

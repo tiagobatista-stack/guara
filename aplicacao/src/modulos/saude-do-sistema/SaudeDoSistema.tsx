@@ -11,7 +11,8 @@ import { executarFluxoPadrao, type ExecucaoFluxo } from '@catalogo/fluxo-padrao.
 import { avaliarPadroes, type SituacaoPadrao } from '@catalogo/padroes-orquestracao.ts';
 import { GATE_DESATIVAVEL } from '@catalogo/gate-de-qualidade/gate.ts';
 import { bordaDoEstado, SeloEstado, textoDoEstado } from '../../compartilhado/SeloEstado.tsx';
-import { Mascote, type HumorMascote } from '../../compartilhado/Mascote.tsx';
+import { Mascote, type EspecieMascote, type HumorMascote } from '../../compartilhado/Mascote.tsx';
+import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 
 interface RegistroAuditoria {
   quando: string;
@@ -37,6 +38,7 @@ function Cartao({ titulo, children }: { titulo: string; children: ReactNode }) {
 }
 
 export function SaudeDoSistema() {
+  const preferencias = usePreferenciasMascote();
   const [inativos, setInativos] = useState<Set<string>>(() => new Set());
   const [relatorio, setRelatorio] = useState<RelatorioVerificacao | null>(null);
   const [execucoes, setExecucoes] = useState<ExecucaoFluxo[]>([]);
@@ -71,6 +73,8 @@ export function SaudeDoSistema() {
       : Object.values(relatorio.habilidades).some((r) => r.estado === 'ATENÇÃO')
         ? 'ATENÇÃO'
         : 'OK';
+  // A espécie continua escolhida pelo estado; o nome é o que o analista deu nas Configurações.
+  const especieDaSaude: EspecieMascote = estadoGeral === 'OK' ? 'capivara' : 'lobo-guara';
   const humor: HumorMascote = estadoGeral === 'OK' ? 'tranquilo' : estadoGeral === 'NÃO TESTADO' ? 'cauteloso' : 'atento';
 
   const metricasAgente = (id: string) => {
@@ -90,7 +94,7 @@ export function SaudeDoSistema() {
   return (
     <section aria-labelledby="titulo-saude" className="pagina">
       <header className="cabecalho-saude">
-        <Mascote especie={estadoGeral === 'OK' ? 'capivara' : 'lobo-guara'} humor={humor} tamanho={64} />
+        <Mascote especie={especieDaSaude} humor={humor} tamanho={64} nome={nomeDoMascote(preferencias, especieDaSaude)} />
         <div>
           <h1 id="titulo-saude" className="titulo-pagina">Saúde do sistema</h1>
           <p className="texto-suave texto-medio">

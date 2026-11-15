@@ -1,5 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { SaudeDoSistema } from './SaudeDoSistema.tsx';
+import { nomearMascote } from '../../compartilhado/preferencias-mascote.ts';
 
 const HABILIDADES = [
   'registrar-demanda', 'classificar-demanda', 'extrair-documento', 'montar-checklist', 'conferir-requisitos',
@@ -31,6 +32,17 @@ describe('tela Saúde do sistema', () => {
     expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), cauteloso' })).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
     expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+  });
+
+  it('o mascote usa o nome dado nas Configurações, para a espécie que o estado escolher', () => {
+    localStorage.clear();
+    nomearMascote('lobo-guara', 'Tobias');
+    nomearMascote('capivara', 'Dona Cida');
+    render(<SaudeDoSistema />);
+    expect(screen.getByRole('img', { name: 'Tobias, Lobo-guará (Cerrado), cauteloso' })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    expect(screen.getByRole('img', { name: 'Dona Cida, Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+    localStorage.clear();
   });
 
   it('o revisor não pode ser desativado', () => {
