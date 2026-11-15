@@ -43,3 +43,5 @@
 | 3 | Rolagem única no celular | — | só CSS; o jsdom não calcula layout | NÃO TESTADO |
 
 O desktop (painel fixo à direita) não muda: lá só a conversa rola, como antes.
+
+**Publicação (14/11/2026):** push do responsável até `ee842eb`; a URL pública serve `index-DDzrs3b6.js` e `index-BtIoFIcB.css`, os mesmos do build, e o CSS publicado contém `.gaveta .formulario-conversa{…position:sticky;bottom:0}`. No celular: NÃO TESTADO.
