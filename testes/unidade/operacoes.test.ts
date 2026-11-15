@@ -1,10 +1,10 @@
 import type { Operacao, Ponto } from '../../aplicacao/src/modulos/operacoes/modelo.ts';
 import {
   contarPontosPendentes, distanciaMetros, lerData, operacaoValida, pontosProximos, pontosSemData, pontosSemEquipe,
-  demandasEncaixadas, periodoDosPontos, problemasDeDatas, textoLocalProximo, vinculosDasDemandas, validarListaOperacoes,
+  agruparPontos, demandasEncaixadas, nomesDeGrupos, periodoDosPontos, problemasDeDatas, textoLocalProximo, vinculosDasDemandas, validarListaOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/regras.ts';
 import {
-  alterarPeriodo, alterarPonto, criarOperacao, desvincularDemandaDePonto, incluirDemandaComoPonto, vincularDemandaAPonto, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
+  alterarPeriodo, alterarPonto, criarOperacao, definirGrupo, desvincularDemandaDePonto, incluirDemandaComoPonto, vincularDemandaAPonto, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/armazem.ts';
 
 const ponto = (id: string, extra: Partial<Ponto> = {}): Ponto => ({
@@ -247,5 +247,52 @@ describe('vínculo com demandas', () => {
     const { id: _x, ...base } = ponto('x');
     incluirPontos(id, [{ ...base, demandas: Array.from({ length: 20 }, (_, i) => `d${i}`) }]);
     expect(vincularDemandaAPonto(id, obterOperacoes()[0].pontos[0].id, 'extra')).toBe('O limite é de 20 demandas por ponto.');
+  });
+});
+
+describe('grupos de pontos', () => {
+  beforeEach(() => localStorage.clear());
+
+  it('agruparPontos: grupos em ordem alfabética, "sem grupo" por último, equipes distintas; sem grupo nenhum, vazio', () => {
+    const pontos = [
+      ponto('a', { grupo: 'Fazenda Z', equipe: 'Equipe B' }),
+      ponto('b', { grupo: 'Fazenda X', equipe: 'Equipe A' }),
+      ponto('c', { grupo: 'Fazenda X', equipe: 'Equipe B' }),
+      ponto('d'),
+      ponto('e', { grupo: 'Fazenda X', equipe: 'Equipe A' }),
+    ];
+    const g = agruparPontos(pontos);
+    expect(g.map((x) => x.nome)).toEqual(['Fazenda X', 'Fazenda Z', '']);
+    expect(g[0].pontos.map((p) => p.id)).toEqual(['b', 'c', 'e']);
+    expect(g[0].equipes).toEqual(['Equipe A', 'Equipe B']);
+    expect(g[2].pontos.map((p) => p.id)).toEqual(['d']);
+    expect(agruparPontos([ponto('x'), ponto('y')])).toEqual([]);
+    expect(nomesDeGrupos(pontos)).toEqual(['Fazenda X', 'Fazenda Z']);
+  });
+
+  const comTresPontos = () => {
+    const r = criarOperacao({ nome: 'Op', inicio: '', fim: '', origem: '' }, 'x');
+    if (!r.ok) throw new Error();
+    const { id: _x, ...base } = ponto('x');
+    incluirPontos(r.id, [base, base, base]);
+    return { id: r.id, ids: obterOperacoes()[0].pontos.map((p) => p.id) };
+  };
+
+  it('definirGrupo põe vários pontos no grupo de uma vez e só eles', () => {
+    const { id, ids } = comTresPontos();
+    expect(definirGrupo(id, [ids[0], ids[2]], '  Fazenda   X ')).toBeNull();
+    const pontos = obterOperacoes()[0].pontos;
+    expect(pontos.map((p) => p.grupo)).toEqual(['Fazenda X', undefined, 'Fazenda X']);
+    expect(pontos[1]).not.toHaveProperty('grupo');
+  });
+
+  it('nome vazio tira do grupo; recusa seleção vazia, nome longo e operação inexistente', () => {
+    const { id, ids } = comTresPontos();
+    definirGrupo(id, ids, 'G');
+    expect(definirGrupo(id, [ids[1]], '')).toBeNull();
+    expect(obterOperacoes()[0].pontos.map((p) => p.grupo)).toEqual(['G', undefined, 'G']);
+    expect(definirGrupo(id, [], 'G')).toBe('Selecione ao menos um ponto.');
+    expect(definirGrupo(id, ids, 'x'.repeat(41))).toBe('O nome do grupo pode ter no máximo 40 caracteres.');
+    expect(definirGrupo('nada', ids, 'G')).toBe('Operação não encontrada.');
   });
 });

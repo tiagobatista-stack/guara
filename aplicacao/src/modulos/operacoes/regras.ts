@@ -194,3 +194,34 @@ export function vinculosDasDemandas(operacoes: readonly Operacao[]): Map<string,
 
 /** Ids das demandas já encaixadas em alguma operação. */
 export const demandasEncaixadas = (operacoes: readonly Operacao[]): Set<string> => new Set(vinculosDasDemandas(operacoes).keys());
+
+// ---------- Grupos de pontos ----------
+
+export interface GrupoDePontos {
+  /** Nome do grupo; vazio = pontos sem grupo. */
+  nome: string;
+  pontos: Ponto[];
+  /** Equipes distintas dos pontos do grupo, em ordem alfabética. */
+  equipes: string[];
+}
+
+/** Grupos existentes, em ordem alfabética, com "sem grupo" por último (só se houver). Sem nenhum grupo, devolve lista vazia. */
+export function agruparPontos<T extends Pick<Ponto, 'grupo' | 'equipe'>>(pontos: readonly T[]): { nome: string; pontos: T[]; equipes: string[] }[] {
+  if (!pontos.some((p) => p.grupo?.trim())) return [];
+  const mapa = new Map<string, T[]>();
+  for (const p of pontos) {
+    const nome = p.grupo?.trim() ?? '';
+    mapa.set(nome, [...(mapa.get(nome) ?? []), p]);
+  }
+  const nomes = [...mapa.keys()].filter(Boolean).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  if (mapa.has('')) nomes.push('');
+  return nomes.map((nome) => ({
+    nome,
+    pontos: mapa.get(nome)!,
+    equipes: [...new Set(mapa.get(nome)!.map((p) => p.equipe?.trim()).filter((e): e is string => !!e))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+  }));
+}
+
+/** Nomes de grupo já usados na operação, em ordem alfabética. */
+export const nomesDeGrupos = (pontos: readonly Pick<Ponto, 'grupo'>[]): string[] =>
+  [...new Set(pontos.map((p) => p.grupo?.trim()).filter((g): g is string => !!g))].sort((a, b) => a.localeCompare(b, 'pt-BR'));

@@ -8,10 +8,10 @@ import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { decodificarCsv, importarPontosCsv, type ResultadoCsv } from './importar-csv.ts';
 import { LIMITES_OPERACAO, ROTULOS_SITUACAO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoPonto } from './modelo.ts';
 import {
-  alterarPeriodo, alterarPonto, criarOperacao, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
+  alterarPeriodo, alterarPonto, criarOperacao, definirGrupo, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
 } from './armazem.ts';
 import { exportarCsv, exportarGeoJson, nomeDoArquivo, SRC_EXPORTACAO } from './exportar.ts';
-import { pontosProximos, pontosSemData, pontosSemEquipe, textoLocalProximo } from './regras.ts';
+import { agruparPontos, nomesDeGrupos, pontosProximos, pontosSemData, pontosSemEquipe, textoLocalProximo } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
 const textoPeriodo = (p: { inicio?: string; fim?: string }) =>
@@ -135,7 +135,7 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
 
 // ---------- Um ponto ----------
 
-function CartaoPonto({ operacao, ponto, todas }: { operacao: Operacao; ponto: Ponto; todas: readonly Operacao[] }) {
+function CartaoPonto({ operacao, ponto, todas, selecionado, aoSelecionar }: { operacao: Operacao; ponto: Ponto; todas: readonly Operacao[]; selecionado: boolean; aoSelecionar: (marcado: boolean) => void }) {
   const armazem = useArmazem();
   const { demandas } = useEstadoDemandas();
   const [editando, setEditando] = useState(false);
@@ -186,6 +186,7 @@ function CartaoPonto({ operacao, ponto, todas }: { operacao: Operacao; ponto: Po
 
   return (
     <li className="cartao" data-testid={`ponto-${ponto.id}`}>
+      <label className="texto-pequeno"><input type="checkbox" checked={selecionado} onChange={(e) => aoSelecionar(e.target.checked)} /> <span>Selecionar {rotulo}</span></label>
       <p><strong>{rotulo}</strong>{ponto.municipio && <> · {ponto.municipio}</>} <span className="texto-pequeno texto-suave">({ROTULOS_SITUACAO[ponto.situacao]})</span></p>
       <dl className="dados-definicao">
         <dt>Coordenada</dt><dd className="mono">{formatarGms(ponto.coordenada)}</dd>
@@ -293,13 +294,30 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
   const [equipe, setEquipe] = useState('');
   const [situacao, setSituacao] = useState<'' | SituacaoPonto>('');
   const [soPendentes, setSoPendentes] = useState(false);
+  const [grupoFiltro, setGrupoFiltro] = useState('');
+  const [selecionados, setSelecionados] = useState<ReadonlySet<string>>(new Set());
+  const [nomeGrupo, setNomeGrupo] = useState('');
+  const [erroGrupo, setErroGrupo] = useState<string | null>(null);
+  const [avisoGrupo, setAvisoGrupo] = useState<string | null>(null);
   const equipes = useMemo(() => [...new Set(operacao.pontos.map((p) => p.equipe).filter((e): e is string => !!e))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [operacao.pontos]);
   const semEquipe = pontosSemEquipe(operacao.pontos).length;
   const semData = pontosSemData(operacao.pontos).length;
   const pendentes = new Set([...pontosSemEquipe(operacao.pontos), ...pontosSemData(operacao.pontos)].map((p) => p.id));
   const visiveis = operacao.pontos.filter(
-    (p) => (!equipe || (equipe === 'sem' ? !p.equipe : p.equipe === equipe)) && (!situacao || p.situacao === situacao) && (!soPendentes || pendentes.has(p.id)),
+    (p) => (!equipe || (equipe === 'sem' ? !p.equipe : p.equipe === equipe)) && (!situacao || p.situacao === situacao) && (!soPendentes || pendentes.has(p.id)) &&
+      (!grupoFiltro || (grupoFiltro === 'sem' ? !p.grupo : p.grupo === grupoFiltro)),
   );
+  const grupos = nomesDeGrupos(operacao.pontos);
+  const porGrupo = agruparPontos(visiveis);
+  // Só o que ainda existe e está visível continua selecionado.
+  const marcados = visiveis.filter((p) => selecionados.has(p.id)).map((p) => p.id);
+  const marcar = (id: string, marcado: boolean) =>
+    setSelecionados((s) => { const n = new Set(s); if (marcado) n.add(id); else n.delete(id); return n; });
+  const aplicarGrupo = (nome: string, feito: string) => {
+    const erro = definirGrupo(operacao.id, marcados, nome);
+    setErroGrupo(erro);
+    if (!erro) { setSelecionados(new Set()); setNomeGrupo(''); setAvisoGrupo(feito); }
+  };
 
   return (
     <article aria-labelledby="titulo-operacao">
@@ -329,17 +347,62 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
             <option value="">Todas</option>
             {SITUACOES_PONTO.map((s) => <option key={s} value={s}>{ROTULOS_SITUACAO[s]}</option>)}
           </select></label>
+        <label className="campo-grupo"><span>Grupo</span>
+          <select className="campo" value={grupoFiltro} onChange={(e) => setGrupoFiltro(e.target.value)}>
+            <option value="">Todos</option>
+            {grupos.map((g) => <option key={g}>{g}</option>)}
+            <option value="sem">Sem grupo</option>
+          </select></label>
         <label><input type="checkbox" checked={soPendentes} onChange={(e) => setSoPendentes(e.target.checked)} /> Só os sem equipe ou sem data</label>
       </form>
+
+      {operacao.pontos.length > 0 && (
+        <section className="cartao" aria-labelledby="titulo-agrupar" data-testid="barra-agrupar">
+          <h3 id="titulo-agrupar" className="titulo-secao">Agrupar pontos</h3>
+          <p className="texto-pequeno texto-suave">
+            Grupo é um conjunto de pontos do mesmo assunto (por exemplo, vários pontos da mesma fazenda). Marque os pontos
+            abaixo, escreva o nome do grupo (ou escolha um que já existe) e clique em Agrupar. Equipe e grupo são independentes.
+          </p>
+          <div className="acoes">
+            <span data-testid="contagem-selecionados">{marcados.length} ponto(s) selecionado(s)</span>
+            <button type="button" className="botao botao--pequeno" disabled={visiveis.length === 0} onClick={() => setSelecionados(new Set(visiveis.map((p) => p.id)))}>Selecionar todos os visíveis</button>
+            <button type="button" className="botao botao--pequeno" disabled={marcados.length === 0} onClick={() => setSelecionados(new Set())}>Limpar seleção</button>
+          </div>
+          <div className="grade grade--2">
+            <label className="campo-grupo"><span>Nome do grupo</span>
+              <input className="campo" list="grupos-existentes" value={nomeGrupo} maxLength={LIMITES_OPERACAO.grupo} autoComplete="off" onChange={(e) => setNomeGrupo(e.target.value)} />
+              <datalist id="grupos-existentes">{grupos.map((g) => <option key={g} value={g} />)}</datalist></label>
+          </div>
+          <div className="acoes">
+            <button type="button" className="botao botao--primario" disabled={marcados.length === 0 || !nomeGrupo.trim()} onClick={() => aplicarGrupo(nomeGrupo, `Pontos agrupados em "${nomeGrupo.trim()}".`)}>Agrupar selecionados</button>
+            <button type="button" className="botao" disabled={marcados.length === 0} onClick={() => aplicarGrupo('', 'Pontos tirados do grupo.')}>Tirar do grupo</button>
+          </div>
+          {erroGrupo && <p role="alert" className="erro-campo">{erroGrupo}</p>}
+          {avisoGrupo && !erroGrupo && <p role="status" data-testid="aviso-grupo">{avisoGrupo}</p>}
+        </section>
+      )}
 
       {operacao.pontos.length === 0 ? (
         <EstadoVazio cartao texto="Nenhum ponto nesta operação." dica="Importe um CSV acima para trazer a lista de pontos." />
       ) : visiveis.length === 0 ? (
         <EstadoVazio cartao texto="Nenhum ponto corresponde aos filtros." dica="Mude ou limpe os filtros." />
       ) : (
-        <ul className="lista-limpa grade grade--2" aria-label="Pontos da operação">
-          {visiveis.map((p) => <CartaoPonto key={p.id} operacao={operacao} ponto={p} todas={todas} />)}
-        </ul>
+        porGrupo.length === 0 ? (
+          <ul className="lista-limpa grade grade--2" aria-label="Pontos da operação">
+            {visiveis.map((p) => <CartaoPonto key={p.id} operacao={operacao} ponto={p} todas={todas} selecionado={selecionados.has(p.id)} aoSelecionar={(m) => marcar(p.id, m)} />)}
+          </ul>
+        ) : (
+          porGrupo.map((g) => (
+            <section key={g.nome || 'sem-grupo'} aria-label={g.nome ? `Grupo ${g.nome}` : 'Pontos sem grupo'} data-testid={`secao-grupo-${g.nome || 'sem'}`}>
+              <h3 className="titulo-secao">
+                {g.nome || 'Sem grupo'} <span className="texto-pequeno texto-suave">· {g.pontos.length} ponto(s){g.equipes.length > 0 && <> · {g.equipes.join(', ')}</>}</span>
+              </h3>
+              <ul className="lista-limpa grade grade--2" aria-label={g.nome ? `Pontos do grupo ${g.nome}` : 'Pontos sem grupo'}>
+                {g.pontos.map((p) => <CartaoPonto key={p.id} operacao={operacao} ponto={p} todas={todas} selecionado={selecionados.has(p.id)} aoSelecionar={(m) => marcar(p.id, m)} />)}
+              </ul>
+            </section>
+          ))
+        )
       )}
     </article>
   );

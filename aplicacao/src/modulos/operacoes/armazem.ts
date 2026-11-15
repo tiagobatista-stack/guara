@@ -142,3 +142,22 @@ export function desvincularDemandaDePonto(operacaoId: string, pontoId: string, d
   if (!ponto) return 'Ponto não encontrado.';
   return alterarPonto(operacaoId, pontoId, { demandas: ponto.demandas.filter((id) => id !== demandaId) });
 }
+
+/** Põe os pontos escolhidos num grupo de uma vez; nome vazio tira os pontos do grupo. Devolve o problema ou null. */
+export function definirGrupo(operacaoId: string, pontoIds: readonly string[], grupo: string): string | null {
+  const nome = grupo.replace(/\s+/g, ' ').trim();
+  if (nome.length > LIMITES_OPERACAO.grupo) return `O nome do grupo pode ter no máximo ${LIMITES_OPERACAO.grupo} caracteres.`;
+  if (pontoIds.length === 0) return 'Selecione ao menos um ponto.';
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op) return 'Operação não encontrada.';
+  const alvo = new Set(pontoIds);
+  const pontos = op.pontos.map((p) => {
+    if (!alvo.has(p.id)) return p;
+    const { grupo: _antigo, ...resto } = p;
+    void _antigo;
+    return nome ? { ...resto, grupo: nome } : resto;
+  });
+  lista.gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, pontos } : o)));
+  return null;
+}

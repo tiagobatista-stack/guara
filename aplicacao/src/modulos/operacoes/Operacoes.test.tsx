@@ -256,6 +256,64 @@ describe('exportação dos pontos', () => {
   });
 });
 
+describe('agrupar pontos', () => {
+  const importar = () => {
+    montar();
+    criarEAbrir();
+    fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
+    fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    return obterOperacoes()[0].pontos;
+  };
+
+  it('seleciona vários pontos, agrupa de uma vez e mostra a lista por grupo, com título, quantidade e equipes', () => {
+    const [p1, p2] = importar();
+    expect(screen.getByRole('button', { name: 'Agrupar selecionados' })).toBeDisabled();
+    fireEvent.click(screen.getByLabelText('Selecionar Ponto 1'));
+    fireEvent.click(screen.getByLabelText('Selecionar Ponto 2'));
+    expect(screen.getByTestId('contagem-selecionados')).toHaveTextContent('2 ponto(s) selecionado(s)');
+    expect(screen.getByRole('button', { name: 'Agrupar selecionados' })).toBeDisabled(); // falta o nome
+    fireEvent.change(screen.getByLabelText('Nome do grupo'), { target: { value: 'Fazenda X' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Agrupar selecionados' }));
+    expect(screen.getByTestId('aviso-grupo')).toHaveTextContent('Pontos agrupados em "Fazenda X".');
+    expect(obterOperacoes()[0].pontos.map((p) => p.grupo)).toEqual(['Fazenda X', 'Fazenda X']);
+    const secao = screen.getByTestId('secao-grupo-Fazenda X');
+    expect(secao).toHaveTextContent('Fazenda X');
+    expect(secao).toHaveTextContent('2 ponto(s)');
+    expect(secao).toHaveTextContent('Equipe A');
+    expect(within(secao).getByTestId(`ponto-${p1.id}`)).toBeInTheDocument();
+    expect(within(secao).getByTestId(`ponto-${p2.id}`)).toBeInTheDocument();
+    expect(screen.getByTestId('contagem-selecionados')).toHaveTextContent('0 ponto(s) selecionado(s)');
+  });
+
+  it('tira um ponto do grupo e ele passa para "Sem grupo"; o filtro por grupo funciona', () => {
+    const [p1, p2] = importar();
+    fireEvent.click(screen.getByLabelText('Selecionar Ponto 1'));
+    fireEvent.click(screen.getByLabelText('Selecionar Ponto 2'));
+    fireEvent.change(screen.getByLabelText('Nome do grupo'), { target: { value: 'Fazenda X' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Agrupar selecionados' }));
+    fireEvent.click(screen.getByLabelText('Selecionar Ponto 2'));
+    fireEvent.click(screen.getByRole('button', { name: 'Tirar do grupo' }));
+    expect(obterOperacoes()[0].pontos.find((p) => p.id === p2.id)).not.toHaveProperty('grupo');
+    expect(within(screen.getByTestId('secao-grupo-sem')).getByTestId(`ponto-${p2.id}`)).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText('Grupo'), { target: { value: 'Fazenda X' } });
+    expect(screen.getByTestId(`ponto-${p1.id}`)).toBeInTheDocument();
+    expect(screen.queryByTestId(`ponto-${p2.id}`)).toBeNull();
+    fireEvent.change(screen.getByLabelText('Grupo'), { target: { value: 'sem' } });
+    expect(screen.queryByTestId(`ponto-${p1.id}`)).toBeNull();
+    expect(screen.getByTestId(`ponto-${p2.id}`)).toBeInTheDocument();
+  });
+
+  it('seleciona todos os visíveis e limpa a seleção; sem grupo nenhum a lista segue simples', () => {
+    importar();
+    expect(screen.queryByTestId('secao-grupo-sem')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Selecionar todos os visíveis' }));
+    expect(screen.getByTestId('contagem-selecionados')).toHaveTextContent('2 ponto(s) selecionado(s)');
+    fireEvent.click(screen.getByRole('button', { name: 'Limpar seleção' }));
+    expect(screen.getByTestId('contagem-selecionados')).toHaveTextContent('0 ponto(s) selecionado(s)');
+  });
+});
+
 describe('aviso no Painel', () => {
   it('conta os pontos planejados sem equipe ou sem data', () => {
     const armazem = criarArmazem(localStorage, { gerarId: () => 'id', exemplos: () => [] });

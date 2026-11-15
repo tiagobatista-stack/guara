@@ -44,3 +44,12 @@ O CSV costuma trazer as datas; sem CSV, o período é opcional.
 | 7 | Testes | `npm test` (aplicacao) | 451/451 em 40 arquivos (eram 439; 12 novos) | PASSOU |
 | 8 | Build e MCP | `npm run build`; `node testar-servidor.ts` | ok; 4 = 4 | PASSOU |
 | 9 | Tela no navegador | — | — | NÃO CONFERIDO VISUALMENTE |
+
+## Agrupar pontos (15/11/2026, relato do responsável: "pouco intuitivo")
+Antes, o grupo era um texto digitado ponto a ponto em Editar. Agora: caixa de seleção por ponto, "Selecionar todos os visíveis", campo "Nome do grupo" com sugestão dos grupos existentes, **Agrupar selecionados** e **Tirar do grupo**; a lista mostra uma seção por grupo (nome, quantidade e equipes) e "Sem grupo" por último; filtro "Grupo". Sem nenhum grupo, a lista continua simples. Equipe e grupo são independentes. Arquivos: `operacoes/regras.ts` (`agruparPontos`, `nomesDeGrupos`), `armazem.ts` (`definirGrupo`, uma gravação para vários pontos), `Operacoes.tsx`.
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 10 | Testes | `npm test` (aplicacao) | 483/483 em 41 arquivos (eram 477; 6 novos) | PASSOU |
+| 11 | Build e tipos | `npm run build`; `tsc --noEmit` | ok | PASSOU |
+| 12 | Tela no navegador | — | — | NÃO CONFERIDO VISUALMENTE |
