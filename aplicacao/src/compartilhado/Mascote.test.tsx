@@ -96,6 +96,32 @@ describe('Mascote', () => {
     expect(olhar(svg)).toEqual({ x: '', y: '' });
   });
 
+  it('com alvo, olha para ele quando o ponteiro está parado; o ponteiro tem prioridade; sem alvo, volta ao centro', () => {
+    vi.useFakeTimers();
+    quadroImediato();
+    const alvo = document.createElement('div');
+    alvo.getBoundingClientRect = () =>
+      ({ left: 0, top: 600, width: 256, height: 40, right: 256, bottom: 640, x: 0, y: 600, toJSON: () => ({}) }) as DOMRect;
+    // A caixa do SVG precisa existir antes do primeiro olhar.
+    const caixa = vi.spyOn(SVGElement.prototype, 'getBoundingClientRect').mockReturnValue(
+      { left: 100, top: 100, width: 56, height: 56, right: 156, bottom: 156, x: 100, y: 100, toJSON: () => ({}) } as DOMRect,
+    );
+    const { container, rerender } = render(<Mascote especie="capivara" humor="atento" alvo={alvo} />);
+    const svg = container.querySelector('svg')!;
+    expect(parseFloat(olhar(svg).y)).toBeGreaterThan(0);
+
+    act(() => moverPonteiro(128, -900));
+    expect(parseFloat(olhar(svg).y)).toBeLessThan(0);
+    act(() => {
+      vi.advanceTimersByTime(5000);
+    });
+    expect(parseFloat(olhar(svg).y)).toBeGreaterThan(0);
+
+    rerender(<Mascote especie="capivara" humor="atento" alvo={null} />);
+    expect(olhar(svg)).toEqual({ x: '', y: '' });
+    caixa.mockRestore();
+  });
+
   it('com "reduzir movimento" ativado, os olhos ficam parados', () => {
     quadroImediato();
     vi.stubGlobal('matchMedia', (consulta: string) => ({ matches: consulta.includes('prefers-reduced-motion'), media: consulta }));

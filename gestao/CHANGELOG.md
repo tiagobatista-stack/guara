@@ -23,6 +23,7 @@
 - Assistente com avisos reais: as demandas vencidas, com prazo em até 3 dias úteis ou paradas viram falas curtas do mascote, com origem e data; o humor resume a situação ("Atento: 1 vencida e 2 com prazo próximo."). O aviso fixo e fictício saiu. 271/271 testes.
 - Demanda travada com detalhe livre (opcional, até 300 caracteres) além do motivo; aparece só no detalhe da demanda, não na tela compartilhada, no Kanban nem no MCP. 276/276 testes.
 - Histórico da demanda: criação, cada mudança de status e cada ação do bloqueio (com motivo e detalhe) viram eventos, mostrados no detalhe da demanda. Concluir pelo formulário de edição agora também encerra o bloqueio. 287/287 testes.
+- Mascote olha para o aviso mais urgente quando o ponteiro está parado, e o comando "prazos" usa os mesmos dados dos avisos (antes usava os fictícios fixos). Etapa 4 concluída. 291/291 testes.
 
 ## [0.1.0] — 13/11/2026
 

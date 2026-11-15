@@ -6,10 +6,8 @@ import { useState, type FormEvent } from 'react';
 import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascote.tsx';
 import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
-import { DATA_REFERENCIA, demandasFicticias } from '@dados/demandas.ts';
-import { avaliarPrazos } from '@catalogo/habilidades/avaliar-prazos/implementacao.ts';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
-import { avisosDoDia, resumoDosAvisos, type Aviso } from './avisos.ts';
+import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 
 interface Mensagem {
   autor: 'usuario' | 'assistente';
@@ -18,16 +16,19 @@ interface Mensagem {
   fonte?: string;
 }
 
-function responder(comando: string): Mensagem {
+const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
+
+/** Os mesmos avisos do painel, agrupados por tipo, com o id de cada demanda. */
+function textoDosPrazos(avisos: readonly Aviso[]): string {
+  return (Object.keys(ROTULO_DO_TIPO) as TipoAviso[])
+    .map((tipo) => `${ROTULO_DO_TIPO[tipo]}: ${avisos.filter((a) => a.tipo === tipo).map((a) => a.id).join(', ') || 'nenhuma'}.`)
+    .join(' ');
+}
+
+function responder(comando: string, avisos: readonly Aviso[], origem: string): Mensagem {
   const c = comando.trim().toLowerCase();
   if (c.startsWith('prazos')) {
-    const r = avaliarPrazos({ dataReferencia: DATA_REFERENCIA, diasInatividade: 5, diasPrazoProximo: 3, demandas: demandasFicticias });
-    return {
-      autor: 'assistente',
-      natureza: 'fato',
-      fonte: 'habilidade avaliar-prazos sobre dados fictícios',
-      texto: `Prazo próximo: ${r.prazoProximo.join(', ') || 'nenhuma'}. Paradas há 5+ dias: ${r.paradas.join(', ') || 'nenhuma'}.`,
-    };
+    return { autor: 'assistente', natureza: 'fato', fonte: origem, texto: textoDosPrazos(avisos) };
   }
   if (c.startsWith('ajuda')) {
     return { autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos", "ajuda".' };
@@ -64,6 +65,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const nome = nomeDoMascote(preferencias, especie);
   const temNomeProprio = nome !== MASCOTES[especie].nome;
   const [texto, setTexto] = useState('');
+  // O mascote olha para o primeiro aviso (o mais urgente) quando o ponteiro está parado.
+  const [primeiroAviso, setPrimeiroAviso] = useState<HTMLLIElement | null>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([
     { autor: 'assistente', natureza: 'fato', fonte: 'sistema', texto: 'Olá! Trabalho só com dados fictícios. Digite "ajuda".' },
   ]);
@@ -71,7 +74,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const enviar = (e: FormEvent) => {
     e.preventDefault();
     if (!texto.trim()) return;
-    setMensagens((m) => [...m, { autor: 'usuario', texto }, responder(texto)]);
+    setMensagens((m) => [...m, { autor: 'usuario', texto }, responder(texto, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
     setTexto('');
   };
 
@@ -86,7 +89,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     <div className="assistente">
       <div className="assistente-topo">
         <div className="mascote-palco">
-          <Mascote especie={especie} humor={humor} tamanho={88} nome={nome} />
+          <Mascote especie={especie} humor={humor} tamanho={88} nome={nome} alvo={avisos.length > 0 ? primeiroAviso : null} />
         </div>
         <div>
           <p>
@@ -102,9 +105,9 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         {avisos.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
         {avisos.length > 0 && (
           <ul className="lista-limpa avisos-assistente">
-            {avisos.slice(0, MAXIMO_DE_AVISOS).map((aviso) => (
+            {avisos.slice(0, MAXIMO_DE_AVISOS).map((aviso, i) => (
               // Cada aviso é uma fala curta do mascote, com a origem e a data do cálculo.
-              <li key={aviso.id} className="fala" data-testid={`aviso-${aviso.id}`} data-tipo={aviso.tipo}>
+              <li key={aviso.id} ref={i === 0 ? setPrimeiroAviso : undefined} className="fala" data-testid={`aviso-${aviso.id}`} data-tipo={aviso.tipo}>
                 <Mascote especie={especie} humor="atento" tamanho={28} decorativo />
                 <div className="mensagem">
                   <span className="sr-only">{nome}: </span>

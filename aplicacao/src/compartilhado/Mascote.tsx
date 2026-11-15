@@ -1,6 +1,7 @@
 // Mascotes Fofofauna em SVG próprio, estilo ilustrado (redesenho, etapa 1).
 // Os mascotes apresentam resultados: não são agentes e não alteram capacidades.
-// Os olhos acompanham o ponteiro (ou o último toque) e voltam ao centro depois de um tempo parado.
+// Os olhos acompanham o ponteiro (ou o último toque) e, depois de um tempo parado, voltam ao centro
+// ou, se houver um alvo (o aviso que pede atenção), olham para ele.
 // O mascote pisca de tempos em tempos e dá um pulinho quando recebe um clique ou toque.
 // Sem atividade na página, fica entediado, depois sonolento e por fim dorme; qualquer atividade
 // ou mudança de humor o acorda. Comemora quando o aplicativo chama comemorarMascotes().
@@ -308,6 +309,7 @@ export function Mascote({
   tamanho = 56,
   decorativo = false,
   nome,
+  alvo = null,
 }: {
   especie: EspecieMascote;
   humor: HumorMascote;
@@ -316,6 +318,8 @@ export function Mascote({
   nome?: string;
   /** Rosto pequeno de apoio (ao lado de uma fala, por exemplo): escondido do leitor de tela e com os olhos parados. */
   decorativo?: boolean;
+  /** Elemento para onde o mascote olha quando o ponteiro está parado (o aviso que pede atenção, por exemplo). */
+  alvo?: Element | null;
 }) {
   const m = MASCOTES[especie];
   const rosto = ROSTOS[especie];
@@ -402,7 +406,12 @@ export function Mascote({
   useEffect(() => {
     const svg = referencia.current;
     if (!svg || decorativo || prefereMenosMovimento()) return undefined;
-    return acompanharPonteiro((ponto) => {
+    const centroDoAlvo = (): Ponto | null => {
+      if (!alvo) return null;
+      const caixa = alvo.getBoundingClientRect();
+      return caixa.width === 0 && caixa.height === 0 ? null : { x: caixa.left + caixa.width / 2, y: caixa.top + caixa.height / 2 };
+    };
+    const mirar = (ponto: Ponto | null) => {
       // O deslocamento vai em variáveis CSS do próprio SVG; estilos.css aplica nas pupilas.
       if (!ponto) {
         svg.style.removeProperty('--olhar-x');
@@ -417,8 +426,11 @@ export function Mascote({
       const forca = Math.min(distancia / (caixa.width * 1.5), 1) * ALCANCE_DO_OLHAR;
       svg.style.setProperty('--olhar-x', `${((dx / distancia) * forca).toFixed(2)}px`);
       svg.style.setProperty('--olhar-y', `${((dy / distancia) * forca).toFixed(2)}px`);
-    });
-  }, [decorativo]);
+    };
+    // Sem ponteiro recente, olha para o alvo (ou volta ao centro, se não houver).
+    mirar(ultimoPonto ?? centroDoAlvo());
+    return acompanharPonteiro((ponto) => mirar(ponto ?? centroDoAlvo()));
+  }, [decorativo, alvo]);
 
   return (
     <svg

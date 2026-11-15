@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from '@testing-library/react';
-import { beforeEach, describe, expect, it } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { escolherPrincipal, nomearMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import type { EntradaDemanda } from '../demandas/modelo.ts';
@@ -30,6 +30,7 @@ function enviar(comando: string) {
 }
 
 beforeEach(() => localStorage.clear());
+afterEach(() => vi.restoreAllMocks());
 
 describe('painel do assistente: mascote', () => {
   it('com demanda que pede atenção, o mascote fica atento e resume os avisos em texto', () => {
@@ -51,6 +52,36 @@ describe('painel do assistente: mascote', () => {
     act(() => { armazem.criar(entrada('Conferir prazo antigo (fictício)', '2026-11-10')); });
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Atento: 1 vencida.');
     expect(screen.getByTestId('aviso-DEM-2')).toHaveTextContent('vencido há 3 dias úteis.');
+  });
+
+  it('com aviso, o mascote olha para o primeiro aviso', () => {
+    const caixa = (top: number) => ({ left: 0, top, width: 88, height: 88, right: 88, bottom: top + 88, x: 0, y: top, toJSON: () => ({}) }) as DOMRect;
+    vi.spyOn(SVGElement.prototype, 'getBoundingClientRect').mockReturnValue(caixa(0));
+    vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue(caixa(500));
+    const { container } = montar();
+    const mascote = container.querySelector<SVGSVGElement>('svg.mascote--vivo')!;
+    expect(parseFloat(mascote.style.getPropertyValue('--olhar-y'))).toBeGreaterThan(0);
+  });
+
+  it('sem aviso, o olhar fica no centro', () => {
+    vi.spyOn(SVGElement.prototype, 'getBoundingClientRect').mockReturnValue(
+      { left: 0, top: 0, width: 88, height: 88, right: 88, bottom: 88, x: 0, y: 0, toJSON: () => ({}) } as DOMRect,
+    );
+    const { container } = montar([entrada('Prazo distante (fictício)', '2026-11-30')]);
+    expect(container.querySelector<SVGSVGElement>('svg.mascote--vivo')!.style.getPropertyValue('--olhar-y')).toBe('');
+  });
+
+  it('o comando "prazos" responde com os mesmos dados dos avisos, com origem e data', () => {
+    montar([
+      entrada('Prazo antigo (fictício)', '2026-11-10'),
+      entrada('Vence hoje (fictício)', '2026-11-13'),
+      entrada('Prazo distante (fictício)', '2026-11-30'),
+    ]);
+    enviar('prazos');
+    const falas = document.querySelectorAll('.conversa li.fala');
+    const resposta = falas[falas.length - 1];
+    expect(resposta).toHaveTextContent('Vencidas: DEM-1. Prazo próximo: DEM-2. Paradas: nenhuma.');
+    expect(resposta).toHaveTextContent('fato · fonte: demandas deste navegador · 13/11/2026');
   });
 
   it('mostra no máximo 5 avisos e indica onde ver os demais', () => {
