@@ -1,4 +1,4 @@
-import { act, fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { escolherPrincipal, nomearMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
@@ -118,6 +118,20 @@ describe('painel do assistente: mascote', () => {
     expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendo linguagem livre');
     expect(rolar).toHaveBeenLastCalledWith({ block: 'nearest' });
     delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it('atalhos "prazos" e "ajuda" enviam o comando sem digitar, e o campo continua como estava', () => {
+    const { container } = montar();
+    const atalhos = screen.getByRole('group', { name: 'Atalhos de comando' });
+    fireEvent.change(screen.getByLabelText('Mensagem ao assistente'), { target: { value: 'rascunho' } });
+    fireEvent.click(within(atalhos).getByRole('button', { name: 'ajuda' }));
+    expect(container.querySelector('.conversa li.mensagem--usuario')).toHaveTextContent('Você: ajuda');
+    expect(container.querySelectorAll('.conversa li.fala')[1]).toHaveTextContent('Comandos disponíveis: "prazos", "ajuda".');
+    expect(screen.getByLabelText('Mensagem ao assistente')).toHaveValue('rascunho');
+
+    fireEvent.click(within(atalhos).getByRole('button', { name: 'prazos' }));
+    expect(container.querySelectorAll('.conversa li.mensagem--usuario')[1]).toHaveTextContent('Você: prazos');
+    expect(screen.getByText(/Prazo próximo: DEM-1/)).toBeInTheDocument();
   });
 
   it('mostra no máximo 5 avisos e indica onde ver os demais', () => {

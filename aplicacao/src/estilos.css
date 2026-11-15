@@ -141,9 +141,9 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .gaveta-topo { display: flex; align-items: center; justify-content: space-between; padding: 8px; }
 /* Na gaveta (celular e tablet), uma rolagem só: o painel inteiro rola abaixo do "fechar", e o campo
    de digitar fica preso embaixo. O scroll-padding impede que a última fala fique atrás do campo. */
-.gaveta .assistente { flex: 1; height: auto; min-height: 0; overflow-y: auto; scroll-padding-bottom: 88px; }
+.gaveta .assistente { flex: 1; height: auto; min-height: 0; overflow-y: auto; scroll-padding-bottom: 140px; }
 .gaveta .conversa { flex: none; overflow: visible; }
-.gaveta .formulario-conversa { position: sticky; bottom: 0; background: var(--superficie); }
+.gaveta .rodape-conversa { position: sticky; bottom: 0; background: var(--superficie); }
 
 .botao-icone { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 
@@ -313,7 +313,9 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .avisos-assistente { display: grid; gap: 8px; }
 .mensagem--usuario { background: var(--guara-100); margin: 0 0 0 32px; }
 .mensagem-meta { display: block; margin-top: 4px; font-size: 11px; color: var(--texto-suave); }
-.formulario-conversa { display: flex; gap: 8px; padding: 12px; border-top: 1px solid var(--borda); }
+.rodape-conversa { border-top: 1px solid var(--borda); }
+.atalhos-conversa { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 12px 0; }
+.formulario-conversa { display: flex; gap: 8px; padding: 12px; }
 .formulario-conversa label { flex: 1; }
 .campo { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--borda); background: transparent; }
 .seletor { border-radius: 6px; border: 1px solid var(--borda); background: transparent; font-size: 12px; }

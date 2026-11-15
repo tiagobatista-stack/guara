@@ -60,7 +60,8 @@
 35. **Correção da conversa no celular (14/11/2026), relato do responsável, na `main`:** rolagem até a última fala e altura da gaveta corrigida. 1 teste novo (falha sem a correção); total 296/296, build ok. A parte de CSS: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-conversa-no-celular.md`.
 36. **Publicação (14/11/2026):** mascote no celular e correção da conversa na URL pública (`origin/main` = `d0c7b2d`, bundle `index-CCt-fixf.js`, CSS da gaveta conferido). No celular: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-celular.md`.
 37. **Ajuste da gaveta (14/11/2026), relato do responsável ("duas divisões de tela"):** uma rolagem só no painel da gaveta, com o campo de digitar preso embaixo. Só CSS; 296/296, build ok. No celular: NÃO TESTADO. **Publicado** (`ee842eb`, `index-BtIoFIcB.css` na URL pública). Detalhes em `metodologia/evidencias/2026-11-14-conversa-no-celular.md`.
-38. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+38. **Atalhos de comando na conversa (14/11/2026), na `main`:** botões "prazos" e "ajuda" acima do campo de digitar. 1 teste novo; total 297/297, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-atalhos-de-comando.md`.
+39. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 

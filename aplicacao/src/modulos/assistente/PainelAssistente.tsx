@@ -60,6 +60,9 @@ const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote>
   sugestão: 'curioso',
 };
 
+// Comandos oferecidos como atalho abaixo da conversa.
+const ATALHOS = ['prazos', 'ajuda'] as const;
+
 // Avisos mostrados de uma vez; os demais ficam no Dashboard e em Alertas.
 const MAXIMO_DE_AVISOS = 5;
 
@@ -116,7 +119,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const [primeiroAviso, setPrimeiroAviso] = useState<HTMLLIElement | null>(null);
   const conversa = useRef<HTMLOListElement>(null);
   const [mensagens, setMensagens] = useState<Mensagem[]>([
-    { autor: 'assistente', natureza: 'fato', fonte: 'sistema', texto: 'Olá! Trabalho só com dados fictícios. Digite "ajuda".' },
+    { autor: 'assistente', natureza: 'fato', fonte: 'sistema', texto: 'Olá! Trabalho só com dados fictícios. Toque em um atalho abaixo ou digite um comando.' },
   ]);
 
   // A cada fala nova, a conversa rola até a última (no celular, a área da conversa é pequena).
@@ -125,10 +128,14 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     if (ultima && typeof ultima.scrollIntoView === 'function') ultima.scrollIntoView({ block: 'nearest' });
   }, [mensagens.length]);
 
+  const enviarComando = (comando: string) => {
+    if (!comando.trim()) return;
+    setMensagens((m) => [...m, { autor: 'usuario', texto: comando }, ...responder(comando, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+  };
+
   const enviar = (e: FormEvent) => {
     e.preventDefault();
-    if (!texto.trim()) return;
-    setMensagens((m) => [...m, { autor: 'usuario', texto }, ...responder(texto, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+    enviarComando(texto);
     setTexto('');
   };
 
@@ -200,20 +207,28 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         )}
       </ol>
 
-      <form onSubmit={enviar} className="formulario-conversa">
-        <label>
-          <span className="sr-only">Mensagem ao assistente</span>
-          <input
-            value={texto}
-            onChange={(e) => setTexto(e.target.value)}
-            placeholder='Ex.: "prazos"'
-            className="campo"
-          />
-        </label>
-        <button type="submit" className="botao botao--primario" aria-label="Enviar">
-          <Icone nome="enviar" />
-        </button>
-      </form>
+      <div className="rodape-conversa">
+        {/* Atalhos: os mesmos comandos, sem precisar digitar (útil no celular). */}
+        <div className="atalhos-conversa" role="group" aria-label="Atalhos de comando">
+          {ATALHOS.map((comando) => (
+            <button key={comando} type="button" className="botao" onClick={() => enviarComando(comando)}>{comando}</button>
+          ))}
+        </div>
+        <form onSubmit={enviar} className="formulario-conversa">
+          <label>
+            <span className="sr-only">Mensagem ao assistente</span>
+            <input
+              value={texto}
+              onChange={(e) => setTexto(e.target.value)}
+              placeholder='Ex.: "prazos"'
+              className="campo"
+            />
+          </label>
+          <button type="submit" className="botao botao--primario" aria-label="Enviar">
+            <Icone nome="enviar" />
+          </button>
+        </form>
+      </div>
     </div>
   );
 }
