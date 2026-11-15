@@ -70,7 +70,14 @@
 45. **Saúde do sistema com nome próprio (14/11/2026), na `main`:** o mascote da tela usa o nome dado nas Configurações. 1 teste novo; total 322/322, build ok. Tela: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-saude-com-nome-proprio.md`.
 46. **Coordenada da demanda (14/11/2026), pedido do responsável, na `main`:** campo opcional, leitura de vários formatos, gravação em graus decimais. 34 testes novos; total 356/356, build ok, MCP 4 = 4. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-coordenadas-da-demanda.md`.
 47. **MCP quebrado desde `4b6fd96`, corrigido (14/11/2026):** `.tsx` na cadeia de imports do servidor. Evidência em `metodologia/evidencias/2026-11-14-mcp-sem-tsx.md`.
+<<<<<<< Updated upstream
 48. **Próxima sessão:** o responsável definiu que, depois da coordenada, vem **o banco de dados no Supabase** (branch separada, decisão D10; cada passo com conta, termos ou configuração pede autorização). Siga também `gestao/BACKLOG.md`. siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+=======
+48. **Banco: migrações e RLS (14/11/2026), branch `supabase-banco`:** `demandas`, `eventos_demanda` e `configuracoes` com RLS por dono, testadas num PostgreSQL local (PGlite): 23 verificações PASSOU, contraprova sem RLS acusa 4 falhas. Supabase real: NÃO CONFIGURADO (pede autorização). Evidência em `metodologia/evidencias/2026-11-14-banco-migracoes-rls.md`.
+49. **Reverificação no início da sessão (15/11/2026), branch `supabase-banco`:** 356/356, build ok, banco 23 PASSOU, hook 8/8, MCP 4 = 4. Evidência em `metodologia/evidencias/2026-11-15-reverificacao-inicio-sessao.md`.
+49a. **Bloco de bloqueio no detalhe da demanda reorganizado (15/11/2026), branch `supabase-banco`:** seção própria, botões agrupados por função, caixa de detalhe em branco depois do envio (em branco mantém o detalhe; botão "Apagar detalhe" para remover). Teste existente ampliado; 356/356, build ok (executados pelo responsável). Tela: NÃO CONFERIDO VISUALMENTE. Não commitado. Evidência em `metodologia/evidencias/2026-11-15-detalhe-demanda-bloqueio.md`.
+50. **Próxima sessão:** o responsável definiu que, depois da coordenada, vem **o banco de dados no Supabase** (branch separada, decisão D10; cada passo com conta, termos ou configuração pede autorização). Siga também `gestao/BACKLOG.md`. siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+>>>>>>> Stashed changes
 
 ## Comandos
 
@@ -92,7 +99,8 @@ python -m unittest testes/unidade/test_hook_verificar_comando.py
 Teste do MCP (cliente real):
 
 ```bash
-node servidor-mcp/testar-servidor.ts
+cd servidor-mcp
+node testar-servidor.ts
 ```
 
 ## Problemas conhecidos
