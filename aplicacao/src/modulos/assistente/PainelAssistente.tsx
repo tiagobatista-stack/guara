@@ -8,13 +8,7 @@ import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/prefe
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
 import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
-
-interface Mensagem {
-  autor: 'usuario' | 'assistente';
-  texto: string;
-  natureza?: 'fato' | 'inferência' | 'sugestão';
-  fonte?: string;
-}
+import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
 
@@ -43,7 +37,7 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string): M
     ];
   }
   if (c.startsWith('ajuda')) {
-    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos", "ajuda".' }];
+    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos" (lista as demandas vencidas, com prazo próximo e paradas) e "ajuda". Os atalhos abaixo enviam esses comandos.' }];
   }
   return [{
     autor: 'assistente',
@@ -60,8 +54,17 @@ const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote>
   sugestão: 'curioso',
 };
 
-// Comandos oferecidos como atalho abaixo da conversa.
-const ATALHOS = ['prazos', 'ajuda'] as const;
+// Comandos oferecidos como atalho abaixo da conversa: rótulo em linguagem de gente, comando por trás.
+const ATALHOS: readonly { rotulo: string; comando: string }[] = [
+  { rotulo: 'Ver prazos', comando: 'prazos' },
+  { rotulo: 'O que você faz?', comando: 'ajuda' },
+];
+
+// Primeira fala, sempre no topo da conversa (não é gravada).
+const SAUDACAO: Mensagem = {
+  autor: 'assistente', natureza: 'fato', fonte: 'sistema',
+  texto: 'Olá! Trabalho só com dados fictícios. Escolha um atalho abaixo ou digite um comando.',
+};
 
 // Avisos mostrados de uma vez; os demais ficam no Dashboard e em Alertas.
 const MAXIMO_DE_AVISOS = 5;
@@ -118,9 +121,9 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   // O mascote olha para o primeiro aviso (o mais urgente) quando o ponteiro está parado.
   const [primeiroAviso, setPrimeiroAviso] = useState<HTMLLIElement | null>(null);
   const conversa = useRef<HTMLOListElement>(null);
-  const [mensagens, setMensagens] = useState<Mensagem[]>([
-    { autor: 'assistente', natureza: 'fato', fonte: 'sistema', texto: 'Olá! Trabalho só com dados fictícios. Toque em um atalho abaixo ou digite um comando.' },
-  ]);
+  // A conversa fica guardada neste navegador: fechar a gaveta ou recarregar não a apaga.
+  const guardadas = useConversa();
+  const mensagens = [SAUDACAO, ...guardadas];
 
   // A cada fala nova, a conversa rola até a última (no celular, a área da conversa é pequena).
   useEffect(() => {
@@ -130,7 +133,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
 
   const enviarComando = (comando: string) => {
     if (!comando.trim()) return;
-    setMensagens((m) => [...m, { autor: 'usuario', texto: comando }, ...responder(comando, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, avisos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -210,8 +213,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
       <div className="rodape-conversa">
         {/* Atalhos: os mesmos comandos, sem precisar digitar (útil no celular). */}
         <div className="atalhos-conversa" role="group" aria-label="Atalhos de comando">
-          {ATALHOS.map((comando) => (
-            <button key={comando} type="button" className="botao" onClick={() => enviarComando(comando)}>{comando}</button>
+          {ATALHOS.map(({ rotulo, comando }) => (
+            <button key={comando} type="button" className="botao" onClick={() => enviarComando(comando)}>{rotulo}</button>
           ))}
         </div>
         <form onSubmit={enviar} className="formulario-conversa">
@@ -222,6 +225,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
               onChange={(e) => setTexto(e.target.value)}
               placeholder='Ex.: "prazos"'
               className="campo"
+              autoComplete="off"
+              enterKeyHint="send"
             />
           </label>
           <button type="submit" className="botao botao--primario" aria-label="Enviar">

@@ -4,6 +4,7 @@ import { escolherPrincipal, nomearMascote } from '../../compartilhado/preferenci
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import type { EntradaDemanda } from '../demandas/modelo.ts';
 import { PainelAssistente } from './PainelAssistente.tsx';
+import { CHAVE_CONVERSA, limparConversa, MAXIMO_DE_FALAS } from './conversa.ts';
 
 // Sexta, 13/11/2026.
 const AGORA = () => new Date('2026-11-13T12:00:00.000Z');
@@ -29,7 +30,7 @@ function enviar(comando: string) {
   fireEvent.click(screen.getByRole('button', { name: 'Enviar' }));
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => { localStorage.clear(); limparConversa(); localStorage.clear(); });
 afterEach(() => vi.restoreAllMocks());
 
 describe('painel do assistente: mascote', () => {
@@ -113,23 +114,23 @@ describe('painel do assistente: mascote', () => {
     montar();
     enviar('ajuda');
     const ultima = rolar.mock.contexts.at(-1) as Element;
-    expect(ultima).toHaveTextContent('Comandos disponíveis: "prazos", "ajuda".');
+    expect(ultima).toHaveTextContent('Comandos disponíveis: "prazos"');
     enviar('bom dia');
     expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendo linguagem livre');
     expect(rolar).toHaveBeenLastCalledWith({ block: 'nearest' });
     delete (Element.prototype as Partial<Element>).scrollIntoView;
   });
 
-  it('atalhos "prazos" e "ajuda" enviam o comando sem digitar, e o campo continua como estava', () => {
+  it('atalhos "Ver prazos" e "O que você faz?" enviam o comando sem digitar, e o campo continua como estava', () => {
     const { container } = montar();
     const atalhos = screen.getByRole('group', { name: 'Atalhos de comando' });
     fireEvent.change(screen.getByLabelText('Mensagem ao assistente'), { target: { value: 'rascunho' } });
-    fireEvent.click(within(atalhos).getByRole('button', { name: 'ajuda' }));
+    fireEvent.click(within(atalhos).getByRole('button', { name: 'O que você faz?' }));
     expect(container.querySelector('.conversa li.mensagem--usuario')).toHaveTextContent('Você: ajuda');
-    expect(container.querySelectorAll('.conversa li.fala')[1]).toHaveTextContent('Comandos disponíveis: "prazos", "ajuda".');
+    expect(container.querySelectorAll('.conversa li.fala')[1]).toHaveTextContent('Comandos disponíveis: "prazos"');
     expect(screen.getByLabelText('Mensagem ao assistente')).toHaveValue('rascunho');
 
-    fireEvent.click(within(atalhos).getByRole('button', { name: 'prazos' }));
+    fireEvent.click(within(atalhos).getByRole('button', { name: 'Ver prazos' }));
     expect(container.querySelectorAll('.conversa li.mensagem--usuario')[1]).toHaveTextContent('Você: prazos');
     expect(screen.getByText(/Prazo próximo: DEM-1/)).toBeInTheDocument();
   });
@@ -173,5 +174,40 @@ describe('painel do assistente: mascote', () => {
     expect(screen.getByTestId('nome-do-mascote')).toHaveTextContent('Tobias');
     expect(container.querySelector('.conversa li.fala svg')!.getAttribute('data-especie')).toBe('lobo-guara');
     expect(container.querySelector('.conversa li.fala')).toHaveTextContent('Tobias:');
+  });
+
+  it('a conversa fica guardada: fechar e reabrir o painel (ou recarregar) mantém as falas depois da saudação', () => {
+    const primeira = montar();
+    enviar('ajuda');
+    primeira.unmount();
+
+    const { container } = montar();
+    const itens = container.querySelectorAll('.conversa li');
+    expect(itens).toHaveLength(3);
+    expect(itens[0]).toHaveTextContent('Olá! Trabalho só com dados fictícios');
+    expect(itens[1]).toHaveTextContent('Você: ajuda');
+    expect(itens[2]).toHaveTextContent('Comandos disponíveis');
+    expect(JSON.parse(localStorage.getItem(CHAVE_CONVERSA)!)).toHaveLength(2);
+  });
+
+  it('a conversa guardada tem um teto de falas e descarta gravação inválida', () => {
+    localStorage.setItem(CHAVE_CONVERSA, JSON.stringify([{ autor: 'robô', texto: 'x' }, { autor: 'usuario', texto: 'prazos' }, 'lixo']));
+    const { container, unmount } = montar();
+    expect(container.querySelectorAll('.conversa li')).toHaveLength(2);
+    expect(container.querySelectorAll('.conversa li')[1]).toHaveTextContent('Você: prazos');
+    unmount();
+
+    localStorage.setItem(CHAVE_CONVERSA, '{nada');
+    const segunda = montar();
+    expect(segunda.container.querySelectorAll('.conversa li')).toHaveLength(1);
+    for (let i = 0; i < MAXIMO_DE_FALAS; i++) enviar('ajuda');
+    expect(JSON.parse(localStorage.getItem(CHAVE_CONVERSA)!)).toHaveLength(MAXIMO_DE_FALAS);
+  });
+
+  it('o campo de digitar pede o teclado de "enviar" no celular e não sugere textos antigos', () => {
+    montar();
+    const campo = screen.getByLabelText('Mensagem ao assistente');
+    expect(campo).toHaveAttribute('enterkeyhint', 'send');
+    expect(campo).toHaveAttribute('autocomplete', 'off');
   });
 });

@@ -4,6 +4,7 @@
 
 ### Adicionado
 
+- Conversa do assistente guardada neste navegador (`guara:conversa:v1`, até 60 falas), compartilhada pelo painel fixo e pela gaveta; gaveta do assistente e do menu como diálogo de verdade (foco, Esc, toque no fundo, Tab preso); atalhos "Ver prazos" e "O que você faz?". 304/304 testes.
 - Prazo em dias úteis com feriados nacionais (Páscoa calculada, sem rede) em `alertas/dias-uteis.ts`, com a lógica reescrita a partir do TOCA. O Dashboard, o Kanban e Demandas mostram "faltam N dias úteis" ou "vencido há N dias úteis". A regra de vencida não mudou. 135/135 testes.
 - Tempo em andamento, ideia vinda do TOCA: demandas "Em Andamento" mostram "em andamento · última ação há N dias" no Kanban e em Demandas, contados da última ação relevante. O modelo não mudou. 139/139 testes.
 - Demanda travada, ideia vinda do TOCA: campo opcional `bloqueio` (motivo por categoria e data), botões no detalhe, linha no Kanban e na lista, filtro "Bloqueio" e reavaliação ("Ainda travada" ou "Destravou") no alerta de inatividade. Formato `versao: 1` mantido; dados antigos continuam válidos. 155/155 testes.

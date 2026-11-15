@@ -21,6 +21,7 @@
 - Presença no celular e no tablet: rosto vivo do principal no botão que abre o assistente, atento com aviso (295/295; falta conferir em celular real).
 - Atalhos "prazos" e "ajuda" na conversa (297/297; falta conferir no navegador).
 - Etapa 6: estados vazios com o rosto do principal em Demandas, Kanban, Dashboard, Alertas e módulos não implementados (265/265; falta conferir no navegador).
+- Da avaliação de UX do chat (14/11/2026): conversa guardada no navegador (`guara:conversa:v1`), gaveta com foco, Esc, toque no fundo e Tab preso; atalhos "Ver prazos" e "O que você faz?"; campo com teclado de enviar (304/304; falta conferir no navegador e com leitor de tela).
 
 **A fazer, em ordem** (uma por vez, com `npm test` e `npm run build` em cada uma):
 
@@ -30,6 +31,16 @@
 4. **Saúde do sistema com nome próprio.** O mascote de lá é escolhido pelo estado (capivara ou lobo-guará) e não usa o nome dado pelo analista.
 5. **Ajuste de ritmo**, depois da conferência no navegador: intervalo da piscada, tempos de tédio e sono, altura dos pulos.
 6. **Confirmar a ocorrência das espécies nos biomas** antes de tratar a arte como definitiva (seção 7.1 do planejamento).
+
+**Da avaliação de UX do chat (14/11/2026), ainda não feitos, em ordem:**
+
+7. **Campo de texto que promete menos.** Quase todo texto livre falha ("não entendo linguagem livre"). Aceitar sinônimos simples ("prazo", "vencidas", "o que você faz") e dar mais peso aos atalhos.
+8. **Resposta de "prazos" com valor próprio.** Hoje repete em IDs os avisos já listados acima; dizer o que vence primeiro e em quantos dias úteis.
+9. **Origem uma vez só nas notificações.** As cinco linhas "fato · fonte: demandas deste navegador · data" repetidas; levar para o cabeçalho da seção.
+10. **Notificação que abre a demanda.** Tocar no aviso navega para a demanda citada.
+11. **Espaço da conversa no desktop.** Com cinco avisos, a conversa vira uma faixa estreita; recolher as notificações depois de lidas ou limitar a três.
+12. **Menos rostos.** Tirar o rosto pequeno das notificações (a seção já é do mascote); manter nas falas.
+13. **Botão para apagar a conversa** (a função `limparConversa` já existe) e conversa no backup exportado, junto com as preferências (item 1).
 
 **Fora do plano, por decisão:** pontuação, ranking, medir ou registrar tempo parado, opinar sobre o mérito do processo, interromper com pop-up ou som. Da avaliação inicial, não foram escolhidos: guia de primeiros passos, erros com tom humano, lembrete de decisão humana e convite à pausa.
 

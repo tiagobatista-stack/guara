@@ -4,7 +4,7 @@
 // Smartphone: barra inferior com os módulos principais, menu completo em gaveta
 // e botão flutuante para a conversa. Regras de layout em estilos.css.
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { Icone } from '../compartilhado/Icone.tsx';
 import { modulos, moduloDaRota } from './registro-modulos.ts';
 import { Painel } from '../modulos/painel/Painel.tsx';
@@ -17,6 +17,7 @@ import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
 import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosDoDia } from '../modulos/assistente/PainelAssistente.tsx';
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
+import { Gaveta } from '../compartilhado/Gaveta.tsx';
 
 function useRota(): [string, (id: string) => void] {
   const [rota, setRota] = useState(() => moduloDaRota(window.location.hash));
@@ -43,6 +44,9 @@ export function Aplicacao() {
   const [rota, navegar] = useRota();
   const [menuAberto, setMenuAberto] = useState(false);
   const [conversaAberta, setConversaAberta] = useState(false);
+  // Funções estáveis: a gaveta registra o ouvinte de teclado uma vez só.
+  const fecharMenu = useCallback(() => setMenuAberto(false), []);
+  const fecharConversa = useCallback(() => setConversaAberta(false), []);
   const ativos = modulos.filter((m) => m.ativo);
   const { demandas, diasInatividade, avisoPersistencia } = useEstadoDemandas();
   const totalAlertas = listarInativas(demandas, diasInatividade, new Date()).length;
@@ -121,17 +125,9 @@ export function Aplicacao() {
       </aside>
 
       {conversaAberta && (
-        <div className="gaveta-fundo" role="dialog" aria-modal="true" aria-label="Assistente">
-          <div className="gaveta">
-            <div className="gaveta-topo">
-              <span />
-              <button type="button" className="botao-icone" onClick={() => setConversaAberta(false)} aria-label="Fechar assistente">
-                <Icone nome="fechar" />
-              </button>
-            </div>
-            <PainelAssistente />
-          </div>
-        </div>
+        <Gaveta rotulo="Assistente" rotuloFechar="Fechar assistente" aoFechar={fecharConversa}>
+          <PainelAssistente />
+        </Gaveta>
       )}
 
       {/* No celular, o mascote fica no botão flutuante: assim continua visível com o painel fechado. */}
@@ -159,17 +155,9 @@ export function Aplicacao() {
       </nav>
 
       {menuAberto && (
-        <div className="gaveta-fundo" role="dialog" aria-modal="true" aria-label="Menu completo">
-          <div className="gaveta gaveta--inferior">
-            <div className="gaveta-topo">
-              <strong>Menu</strong>
-              <button type="button" className="botao-icone" onClick={() => setMenuAberto(false)} aria-label="Fechar menu">
-                <Icone nome="fechar" />
-              </button>
-            </div>
-            <div className="menu-gaveta">{ativos.map((m) => itemMenu(m.id))}</div>
-          </div>
-        </div>
+        <Gaveta rotulo="Menu completo" rotuloFechar="Fechar menu" aoFechar={fecharMenu} topo={<strong>Menu</strong>} inferior>
+          <div className="menu-gaveta">{ativos.map((m) => itemMenu(m.id))}</div>
+        </Gaveta>
       )}
     </div>
   );

@@ -61,7 +61,8 @@
 36. **Publicação (14/11/2026):** mascote no celular e correção da conversa na URL pública (`origin/main` = `d0c7b2d`, bundle `index-CCt-fixf.js`, CSS da gaveta conferido). No celular: NÃO CONFERIDO VISUALMENTE. Evidência em `metodologia/evidencias/2026-11-14-publicacao-celular.md`.
 37. **Ajuste da gaveta (14/11/2026), relato do responsável ("duas divisões de tela"):** uma rolagem só no painel da gaveta, com o campo de digitar preso embaixo. Só CSS; 296/296, build ok. No celular: NÃO TESTADO. **Publicado** (`ee842eb`, `index-BtIoFIcB.css` na URL pública). Detalhes em `metodologia/evidencias/2026-11-14-conversa-no-celular.md`.
 38. **Atalhos de comando na conversa (14/11/2026), na `main`:** botões "prazos" e "ajuda" acima do campo de digitar. 1 teste novo; total 297/297, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-mascotes-atalhos-de-comando.md`.
-39. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
+39. **Conversa guardada, gaveta como diálogo e atalhos em linguagem de gente (14/11/2026), na `main`:** conversa em `guara:conversa:v1` (teto de 60 falas) compartilhada pelo painel fixo e pela gaveta; componente `Gaveta` com foco, Esc, toque no fundo e Tab circulando; atalhos "Ver prazos" e "O que você faz?". 7 testes novos; total 304/304, build ok. Telas: NÃO CONFERIDO VISUALMENTE. Não publicado. Evidência em `metodologia/evidencias/2026-11-14-conversa-guardada-e-gaveta-dialogo.md`.
+40. **Próxima sessão:** siga `gestao/BACKLOG.md` (conferir as telas publicadas, abrir `/mcp`, decidir e testar o login Google).
 
 ## Comandos
 
