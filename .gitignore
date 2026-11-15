@@ -24,6 +24,8 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 __pycache__/
+.venv/
+.pytest_cache/
 
 # Dados exportados localmente (P12: não versionar)
 servidor-mcp/dados/*.json
