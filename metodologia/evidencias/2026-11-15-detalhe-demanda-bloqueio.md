@@ -29,4 +29,5 @@
 ## Limitações
 
 - Nenhum teste novo foi criado: o teste existente foi ampliado. O layout (CSS) não é coberto pelo Vitest/jsdom.
-- Não commitado nem publicado.
+- Commitado na `main` (`57c7ce9`, cherry-pick de `2005a7b` da `supabase-banco`), depois de `9161af4`, que tira a `.venv` do controle de versão. Repetido na `main` em 15/11/2026, 08:34: 356/356 e build com o mesmo bundle `index-BW16yQuP.js`. **PASSOU.** Push: pendente (responsável).
+- A `.venv` entrou por engano em `64c7a83`, que já está no GitHub. Ela continua no histórico; removê-la exigiria reescrever a `main` com push forçado (decisão do responsável).
