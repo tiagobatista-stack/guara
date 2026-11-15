@@ -1,0 +1,12 @@
+{
+  "name": "guara-supabase",
+  "private": true,
+  "type": "module",
+  "description": "Migrações do banco do GUARÁ e o teste delas num PostgreSQL local (PGlite). Não entra no app.",
+  "scripts": {
+    "testar": "node testes/testar-migracoes.ts"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.14"
+  }
+}
