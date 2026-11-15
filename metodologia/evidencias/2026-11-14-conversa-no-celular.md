@@ -27,3 +27,19 @@
 - O jsdom não calcula layout: a correção de altura na gaveta (CSS) **não tem teste automático**. Conferir em celular: abrir o assistente, enviar "prazos" algumas vezes e ver a última fala e o campo de digitar.
 - Com o teclado do celular aberto, alguns navegadores não encolhem a área visível; o campo pode ficar sob o teclado. **NÃO TESTADO.**
 - Ambiente: Node v26.13.1. Não publicado.
+
+## Ajuste depois da publicação: uma rolagem só
+
+**Relato do responsável:** "a rolagem da tela ficou esquisita com duas divisões de tela". A correção anterior deu rolagem própria aos avisos (até 30% da altura) além da rolagem da conversa: eram duas áreas rolando na mesma gaveta.
+
+| Mudança | Arquivo |
+|---|---|
+| Na gaveta, o painel inteiro (mascote, avisos e conversa) rola como uma área só; a conversa deixa de ter rolagem própria; o campo de digitar fica preso embaixo (`position: sticky`), e `scroll-padding-bottom` impede que a última fala fique atrás dele. A rolagem até a última fala continua a mesma (`scrollIntoView`) | `aplicacao/src/estilos.css` |
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 1 | Suíte completa | `npm test` | `Tests 296 passed (296)` | PASSOU |
+| 2 | Build | `npm run build` | `✓ built`, `index-DDzrs3b6.js`, `index-BtIoFIcB.css` | PASSOU |
+| 3 | Rolagem única no celular | — | só CSS; o jsdom não calcula layout | NÃO TESTADO |
+
+O desktop (painel fixo à direita) não muda: lá só a conversa rola, como antes.

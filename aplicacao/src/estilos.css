@@ -139,9 +139,11 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .gaveta { display: flex; flex-direction: column; width: 100%; max-width: 380px; height: 100%; background: var(--superficie); }
 .gaveta--inferior { position: absolute; left: 0; right: 0; bottom: 0; height: auto; max-width: none; border-radius: 16px 16px 0 0; padding: 16px; }
 .gaveta-topo { display: flex; align-items: center; justify-content: space-between; padding: 8px; }
-/* Na gaveta, o painel ocupa só o que sobra abaixo do "fechar", e os avisos não tomam a conversa. */
-.gaveta .assistente { flex: 1; height: auto; min-height: 0; }
-.gaveta .assistente-secao { max-height: 30dvh; overflow-y: auto; }
+/* Na gaveta (celular e tablet), uma rolagem só: o painel inteiro rola abaixo do "fechar", e o campo
+   de digitar fica preso embaixo. O scroll-padding impede que a última fala fique atrás do campo. */
+.gaveta .assistente { flex: 1; height: auto; min-height: 0; overflow-y: auto; scroll-padding-bottom: 88px; }
+.gaveta .conversa { flex: none; overflow: visible; }
+.gaveta .formulario-conversa { position: sticky; bottom: 0; background: var(--superficie); }
 
 .botao-icone { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 
