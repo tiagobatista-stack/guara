@@ -37,9 +37,9 @@ export interface Ponto {
 export interface Operacao {
   id: string;
   nome: string;
-  /** AAAA-MM-DD; `fim` não vem antes de `inicio`. */
-  inicio: string;
-  fim: string;
+  /** AAAA-MM-DD, opcionais: vêm do CSV quando a pessoa não informa. Com os dois, `fim` não vem antes de `inicio`. */
+  inicio?: string;
+  fim?: string;
   /** Quem encaminhou (texto livre, opcional). */
   origem?: string;
   pontos: Ponto[];

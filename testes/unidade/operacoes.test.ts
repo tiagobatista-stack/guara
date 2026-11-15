@@ -1,10 +1,10 @@
 import type { Operacao, Ponto } from '../../aplicacao/src/modulos/operacoes/modelo.ts';
 import {
   contarPontosPendentes, distanciaMetros, lerData, operacaoValida, pontosProximos, pontosSemData, pontosSemEquipe,
-  problemasDeDatas, textoLocalProximo, validarListaOperacoes,
+  periodoDosPontos, problemasDeDatas, textoLocalProximo, validarListaOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/regras.ts';
 import {
-  alterarPonto, criarOperacao, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
+  alterarPeriodo, alterarPonto, criarOperacao, excluirOperacao, excluirPonto, incluirPontos, obterOperacoes,
 } from '../../aplicacao/src/modulos/operacoes/armazem.ts';
 
 const ponto = (id: string, extra: Partial<Ponto> = {}): Ponto => ({
@@ -89,6 +89,52 @@ describe('mesmo local', () => {
   it('não conta o próprio ponto', () => {
     const alvo = ponto('alvo');
     expect(pontosProximos(alvo, [operacao([alvo])])).toEqual([]);
+  });
+});
+
+describe('período opcional', () => {
+  beforeEach(() => localStorage.clear());
+  const { id: _id, ...base } = ponto('x');
+
+  it('operação sem período é válida; com os dois lados, o fim não pode vir antes', () => {
+    const { inicio: _a, fim: _b, ...semPeriodo } = operacao([]);
+    expect(operacaoValida(semPeriodo)).toBe(true);
+    expect(operacaoValida({ ...semPeriodo, inicio: '2026-09-18' })).toBe(true);
+    expect(operacaoValida({ ...semPeriodo, inicio: '2026-09-18', fim: '2026-09-01' })).toBe(false);
+    expect(operacaoValida({ ...semPeriodo, fim: '2026-13-01' })).toBe(false);
+  });
+  it('janela com um lado só confere apenas esse lado', () => {
+    expect(problemasDeDatas({ saida: '2026-01-01' }, { fim: '2026-09-25' })).toEqual([]);
+    expect(problemasDeDatas({ saida: '2026-12-01' }, { fim: '2026-09-25' })).toEqual(['A data de saída fica fora do período da operação.']);
+  });
+  it('periodoDosPontos: menor e maior data; vazio sem datas', () => {
+    expect(periodoDosPontos([{ saida: '2026-09-20', retorno: '2026-09-22' }, { saida: '2026-09-18' }, {}])).toEqual({ inicio: '2026-09-18', fim: '2026-09-22' });
+    expect(periodoDosPontos([{}])).toEqual({});
+  });
+  it('criar sem datas; só um lado; fim antes do início ainda é erro', () => {
+    expect(criarOperacao({ nome: 'A', inicio: '', fim: '', origem: '' }, 'x').ok).toBe(true);
+    expect(obterOperacoes()[0]).not.toHaveProperty('inicio');
+    expect(criarOperacao({ nome: 'B', inicio: '2026-09-18', fim: '', origem: '' }, 'x').ok).toBe(true);
+    expect(obterOperacoes()[1]).toMatchObject({ inicio: '2026-09-18' });
+    expect(criarOperacao({ nome: 'C', inicio: '2026-09-25', fim: '2026-09-18', origem: '' }, 'x')).toEqual({ ok: false, erro: 'O fim da operação não pode ser antes do início.' });
+    expect(criarOperacao({ nome: 'D', inicio: 'abc', fim: '', origem: '' }, 'x')).toEqual({ ok: false, erro: 'Informe datas válidas para o período.' });
+  });
+  it('incluirPontos completa só o lado que falta e mantém o informado', () => {
+    const r = criarOperacao({ nome: 'A', inicio: '2026-09-10', fim: '', origem: '' }, 'x');
+    if (!r.ok) throw new Error();
+    expect(incluirPontos(r.id, [{ ...base, saida: '2026-09-18', retorno: '2026-09-22' }])).toBeNull();
+    expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-10', fim: '2026-09-22' });
+  });
+  it('alterarPeriodo define, limpa e recusa período que deixa pontos de fora', () => {
+    const r = criarOperacao({ nome: 'A', inicio: '', fim: '', origem: '' }, 'x');
+    if (!r.ok) throw new Error();
+    incluirPontos(r.id, [{ ...base, saida: '2026-09-18', retorno: '2026-09-22' }]);
+    expect(alterarPeriodo(r.id, '2026-09-20', '2026-09-25')).toBe('Há pontos com data fora desse período: ajuste as datas dos pontos primeiro.');
+    expect(alterarPeriodo(r.id, '2026-09-01', '2026-09-30')).toBeNull();
+    expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-01', fim: '2026-09-30' });
+    expect(alterarPeriodo(r.id, '', '')).toBeNull();
+    expect(obterOperacoes()[0]).not.toHaveProperty('inicio');
+    expect(obterOperacoes()[0]).not.toHaveProperty('fim');
   });
 });
 

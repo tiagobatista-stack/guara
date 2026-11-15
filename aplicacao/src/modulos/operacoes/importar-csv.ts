@@ -4,7 +4,7 @@
 
 import { lerCoordenada } from '../demandas/coordenadas.ts';
 import { LIMITES_OPERACAO, type Ponto } from './modelo.ts';
-import { lerData, problemasDeDatas } from './regras.ts';
+import { lerData, periodoDosPontos, problemasDeDatas, type Periodo } from './regras.ts';
 
 /** Remove acento, espaços e maiúsculas do nome de coluna. */
 const chave = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
@@ -75,12 +75,14 @@ export interface ResultadoCsv {
   /** Erro que impede a leitura inteira (sem cabeçalho reconhecido). */
   erro?: string;
   linhas: LinhaImportada[];
+  /** Menor e maior data das linhas válidas, para a prévia ("período tirado do arquivo"). */
+  periodoDoArquivo?: Periodo;
 }
 
 const limpar = (t: string | undefined, max: number) => (t ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
 
 /** Lê o CSV e confere cada linha; `janela` (opcional) é o período da operação. */
-export function importarPontosCsv(conteudo: string, janela?: { inicio: string; fim: string }): ResultadoCsv {
+export function importarPontosCsv(conteudo: string, janela?: Periodo): ResultadoCsv {
   const tabela = lerCsv(conteudo);
   if (tabela.length === 0) return { erro: 'O arquivo está vazio.', linhas: [] };
   const cabecalho = tabela[0].map(chave);
@@ -128,5 +130,6 @@ export function importarPontosCsv(conteudo: string, janela?: { inicio: string; f
       : undefined;
     return { linha: i + 2, ...(ponto ? { ponto } : {}), erros };
   });
-  return { linhas };
+  const periodo = periodoDosPontos(linhas.flatMap((l) => (l.ponto ? [l.ponto] : [])));
+  return { linhas, ...(periodo.inicio ? { periodoDoArquivo: periodo } : {}) };
 }

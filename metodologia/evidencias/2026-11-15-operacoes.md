@@ -31,3 +31,16 @@
 
 ## Limitações
 Raio de 200 m fixo na tela; `.xlsx` direto não lê; operações fora do backup (limpar os dados do navegador apaga); sem calendário, rota nem mapa. Não publicado.
+
+## Período opcional (15/11/2026, pedido do responsável)
+O CSV costuma trazer as datas; sem CSV, o período é opcional.
+- `inicio` e `fim` da operação são opcionais (sem migração: operações já gravadas continuam válidas); com os dois, o fim não vem antes do início.
+- Na importação, o período informado vale e as datas do arquivo são conferidas contra ele. Sem período (ou com só um lado), a prévia mostra "Período tirado do arquivo" e, ao importar, só o lado que falta é preenchido (menor e maior data das linhas **válidas**).
+- `alterarPeriodo` define ou limpa o período depois, recusando o que deixaria pontos de fora.
+- Arquivos: `operacoes/modelo.ts`, `regras.ts` (`periodoDosPontos`), `armazem.ts` (`alterarPeriodo`, `incluirPontos`), `importar-csv.ts` (`periodoDoArquivo`), `Operacoes.tsx`.
+
+| # | Verificação | Comando | Resultado | Situação |
+|---|---|---|---|---|
+| 7 | Testes | `npm test` (aplicacao) | 451/451 em 40 arquivos (eram 439; 12 novos) | PASSOU |
+| 8 | Build e MCP | `npm run build`; `node testar-servidor.ts` | ok; 4 = 4 | PASSOU |
+| 9 | Tela no navegador | — | — | NÃO CONFERIDO VISUALMENTE |

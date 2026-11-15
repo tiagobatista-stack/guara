@@ -15,7 +15,12 @@ export function lerData(texto: string): string | null {
 }
 
 /** Problemas de datas de um ponto dentro da janela da operação; lista vazia = ok. */
-export function problemasDeDatas(p: Pick<Ponto, 'saida' | 'retorno'>, janela?: { inicio: string; fim: string }): string[] {
+export interface Periodo {
+  inicio?: string;
+  fim?: string;
+}
+
+export function problemasDeDatas(p: Pick<Ponto, 'saida' | 'retorno'>, janela?: Periodo): string[] {
   const erros: string[] = [];
   if (p.saida && !dataValida(p.saida)) erros.push('Data de saída inválida.');
   if (p.retorno && !dataValida(p.retorno)) erros.push('Data de retorno inválida.');
@@ -23,7 +28,7 @@ export function problemasDeDatas(p: Pick<Ponto, 'saida' | 'retorno'>, janela?: {
   if (p.saida && p.retorno && p.retorno < p.saida) erros.push('O retorno é anterior à saída.');
   if (janela) {
     for (const [nome, d] of [['saída', p.saida], ['retorno', p.retorno]] as const) {
-      if (d && (d < janela.inicio || d > janela.fim)) erros.push(`A data de ${nome} fica fora do período da operação.`);
+      if (d && ((janela.inicio && d < janela.inicio) || (janela.fim && d > janela.fim))) erros.push(`A data de ${nome} fica fora do período da operação.`);
     }
   }
   return erros;
@@ -55,8 +60,9 @@ export function operacaoValida(x: unknown): x is Operacao {
   return (
     typeof o.id === 'string' && o.id.length > 0 &&
     typeof o.nome === 'string' && o.nome.trim().length > 0 && o.nome.length <= LIMITES_OPERACAO.nome &&
-    typeof o.inicio === 'string' && dataValida(o.inicio) &&
-    typeof o.fim === 'string' && dataValida(o.fim) && o.fim >= o.inicio &&
+    (o.inicio === undefined || (typeof o.inicio === 'string' && dataValida(o.inicio))) &&
+    (o.fim === undefined || (typeof o.fim === 'string' && dataValida(o.fim))) &&
+    (o.inicio === undefined || o.fim === undefined || (o.fim as string) >= (o.inicio as string)) &&
     (o.origem === undefined || texto(o.origem, LIMITES_OPERACAO.origem)) &&
     typeof o.criadaEm === 'string' && !Number.isNaN(Date.parse(o.criadaEm)) &&
     Array.isArray(o.pontos) && o.pontos.length <= LIMITES_OPERACAO.pontos && o.pontos.every(pontoValido)
@@ -66,6 +72,12 @@ export function operacaoValida(x: unknown): x is Operacao {
 /** Lista gravada: só as operações válidas; qualquer coisa que não seja lista vira vazia. */
 export function validarListaOperacoes(x: unknown): Operacao[] {
   return Array.isArray(x) ? x.filter(operacaoValida).slice(0, LIMITES_OPERACAO.operacoes) : [];
+}
+
+/** Menor e maior data de saída/retorno dos pontos; lado ausente quando nenhum ponto tem data. */
+export function periodoDosPontos(pontos: readonly Pick<Ponto, 'saida' | 'retorno'>[]): Periodo {
+  const datas = pontos.flatMap((p) => [p.saida, p.retorno]).filter((d): d is string => !!d).sort();
+  return datas.length ? { inicio: datas[0], fim: datas[datas.length - 1] } : {};
 }
 
 // ---------- O que falta encaixar ----------

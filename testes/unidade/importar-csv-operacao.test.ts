@@ -73,6 +73,13 @@ describe('importarPontosCsv', () => {
     expect(importarPontosCsv('').erro).toBe('O arquivo está vazio.');
   });
 
+  it('periodoDoArquivo vem só das linhas válidas e, sem janela, data não é "fora do período"', () => {
+    const r = importarPontosCsv(`${CABECALHO}\n1;A;58.5 W;11.5 S;X;18/09/2026;22/09/2026;\n2;A;58.5 W;11.5 S;X;25/09/2026;20/09/2026;\n3;A;58.5 W;11.5 S;X;01/12/2030;;`);
+    expect(r.linhas.map((l) => l.erros.length)).toEqual([0, 1, 0]);
+    expect(r.periodoDoArquivo).toEqual({ inicio: '2026-09-18', fim: '2030-12-01' });
+    expect(importarPontosCsv('LAT;LON\n-11.5;-58.5').periodoDoArquivo).toBeUndefined();
+  });
+
   it('ponto sem equipe e sem datas é aceito (será encaixado depois)', () => {
     const r = importarPontosCsv('LAT;LON\n-11.5;-58.5', janela);
     expect(r.linhas[0].ponto).toMatchObject({ coordenada: { lat: -11.5, lon: -58.5 }, municipio: '', notas: '' });

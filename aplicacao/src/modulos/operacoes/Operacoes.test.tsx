@@ -26,8 +26,8 @@ const CSV = [
 
 function criarEAbrir() {
   fireEvent.change(screen.getByLabelText('Nome *'), { target: { value: 'Operação fictícia' } });
-  fireEvent.change(screen.getByLabelText('Início *'), { target: { value: '2026-09-18' } });
-  fireEvent.change(screen.getByLabelText('Fim *'), { target: { value: '2026-09-25' } });
+  fireEvent.change(screen.getByLabelText('Início (opcional)'), { target: { value: '2026-09-18' } });
+  fireEvent.change(screen.getByLabelText('Fim (opcional)'), { target: { value: '2026-09-25' } });
   fireEvent.click(screen.getByRole('button', { name: 'Criar operação' }));
 }
 
@@ -37,7 +37,7 @@ beforeEach(() => {
 });
 
 describe('tela Operações', () => {
-  it('exige nome e datas ao criar e abre a operação criada', () => {
+  it('exige o nome ao criar e abre a operação criada', () => {
     montar();
     fireEvent.click(screen.getByRole('button', { name: 'Criar operação' }));
     expect(screen.getByRole('alert')).toHaveTextContent('Informe o nome da operação.');
@@ -145,6 +145,75 @@ describe('tela Operações', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Excluir Operação fictícia' }));
     expect(obterOperacoes()).toHaveLength(0);
     expect(confirmar).toHaveBeenCalledTimes(3);
+  });
+});
+
+describe('período opcional e tirado do arquivo', () => {
+  const nomear = () => fireEvent.change(screen.getByLabelText('Nome *'), { target: { value: 'Operação sem datas' } });
+  const colar = (csv: string) => {
+    fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: csv } });
+    fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
+  };
+
+  it('cria só com o nome; o período vem do arquivo e a prévia avisa antes de gravar', () => {
+    montar();
+    nomear();
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação' }));
+    expect(screen.getByTestId('periodo-operacao')).toHaveTextContent('sem período definido');
+    colar(CSV);
+    // A linha 4 tem retorno antes da saída: não conta para o período.
+    expect(screen.getByTestId('periodo-do-arquivo')).toHaveTextContent('Período tirado do arquivo: 18/09/2026 a 22/09/2026.');
+    expect(obterOperacoes()[0].inicio).toBeUndefined();
+    fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-18', fim: '2026-09-22' });
+    expect(screen.getByTestId('periodo-operacao')).toHaveTextContent('18/09/2026 a 22/09/2026');
+  });
+
+  it('o período informado vale: não é trocado e a data fora dele continua acusada', () => {
+    montar();
+    nomear();
+    fireEvent.change(screen.getByLabelText('Início (opcional)'), { target: { value: '2026-09-20' } });
+    fireEvent.change(screen.getByLabelText('Fim (opcional)'), { target: { value: '2026-09-25' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação' }));
+    colar(CSV);
+    expect(screen.queryByTestId('periodo-do-arquivo')).toBeNull();
+    expect(screen.getByTestId('previa-importacao')).toHaveTextContent('Linha 2: A data de saída fica fora do período da operação.');
+  });
+
+  it('só um lado informado: o outro vem do arquivo', () => {
+    montar();
+    nomear();
+    fireEvent.change(screen.getByLabelText('Início (opcional)'), { target: { value: '2026-09-10' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação' }));
+    colar(CSV);
+    expect(screen.getByTestId('periodo-do-arquivo')).toHaveTextContent('10/09/2026 a 22/09/2026');
+    fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-10', fim: '2026-09-22' });
+  });
+
+  it('CSV sem datas e sem período: nada é preenchido e não há erro', () => {
+    montar();
+    nomear();
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação' }));
+    colar('LAT;LON\n-11.5;-58.5');
+    expect(screen.queryByTestId('periodo-do-arquivo')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Importar 1 ponto(s)' }));
+    expect(screen.getByTestId('periodo-operacao')).toHaveTextContent('sem período definido');
+  });
+
+  it('define o período depois, pelo detalhe, e recusa fim antes do início', () => {
+    montar();
+    nomear();
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação' }));
+    const form = screen.getByRole('form', { name: 'Período da operação' });
+    fireEvent.change(within(form).getByLabelText('Início do período'), { target: { value: '2026-09-25' } });
+    fireEvent.change(within(form).getByLabelText('Fim do período'), { target: { value: '2026-09-18' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Salvar período' }));
+    expect(within(form).getByRole('alert')).toHaveTextContent('O fim da operação não pode ser antes do início.');
+    fireEvent.change(within(form).getByLabelText('Início do período'), { target: { value: '2026-09-18' } });
+    fireEvent.change(within(form).getByLabelText('Fim do período'), { target: { value: '2026-09-25' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Salvar período' }));
+    expect(screen.getByTestId('periodo-operacao')).toHaveTextContent('18/09/2026 a 25/09/2026');
   });
 });
 

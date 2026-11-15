@@ -8,11 +8,13 @@ import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { decodificarCsv, importarPontosCsv, type ResultadoCsv } from './importar-csv.ts';
 import { LIMITES_OPERACAO, ROTULOS_SITUACAO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoPonto } from './modelo.ts';
 import {
-  alterarPonto, criarOperacao, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
+  alterarPeriodo, alterarPonto, criarOperacao, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
 } from './armazem.ts';
 import { pontosProximos, pontosSemData, pontosSemEquipe, textoLocalProximo } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
+const textoPeriodo = (p: { inicio?: string; fim?: string }) =>
+  p.inicio || p.fim ? `${p.inicio ? dataBr(p.inicio) : '…'} a ${p.fim ? dataBr(p.fim) : '…'}` : 'sem período definido';
 
 // ---------- Importação por CSV ----------
 
@@ -34,6 +36,11 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
   };
 
   const validos = resultado?.linhas.filter((l) => l.ponto) ?? [];
+  // Só o lado que a operação ainda não tem vem do arquivo.
+  const doArquivo = resultado?.periodoDoArquivo;
+  const vaiPreencher = doArquivo && (!operacao.inicio || !operacao.fim)
+    ? { inicio: operacao.inicio ?? doArquivo.inicio, fim: operacao.fim ?? doArquivo.fim }
+    : null;
   const comErro = resultado?.linhas.filter((l) => l.erros.length) ?? [];
 
   const importar = () => {
@@ -70,6 +77,9 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
             <strong>{validos.length}</strong> ponto(s) pronto(s) para importar
             {comErro.length > 0 && <> e <strong className="texto--atencao">{comErro.length}</strong> linha(s) com problema (não entram; corrija o arquivo e confira de novo)</>}.
           </p>
+          {vaiPreencher && (
+            <p data-testid="periodo-do-arquivo">Período tirado do arquivo: {textoPeriodo(vaiPreencher)}. Ele será gravado na operação ao importar.</p>
+          )}
           {comErro.length > 0 && (
             <ul className="lista-limpa" aria-label="Linhas com problema">
               {comErro.map((l) => <li key={l.linha} className="texto--atencao texto-pequeno">Linha {l.linha}: {l.erros.join(' ')}</li>)}
@@ -218,6 +228,28 @@ function CartaoPonto({ operacao, ponto, todas }: { operacao: Operacao; ponto: Po
   );
 }
 
+// ---------- Período da operação ----------
+
+function PeriodoOperacao({ operacao }: { operacao: Operacao }) {
+  const [inicio, setInicio] = useState(operacao.inicio ?? '');
+  const [fim, setFim] = useState(operacao.fim ?? '');
+  const [erro, setErro] = useState<string | null>(null);
+  const salvar = (e: FormEvent) => {
+    e.preventDefault();
+    setErro(alterarPeriodo(operacao.id, inicio, fim));
+  };
+  return (
+    <form onSubmit={salvar} className="grade grade--2" noValidate aria-label="Período da operação">
+      <label className="campo-grupo"><span>Início do período</span>
+        <input className="campo" type="date" value={inicio} onChange={(e) => setInicio(e.target.value)} /></label>
+      <label className="campo-grupo"><span>Fim do período</span>
+        <input className="campo" type="date" value={fim} onChange={(e) => setFim(e.target.value)} /></label>
+      {erro && <span role="alert" className="erro-campo">{erro}</span>}
+      <div className="acoes"><button type="submit" className="botao botao--pequeno">Salvar período</button></div>
+    </form>
+  );
+}
+
 // ---------- Uma operação ----------
 
 function DetalheOperacao({ operacao, todas, aoVoltar }: { operacao: Operacao; todas: readonly Operacao[]; aoVoltar: () => void }) {
@@ -237,8 +269,9 @@ function DetalheOperacao({ operacao, todas, aoVoltar }: { operacao: Operacao; to
       <div className="acoes"><button type="button" className="botao" onClick={aoVoltar}>Voltar às operações</button></div>
       <h2 id="titulo-operacao" className="titulo-secao">{operacao.nome}</h2>
       <p className="texto-suave texto-medio">
-        {dataBr(operacao.inicio)} a {dataBr(operacao.fim)}{operacao.origem && <> · encaminhada por {operacao.origem}</>}
+        <span data-testid="periodo-operacao">{textoPeriodo(operacao)}</span>{operacao.origem && <> · encaminhada por {operacao.origem}</>}
       </p>
+      <PeriodoOperacao operacao={operacao} />
       <p data-testid="resumo-operacao">
         {operacao.pontos.length} ponto(s) · <span className={semEquipe ? 'texto--atencao' : ''}>{semEquipe} sem equipe</span> ·{' '}
         <span className={semData ? 'texto--atencao' : ''}>{semData} sem data</span>
@@ -314,11 +347,12 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
             <label className="campo-grupo"><span>Nome *</span>
               <input className="campo" value={form.nome} maxLength={LIMITES_OPERACAO.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></label>
             <div className="grade grade--2">
-              <label className="campo-grupo"><span>Início *</span>
+              <label className="campo-grupo"><span>Início (opcional)</span>
                 <input className="campo" type="date" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} /></label>
-              <label className="campo-grupo"><span>Fim *</span>
+              <label className="campo-grupo"><span>Fim (opcional)</span>
                 <input className="campo" type="date" value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} /></label>
             </div>
+            <p className="texto-pequeno texto-suave">Se o CSV trouxer as datas de saída e retorno, o período vem dele. Sem CSV, o período é opcional.</p>
             <label className="campo-grupo"><span>Quem encaminhou (opcional)</span>
               <input className="campo" value={form.origem} maxLength={LIMITES_OPERACAO.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} /></label>
             {erro && <span role="alert" className="erro-campo">{erro}</span>}
@@ -332,7 +366,7 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
               {operacoes.map((o) => (
                 <li key={o.id} className="cartao" data-testid={`operacao-${o.id}`}>
                   <p><strong>{o.nome}</strong></p>
-                  <p className="texto-pequeno texto-suave">{dataBr(o.inicio)} a {dataBr(o.fim)}</p>
+                  <p className="texto-pequeno texto-suave">{textoPeriodo(o)}</p>
                   <p className="texto-pequeno">
                     {o.pontos.length} ponto(s) · {pontosSemEquipe(o.pontos).length} sem equipe · {pontosSemData(o.pontos).length} sem data
                   </p>
