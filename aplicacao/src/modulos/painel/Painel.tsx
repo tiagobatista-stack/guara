@@ -7,6 +7,8 @@ import { DIAS_INATIVIDADE_PADRAO, diasParado } from '../alertas/inatividade.ts';
 import { situacaoDaDemanda } from '../alertas/dias-uteis.ts';
 import { calcularMetricas } from './metricas.ts';
 import { listarSemPrazo } from '../alertas/triagem.ts';
+import { useOperacoes } from '../operacoes/armazem.ts';
+import { contarPontosPendentes } from '../operacoes/regras.ts';
 import { listarSemVistoria } from '../demandas/vistoria.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
@@ -18,6 +20,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
   const ajuste = useAjusteFeriados(instante);
   const m = calcularMetricas(demandas, instante, limiarDias);
   const semPrazo = listarSemPrazo(demandas).length;
+  const pontosPendentes = contarPontosPendentes(useOperacoes());
   const semVistoria = listarSemVistoria(demandas).length;
   const comPrazo =demandas.filter((d) => d.prazo && d.status !== 'Concluída').sort((a, b) => a.prazo!.localeCompare(b.prazo!));
 
@@ -70,6 +73,11 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
           {semVistoria > 0 && (
             <p className="texto-pequeno texto--atencao" data-testid="sem-vistoria">
               {semVistoria === 1 ? '1 demanda de campo ainda não foi encaixada' : `${semVistoria} demandas de campo ainda não foram encaixadas`} em uma vistoria.
+            </p>
+          )}
+          {pontosPendentes > 0 && (
+            <p className="texto-pequeno texto--atencao" data-testid="pontos-pendentes">
+              {pontosPendentes === 1 ? '1 ponto de operação está' : `${pontosPendentes} pontos de operação estão`} sem equipe ou sem data. Veja em Operações.
             </p>
           )}
           {comPrazo.length === 0 ? (

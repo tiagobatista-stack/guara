@@ -16,6 +16,7 @@ import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
 import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosVisiveis } from '../modulos/assistente/PainelAssistente.tsx';
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
+import { Operacoes } from '../modulos/operacoes/Operacoes.tsx';
 import { Atalhos } from '../modulos/atalhos/Atalhos.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 import { Gaveta } from '../compartilhado/Gaveta.tsx';
@@ -38,6 +39,7 @@ function Conteudo({ rota }: { rota: string }) {
   if (rota === 'saude-do-sistema') return <SaudeDoSistema />;
   if (rota === 'configuracoes') return <Configuracoes />;
   if (rota === 'atalhos') return <Atalhos />;
+  if (rota === 'operacoes') return <Operacoes />;
   const m = modulos.find((x) => x.id === rota);
   return <EmConstrucao titulo={m?.rotulo ?? rota} />;
 }
