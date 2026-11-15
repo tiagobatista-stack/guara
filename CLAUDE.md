@@ -73,6 +73,18 @@ A publicação usa **GitHub** (código) e **Vercel** (frontend estático, Root D
 - Código em `_compartilhado/` é TypeScript puro, sem APIs de Node ou Deno.
 - O GovFlow AI Lab é outro repositório: use-o só como referência de leitura e não o copie para cá.
 
+## Padrões de projeto (GoF)
+
+Padrões da Gang of Four são ferramenta, não meta. Valem junto com o princípio 6 (simplicidade):
+
+- Adote um padrão só quando houver um problema concreto e demonstrado (por exemplo, estados que se multiplicam em `if`/`switch`, variação de algoritmo, reação a mudanças). Nunca "para seguir o livro".
+- Prefira a forma idiomática de TypeScript (funções, objetos e contratos tipados) a hierarquias de classes, a menos que as classes simplifiquem de fato.
+- Antes de introduzir um padrão, diga em uma frase qual problema ele resolve e por que o código direto não basta. Se não houver resposta clara, não use.
+- Registre a escolha (padrão, arquivo e justificativa) em `documentacao/` ou em `gestao/decisoes/`. Marque como "aproximação" o que apenas lembra o padrão.
+- Não confunda com os **padrões A–F** de orquestração de agentes (seção 20.6): são outra coisa e seguem as regras de Saúde do sistema.
+- Registry, Repository e similares não são GoF; chame-os pelo nome certo.
+- Padrões novos entram em mudanças incrementais, com `npm test` e `npm run build` depois.
+
 ## Saúde do sistema (seção 9.7)
 
 - Um estado só é `OK` se o teste foi executado de fato. O estado inicial é `NÃO TESTADO`.
