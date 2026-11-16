@@ -372,3 +372,33 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
   .mascote--comemorando .mascote-corpo { animation: none; }
   .mascote-z { animation: none; opacity: 0.8; }
 }
+
+/* Lembretes pessoais (modulos/lembretes): o aviso tem destaque próprio, separado da conversa. */
+.aviso-lembrete {
+  position: fixed; z-index: 45; left: 12px; right: 12px; bottom: 140px; max-width: 420px; margin-left: auto;
+  background: var(--superficie); color: var(--texto); border: 2px solid var(--cor-lembrete, var(--guara-500));
+  border-radius: var(--raio); box-shadow: 0 8px 24px rgb(0 0 0 / 0.25); overflow: hidden;
+  animation: aviso-lembrete-entra 0.25s ease-out;
+}
+.aviso-lembrete[data-tipo="remedio"] { --cor-lembrete: var(--pantanal-600); }
+.aviso-lembrete[data-tipo="demanda"] { --cor-lembrete: var(--guara-700); }
+.aviso-lembrete[data-tipo="habito"] { --cor-lembrete: var(--cerrado-600); }
+.aviso-lembrete[data-nivel="2"] { animation: aviso-lembrete-balanca 0.5s ease-in-out 3; }
+.aviso-lembrete-faixa {
+  display: flex; gap: 6px; align-items: center; padding: 6px 12px;
+  background: var(--cor-lembrete, var(--guara-500)); color: #fff; font-size: 13px; font-weight: 600;
+}
+.aviso-lembrete-corpo { display: flex; gap: 10px; align-items: flex-start; padding: 10px 12px 0; }
+.aviso-lembrete-texto { margin: 0; font-size: 16px; font-weight: 600; }
+.aviso-lembrete .acoes-aviso { padding: 0 12px 12px; }
+.selo-lembretes {
+  position: fixed; z-index: 45; right: 72px; bottom: 88px; min-height: 36px; padding: 0 12px; border-radius: 999px;
+  border: 2px solid var(--atencao-borda); background: var(--atencao-fundo); color: var(--atencao-texto); font-weight: 700; cursor: pointer;
+}
+@media (min-width: 768px) {
+  .aviso-lembrete { left: auto; right: 16px; top: 76px; bottom: auto; width: 380px; }
+  .selo-lembretes { right: 16px; top: 76px; bottom: auto; }
+}
+@keyframes aviso-lembrete-entra { from { opacity: 0; transform: translateY(12px); } to { opacity: 1; transform: none; } }
+@keyframes aviso-lembrete-balanca { 0%, 100% { transform: none; } 25% { transform: rotate(-1.5deg); } 75% { transform: rotate(1.5deg); } }
+@media (prefers-reduced-motion: reduce) { .aviso-lembrete, .aviso-lembrete[data-nivel="2"] { animation: none; } }

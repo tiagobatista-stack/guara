@@ -18,6 +18,8 @@ export interface Mensagem {
   texto: string;
   natureza?: Natureza;
   fonte?: string;
+  /** Respostas prontas (botões) que enviam um comando, ex.: "Desfazer" → "cancelar lembrete 3". */
+  opcoes?: { rotulo: string; comando: string }[];
 }
 
 const NATUREZAS: Natureza[] = ['fato', 'inferência', 'sugestão'];
@@ -29,6 +31,14 @@ function validarMensagem(x: unknown): Mensagem | null {
   const m: Mensagem = { autor: b.autor, texto: b.texto.slice(0, TAMANHO_MAXIMO_TEXTO) };
   if (typeof b.natureza === 'string' && (NATUREZAS as string[]).includes(b.natureza)) m.natureza = b.natureza as Natureza;
   if (typeof b.fonte === 'string') m.fonte = b.fonte.slice(0, TAMANHO_MAXIMO_TEXTO);
+  if (b.autor === 'assistente' && Array.isArray(b.opcoes)) {
+    const opcoes = b.opcoes
+      .filter((o): o is { rotulo: string; comando: string } => typeof o === 'object' && o !== null
+        && typeof o.rotulo === 'string' && !!o.rotulo.trim() && typeof o.comando === 'string' && !!o.comando.trim())
+      .slice(0, 4)
+      .map((o) => ({ rotulo: o.rotulo.slice(0, 40), comando: o.comando.slice(0, 300) }));
+    if (opcoes.length) m.opcoes = opcoes;
+  }
   return m;
 }
 

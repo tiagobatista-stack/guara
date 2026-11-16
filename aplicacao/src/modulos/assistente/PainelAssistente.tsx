@@ -9,6 +9,7 @@ import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
 import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
+import { responderLembretes } from '../lembretes/conversa-lembretes.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
@@ -38,13 +39,13 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string): M
     ];
   }
   if (c.startsWith('ajuda')) {
-    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos" (lista as demandas vencidas, com prazo próximo e paradas) e "ajuda". Os atalhos abaixo enviam esses comandos.' }];
+    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos" (lista as demandas vencidas, com prazo próximo e paradas) e "ajuda". Lembretes: "me lembre de beber água daqui 30 min", "me lembre de tomar antibiótico 3x ao dia", "ligar para o proprietário do processo FIC-2026-0001 amanhã de manhã"; "lembretes" lista, "cancelar lembrete N" cancela e "avisos" mostra as últimas 24 h. Os atalhos abaixo enviam alguns desses comandos.' }];
   }
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
-    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos" ou "ajuda".',
+    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos" ou "ajuda", ou peça um lembrete: "me lembre de … daqui 20 min".',
   }];
 }
 
@@ -59,6 +60,7 @@ const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote>
 const ATALHOS: readonly { rotulo: string; comando: string }[] = [
   { rotulo: 'Ver prazos', comando: 'prazos' },
   { rotulo: 'O que você faz?', comando: 'ajuda' },
+  { rotulo: 'Meus lembretes', comando: 'lembretes' },
 ];
 
 // Primeira fala, sempre no topo da conversa (não é gravada).
@@ -154,6 +156,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const conversa = useRef<HTMLOListElement>(null);
   // A conversa fica guardada neste navegador: fechar a gaveta ou recarregar não a apaga.
   const guardadas = useConversa();
+  const estadoDemandas = useEstadoDemandas();
   const mensagens = [SAUDACAO, ...guardadas];
 
   // A cada fala nova, a conversa rola até a última (no celular, a área da conversa é pequena).
@@ -164,7 +167,10 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
 
   const enviarComando = (comando: string) => {
     if (!comando.trim()) return;
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+    // Pedidos de lembrete primeiro; o que não for lembrete segue para os outros comandos.
+    const respostas = responderLembretes(comando, { agora: agora(), demandas: estadoDemandas.demandas })
+      ?? responder(comando, todos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`);
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...respostas]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -280,6 +286,13 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                   <span className="mensagem-meta">
                     {m.natureza} · fonte: {m.fonte}
                   </span>
+                )}
+                {m.opcoes && (
+                  <div className="acoes-aviso" role="group" aria-label="Respostas prontas">
+                    {m.opcoes.map((o) => (
+                      <button key={o.comando} type="button" className="botao botao--pequeno" onClick={() => enviarComando(o.comando)}>{o.rotulo}</button>
+                    ))}
+                  </div>
                 )}
               </div>
             </li>

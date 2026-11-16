@@ -6,6 +6,7 @@ import type { EntradaDemanda } from '../demandas/modelo.ts';
 import { PainelAssistente } from './PainelAssistente.tsx';
 import { CHAVE_CONVERSA, limparConversa, MAXIMO_DE_FALAS } from './conversa.ts';
 import { mostrarDeNovo, obterLembretes } from './lembretes.ts';
+import { obterLembretesPessoais } from '../lembretes/armazem.ts';
 
 // Sexta, 13/11/2026.
 const AGORA = () => new Date('2026-11-13T12:00:00.000Z');
@@ -273,5 +274,29 @@ describe('painel do assistente: mascote', () => {
     expect(screen.getByTestId('aviso-DEM-1')).not.toBeVisible();
     fireEvent.click(screen.getByRole('button', { name: /Notificações/ }));
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
+  });
+});
+
+describe('painel do assistente: lembretes pessoais', () => {
+  it('pedido de lembrete vira confirmação (inferência) com "Desfazer"; o botão envia o comando e cancela', () => {
+    const { container } = montar();
+    enviar('me lembre de beber água daqui 10 min');
+    const confirmacao = [...container.querySelectorAll('.conversa li.fala')].at(-1)!;
+    expect(confirmacao).toHaveTextContent('Lembrete 1: «beber água»');
+    expect(confirmacao).toHaveTextContent('inferência · fonte: leitura da frase por regras');
+    expect(obterLembretesPessoais()).toHaveLength(1);
+
+    fireEvent.click(within(confirmacao as HTMLElement).getByRole('button', { name: 'Desfazer' }));
+    expect(container.querySelectorAll('.conversa li.mensagem--usuario')[1]).toHaveTextContent('Você: cancelar lembrete 1');
+    expect([...container.querySelectorAll('.conversa li.fala')].at(-1)).toHaveTextContent('Lembrete 1 cancelado («beber água»).');
+    expect(obterLembretesPessoais()[0].estado).toBe('cancelado');
+  });
+
+  it('o atalho "Meus lembretes" lista; "prazos" e "ajuda" continuam como antes', () => {
+    montar();
+    fireEvent.click(within(screen.getByRole('group', { name: 'Atalhos de comando' })).getByRole('button', { name: 'Meus lembretes' }));
+    expect(screen.getByText(/Nenhum lembrete ativo/)).toBeInTheDocument();
+    enviar('ajuda');
+    expect(screen.getByText(/Lembretes: "me lembre de beber água daqui 30 min"/)).toBeInTheDocument();
   });
 });

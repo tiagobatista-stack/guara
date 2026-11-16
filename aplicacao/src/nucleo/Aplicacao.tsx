@@ -18,6 +18,7 @@ import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosVi
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 import { Gaveta } from '../compartilhado/Gaveta.tsx';
+import { AvisosLembretes } from '../modulos/lembretes/AvisosLembretes.tsx';
 
 function useRota(): [string, (id: string) => void] {
   const [rota, setRota] = useState(() => moduloDaRota(window.location.hash));
@@ -160,6 +161,9 @@ export function Aplicacao() {
           <div className="menu-gaveta">{ativos.map((m) => itemMenu(m.id))}</div>
         </Gaveta>
       )}
+
+      {/* Lembretes pessoais: aviso com destaque, em qualquer tela, fora da conversa. */}
+      <AvisosLembretes />
     </div>
   );
 }

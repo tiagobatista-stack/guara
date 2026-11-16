@@ -4,6 +4,7 @@
 
 ### Adicionado
 
+- Lembretes pessoais na conversa do mascote, sem IA: "me lembre de beber água daqui 1 min", "me lembre de tomar antibiótico 3x ao dia" (pergunta a primeira vez e por quantos dias), "ligar para o proprietário do processo FIC-2026-0001 amanhã de manhã" (ligado à demanda), repetição (de N em N horas, todo dia, dias úteis, dias da semana), "lembretes", "cancelar lembrete N" com desfazer e "avisos". Aviso em destaque fora da conversa: faixa colorida, mascote em alerta e bipe; sem resposta, notificação do navegador (só a hora) e título piscando; depois, selo ⚠️. Respostas prontas em botão na conversa (campo opcional `opcoes`). `guara:lembretes-pessoais:v1`. 394/394 testes, build ok.
 - Notificações do assistente com "Ciente" (some até a demanda mudar de situação), adiar para as próximas 8h ou 14h de dia útil (pula fim de semana e feriado), lista dos ocultos com "Mostrar de novo" e seção recolhível para ficar só a conversa (`guara:avisos:v1`). As outras telas não mudam. 318/318 testes.
 - Configurações avisam quando o navegador não deixa gravar as preferências do mascote (armazenamento bloqueado, cheio ou modo privado): as mudanças valem só até fechar a página. 319/319 testes.
 - Testes da navegação até Configurações pelo menu lateral e pelo "Mais" do celular. 321/321 testes.
