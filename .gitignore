@@ -30,3 +30,6 @@ servidor-mcp/dados/*.json
 
 # Material da oficina FluxoLab (decisão do responsável em 14/11/2026: não versionar)
 documentacao/Apostila_FluxoLab_Claude_Code.md
+
+# Ambiente virtual Python do hook (local de cada máquina)
+.venv/
