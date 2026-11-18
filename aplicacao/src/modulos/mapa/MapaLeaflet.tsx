@@ -29,6 +29,8 @@ function balao(i: ItemMapa): HTMLElement {
   if (i.motivoCancelamento) linha(`Cancelado: ${i.motivoCancelamento}`);
   if (i.anotacoesAbertas) linha(textoAnotacoesAbertas(i.anotacoesAbertas));
   linha(i.municipio ?? '');
+  linha([i.imovel, i.areaHa !== undefined ? `${String(i.areaHa).replace('.', ',')} ha` : ''].filter(Boolean).join(' · '));
+  linha(i.etiquetas?.length ? `Etiquetas: ${i.etiquetas.join(', ')}` : '');
   linha(i.quando);
   linha(formatarDecimal(i.coordenada));
   linha(formatarGms(i.coordenada));

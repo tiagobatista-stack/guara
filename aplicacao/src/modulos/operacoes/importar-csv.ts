@@ -15,6 +15,8 @@ const COLUNAS = {
   numero: ['NPONTO', 'NUMERODOPONTO', 'NUMERO', 'PONTO', 'N'],
   codigo: ['CODIGOPONTO', 'CODIGO'],
   tipoDano: ['TIPODANO', 'TIPODEDANO'],
+  etiquetas: ['ETIQUETAS'], // só lê desta coluna; nunca das notas
+
   equipe: ['EQUIPE'],
   x: ['COORDX', 'X'],
   y: ['COORDY', 'Y'],
@@ -160,6 +162,7 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
     const equipe = limpar(campo('equipe'), LIMITES_OPERACAO.equipe);
     const codigo = limpar(campo('codigo'), LIMITES_OPERACAO.codigo);
     const tipoDano = limpar(campo('tipoDano'), LIMITES_OPERACAO.tipoDano);
+    const etiquetas = limparNomes((campo('etiquetas') ?? '').split(/\s*[;,|]\s*/), LIMITES_OPERACAO.etiqueta).slice(0, LIMITES_OPERACAO.etiquetas);
     const integrantes = limparNomes((campo('integrantes') ?? '').split(/\s*[,;/|]\s*|\s+e\s+/), LIMITES_OPERACAO.integrante);
     const resultadoBruto = limpar(campo('resultado'), 60);
     const resultado = resultadoBruto ? resultadoDaPlanilha(resultadoBruto) : null;
@@ -174,6 +177,7 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
           ...(numero !== undefined ? { numero } : {}),
           ...(codigo ? { codigo } : {}),
           ...(tipoDano ? { tipoDano } : {}),
+          ...(etiquetas.length ? { etiquetas } : {}),
           coordenada: coord.valor,
           municipio: limpar(campo('municipio'), LIMITES_OPERACAO.municipio),
           ...(equipe ? { equipe } : {}),

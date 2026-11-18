@@ -8,6 +8,9 @@ import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
+import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
+import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
+import { htmlDoRoteiro } from './roteiro.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
@@ -16,7 +19,7 @@ import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { decodificarCsv, importarPontosCsv, type LinhaImportada, type ResultadoCsv } from './importar-csv.ts';
 import { ehXlsx, xlsxParaCsv } from './ler-xlsx.ts';
 import {
-  LIMITES_OPERACAO, MOTIVOS_PERIODO, MOTIVOS_SUGERIDOS, RESULTADOS, RESULTADOS_COM_MOTIVO, SITUACOES_ACOMPANHAMENTO,
+  ETIQUETAS_SUGERIDAS, LIMITES_OPERACAO, MOTIVOS_PERIODO, SITUACOES_CAR, type SituacaoCar, MOTIVOS_SUGERIDOS, RESULTADOS, RESULTADOS_COM_MOTIVO, SITUACOES_ACOMPANHAMENTO,
   type MotivoPeriodo, type Operacao, type Ponto, type PontoNovo, type ResultadoPonto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
 import {
@@ -377,7 +380,7 @@ function CampoLista({ rotulo, itens, sugestoes, max, aoMudar }: { rotulo: string
 type Sugestoes = ReturnType<typeof sugestoesDeViagem>;
 
 const dadosDaViagem = (v?: Viagem): DadosViagem => ({
-  equipe: v?.equipe ?? '', integrantes: v?.integrantes ?? [], veiculos: v?.veiculos ?? [], saida: v?.saida ?? '', retorno: v?.retorno ?? '', notas: v?.notas ?? '',
+  equipe: v?.equipe ?? '', integrantes: v?.integrantes ?? [], veiculos: v?.veiculos ?? [], motorista: v?.motorista ?? '', saida: v?.saida ?? '', retorno: v?.retorno ?? '', notas: v?.notas ?? '',
 });
 
 function FormularioViagem({ operacao, viagem, sugestoes, aoTerminar }: { operacao: Operacao; viagem?: Viagem; sugestoes: Sugestoes; aoTerminar: () => void }) {
@@ -415,6 +418,13 @@ function FormularioViagem({ operacao, viagem, sugestoes, aoTerminar }: { operaca
       </div>
       <CampoLista rotulo="Integrantes" itens={[...form.integrantes]} sugestoes={sugestoes.integrantes} max={LIMITES_OPERACAO.integrante}
         aoMudar={(integrantes) => setForm({ ...form, integrantes })} />
+      {form.integrantes.length > 0 && (
+        <label className="campo-grupo"><span>Motorista</span>
+          <select className="campo" value={form.integrantes.includes(form.motorista ?? '') ? form.motorista : ''} onChange={(e) => setForm({ ...form, motorista: e.target.value })}>
+            <option value="">Não definido</option>
+            {form.integrantes.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select></label>
+      )}
       <CampoLista rotulo="Veículos" itens={[...form.veiculos]} sugestoes={sugestoes.veiculos} max={LIMITES_OPERACAO.veiculo}
         aoMudar={(veiculos) => setForm({ ...form, veiculos })} />
       <label className="campo-grupo"><span>Notas da viagem</span>
@@ -446,7 +456,14 @@ const textoConflito = (c: ConflitoAgenda) =>
 
 function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; conflitos: Map<string, ConflitoAgenda[]>; sugestoes: Sugestoes }) {
   const [editando, setEditando] = useState<string | 'nova' | null>(null);
+  const { demandas } = useEstadoDemandas();
   const viagens = ordenarViagens(operacao.viagens);
+  // O roteiro abre numa aba nova (endereço blob:); lá o navegador imprime ou salva em PDF.
+  const abrirRoteiro = async (v: Viagem) => {
+    const { qrSvg } = await import('./qr.ts'); // fora do pacote principal: só carrega ao gerar o roteiro
+    const html = htmlDoRoteiro({ operacao, viagem: v, pontos: operacao.pontos.filter((p) => p.viagem === v.id), demandas, geradoEm: dataLocal(new Date()), qrSvg });
+    window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
+  };
   return (
     <section className="cartao" aria-labelledby="titulo-viagens" data-testid="viagens">
       <h3 id="titulo-viagens" className="titulo-secao">Viagens (cronograma)</h3>
@@ -467,6 +484,7 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
               <dl className="dados-definicao">
                 <dt>Integrantes</dt><dd>{v.integrantes.length ? v.integrantes.join(', ') : <span className="texto--atencao">nenhum</span>}</dd>
                 <dt>Veículos</dt><dd>{v.veiculos.length ? v.veiculos.join(', ') : <span className="texto--atencao">nenhum</span>}</dd>
+                {v.motorista && <><dt>Motorista</dt><dd>{v.motorista}</dd></>}
                 {v.notas && <><dt>Notas</dt><dd>{v.notas}</dd></>}
               </dl>
               {faltas.length > 0 && <p className="texto-pequeno texto--atencao" data-testid={`incompleta-${v.id}`}>Incompleta: falta {faltas.join(', ')}.</p>}
@@ -477,6 +495,7 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
                 </div>
               )}
               <div className="acoes">
+                <button type="button" className="botao botao--pequeno" aria-label={`Roteiro de vistoria da viagem ${textoViagem(v)}`} disabled={qtd === 0} onClick={() => abrirRoteiro(v)}>Roteiro de vistoria</button>
                 <button type="button" className="botao botao--pequeno" aria-label={`Editar viagem ${textoViagem(v)}`} onClick={() => setEditando(v.id)}>Editar</button>
                 <button
                   type="button" className="botao botao--pequeno botao--discreto" aria-label={`Excluir viagem ${textoViagem(v)}`}
@@ -571,9 +590,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 }) {
   const armazem = useArmazem();
   const { demandas } = useEstadoDemandas();
-  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio' | 'cancelar'>('ver');
+  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio' | 'cancelar' | 'reprogramar'>('ver');
+  const [destinoReprog, setDestinoReprog] = useState('');
   const [relatorio, setRelatorio] = useState({ enviadoEm: '', protocoloSiga: '', notas: '' });
-  const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '' });
+  const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '', imovel: '', areaHa: '', car: '', situacaoCar: '' as SituacaoCar | '', etiquetas: [] as string[] });
   const [erro, setErro] = useState<string | null>(null);
   const [ligar, setLigar] = useState('');
   const [motivoCancelamento, setMotivoCancelamento] = useState('');
@@ -594,7 +614,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 
   // O formulário parte do ponto como está agora (agrupar em lote ou mudar de viagem não pode ser desfeito por um "Salvar" antigo).
   const abrirEdicao = () => {
-    setForm({ viagem: ponto.viagem ?? '', grupo: ponto.grupo ?? '', notas: ponto.notas, numero: ponto.numero !== undefined ? String(ponto.numero) : '', municipio: ponto.municipio, tipoDano: ponto.tipoDano ?? '' });
+    setForm({ viagem: ponto.viagem ?? '', grupo: ponto.grupo ?? '', notas: ponto.notas, numero: ponto.numero !== undefined ? String(ponto.numero) : '', municipio: ponto.municipio, tipoDano: ponto.tipoDano ?? '', imovel: ponto.imovel ?? '', areaHa: ponto.areaHa !== undefined ? String(ponto.areaHa).replace('.', ',') : '', car: ponto.car ?? '', situacaoCar: ponto.situacaoCar ?? '', etiquetas: ponto.etiquetas ?? [] });
     setErro(null);
     setModo('editar');
   };
@@ -602,7 +622,11 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
     e.preventDefault();
     const numero = form.numero.trim();
     if (numero && !/^\d+$/.test(numero)) return setErro('O número do ponto deve ser um inteiro.');
+    const areaTexto = form.areaHa.trim().replace(',', '.');
+    const areaHa = areaTexto ? Number(areaTexto) : undefined;
+    if (areaHa !== undefined && !(areaHa > 0)) return setErro('A área deve ser um número maior que zero.');
     const problema = alterarPonto(operacao.id, ponto.id, {
+      imovel: form.imovel.trim(), car: form.car.trim(), areaHa, situacaoCar: form.situacaoCar || undefined, etiquetas: form.etiquetas,
       viagem: form.viagem, grupo: form.grupo.trim(), notas: form.notas.trim(), municipio: form.municipio.replace(/\s+/g, ' ').trim(), tipoDano: form.tipoDano.trim(),
       ...(numero ? { numero: Number(numero) } : {}),
     });
@@ -658,6 +682,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
   // Registrar o envio com anotações abertas pergunta antes (não bloqueia).
   const [confirmaEnvio, setConfirmaEnvio] = useState(false);
+  // Bloco do POP IBAMA ativo (tipo de dano de supressão ou ativado pelo botão): quantos itens de campo faltam entra no aviso do envio.
+  const supressao = blocoPopAtivo(ponto);
+  const faltamPop = supressao ? itensDeCampoSemResposta(ponto.caracterizacao).length : 0;
   const gravarRelatorio = () => {
     const problema = registrarRelatorio(operacao.id, ponto.id, relatorio, hoje);
     setErro(problema);
@@ -666,12 +693,12 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
   const salvarRelatorio = (e: FormEvent) => {
     e.preventDefault();
-    if (relatorio.enviadoEm && fase !== 'concluido' && contarAbertas(ponto.anotacoes) > 0) return setConfirmaEnvio(true);
+    if (relatorio.enviadoEm && fase !== 'concluido' && (contarAbertas(ponto.anotacoes) > 0 || faltamPop > 0)) return setConfirmaEnvio(true);
     gravarRelatorio();
   };
 
   return (
-    <li className="cartao ponto-cartao" data-testid={`ponto-${ponto.id}`}>
+    <li className={`cartao ponto-cartao${aberto ? ' grade-linha-inteira' : ''}`} data-testid={`ponto-${ponto.id}`}>
       <div className="ponto-linha">
         <input type="checkbox" checked={selecionado} aria-label={`Selecionar ${rotulo}`} onChange={(e) => aoSelecionar(e.target.checked)} />
         <button type="button" className="ponto-gatilho" aria-expanded={aberto} aria-controls={`${idCampos}-corpo`} onClick={() => aoDefinirAberto(!aberto)}>
@@ -694,6 +721,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           {modo === 'ver' && fase === 'campo' && (
             <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Registrar resultado</button>
           )}
+          {modo === 'ver' && situacao === 'a-reprogramar' && (
+            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Reprogramar ${rotulo}`} onClick={() => { setErro(null); setDestinoReprog(''); setModo('reprogramar'); }}>Reprogramar</button>
+          )}
           {modo === 'ver' && fase === 'elaboracao' && (
             <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Registrar relatório no SIGA</button>
           )}
@@ -704,6 +734,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         <dt>Código</dt><dd className="mono" data-testid={`codigo-${ponto.id}`}>{ponto.codigo ?? <span className="texto--atencao">sem código</span>}</dd>
         <dt>Coordenada</dt><dd className="mono">{formatarGms(ponto.coordenada)}</dd>
         {ponto.tipoDano && <><dt>Tipo de dano</dt><dd data-testid={`tipo-dano-${ponto.id}`}>{ponto.tipoDano}</dd></>}
+        {ponto.imovel && <><dt>Imóvel / local</dt><dd data-testid={`imovel-${ponto.id}`}>{ponto.imovel}</dd></>}
+        {ponto.areaHa !== undefined && <><dt>Desmate (ha)</dt><dd data-testid={`area-${ponto.id}`}>{String(ponto.areaHa).replace('.', ',')}</dd></>}
+        {(ponto.car || ponto.situacaoCar) && <><dt>CAR</dt><dd data-testid={`car-${ponto.id}`}>{[ponto.car, ponto.situacaoCar && SITUACOES_CAR[ponto.situacaoCar]].filter(Boolean).join(' · ')}</dd></>}
+        {ponto.etiquetas && <><dt>Etiquetas</dt><dd data-testid={`etiquetas-${ponto.id}`}>{ponto.etiquetas.map((e) => <span key={e} className="selo-situacao texto-pequeno">{e}</span>)}</dd></>}
         <dt>Viagem</dt><dd data-testid={`viagem-ponto-${ponto.id}`}>{viagem ? textoViagem(viagem) : <span className="texto--atencao">sem viagem</span>}</dd>
         {ponto.grupo && <><dt>Grupo</dt><dd data-testid={`grupo-${ponto.id}`}>{ponto.grupo}</dd></>}
         {ponto.notas && <><dt>Notas</dt><dd>{ponto.notas}</dd></>}
@@ -756,6 +790,12 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       {modo === 'ver' && (
         <AnotacoesDoItem item="ponto" anotacoes={ponto.anotacoes} aoMudar={(lista) => setErro(salvarAnotacoesPonto(operacao.id, ponto.id, lista))} />
       )}
+      {modo === 'ver' && !supressao && (
+        <div className="acoes"><button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { popAtivo: true }))}>Caracterizar dano (POP)</button></div>
+      )}
+      {modo === 'ver' && supressao && (
+        <CaracterizacaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} />
+      )}
 
       {modo === 'resultado' ? (
         <FormularioResultado operacao={operacao} ponto={ponto} rotulo={rotulo} hoje={hoje}
@@ -771,7 +811,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <label className="campo-grupo"><span>Notas (opcional)</span>
             <textarea className="campo campo--area" rows={2} value={relatorio.notas} maxLength={LIMITES_OPERACAO.observacao} onChange={(e) => setRelatorio({ ...relatorio, notas: e.target.value })} /></label>
           <p className="texto-pequeno texto-suave">Data em branco desfaz o envio e o ponto volta para "em elaboração".</p>
-          {confirmaEnvio && <ConfirmaConclusao anotacoes={ponto.anotacoes} aoConcluir={gravarRelatorio} aoVoltar={() => setConfirmaEnvio(false)} />}
+          {confirmaEnvio && <ConfirmaConclusao anotacoes={ponto.anotacoes} itensPopSemResposta={faltamPop} aoConcluir={gravarRelatorio} aoVoltar={() => setConfirmaEnvio(false)} />}
           {erro && <p role="alert" className="erro-campo">{erro}</p>}
           <div className="acoes">
             <button type="submit" className="botao botao--primario">Salvar envio</button>
@@ -802,12 +842,42 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
               </select></label>
             <label className="campo-grupo"><span>Grupo</span>
               <input className="campo" value={form.grupo} maxLength={LIMITES_OPERACAO.grupo} onChange={(e) => setForm({ ...form, grupo: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Imóvel / local</span>
+              <input className="campo" value={form.imovel} maxLength={LIMITES_OPERACAO.imovel} autoComplete="off" onChange={(e) => setForm({ ...form, imovel: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Desmate (ha)</span>
+              <input className="campo" inputMode="decimal" value={form.areaHa} autoComplete="off" onChange={(e) => setForm({ ...form, areaHa: e.target.value })} /></label>
+            <label className="campo-grupo"><span>CAR estadual</span>
+              <input className="campo" value={form.car} maxLength={LIMITES_OPERACAO.car} autoComplete="off" onChange={(e) => setForm({ ...form, car: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Situação do CAR</span>
+              <select className="campo" value={form.situacaoCar} onChange={(e) => setForm({ ...form, situacaoCar: e.target.value as SituacaoCar | '' })}>
+                <option value="">Não informada</option>
+                {(Object.keys(SITUACOES_CAR) as SituacaoCar[]).map((k) => <option key={k} value={k}>{SITUACOES_CAR[k]}</option>)}
+              </select></label>
           </div>
+          <CampoLista rotulo="Etiquetas" itens={form.etiquetas} sugestoes={[...ETIQUETAS_SUGERIDAS]} max={LIMITES_OPERACAO.etiqueta} aoMudar={(etiquetas) => setForm({ ...form, etiquetas })} />
           <label className="campo-grupo"><span>Notas</span>
             <textarea className="campo campo--area" rows={2} value={form.notas} maxLength={LIMITES_OPERACAO.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} /></label>
           <div className="acoes">
             <button type="submit" className="botao botao--primario">Salvar ponto</button>
             <button type="button" className="botao" onClick={() => { setModo('ver'); setErro(null); }}>Cancelar</button>
+          </div>
+        </form>
+      ) : modo === 'reprogramar' ? (
+        <form className="formulario" noValidate aria-label={`Reprogramar ${rotulo}`} onSubmit={(e) => {
+          e.preventDefault();
+          const problema = reprogramarPonto(operacao.id, ponto.id, destinoReprog);
+          setErro(problema);
+          if (!problema) setModo('ver');
+        }}>
+          <label className="campo-grupo"><span>Levar para a operação</span>
+            <select className="campo" aria-label={`Operação para reprogramar ${rotulo}`} value={destinoReprog} onChange={(e) => setDestinoReprog(e.target.value)}>
+              <option value="">Escolha…</option>
+              {todas.filter((o) => o.id !== operacao.id && !campoEncerrado(o)).map((o) => <option key={o.id} value={o.id}>{o.nome} ({textoPeriodo(o)})</option>)}
+            </select></label>
+          {todas.filter((o) => o.id !== operacao.id && !campoEncerrado(o)).length === 0 && <p className="texto-pequeno texto-suave">Crie a próxima operação para reprogramar.</p>}
+          <div className="acoes">
+            <button type="submit" className="botao botao--primario" disabled={!destinoReprog}>Confirmar reprogramação</button>
+            <button type="button" className="botao" onClick={() => { setModo('ver'); setErro(null); }}>Voltar</button>
           </div>
         </form>
       ) : modo === 'cancelar' ? (
@@ -1216,16 +1286,16 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
       ) : visiveis.length === 0 ? (
         <EstadoVazio cartao texto="Nenhum ponto corresponde aos filtros." dica="Mude ou limpe os filtros." />
       ) : secoes.length === 0 ? (
-        <ul className="lista-limpa grade grade--2" aria-label="Pontos da operação">{visiveis.map(cartao)}</ul>
+        <ul className="lista-limpa grade grade--2 grade--topo" aria-label="Pontos da operação">{visiveis.map(cartao)}</ul>
       ) : (
         secoes.map((s) => (
           <section key={s.chave} aria-label={s.rotulo} data-testid={`secao-${s.chave}`}>
             <h3 className="titulo-secao">{s.titulo} <span className="texto-pequeno texto-suave">· {s.detalhe}</span></h3>
             <div className="acoes acoes--sem-margem">
-              <button type="button" className="botao botao--pequeno" aria-label={`Expandir pontos: ${s.rotulo}`} onClick={() => definirAbertos(s.pontos.map((p) => p.id), true)}>Expandir</button>
-              <button type="button" className="botao botao--pequeno" aria-label={`Recolher pontos: ${s.rotulo}`} onClick={() => definirAbertos(s.pontos.map((p) => p.id), false)}>Recolher</button>
+              <button type="button" className="botao botao--pequeno botao--icone" aria-label={`Expandir pontos da ${s.rotulo}`} title="Expandir pontos" onClick={() => definirAbertos(s.pontos.map((p) => p.id), true)}><span aria-hidden="true">▾</span></button>
+              <button type="button" className="botao botao--pequeno botao--icone" aria-label={`Recolher pontos da ${s.rotulo}`} title="Recolher pontos" onClick={() => definirAbertos(s.pontos.map((p) => p.id), false)}><span aria-hidden="true">▴</span></button>
             </div>
-            <ul className="lista-limpa grade grade--2" aria-label={s.rotulo}>{s.pontos.map(cartao)}</ul>
+            <ul className="lista-limpa grade grade--2 grade--topo" aria-label={s.rotulo}>{s.pontos.map(cartao)}</ul>
           </section>
         ))
       )}

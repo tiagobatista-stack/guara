@@ -22,6 +22,10 @@ export interface ItemMapa {
   /** Ponto cancelado: por quê. */
   motivoCancelamento?: string;
   municipio?: string;
+  /** Planejamento do ponto: imóvel/local, desmate (ha) e etiquetas. */
+  imovel?: string;
+  areaHa?: number;
+  etiquetas?: string[];
   /** Prazo da demanda ou datas da viagem, já formatados; vazio se não houver. */
   quando: string;
   coordenada: Coordenada;
@@ -78,6 +82,9 @@ export function itensDoMapa(
         quando: datas,
         coordenada: p.coordenada,
         ...(contarAbertas(p.anotacoes) ? { anotacoesAbertas: contarAbertas(p.anotacoes) } : {}),
+        ...(p.imovel ? { imovel: p.imovel } : {}),
+        ...(p.areaHa !== undefined ? { areaHa: p.areaHa } : {}),
+        ...(p.etiquetas?.length ? { etiquetas: p.etiquetas } : {}),
         ...(p.situacao === 'cancelado' && p.motivoCancelamento ? { motivoCancelamento: p.motivoCancelamento } : {}),
       });
     }

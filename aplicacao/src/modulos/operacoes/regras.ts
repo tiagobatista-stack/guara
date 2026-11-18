@@ -4,8 +4,9 @@
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import { bloqueioValido, dataValida } from '../demandas/regras.ts';
 import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
+import { caracterizacaoValida } from './pop-supressao.ts';
 import {
-  LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
+  LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_CAR, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
 
 // ---------- Datas ----------
@@ -94,6 +95,7 @@ function viagemValida(x: unknown): x is Viagem {
     texto(v.equipe, LIMITES_OPERACAO.equipe) &&
     listaDeTextos(v.integrantes, LIMITES_OPERACAO.integrantes, LIMITES_OPERACAO.integrante) &&
     listaDeTextos(v.veiculos, LIMITES_OPERACAO.veiculos, LIMITES_OPERACAO.veiculo) &&
+    (v.motorista === undefined || (typeof v.motorista === 'string' && (v.integrantes as string[]).includes(v.motorista))) &&
     dataOpcional(v.saida) && dataOpcional(v.retorno) &&
     !(typeof v.saida === 'string' && typeof v.retorno === 'string' && v.retorno < v.saida) &&
     texto(v.notas, LIMITES_OPERACAO.notas)
@@ -111,6 +113,11 @@ function eventoValido(x: unknown): boolean {
     (e.acao === 'criada' || (e.acao === 'periodo' && ladoPeriodo(e.de) && ladoPeriodo(e.para))) &&
     (e.motivo === undefined || (typeof e.motivo === 'string' && e.motivo in MOTIVOS_PERIODO))
   );
+}
+
+function droneValido(x: unknown): boolean {
+  const d = x as { voou?: unknown; arquivo?: unknown } | null;
+  return typeof d === 'object' && d !== null && typeof d.voou === 'boolean' && (d.arquivo === undefined || (typeof d.arquivo === 'string' && d.arquivo.length <= 100));
 }
 
 function relatorioValido(x: unknown): boolean {
@@ -143,6 +150,15 @@ function pontoValido(x: unknown): boolean {
     (p.bloqueio === undefined || bloqueioValido(p.bloqueio)) &&
     (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
     (p.anotacoes === undefined || anotacoesValidas(p.anotacoes)) &&
+    (p.caracterizacao === undefined || caracterizacaoValida(p.caracterizacao)) &&
+    (p.popAtivo === undefined || typeof p.popAtivo === 'boolean') &&
+    (p.imovel === undefined || texto(p.imovel, LIMITES_OPERACAO.imovel)) &&
+    (p.car === undefined || texto(p.car, LIMITES_OPERACAO.car)) &&
+    (p.areaHa === undefined || (typeof p.areaHa === 'number' && Number.isFinite(p.areaHa) && p.areaHa > 0)) &&
+    (p.situacaoCar === undefined || Object.keys(SITUACOES_CAR).includes(p.situacaoCar as string)) &&
+    (p.etiquetas === undefined || listaDeTextos(p.etiquetas, LIMITES_OPERACAO.etiquetas, LIMITES_OPERACAO.etiqueta)) &&
+    (['coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const).every((k) => p[k] === undefined || (typeof p[k] === 'string' && p[k].length <= 100)) &&
+    (p.drone === undefined || droneValido(p.drone)) &&
     (p.motivoCancelamento === undefined || (typeof p.motivoCancelamento === 'string' && p.motivoCancelamento.length <= 100)) &&
     (p.reprogramado === undefined || (typeof p.reprogramado === 'object' && p.reprogramado !== null &&
       typeof (p.reprogramado as Record<string, unknown>).operacao === 'string' && typeof (p.reprogramado as Record<string, unknown>).ponto === 'string')) &&

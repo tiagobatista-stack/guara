@@ -4,6 +4,7 @@
 import { criarListaLocal, novoId } from '../atalhos/lista-local.ts';
 import { dataValida } from '../demandas/regras.ts';
 import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
+import { caracterizacaoValida } from './pop-supressao.ts';
 import { anotacoesValidas, comAnotacoes, type Anotacao } from '../../compartilhado/anotacoes.ts';
 import type { MotivoBloqueio } from '../demandas/modelo.ts';
 import {
@@ -278,9 +279,28 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   const ponto = op?.pontos.find((p) => p.id === pontoId);
   if (!op || !ponto) return 'Ponto não encontrado.';
   const novo: Ponto = { ...ponto, ...mudancas };
-  for (const k of ['viagem', 'grupo', 'tipoDano', 'motivoCancelamento'] as const) {
+  for (const k of ['viagem', 'grupo', 'tipoDano', 'motivoCancelamento', 'imovel', 'car', 'coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const) {
     if (novo[k] !== undefined && String(novo[k]).trim() === '') delete novo[k];
   }
+  for (const k of ['imovel', 'car', 'areaHa', 'situacaoCar', 'etiquetas'] as const) if (novo[k] === undefined) delete novo[k];
+  if (novo.imovel) novo.imovel = novo.imovel.trim();
+  if (novo.car) novo.car = novo.car.trim();
+  if (novo.imovel && novo.imovel.length > LIMITES_OPERACAO.imovel) return `O imóvel/local aceita até ${LIMITES_OPERACAO.imovel} caracteres.`;
+  if (novo.car && novo.car.length > LIMITES_OPERACAO.car) return `O CAR aceita até ${LIMITES_OPERACAO.car} caracteres.`;
+  if (novo.areaHa !== undefined) {
+    if (!Number.isFinite(novo.areaHa) || novo.areaHa <= 0) return 'A área deve ser um número maior que zero.';
+    novo.areaHa = Math.round(novo.areaHa * 10) / 10;
+  }
+  if (novo.etiquetas) {
+    if (novo.etiquetas.length > LIMITES_OPERACAO.etiquetas) return `O limite é de ${LIMITES_OPERACAO.etiquetas} etiquetas por ponto.`;
+    novo.etiquetas = limparNomes(novo.etiquetas, LIMITES_OPERACAO.etiqueta);
+    if (novo.etiquetas.length === 0) delete novo.etiquetas;
+  }
+  if (novo.caracterizacao !== undefined && !caracterizacaoValida(novo.caracterizacao)) return 'Resposta fora das opções do POP.';
+  if (novo.caracterizacao && Object.keys(novo.caracterizacao).length === 0) delete novo.caracterizacao;
+  if (novo.drone && !novo.drone.voou && !novo.drone.arquivo) delete novo.drone;
+  for (const k of ['coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const) if ((novo[k] ?? '').length > 100) return 'Os dados de campo aceitam até 100 caracteres cada.';
+  if ((novo.drone?.arquivo ?? '').length > 100) return 'Os dados de campo aceitam até 100 caracteres cada.';
   if (novo.numero !== undefined && (!Number.isInteger(novo.numero) || novo.numero < 0)) return 'O número do ponto deve ser um inteiro.';
   if (novo.numero !== undefined && novo.numero !== ponto.numero && op.pontos.some((p) => p.id !== pontoId && p.numero === novo.numero)) {
     return `Já existe o ponto ${novo.numero} nesta operação.`;
@@ -359,6 +379,8 @@ export interface DadosViagem {
   saida: string;
   retorno: string;
   notas: string;
+  /** Um dos integrantes; vazio ou ausente = sem motorista. */
+  motorista?: string;
 }
 
 /** Viagem limpa a partir do formulário, ou o problema. */
@@ -373,7 +395,8 @@ function montarViagem(op: Operacao, id: string, d: DadosViagem): Viagem | string
   if (notas.length > LIMITES_OPERACAO.notas) return `As notas podem ter no máximo ${LIMITES_OPERACAO.notas} caracteres.`;
   const erros = problemasDeDatas({ saida: d.saida || undefined, retorno: d.retorno || undefined }, { inicio: op.inicio, fim: op.fim });
   if (erros.length) return erros[0];
-  return { id, equipe, integrantes, veiculos, notas, ...(d.saida ? { saida: d.saida } : {}), ...(d.retorno ? { retorno: d.retorno } : {}) };
+  const motorista = d.motorista && integrantes.includes(d.motorista) ? d.motorista : undefined;
+  return { id, equipe, integrantes, veiculos, notas, ...(motorista ? { motorista } : {}), ...(d.saida ? { saida: d.saida } : {}), ...(d.retorno ? { retorno: d.retorno } : {}) };
 }
 
 export function criarViagem(operacaoId: string, d: DadosViagem): { ok: true; id: string } | { ok: false; erro: string } {

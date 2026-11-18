@@ -14,11 +14,15 @@ export function SeloAnotacoes({ anotacoes, testid }: { anotacoes?: readonly Anot
   return n > 0 ? <span className="selo-situacao selo-situacao--atencao" data-testid={testid}>{textoAnotacoesAbertas(n)}</span> : null;
 }
 
-/** Aviso ao concluir com anotações abertas: não bloqueia, só pergunta. */
-export function ConfirmaConclusao({ anotacoes, aoConcluir, aoVoltar }: { anotacoes?: readonly Anotacao[]; aoConcluir: () => void; aoVoltar: () => void }) {
+/** Aviso ao concluir com anotações abertas (e, no ponto de supressão, itens de campo do POP sem resposta): não bloqueia, só pergunta. */
+export function ConfirmaConclusao({ anotacoes, itensPopSemResposta = 0, aoConcluir, aoVoltar }: {
+  anotacoes?: readonly Anotacao[]; itensPopSemResposta?: number; aoConcluir: () => void; aoVoltar: () => void;
+}) {
+  const abertas = contarAbertas(anotacoes);
+  const partes = [abertas > 0 ? textoAnotacoesAbertas(abertas) : '', itensPopSemResposta > 0 ? `${itensPopSemResposta} item(ns) de campo do POP sem resposta` : ''].filter(Boolean);
   return (
     <div role="alert" className="aviso" data-testid="confirma-conclusao">
-      <p>Há {textoAnotacoesAbertas(contarAbertas(anotacoes))}. Concluir mesmo assim?</p>
+      <p>Há {partes.join(' e ')}. Concluir mesmo assim?</p>
       <div className="acoes">
         <button type="button" className="botao botao--primario" onClick={aoConcluir}>Concluir</button>
         <button type="button" className="botao" onClick={aoVoltar}>Voltar</button>
@@ -39,6 +43,7 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
   const [ocultarFeitas, setOcultarFeitas] = useState(false);
+  const [campoAberto, setCampoAberto] = useState(false);
   const lista = ordenarAnotacoes(anotacoes);
   const feitas = lista.length - anotacoesAbertas(lista).length;
   const visiveis = ocultarFeitas ? lista.filter((a) => !a.feita) : lista;
@@ -69,18 +74,22 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
   return (
     <section className="bloco-detalhe" aria-labelledby={`${id}-titulo`}>
       <h3 id={`${id}-titulo`} className="titulo-secao titulo-secao--bloco">Anotações <SeloAnotacoes anotacoes={anotacoes} /></h3>
-      <form className="formulario" aria-label={`Nova anotação ${item === 'demanda' ? 'da demanda' : 'do ponto'}`} onSubmit={anotar}>
-        <div className="campo-grupo">
-          <div className="acoes acoes--sem-margem acoes--centro">
-            <label htmlFor={`${id}-nova`}>Nova anotação</label>
-            <input id={`${id}-nova`} className="campo" value={texto} maxLength={LIMITES_ANOTACAO.texto} autoComplete="off" aria-describedby={`${id}-dica`} onChange={(e) => setTexto(e.target.value)} />
-            <button type="submit" className="botao botao--primario">Anotar</button>
+      {!campoAberto && lista.length === 0 ? (
+        <button type="button" className="botao botao--pequeno botao--sutil" onClick={() => setCampoAberto(true)}>+ Anotação</button>
+      ) : (
+        <form className="formulario" aria-label={`Nova anotação ${item === 'demanda' ? 'da demanda' : 'do ponto'}`} onSubmit={anotar}>
+          <div className="campo-grupo">
+            <div className="acoes acoes--sem-margem acoes--centro">
+              <label htmlFor={`${id}-nova`}>Nova anotação</label>
+              <input id={`${id}-nova`} className="campo" value={texto} maxLength={LIMITES_ANOTACAO.texto} autoComplete="off" autoFocus={campoAberto && lista.length === 0} aria-describedby={`${id}-dica`} onChange={(e) => setTexto(e.target.value)} />
+              <button type="submit" className="botao botao--primario">Anotar</button>
+            </div>
+            <span id={`${id}-dica`} className="texto-pequeno texto-suave">
+              Para lembrar e resolver ao longo da análise. Até {LIMITES_ANOTACAO.texto} caracteres. Não registre CPF, endereço ou nome do autuado aqui.
+            </span>
           </div>
-          <span id={`${id}-dica`} className="texto-pequeno texto-suave">
-            Para lembrar e resolver ao longo da análise. Até {LIMITES_ANOTACAO.texto} caracteres. Não registre CPF, endereço ou nome do autuado aqui.
-          </span>
-        </div>
-      </form>
+        </form>
+      )}
       {erro && <p role="alert" className="erro-campo">{erro}</p>}
       {feitas > 0 && (
         <button type="button" className="botao botao--pequeno" aria-pressed={ocultarFeitas} onClick={() => setOcultarFeitas(!ocultarFeitas)}>

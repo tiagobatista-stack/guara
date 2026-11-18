@@ -72,6 +72,8 @@ describe('anotações na demanda', () => {
   it('anota (botão e Enter), marca, edita, oculta feitas e exclui; grava no armazém sem mexer na última ação', () => {
     const armazem = montarDemandas([demanda()]);
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Vistoria fictícia' }));
+    expect(screen.queryByLabelText('Nova anotação')).toBeNull(); // sem itens: só o link
+    fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     expect(screen.getAllByText(/Não registre CPF, endereço ou nome do autuado aqui\./).length).toBeGreaterThan(0);
     const campo = screen.getByLabelText('Nova anotação');
     fireEvent.change(campo, { target: { value: 'pedir croqui' } });
@@ -152,8 +154,9 @@ const ponto = { coordenada: { lat: -12.1, lon: -58.2 }, municipio: 'Brasnorte', 
 function montarPonto() {
   const r = criarOperacao({ nome: 'Brasnorte', inicio: '2026-10-05', fim: '2026-10-12', origem: '' }, '2026-09-01T00:00:00Z');
   if (!r.ok) throw new Error('operação não criada');
-  incluirPontos(r.id, [ponto]);
-  const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [] });
+  // Ponto com demanda de embargo ligada: fora do POP de supressão (que tem o seu próprio aviso).
+  incluirPontos(r.id, [{ ...ponto, demandas: ['dE'] }]);
+  const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [demanda({ id: 'dE', titulo: 'Embargo fictício' })] });
   render(<ContextoArmazem.Provider value={armazem}><Operacoes agora={() => new Date(2026, 10, 18, 10)} /></ContextoArmazem.Provider>);
   fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
   fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
@@ -163,6 +166,7 @@ function montarPonto() {
 describe('anotações no ponto de operação', () => {
   it('mesmo componente: anota, marca e mostra o selo no cartão do ponto', () => {
     const { ponto: p } = montarPonto();
+    fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'confirmar coordenada com o CAR' } });
     fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
     expect(screen.getAllByText(/Não registre CPF, endereço ou nome do autuado aqui\./).length).toBeGreaterThan(0);
@@ -176,6 +180,7 @@ describe('anotações no ponto de operação', () => {
   it('registrar o envio do relatório com aberta pergunta; Voltar não grava, Concluir grava; sem aberta grava direto', () => {
     const { id, ponto: p } = montarPonto();
     act(() => { registrarResultado(id, p.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
+    fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'juntar croqui' } });
     fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
     const enviar = () => {
