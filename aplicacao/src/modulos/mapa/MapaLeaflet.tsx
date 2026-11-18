@@ -7,7 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import municipios from './municipios-mt.json';
 import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { FONTES_WMS, imagensOrdenadas } from './fontes-wms.ts';
-import { CENTRO_MT, corDaSituacao, estadoDaFonte, limitesDosItens, type ItemMapa } from './regras.ts';
+import { CENTRO_MT, COR_VENCIDO, corDaSituacao, estadoDaFonte, limitesDosItens, rotuloDaSituacao, type ItemMapa } from './regras.ts';
 
 function balao(i: ItemMapa): HTMLElement {
   const div = document.createElement('div');
@@ -19,7 +19,7 @@ function balao(i: ItemMapa): HTMLElement {
     div.append(p);
   };
   linha(i.rotulo, true);
-  linha(`${i.tipo === 'demanda' ? 'Demanda' : 'Ponto de operação'} · ${i.situacao}`);
+  linha(`${i.tipo === 'demanda' ? 'Demanda' : 'Ponto de operação'} · ${rotuloDaSituacao(i)}`);
   linha(i.municipio ?? '');
   linha(i.quando);
   linha(formatarDecimal(i.coordenada));
@@ -78,7 +78,7 @@ export function MapaLeaflet({ itens, aoEstado }: { itens: ItemMapa[]; aoEstado: 
       const cor = corDaSituacao(i.situacao);
       const marcador = i.tipo === 'demanda'
         ? L.circleMarker(pos, { radius: 7, color: '#fff', weight: 1.5, fillColor: cor, fillOpacity: 1 })
-        : L.marker(pos, { icon: L.divIcon({ className: '', html: `<span class="mapa-quadrado" style="background:${cor}"></span>`, iconSize: [14, 14] }) });
+        : L.marker(pos, { icon: L.divIcon({ className: '', html: `<span class="mapa-quadrado" style="background:${cor}${i.vencido ? `;outline:3px solid ${COR_VENCIDO}` : ''}"></span>`, iconSize: [14, 14] }) });
       marcador.bindPopup(balao(i)).addTo(i.tipo === 'demanda' ? demandas.current! : pontos.current!);
     }
     const lim = limitesDosItens(itens);

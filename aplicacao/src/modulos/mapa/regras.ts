@@ -3,14 +3,17 @@
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
-import { viagemDoPonto } from '../operacoes/regras.ts';
+import { SITUACOES_ACOMPANHAMENTO } from '../operacoes/modelo.ts';
+import { pontoVencido, situacaoDoPonto, viagemDoPonto } from '../operacoes/regras.ts';
 
 export interface ItemMapa {
   id: string;
   tipo: 'demanda' | 'ponto';
   rotulo: string;
-  /** Status da demanda ou situação do ponto. */
+  /** Status da demanda ou situação de acompanhamento do ponto (situacaoDoPonto). */
   situacao: string;
+  /** Ponto em aberto cuja viagem já voltou: alerta derivado, não situação. */
+  vencido?: boolean;
   municipio?: string;
   /** Prazo da demanda ou datas da viagem, já formatados; vazio se não houver. */
   quando: string;
@@ -20,8 +23,14 @@ export interface ItemMapa {
 /** Cor por situação; a forma (círculo = demanda, quadrado = ponto) não depende dela. Desconhecida: cinza. */
 export const COR_SITUACAO: Record<string, string> = {
   'A Fazer': '#d97706', 'Em Andamento': '#2563eb', 'Em Validação': '#7c3aed', 'Concluída': '#16a34a',
-  planejado: '#2563eb', vistoriado: '#16a34a', cancelado: '#6b7280',
+  planejado: '#2563eb', 'resultado-pendente': '#7c3aed', finalizado: '#16a34a', 'a-reprogramar': '#dc2626', reprogramado: '#0891b2', cancelado: '#6b7280',
 };
+/** Contorno de alerta do ponto vencido. */
+export const COR_VENCIDO = '#b91c1c';
+
+/** Texto da situação para balão e legenda: o rótulo do ponto (com "vencido") ou o status da demanda. */
+export const rotuloDaSituacao = (i: Pick<ItemMapa, 'tipo' | 'situacao' | 'vencido'>) =>
+  i.tipo === 'ponto' ? `${SITUACOES_ACOMPANHAMENTO[i.situacao as keyof typeof SITUACOES_ACOMPANHAMENTO] ?? i.situacao}${i.vencido ? ' · vencido' : ''}` : i.situacao;
 export const corDaSituacao = (s: string) => COR_SITUACAO[s] ?? '#6b7280';
 
 /** Centro de Mato Grosso, para quando não há nada a mostrar. */
@@ -32,6 +41,7 @@ const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '');
 export function itensDoMapa(
   demandas: readonly Pick<Demanda, 'id' | 'titulo' | 'status' | 'prazo' | 'coordenada'>[],
   operacoes: readonly Operacao[],
+  hoje = '',
 ): { noMapa: ItemMapa[]; semLocal: { id: string; titulo: string }[] } {
   const noMapa: ItemMapa[] = [];
   const semLocal: { id: string; titulo: string }[] = [];
@@ -48,7 +58,8 @@ export function itensDoMapa(
         id: p.id,
         tipo: 'ponto',
         rotulo: `${o.nome} · ponto ${p.numero ?? ''}`.trim() + (v?.equipe ? ` · ${v.equipe}` : ''),
-        situacao: p.situacao,
+        situacao: situacaoDoPonto(p),
+        vencido: !!hoje && pontoVencido(o, p, hoje),
         municipio: p.municipio,
         quando: datas,
         coordenada: p.coordenada,
@@ -58,11 +69,11 @@ export function itensDoMapa(
   return { noMapa, semLocal };
 }
 
-export function legenda(itens: readonly ItemMapa[]): { tipo: ItemMapa['tipo']; situacao: string; n: number }[] {
-  const conta = new Map<string, { tipo: ItemMapa['tipo']; situacao: string; n: number }>();
+export function legenda(itens: readonly ItemMapa[]): { tipo: ItemMapa['tipo']; situacao: string; vencido: boolean; n: number }[] {
+  const conta = new Map<string, { tipo: ItemMapa['tipo']; situacao: string; vencido: boolean; n: number }>();
   for (const i of itens) {
-    const k = `${i.tipo}|${i.situacao}`;
-    conta.set(k, { tipo: i.tipo, situacao: i.situacao, n: (conta.get(k)?.n ?? 0) + 1 });
+    const k = `${i.tipo}|${i.situacao}|${!!i.vencido}`;
+    conta.set(k, { tipo: i.tipo, situacao: i.situacao, vencido: !!i.vencido, n: (conta.get(k)?.n ?? 0) + 1 });
   }
   return [...conta.values()];
 }

@@ -145,14 +145,20 @@ async function textoDoArquivo(arquivo: File): Promise<string> {
 }
 
 /** O que a conferência achou: pontos prontos, linhas com problema e o período tirado do arquivo. */
-function ResumoDaPrevia({ validos, comErro, periodo }: { validos: number; comErro: LinhaImportada[]; periodo: { inicio?: string; fim?: string } | null }) {
+function ResumoDaPrevia({ validos, comErro, comAviso = [], periodo, setor }: { validos: number; comErro: LinhaImportada[]; comAviso?: LinhaImportada[]; periodo: { inicio?: string; fim?: string } | null; setor?: string }) {
   return (
     <>
       <p>
         <strong>{validos}</strong> ponto(s) pronto(s) para importar
         {comErro.length > 0 && <> e <strong className="texto--atencao">{comErro.length}</strong> linha(s) com problema (não entram; corrija o arquivo e confira de novo)</>}.
       </p>
+      {setor && <p className="texto-pequeno" data-testid="setor-do-arquivo">Setor tirado do arquivo: {setor}.</p>}
       {periodo && <p data-testid="periodo-do-arquivo">Período tirado do arquivo: {textoPeriodo(periodo)}. Ele será gravado na operação ao importar.</p>}
+      {comAviso.length > 0 && (
+        <ul className="lista-limpa" aria-label="Linhas para conferir">
+          {comAviso.map((l) => <li key={l.linha} className="texto-pequeno">Linha {l.linha} (entra, mas confira): {l.avisos.join(' ')}</li>)}
+        </ul>
+      )}
       {comErro.length > 0 && (
         <ul className="lista-limpa" aria-label="Linhas com problema">
           {comErro.map((l) => <li key={l.linha} className="texto--atencao texto-pequeno">Linha {l.linha}: {l.erros.join(' ')}</li>)}
@@ -1030,7 +1036,7 @@ function NovaOperacao({ operacoes, agora, aoCriar }: { operacoes: readonly Opera
 
   const criarImportada = (e: FormEvent) => {
     e.preventDefault();
-    const r = criarOperacaoComPontos({ nome: importada.nome, inicio: '', fim: '', origem: importada.origem }, agora().toISOString(), validos.map((l) => l.ponto!));
+    const r = criarOperacaoComPontos({ nome: importada.nome, inicio: '', fim: '', origem: importada.origem, setor: previa?.setor }, agora().toISOString(), validos.map((l) => l.ponto!));
     if (!r.ok) return setErro(r.erro);
     setPrevia(null);
     setErro(null);
@@ -1058,7 +1064,7 @@ function NovaOperacao({ operacoes, agora, aoCriar }: { operacoes: readonly Opera
 
       {previa && !previa.erro && (
         <form onSubmit={criarImportada} noValidate data-testid="previa-nova-operacao">
-          <ResumoDaPrevia validos={validos.length} comErro={comErro} periodo={previa.periodoDoArquivo ?? null} />
+          <ResumoDaPrevia validos={validos.length} comErro={comErro} comAviso={validos.filter((l) => l.avisos.length)} periodo={previa.periodoDoArquivo ?? null} setor={previa.setor} />
           {validos.length > 0 && (
             <>
               <label className="campo-grupo"><span>Nome *</span>

@@ -356,6 +356,13 @@ export function situacaoDoPonto(p: Pick<Ponto, 'situacao' | 'resultado' | 'repro
   return p.situacao === 'vistoriado' ? 'resultado-pendente' : 'planejado';
 }
 
+/** "Vencido" não é situação: é um ponto ainda em aberto (planejado ou sem resultado) cuja viagem já voltou antes de `hoje`. */
+export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'viagem'>, hoje: string): boolean {
+  const s = situacaoDoPonto(p);
+  const retorno = viagemDoPonto(o, p)?.retorno;
+  return (s === 'planejado' || s === 'resultado-pendente') && !!retorno && retorno < hoje;
+}
+
 /** Situações que encerram o ponto (não acumulam). */
 const ENCERRADAS: readonly SituacaoAcompanhamento[] = ['finalizado', 'cancelado', 'reprogramado'];
 export const pontoEncerrado = (p: Ponto) => ENCERRADAS.includes(situacaoDoPonto(p));
@@ -379,10 +386,7 @@ export function pendenciasDeCampo(operacoes: readonly Operacao[], hoje: string):
     for (const ponto of operacao.pontos) {
       const s = situacaoDoPonto(ponto);
       if (s === 'a-reprogramar') aReprogramar.push({ operacao, ponto });
-      else if (s === 'planejado' || s === 'resultado-pendente') {
-        const retorno = viagemDoPonto(operacao, ponto)?.retorno;
-        if (retorno && retorno < hoje) semResultado.push({ operacao, ponto });
-      }
+      else if (pontoVencido(operacao, ponto, hoje)) semResultado.push({ operacao, ponto });
     }
   }
   return { semResultado, aReprogramar };

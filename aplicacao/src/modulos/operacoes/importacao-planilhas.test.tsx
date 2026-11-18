@@ -4,6 +4,8 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Operacoes } from './Operacoes.tsx';
 import { obterOperacoes } from './armazem.ts';
+import { pontoVencido, situacaoDoPonto } from './regras.ts';
+import { itensDoMapa } from '../mapa/regras.ts';
 import outubro from './__fixtures__/operacao-1-outubro-2026-vencida.csv?raw';
 import dezembro from './__fixtures__/operacao-2-dezembro-2026-futura.csv?raw';
 import janeiro from './__fixtures__/operacao-3-janeiro-2027-futura.csv?raw';
@@ -42,6 +44,19 @@ describe('importação das planilhas de teste', () => {
     const [out, dez, jan] = obterOperacoes();
     expect(dez.pontos.every((p) => p.situacao === 'planejado')).toBe(true);
     expect(out.pontos.map((p) => p.numero)).toEqual([1, 2, 3, 4, 5, 6]);
+    // Resultado e campos pós-campo entram no ponto; a situação é derivada (01, 02, 03, 05 finalizado; 04 a reprogramar; 06 planejado e vencido).
+    const porNumero = (n: number) => out.pontos.find((p) => p.numero === n)!;
+    expect(out.setor).toBe('DUDJUINA');
+    expect(porNumero(1)).toMatchObject({ resultado: 'sim', protocolo: 'PROT-TESTE-0001', observacao: 'Auto lavrado no local', tipoDano: 'Desmatamento', codigo: 'JUINA202610-01' });
+    expect(porNumero(2)).toMatchObject({ resultado: 'fiscalizado-nao-autuado', motivo: 'Infrator não localizado' });
+    expect(porNumero(3)).toMatchObject({ resultado: 'nao-cabe-atuacao', motivo: 'Outros' });
+    expect(porNumero(4)).toMatchObject({ resultado: 'nao', motivo: 'Área sem acesso' });
+    expect(out.pontos.map((p) => situacaoDoPonto(p))).toEqual(['finalizado', 'finalizado', 'finalizado', 'a-reprogramar', 'finalizado', 'planejado']);
+    const hoje = '2026-11-18';
+    expect(out.pontos.map((p) => pontoVencido(out, p, hoje))).toEqual([false, false, false, false, false, true]);
+    expect(pontoVencido(out, porNumero(6), '2026-10-09')).toBe(false); // retorno em 09/10: só vence depois dele
+    const noMapa = itensDoMapa([], [out], hoje).noMapa;
+    expect(noMapa.map((i) => [i.situacao, i.vencido])).toEqual([['finalizado', false], ['finalizado', false], ['finalizado', false], ['a-reprogramar', false], ['finalizado', false], ['planejado', true]]);
     const ponto5 = jan.pontos.find((p) => p.numero === 5)!;
     expect(screen.getByTestId(`proximos-${ponto5.id}`)).toHaveTextContent(/out\/2026.*a 6\d m/);
     const ponto1 = jan.pontos.find((p) => p.numero === 1)!;

@@ -5,14 +5,15 @@ import { useEstadoDemandas } from '../demandas/armazem.ts';
 import { useOperacoes } from '../operacoes/armazem.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { MapaLeaflet } from './MapaLeaflet.tsx';
-import { corDaSituacao, itensDoMapa, legenda } from './regras.ts';
+import { dataLocal } from '../operacoes/regras.ts';
+import { COR_VENCIDO, corDaSituacao, itensDoMapa, legenda, rotuloDaSituacao } from './regras.ts';
 
 export function Mapa() {
   const { demandas } = useEstadoDemandas();
   const operacoes = useOperacoes();
   const [avisos, setAvisos] = useState<Record<string, 'normal' | 'devagar' | 'indisponivel'>>({});
   const [ver, setVer] = useState({ demanda: true, ponto: true });
-  const { noMapa, semLocal } = useMemo(() => itensDoMapa(demandas, operacoes), [demandas, operacoes]);
+  const { noMapa, semLocal } = useMemo(() => itensDoMapa(demandas, operacoes, dataLocal(new Date())), [demandas, operacoes]);
   const visiveis = useMemo(() => noMapa.filter((i) => ver[i.tipo]), [noMapa, ver]);
 
   return (
@@ -33,8 +34,8 @@ export function Mapa() {
         <MapaLeaflet itens={visiveis} aoEstado={(n, e) => setAvisos((a) => (a[n] === e ? a : { ...a, [n]: e }))} />
         <ul className="lista-limpa texto-pequeno" data-testid="legenda">
           {legenda(visiveis).map((l) => (
-            <li key={`${l.tipo}${l.situacao}`}>
-              <span aria-hidden style={{ color: corDaSituacao(l.situacao) }}>{l.tipo === 'demanda' ? '●' : '■'}</span> {l.tipo === 'demanda' ? 'Demanda' : 'Ponto'} · {l.situacao}: {l.n}
+            <li key={`${l.tipo}${l.situacao}${l.vencido}`}>
+              <span aria-hidden style={{ color: corDaSituacao(l.situacao), ...(l.vencido ? { outline: `2px solid ${COR_VENCIDO}` } : {}) }}>{l.tipo === 'demanda' ? '●' : '■'}</span> {l.tipo === 'demanda' ? 'Demanda' : 'Ponto'} · {rotuloDaSituacao(l)}: {l.n}
             </li>
           ))}
         </ul>
