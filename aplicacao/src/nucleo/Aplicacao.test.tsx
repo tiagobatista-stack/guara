@@ -119,3 +119,67 @@ it('menu lateral leva a Atalhos e contatos, com os sistemas externos e a lista d
   expect(screen.getByRole('link', { name: 'SIGADOC (abre em nova aba)' })).toBeInTheDocument();
   expect(screen.getByRole('heading', { level: 2, name: 'Contatos' })).toBeInTheDocument();
 });
+
+describe('menu e painel recolhíveis', () => {
+  const montar = () => {
+    const armazem = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [] });
+    const r = render(<ContextoArmazem.Provider value={armazem}><Aplicacao /></ContextoArmazem.Provider>);
+    return { armazem, ...r };
+  };
+  const larguraOriginal = window.innerWidth;
+  beforeEach(() => { localStorage.clear(); window.innerWidth = 1400; });
+  afterEach(() => { window.innerWidth = larguraOriginal; vi.restoreAllMocks(); });
+
+  it('menu: alterna, mantém o item ativo e lembra a escolha', () => {
+    const { container, unmount } = montar();
+    expect(container.querySelector('.app')).not.toHaveClass('app--menu-recolhido');
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    expect(container.querySelector('.app')).toHaveClass('app--menu-recolhido');
+    const expandir = screen.getByRole('button', { name: 'Expandir menu' });
+    expect(expandir).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('navigation', { name: 'Menu principal' }).querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    unmount();
+    const de_novo = montar();
+    expect(de_novo.container.querySelector('.app')).toHaveClass('app--menu-recolhido');
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir menu' }));
+    expect(localStorage.getItem('guara:menu-recolhido:v1')).toBe('0');
+  });
+
+  it('painel: recolhido vira faixa com o rosto e o contador; aviso novo atualiza o contador; clicar abre', () => {
+    const { armazem, container } = montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher painel' }));
+    expect(localStorage.getItem('guara:painel-recolhido:v1')).toBe('1');
+    expect(screen.queryByTestId('contador-faixa')).toBeNull();
+    const faixa = container.querySelector('.painel-faixa')!;
+    expect(faixa.querySelector('svg.mascote--vivo')).toHaveAttribute('data-humor', 'tranquilo');
+    act(() => { armazem.criar({ titulo: 'Prazo antigo (fictício)', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '2020-01-02' }); });
+    expect(screen.getByTestId('contador-faixa')).toHaveTextContent('1');
+    expect(faixa.querySelector('svg.mascote--vivo')).toHaveAttribute('data-humor', 'atento');
+    expect(faixa).toHaveAccessibleName('Expandir painel do assistente: 1 vencida');
+    fireEvent.click(faixa);
+    expect(screen.getByRole('button', { name: 'Recolher painel' })).toBeInTheDocument();
+    expect(container.querySelector('.painel-faixa')).toBeNull();
+  });
+
+  it('tela estreita (< 900 px): começa recolhido sem gravar; a escolha salva prevalece', () => {
+    window.innerWidth = 800;
+    const a = montar();
+    expect(a.container.querySelector('.app')).toHaveClass('app--menu-recolhido', 'app--painel-recolhido');
+    expect(localStorage.getItem('guara:menu-recolhido:v1')).toBeNull();
+    a.unmount();
+    localStorage.setItem('guara:menu-recolhido:v1', '0');
+    const b = montar();
+    expect(b.container.querySelector('.app')).not.toHaveClass('app--menu-recolhido');
+    expect(b.container.querySelector('.app')).toHaveClass('app--painel-recolhido');
+    expect(localStorage.getItem('guara:menu-recolhido:v1')).toBe('0');
+  });
+
+  it('armazenamento indisponível: abre (em tela larga) e alternar não quebra', () => {
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('bloqueado'); });
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => { throw new Error('bloqueado'); });
+    const { container } = montar();
+    expect(container.querySelector('.app')).not.toHaveClass('app--menu-recolhido');
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
+    expect(container.querySelector('.app')).toHaveClass('app--menu-recolhido');
+  });
+});

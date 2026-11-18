@@ -80,7 +80,10 @@ export function MapaLeaflet({ itens, aoEstado }: { itens: ItemMapa[]; aoEstado: 
     pontos.current = L.layerGroup().addTo(m);
     L.control.layers(bases, { 'Limites municipais': limites, 'Demandas': demandas.current, 'Operações': pontos.current }, { collapsed: false }).addTo(m);
     mapa.current = m;
-    return () => { m.remove(); mapa.current = null; };
+    // Painéis laterais abrindo e fechando, janela mudando ou tela cheia: o mapa recalcula o tamanho.
+    const observador = typeof ResizeObserver === 'undefined' ? null : new ResizeObserver(() => m.invalidateSize());
+    observador?.observe(alvo.current!);
+    return () => { observador?.disconnect(); m.remove(); mapa.current = null; };
   }, []);
 
   useEffect(() => {

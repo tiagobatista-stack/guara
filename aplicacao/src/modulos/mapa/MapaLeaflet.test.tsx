@@ -1,4 +1,5 @@
 import { render } from '@testing-library/react';
+import L from 'leaflet';
 import { MapaLeaflet } from './MapaLeaflet.tsx';
 import { imagensOrdenadas, FONTES_WMS } from './fontes-wms.ts';
 
@@ -22,5 +23,22 @@ describe('imagens de satélite', () => {
     (container.querySelectorAll('input[type=radio]')[2] as HTMLInputElement).click();
     expect(radios().filter((r) => r.ligado).map((r) => r.nome)).toEqual(['Landsat-8 2018 (SEMA)']);
     expect(caixas()).toEqual(antes);
+  });
+});
+
+describe('tamanho do mapa', () => {
+  it('chama invalidateSize quando o contêiner muda de tamanho e para de observar ao sair', () => {
+    const chamadas: (() => void)[] = [];
+    const desconectar = vi.fn();
+    vi.stubGlobal('ResizeObserver', class { constructor(c: () => void) { chamadas.push(c); } observe() {} disconnect = desconectar; });
+    const invalidar = vi.spyOn(L.Map.prototype, 'invalidateSize');
+    const { unmount } = render(<MapaLeaflet itens={[]} aoEstado={() => {}} />);
+    invalidar.mockClear();
+    chamadas[0]();
+    expect(invalidar).toHaveBeenCalledTimes(1);
+    unmount();
+    expect(desconectar).toHaveBeenCalled();
+    vi.unstubAllGlobals();
+    invalidar.mockRestore();
   });
 });

@@ -1,6 +1,6 @@
 // Mapa das demandas e dos pontos de operação, com filtros e lista do que não tem localização.
 
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEstadoDemandas } from '../demandas/armazem.ts';
 import { useOperacoes } from '../operacoes/armazem.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
@@ -12,6 +12,14 @@ export function Mapa() {
   const { demandas } = useEstadoDemandas();
   const operacoes = useOperacoes();
   const [avisos, setAvisos] = useState<Record<string, 'normal' | 'devagar' | 'indisponivel'>>({});
+  const cartao = useRef<HTMLDivElement>(null);
+  const [telaCheia, setTelaCheia] = useState(false);
+  useEffect(() => {
+    const aoMudar = () => setTelaCheia(document.fullscreenElement === cartao.current);
+    document.addEventListener('fullscreenchange', aoMudar);
+    return () => document.removeEventListener('fullscreenchange', aoMudar);
+  }, []);
+  const alternarTelaCheia = () => { void (telaCheia ? document.exitFullscreen() : cartao.current?.requestFullscreen()); };
   const [ver, setVer] = useState({ demanda: true, ponto: true });
   const { noMapa, semLocal } = useMemo(() => itensDoMapa(demandas, operacoes, dataLocal(new Date())), [demandas, operacoes]);
   const visiveis = useMemo(() => noMapa.filter((i) => ver[i.tipo]), [noMapa, ver]);
@@ -23,10 +31,11 @@ export function Mapa() {
         <p className="texto-suave texto-medio">Demandas com coordenada (círculos) e pontos de operação (quadrados), dos dados deste navegador. O fundo é só o limite dos municípios, que fica no próprio app. Ligar o satélite faz o navegador pedir as imagens à SEMA, que então vê a área mostrada.</p>
       </div>
 
-      <div className="cartao">
+      <div className="cartao mapa-cartao" ref={cartao}>
         <div className="agenda-barra">
           <label><input type="checkbox" checked={ver.demanda} onChange={(e) => setVer({ ...ver, demanda: e.target.checked })} /> Demandas</label>
           <label><input type="checkbox" checked={ver.ponto} onChange={(e) => setVer({ ...ver, ponto: e.target.checked })} /> Operações</label>
+          {document.fullscreenEnabled && <button type="button" className="botao botao--pequeno" aria-pressed={telaCheia} onClick={alternarTelaCheia}>{telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}</button>}
         </div>
         {Object.entries(avisos).map(([n, e]) => e === 'indisponivel'
           ? <p key={n} role="alert" className="texto-pequeno texto--atencao">Fonte indisponível: {n}</p>

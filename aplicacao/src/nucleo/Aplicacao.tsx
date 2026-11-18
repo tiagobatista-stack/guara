@@ -21,6 +21,8 @@ import { Atalhos } from '../modulos/atalhos/Atalhos.tsx';
 import { Agenda } from '../modulos/agenda/Agenda.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 import { Gaveta } from '../compartilhado/Gaveta.tsx';
+import { resumoDosAvisos } from '../modulos/assistente/avisos.ts';
+import { CHAVE_MENU, CHAVE_PAINEL, useRecolhido } from './recolhimento.ts';
 
 // O mapa (Leaflet e a malha municipal) só é baixado quando a tela abre.
 const Mapa = lazy(() => import('../modulos/mapa/Mapa.tsx').then((m) => ({ default: m.Mapa })));
@@ -54,6 +56,8 @@ export function Aplicacao() {
   const [rota, navegar] = useRota();
   const [menuAberto, setMenuAberto] = useState(false);
   const [conversaAberta, setConversaAberta] = useState(false);
+  const [menuRecolhido, alternarMenu] = useRecolhido(CHAVE_MENU);
+  const [painelRecolhido, alternarPainel] = useRecolhido(CHAVE_PAINEL);
   // Funções estáveis: a gaveta registra o ouvinte de teclado uma vez só.
   const fecharMenu = useCallback(() => setMenuAberto(false), []);
   const fecharConversa = useCallback(() => setConversaAberta(false), []);
@@ -74,6 +78,7 @@ export function Aplicacao() {
         onClick={() => { navegar(id); setMenuAberto(false); }}
         aria-current={rota === id ? 'page' : undefined}
         title={m.rotulo}
+        aria-label={m.rotulo}
       >
         <Icone nome={m.icone} />
         <span className="menu-rotulo">{m.rotulo}</span>
@@ -82,7 +87,7 @@ export function Aplicacao() {
   };
 
   return (
-    <div className="app">
+    <div className={`app${menuRecolhido ? ' app--menu-recolhido' : ''}${painelRecolhido ? ' app--painel-recolhido' : ''}`}>
       <a href="#conteudo" className="pular-conteudo">Pular para o conteúdo</a>
 
       <nav aria-label="Menu principal" className="menu-lateral">
@@ -96,6 +101,10 @@ export function Aplicacao() {
         {ativos.filter((m) => m.id !== 'configuracoes').map((m) => itemMenu(m.id))}
         <div className="menu-rodape">
           {itemMenu('configuracoes')}
+          <button type="button" className="menu-item menu-alternar" aria-expanded={!menuRecolhido} onClick={alternarMenu}
+            title={menuRecolhido ? 'Expandir menu' : 'Recolher menu'} aria-label={menuRecolhido ? 'Expandir menu' : 'Recolher menu'}>
+            <span aria-hidden="true">{menuRecolhido ? '»' : '«'}</span> <span className="menu-rotulo">Recolher menu</span>
+          </button>
           <button type="button" className="menu-item" disabled title="Sair (sem autenticação nesta versão)">
             <Icone nome="sair" /> <span className="menu-rotulo">Sair</span>
           </button>
@@ -132,7 +141,19 @@ export function Aplicacao() {
       </div>
 
       <aside aria-label="Assistente e notificações" className="painel-assistente">
-        <PainelAssistente />
+        {painelRecolhido ? (
+          // Faixa estreita: o rosto do mascote (atento e com o pulinho de sempre quando chega aviso) e o contador dos avisos não vistos.
+          <button type="button" className="painel-faixa" aria-expanded={false} onClick={alternarPainel} title="Expandir painel do assistente"
+            aria-label={`Expandir painel do assistente${avisos.length ? `: ${resumoDosAvisos(avisos)}` : ''}`}>
+            <RostoDoAssistente tamanho={40} avisos={avisos} />
+            {avisos.length > 0 && <span className="sino-contagem painel-faixa-contagem" data-testid="contador-faixa" aria-hidden="true">{avisos.length}</span>}
+          </button>
+        ) : (
+          <>
+            <button type="button" className="botao botao--pequeno painel-recolher" aria-expanded onClick={alternarPainel}>Recolher painel</button>
+            <PainelAssistente />
+          </>
+        )}
       </aside>
 
       {conversaAberta && (
