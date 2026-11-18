@@ -76,8 +76,8 @@ describe('tela Operações', () => {
 
     expect(screen.getByTestId(`viagem-ponto-${p2.id}`)).toHaveTextContent('sem viagem');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Editar Ponto 2' }));
-    const form = screen.getByRole('form', { name: 'Editar Ponto 2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar planejamento do Ponto 2' }));
+    const form = screen.getByRole('form', { name: 'Editar planejamento do Ponto 2' });
     fireEvent.change(within(form).getByLabelText('Viagem'), { target: { value: p1.viagem } });
     fireEvent.change(within(form).getByLabelText('Grupo'), { target: { value: 'Fazenda X' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar ponto' }));
@@ -95,8 +95,8 @@ describe('tela Operações', () => {
     fireEvent.click(screen.getByLabelText('Selecionar Ponto 2'));
     fireEvent.change(screen.getByLabelText('Nome do grupo'), { target: { value: 'Fazenda X' } });
     fireEvent.click(screen.getByRole('button', { name: 'Agrupar selecionados' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Editar Ponto 2' }));
-    const form = screen.getByRole('form', { name: 'Editar Ponto 2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar planejamento do Ponto 2' }));
+    const form = screen.getByRole('form', { name: 'Editar planejamento do Ponto 2' });
     expect(within(form).getByLabelText('Grupo')).toHaveValue('Fazenda X');
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar ponto' }));
     expect(obterOperacoes()[0].pontos[1].grupo).toBe('Fazenda X');
@@ -127,14 +127,14 @@ describe('tela Operações', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Criar demanda a partir do Ponto 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Converter Ponto 1 em demanda' }));
     const d = armazem.obter().demandas[0];
     expect(d).toMatchObject({ tipo: 'campo', natureza: 'demanda', coordenada: { lat: -11.5, lon: -58.5 }, vistoria: { data: '2026-09-18' } });
     expect(d.titulo).toBe('Vistoria em Município Fictício (ponto 1 de Operação fictícia)');
     expect(obterOperacoes()[0].pontos[0].demandas).toEqual([d.id]);
     expect(screen.getAllByTestId(/^ligada-/)[0]).toHaveTextContent(d.titulo);
     // Não cria a mesma demanda duas vezes.
-    expect(screen.getByRole('button', { name: 'Criar demanda a partir do Ponto 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Converter Ponto 1 em demanda' })).toBeDisabled();
     expect(armazem.obter().demandas).toHaveLength(1);
   });
 
@@ -576,8 +576,8 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
 
   it('o Editar muda número, município e tipo de dano; o código continua o mesmo', () => {
     const [, p2] = importar();
-    fireEvent.click(screen.getByRole('button', { name: 'Editar Ponto 2' }));
-    const form = screen.getByRole('form', { name: 'Editar Ponto 2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar planejamento do Ponto 2' }));
+    const form = screen.getByRole('form', { name: 'Editar planejamento do Ponto 2' });
     fireEvent.change(within(form).getByLabelText('Município'), { target: { value: 'Castanheira' } });
     fireEvent.change(within(form).getByLabelText('Tipo de dano'), { target: { value: 'Desmatamento' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar ponto' }));
@@ -613,16 +613,18 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     expect(screen.getByTestId(`situacao-${p1.id}`)).toHaveTextContent('finalizado');
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
     expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Em elaboração');
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar Ponto 2' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar vistoria do Ponto 2' }));
+    fireEvent.change(screen.getByLabelText('Motivo do cancelamento'), { target: { value: 'área inacessível' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar cancelamento' }));
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
     expect(screen.getByTestId('campo-encerrado')).toHaveTextContent('Campo encerrado · 1 em elaboração');
     expect(screen.queryByTestId('pendencias-operacao')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar envio do relatório do Ponto 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar relatório no SIGA do Ponto 1' }));
     const envio = screen.getByRole('form', { name: 'Envio do relatório do Ponto 1' });
     fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-14' } });
     fireEvent.change(within(envio).getByLabelText('Número no SIGA-MT (opcional)'), { target: { value: 'FIC-SIGA-1' } });
     fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
-    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Concluído em 14/11/2026 · nº FIC-SIGA-1');
+    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Concluído em 14/11/2026 · SIGA nº FIC-SIGA-1');
     expect(screen.getByTestId('operacao-encerrada')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reativar Ponto 2' }));
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
@@ -631,7 +633,7 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
   it('relatório: data futura é recusada e data em branco desfaz o envio', () => {
     const [p1] = importar();
     act(() => { registrarResultado(obterOperacoes()[0].id, p1.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar envio do relatório do Ponto 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar relatório no SIGA do Ponto 1' }));
     const envio = screen.getByRole('form', { name: 'Envio do relatório do Ponto 1' });
     fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-16' } });
     fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));

@@ -27,7 +27,7 @@ import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
 import {
   agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
-  campoEncerrado, diasParado, faseDoPonto, planejarCodigos, prazoDaElaboracao, pontoVencido, progressoDaOperacao, textoParado, type PendenciaDeCampo, type PrazosDeElaboracao, type ProgressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
+  campoEncerrado, diasParado, faseDoPonto, pontoTravado, planejarCodigos, prazoDaElaboracao, pontoVencido, progressoDaOperacao, textoParado, type PendenciaDeCampo, type PrazosDeElaboracao, type ProgressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
 } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
@@ -569,12 +569,12 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 }) {
   const armazem = useArmazem();
   const { demandas } = useEstadoDemandas();
-  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio'>('ver');
+  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio' | 'cancelar'>('ver');
   const [relatorio, setRelatorio] = useState({ enviadoEm: '', protocoloSiga: '', notas: '' });
-  const editando = modo !== 'ver';
   const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '' });
   const [erro, setErro] = useState<string | null>(null);
   const [ligar, setLigar] = useState('');
+  const [motivoCancelamento, setMotivoCancelamento] = useState('');
   const idCampos = useId();
 
   const rotulo = ponto.numero !== undefined ? `Ponto ${ponto.numero}` : 'Ponto';
@@ -605,7 +605,16 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
     setErro(problema);
     if (!problema) setModo('ver');
   };
-  const cancelarOuReativar = () => setErro(alterarPonto(operacao.id, ponto.id, { situacao: ponto.situacao === 'cancelado' ? 'planejado' : 'cancelado' }));
+  const reativar = () => setErro(alterarPonto(operacao.id, ponto.id, { situacao: 'planejado' }));
+  // Cancelar a vistoria pede o motivo, que fica nas notas do ponto.
+  const confirmarCancelamento = (e: FormEvent) => {
+    e.preventDefault();
+    const motivo = motivoCancelamento.replace(/\s+/g, ' ').trim();
+    if (!motivo) return setErro('Informe o motivo do cancelamento.');
+    const problema = alterarPonto(operacao.id, ponto.id, { situacao: 'cancelado', notas: [ponto.notas, `Cancelado: ${motivo}`].filter(Boolean).join(' · ') });
+    setErro(problema);
+    if (!problema) { setModo('ver'); setMotivoCancelamento(''); }
+  };
   const ligarDemanda = () => {
     if (!ligar) return;
     setErro(alterarPonto(operacao.id, ponto.id, { demandas: [...ponto.demandas, ligar] }));
@@ -634,6 +643,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
     setErro(alterarPonto(operacao.id, ponto.id, { demandas: [...ponto.demandas, r.demanda.id] }));
   };
   const livres = demandas.filter((d) => !ponto.demandas.includes(d.id));
+  const cancelado = ponto.situacao === 'cancelado';
   const fase = faseDoPonto(ponto);
   const prazoRelatorio = fase === 'elaboracao' ? prazoDaElaboracao(operacao, ponto, prazosDeElaboracao(demandas)) : null;
   const abrirRelatorio = () => {
@@ -661,7 +671,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       <p>
         <strong>{rotulo}</strong>{ponto.municipio && <> · {ponto.municipio}</>}{' '}
         <span className={CLASSE_SITUACAO[situacao] ?? 'texto-pequeno texto-suave'} data-testid={`situacao-${ponto.id}`}>{SITUACOES_ACOMPANHAMENTO[situacao]}</span>{' '}
-        <SeloAnotacoes anotacoes={ponto.anotacoes} testid={`anotacoes-${ponto.id}`} />
+        <SeloAnotacoes anotacoes={ponto.anotacoes} testid={`anotacoes-${ponto.id}`} />{' '}
+        {pontoTravado(ponto) && (
+          <button type="button" className="botao botao--pequeno" aria-label={`Destravar ${rotulo}`} onClick={() => setErro(destravarPonto(operacao.id, ponto.id))}>Destravar</button>
+        )}
       </p>
       <dl className="dados-definicao">
         <dt>Código</dt><dd className="mono" data-testid={`codigo-${ponto.id}`}>{ponto.codigo ?? <span className="texto--atencao">sem código</span>}</dd>
@@ -698,7 +711,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <h4 className="titulo-secao titulo-secao--bloco">Relatório (SIGA-MT)</h4>
           <p className="texto-pequeno" data-testid={`fase-${ponto.id}`}>
             {fase === 'concluido' ? `Concluído em ${dataBr(ponto.relatorio!.enviadoEm)}` : 'Em elaboração'}
-            {ponto.relatorio?.protocoloSiga && <> · nº {ponto.relatorio.protocoloSiga}</>}
+            {ponto.relatorio?.protocoloSiga && <> · SIGA nº {ponto.relatorio.protocoloSiga}</>}
             {prazoRelatorio && <> · prazo {dataBr(prazoRelatorio)}</>}
             {pontoVencido(operacao, ponto, hoje, prazosDeElaboracao(demandas)) && <span className="texto--atencao"> · vencido</span>}
           </p>
@@ -749,7 +762,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <div className="acoes"><button type="button" className="botao" onClick={() => setModo('ver')}>Fechar</button></div>
         </>
       ) : modo === 'editar' ? (
-        <form onSubmit={salvar} className="formulario" noValidate aria-label={`Editar ${rotulo}`}>
+        <form onSubmit={salvar} className="formulario" noValidate aria-label={`Editar planejamento do ${rotulo}`}>
           <div className="grade grade--2">
             <label className="campo-grupo"><span>Número do ponto</span>
               <input className="campo" inputMode="numeric" value={form.numero} onChange={(e) => setForm({ ...form, numero: e.target.value })} /></label>
@@ -773,51 +786,73 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
             <button type="button" className="botao" onClick={() => { setModo('ver'); setErro(null); }}>Cancelar</button>
           </div>
         </form>
+      ) : modo === 'cancelar' ? (
+        <form onSubmit={confirmarCancelamento} className="formulario" noValidate aria-label={`Cancelar vistoria do ${rotulo}`}>
+          <label className="campo-grupo"><span>Motivo do cancelamento</span>
+            <input className="campo" value={motivoCancelamento} maxLength={100} autoComplete="off" onChange={(e) => setMotivoCancelamento(e.target.value)} /></label>
+          <div className="acoes">
+            <button type="submit" className="botao botao--perigo">Confirmar cancelamento</button>
+            <button type="button" className="botao" onClick={() => { setModo('ver'); setErro(null); }}>Voltar</button>
+          </div>
+        </form>
       ) : (
-        <div className="acoes acoes--base">
-          <button type="button" className="botao botao--pequeno" aria-label={`Editar ${rotulo}`} onClick={abrirEdicao}>Editar</button>
-          {!ponto.reprogramado && ponto.situacao !== 'cancelado' && (
-            <button type="button" className="botao botao--pequeno" aria-label={`${ponto.resultado ? 'Editar' : 'Registrar'} resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>
-              {ponto.resultado ? 'Editar resultado' : 'Registrar resultado'}
-            </button>
+        <>
+          {!cancelado && (
+            <div className="acoes acoes--base" role="group" aria-label={`Ações do ${rotulo}`}>
+              {!ponto.reprogramado && (
+                <button type="button" className={`botao botao--pequeno${ponto.resultado ? '' : ' botao--primario'}`} aria-label={`${ponto.resultado ? 'Editar' : 'Registrar'} resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>
+                  {ponto.resultado ? 'Editar resultado' : 'Registrar resultado'}
+                </button>
+              )}
+              {(fase === 'elaboracao' || fase === 'concluido') && (
+                <button type="button" className={`botao botao--pequeno${fase === 'elaboracao' ? ' botao--primario' : ''}`} aria-label={`${fase === 'concluido' ? 'Editar' : 'Registrar'} relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>
+                  {fase === 'concluido' ? 'Editar relatório no SIGA' : 'Registrar relatório no SIGA'}
+                </button>
+              )}
+              <button type="button" className="botao botao--pequeno" aria-label={`Editar planejamento do ${rotulo}`} onClick={abrirEdicao}>Editar planejamento</button>
+              {!ponto.reprogramado && (
+                <button type="button" className="botao botao--pequeno" aria-label={ponto.bloqueio ? `Editar bloqueio do ${rotulo}` : `Travar ${rotulo}`} onClick={() => { setErro(null); setModo('bloqueio'); }}>
+                  {ponto.bloqueio ? 'Editar bloqueio' : 'Travar'}
+                </button>
+              )}
+            </div>
           )}
-          {(fase === 'elaboracao' || fase === 'concluido') && (
-            <button type="button" className={`botao botao--pequeno${fase === 'elaboracao' ? ' botao--primario' : ''}`} aria-label={`${fase === 'concluido' ? 'Editar envio do' : 'Registrar envio do'} relatório do ${rotulo}`} onClick={abrirRelatorio}>
-              {fase === 'concluido' ? 'Editar envio' : 'Registrar envio'}
-            </button>
+          {!cancelado && (
+            <div className="acoes acoes--base" role="group" aria-label={`Demanda do ${rotulo}`}>
+              <span className="texto-pequeno">Demanda:</span>
+              <button type="button" className="botao botao--pequeno" disabled={jaCriada} aria-label={`Converter ${rotulo} em demanda`} onClick={criarDemanda}>
+                {jaCriada ? 'Demanda já criada' : 'Converter em demanda'}
+              </button>
+              {livres.length > 0 && (
+                <>
+                  <label className="campo-grupo">
+                    <span className="texto-pequeno">Ligar a:</span>
+                    <select className="campo" aria-label={`Ligar a uma demanda existente (${rotulo})`} value={ligar} onChange={(e) => setLigar(e.target.value)}>
+                      <option value="">Escolha…</option>
+                      {livres.map((d) => <option key={d.id} value={d.id}>{d.titulo}</option>)}
+                    </select>
+                  </label>
+                  <button type="button" className="botao botao--pequeno" disabled={!ligar} aria-label={`Ligar demanda ao ${rotulo}`} onClick={ligarDemanda}>Ligar</button>
+                </>
+              )}
+            </div>
           )}
-          {!ponto.reprogramado && ponto.situacao !== 'cancelado' && (
-            <button type="button" className="botao botao--pequeno" aria-label={`Bloqueio do ${rotulo}`} onClick={() => { setErro(null); setModo('bloqueio'); }}>
-              {ponto.bloqueio ? 'Editar bloqueio' : 'Bloquear'}
-            </button>
-          )}
-          {!ponto.reprogramado && (
-            <button type="button" className="botao botao--pequeno" aria-label={`${ponto.situacao === 'cancelado' ? 'Reativar' : 'Cancelar'} ${rotulo}`} onClick={cancelarOuReativar}>
-              {ponto.situacao === 'cancelado' ? 'Reativar' : 'Cancelar ponto'}
-            </button>
-          )}
-          <button type="button" className="botao botao--pequeno" disabled={jaCriada} aria-label={`Criar demanda a partir do ${rotulo}`} onClick={criarDemanda}>
-            {jaCriada ? 'Demanda já criada' : 'Criar demanda'}
-          </button>
-          <button
-            type="button" className="botao botao--pequeno botao--discreto" aria-label={`Excluir ${rotulo}`}
-            onClick={() => { if (window.confirm(`Excluir o ${rotulo}? Esta ação não pode ser desfeita. Para tirar o ponto da operação sem perder o histórico, prefira a situação "cancelado".`)) excluirPonto(operacao.id, ponto.id); }}
-          >Excluir</button>
-        </div>
+          <details className="mais-acoes">
+            <summary>Mais</summary>
+            <div className="acoes acoes--base">
+              {cancelado && <button type="button" className="botao botao--pequeno" aria-label={`Reativar ${rotulo}`} onClick={reativar}>Reativar</button>}
+              {!cancelado && !ponto.reprogramado && !ponto.resultado && (
+                <button type="button" className="botao botao--pequeno" aria-label={`Cancelar vistoria do ${rotulo}`} onClick={() => { setErro(null); setMotivoCancelamento(''); setModo('cancelar'); }}>Cancelar vistoria</button>
+              )}
+              <button
+                type="button" className="botao botao--pequeno botao--discreto" aria-label={`Excluir ${rotulo}`}
+                onClick={() => { if (window.confirm(`Excluir o ${rotulo}? Esta ação não pode ser desfeita. Para tirar o ponto da operação sem perder o histórico, prefira "Cancelar vistoria".`)) excluirPonto(operacao.id, ponto.id); }}
+              >Excluir ponto</button>
+            </div>
+          </details>
+        </>
       )}
 
-      {livres.length > 0 && !editando && (
-        <div className="acoes acoes--base">
-          <label className="campo-grupo">
-            <span className="texto-pequeno">Ligar a uma demanda</span>
-            <select className="campo" aria-label={`Ligar a uma demanda existente (${rotulo})`} value={ligar} onChange={(e) => setLigar(e.target.value)}>
-              <option value="">Escolha…</option>
-              {livres.map((d) => <option key={d.id} value={d.id}>{d.titulo}</option>)}
-            </select>
-          </label>
-          <button type="button" className="botao botao--pequeno" disabled={!ligar} aria-label={`Ligar demanda ao ${rotulo}`} onClick={ligarDemanda}>Ligar</button>
-        </div>
-      )}
     </li>
   );
 }

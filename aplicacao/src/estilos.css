@@ -464,3 +464,5 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .grade--topo { align-items: start; }
 
 .anotacao--feita { text-decoration: line-through; opacity: 0.7; }
+
+.mais-acoes > summary { cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; }

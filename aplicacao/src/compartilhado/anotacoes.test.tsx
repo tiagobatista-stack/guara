@@ -178,7 +178,7 @@ describe('anotações no ponto de operação', () => {
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'juntar croqui' } });
     fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
     const enviar = () => {
-      fireEvent.click(screen.getByRole('button', { name: 'Registrar envio do relatório do Ponto 1' }));
+      fireEvent.click(screen.getByRole('button', { name: 'Registrar relatório no SIGA do Ponto 1' }));
       fireEvent.change(screen.getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-17' } });
       fireEvent.click(screen.getByRole('button', { name: 'Salvar envio' }));
     };
@@ -194,7 +194,7 @@ describe('anotações no ponto de operação', () => {
   it('sem aberta, o envio do relatório grava direto', () => {
     const { id, ponto: p } = montarPonto();
     act(() => { registrarResultado(id, p.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
-    fireEvent.click(screen.getByRole('button', { name: 'Registrar envio do relatório do Ponto 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar relatório no SIGA do Ponto 1' }));
     fireEvent.change(screen.getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-17' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar envio' }));
     expect(screen.queryByTestId('confirma-conclusao')).toBeNull();

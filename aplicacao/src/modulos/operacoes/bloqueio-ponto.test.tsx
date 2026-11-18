@@ -201,7 +201,7 @@ describe('Gerar códigos', () => {
     const id = operacao('Brasnorte', '2026-10-05', 1);
     montarTela();
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Bloqueio do Ponto 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Travar Ponto 1' }));
     expect(screen.getByText(/O bloqueio não suspende o prazo\./)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'autuado' } });
     fireEvent.click(screen.getByRole('button', { name: 'Marcar como travado' }));
