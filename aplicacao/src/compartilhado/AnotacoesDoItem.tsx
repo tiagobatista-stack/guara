@@ -71,8 +71,8 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
       <h3 id={`${id}-titulo`} className="titulo-secao titulo-secao--bloco">Anotações <SeloAnotacoes anotacoes={anotacoes} /></h3>
       <form className="formulario" aria-label={`Nova anotação ${item === 'demanda' ? 'da demanda' : 'do ponto'}`} onSubmit={anotar}>
         <div className="campo-grupo">
-          <label htmlFor={`${id}-nova`}>Nova anotação</label>
-          <div className="acoes acoes--sem-margem">
+          <div className="acoes acoes--sem-margem acoes--centro">
+            <label htmlFor={`${id}-nova`}>Nova anotação</label>
             <input id={`${id}-nova`} className="campo" value={texto} maxLength={LIMITES_ANOTACAO.texto} autoComplete="off" aria-describedby={`${id}-dica`} onChange={(e) => setTexto(e.target.value)} />
             <button type="submit" className="botao botao--primario">Anotar</button>
           </div>
@@ -103,8 +103,8 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
                     <input type="checkbox" checked={a.feita} onChange={() => aoMudar(alternarAnotacao(anotacoes, a.id, agora().toISOString()))} /> <span>{a.texto}</span>
                   </label>
                   <span className="acoes acoes--sem-margem">
-                    <button type="button" className="botao botao--pequeno" aria-label={`Editar anotação: ${a.texto}`} onClick={() => { setErro(null); setEditando({ id: a.id, texto: a.texto }); }}>Editar</button>
-                    <button type="button" className="botao botao--pequeno botao--perigo" aria-label={`Excluir anotação: ${a.texto}`} onClick={() => excluir(a)}>Excluir</button>
+                    <button type="button" className="botao botao--pequeno botao--sutil" aria-label={`Editar anotação: ${a.texto}`} onClick={() => { setErro(null); setEditando({ id: a.id, texto: a.texto }); }}>Editar</button>
+                    <button type="button" className="botao botao--pequeno botao--sutil botao--perigo" aria-label={`Excluir anotação: ${a.texto}`} onClick={() => excluir(a)}>Excluir</button>
                   </span>
                 </>
               )}

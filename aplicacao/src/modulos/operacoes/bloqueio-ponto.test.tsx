@@ -151,6 +151,7 @@ describe('uma regra só para vencido e travado', () => {
     expect(screen.getByTestId(`travado-${p3.id}`)).toHaveTextContent('depende de campo · parado há 48 dias');
     expect(screen.getByTestId(`travado-${p2.id}`)).toHaveTextContent('aguardando dados do autuado · parado há 8 dias');
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('3 ponto(s) sem resultado');
     expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('2 ponto(s) travado(s)');
   });
@@ -184,6 +185,7 @@ describe('Gerar códigos', () => {
     semCodigos();
     montarTela();
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     expect(screen.getByTestId('sem-codigo')).toHaveTextContent('2 ponto(s) sem código');
     fireEvent.click(screen.getByRole('button', { name: 'Gerar códigos' }));
     const previa = screen.getByRole('list', { name: 'Códigos a gerar' });
@@ -201,6 +203,7 @@ describe('Gerar códigos', () => {
     const id = operacao('Brasnorte', '2026-10-05', 1);
     montarTela();
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     fireEvent.click(screen.getByRole('button', { name: 'Travar Ponto 1' }));
     expect(screen.getByText(/O bloqueio não suspende o prazo\./)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'autuado' } });

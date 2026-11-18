@@ -19,6 +19,8 @@ export interface ItemMapa {
   travado?: { motivo: string; detalhe?: string };
   /** Anotações em aberto (só a contagem; o texto fica na tela do item). */
   anotacoesAbertas?: number;
+  /** Ponto cancelado: por quê. */
+  motivoCancelamento?: string;
   municipio?: string;
   /** Prazo da demanda ou datas da viagem, já formatados; vazio se não houver. */
   quando: string;
@@ -76,6 +78,7 @@ export function itensDoMapa(
         quando: datas,
         coordenada: p.coordenada,
         ...(contarAbertas(p.anotacoes) ? { anotacoesAbertas: contarAbertas(p.anotacoes) } : {}),
+        ...(p.situacao === 'cancelado' && p.motivoCancelamento ? { motivoCancelamento: p.motivoCancelamento } : {}),
       });
     }
   }

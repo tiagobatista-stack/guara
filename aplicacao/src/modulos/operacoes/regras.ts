@@ -143,6 +143,7 @@ function pontoValido(x: unknown): boolean {
     (p.bloqueio === undefined || bloqueioValido(p.bloqueio)) &&
     (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
     (p.anotacoes === undefined || anotacoesValidas(p.anotacoes)) &&
+    (p.motivoCancelamento === undefined || (typeof p.motivoCancelamento === 'string' && p.motivoCancelamento.length <= 100)) &&
     (p.reprogramado === undefined || (typeof p.reprogramado === 'object' && p.reprogramado !== null &&
       typeof (p.reprogramado as Record<string, unknown>).operacao === 'string' && typeof (p.reprogramado as Record<string, unknown>).ponto === 'string')) &&
     Array.isArray(p.demandas) && p.demandas.length <= LIMITES_OPERACAO.demandasPorPonto && p.demandas.every((d) => typeof d === 'string') &&

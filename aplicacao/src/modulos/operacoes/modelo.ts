@@ -80,6 +80,8 @@ export interface Ponto {
   bloqueio?: Bloqueio;
   /** Anotações em checklist (compartilhado/anotacoes.ts). */
   anotacoes?: Anotacao[];
+  /** Por que a vistoria foi cancelada (até 100 caracteres); some ao reativar. */
+  motivoCancelamento?: string;
   /** Fase pós-campo: envio do relatório no SIGA-MT. Sem `enviadoEm`, o ponto com resultado está em elaboração. */
   relatorio?: { enviadoEm?: string; protocoloSiga?: string; notas?: string };
   /** Ponto "Não" levado para outra operação: onde ele está agora. */

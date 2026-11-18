@@ -465,4 +465,16 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 
 .anotacao--feita { text-decoration: line-through; opacity: 0.7; }
 
-.mais-acoes > summary { cursor: pointer; min-height: 2.75rem; display: flex; align-items: center; }
+/* Cartão do ponto recolhível (Operações). */
+.ponto-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.ponto-gatilho { background: none; border: 0; padding: 6px 4px; min-height: 44px; font: inherit; color: inherit; text-align: left; cursor: pointer; flex: 1 1 12rem; }
+.ponto-selos { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ponto-principal { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.ponto-corpo { margin-top: 8px; }
+.campo-inline { display: inline-flex; align-items: center; gap: 6px; }
+.acoes--centro { align-items: center; }
+.botao--sutil { border-color: transparent; background: transparent; }
+.mais-acoes > summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; min-height: 36px; padding: 0 10px; font-size: 12px; font-weight: 500; border: 1px solid var(--borda); border-radius: 6px; }
+.mais-acoes > summary::-webkit-details-marker { display: none; }
+.mais-acoes > summary::after { content: '▾'; }
+.mais-acoes[open] > summary::after { content: '▴'; }

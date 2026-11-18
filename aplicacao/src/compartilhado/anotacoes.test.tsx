@@ -156,6 +156,7 @@ function montarPonto() {
   const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [] });
   render(<ContextoArmazem.Provider value={armazem}><Operacoes agora={() => new Date(2026, 10, 18, 10)} /></ContextoArmazem.Provider>);
   fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
+  fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
   return { id: r.id, ponto: obterOperacoes()[0].pontos[0] };
 }
 

@@ -26,6 +26,7 @@ function balao(i: ItemMapa): HTMLElement {
   linha(i.rotulo, true);
   linha(`${i.tipo === 'demanda' ? 'Demanda' : 'Ponto de operação'} · ${rotuloDaSituacao(i)}`);
   if (i.travado) linha(`⛔ Travado: ${i.travado.motivo}${i.travado.detalhe ? ` — ${i.travado.detalhe}` : ''}`);
+  if (i.motivoCancelamento) linha(`Cancelado: ${i.motivoCancelamento}`);
   if (i.anotacoesAbertas) linha(textoAnotacoesAbertas(i.anotacoesAbertas));
   linha(i.municipio ?? '');
   linha(i.quando);

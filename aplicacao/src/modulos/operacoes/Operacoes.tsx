@@ -2,7 +2,7 @@
 // (cada viagem com equipe, integrantes, veículos, saída e retorno).
 // Coordenadas podem identificar imóvel: os dados ficam só neste navegador.
 
-import { useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
@@ -27,7 +27,7 @@ import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
 import {
   agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
-  campoEncerrado, diasParado, faseDoPonto, pontoTravado, planejarCodigos, prazoDaElaboracao, pontoVencido, progressoDaOperacao, textoParado, type PendenciaDeCampo, type PrazosDeElaboracao, type ProgressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
+  campoEncerrado, diasParado, faseDoPonto, pontoTravado, ROTULO_FASE, planejarCodigos, prazoDaElaboracao, pontoVencido, progressoDaOperacao, textoParado, type PendenciaDeCampo, type PrazosDeElaboracao, type ProgressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
 } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
@@ -564,8 +564,10 @@ const CLASSE_SITUACAO: Partial<Record<SituacaoAcompanhamento, string>> = {
   finalizado: 'selo-situacao selo-situacao--ok', 'a-reprogramar': 'selo-situacao selo-situacao--atencao', 'resultado-pendente': 'selo-situacao selo-situacao--atencao',
 };
 
-function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, aoSelecionar }: {
+function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, aoSelecionar, aberto, aoDefinirAberto }: {
   operacao: Operacao; ponto: Ponto; todas: readonly Operacao[]; hoje: string; tiposDeDano: string[]; selecionado: boolean; aoSelecionar: (marcado: boolean) => void;
+  /** Recolhido por padrão; quem manda é a lista (Expandir todos / Recolher todos). */
+  aberto: boolean; aoDefinirAberto: (aberto: boolean) => void;
 }) {
   const armazem = useArmazem();
   const { demandas } = useEstadoDemandas();
@@ -576,6 +578,8 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   const [ligar, setLigar] = useState('');
   const [motivoCancelamento, setMotivoCancelamento] = useState('');
   const idCampos = useId();
+  // Formulário aberto (resultado, relatório, bloqueio, planejamento, cancelamento) abre o cartão sozinho.
+  useEffect(() => { if (modo !== 'ver') aoDefinirAberto(true); }, [modo]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const rotulo = ponto.numero !== undefined ? `Ponto ${ponto.numero}` : 'Ponto';
   const viagem = viagemDoPonto(operacao, ponto);
@@ -605,13 +609,13 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
     setErro(problema);
     if (!problema) setModo('ver');
   };
-  const reativar = () => setErro(alterarPonto(operacao.id, ponto.id, { situacao: 'planejado' }));
-  // Cancelar a vistoria pede o motivo, que fica nas notas do ponto.
+  const reativar = () => setErro(alterarPonto(operacao.id, ponto.id, { situacao: 'planejado', motivoCancelamento: '' }));
+  // Cancelar a vistoria pede o motivo (campo próprio do ponto).
   const confirmarCancelamento = (e: FormEvent) => {
     e.preventDefault();
     const motivo = motivoCancelamento.replace(/\s+/g, ' ').trim();
     if (!motivo) return setErro('Informe o motivo do cancelamento.');
-    const problema = alterarPonto(operacao.id, ponto.id, { situacao: 'cancelado', notas: [ponto.notas, `Cancelado: ${motivo}`].filter(Boolean).join(' · ') });
+    const problema = alterarPonto(operacao.id, ponto.id, { situacao: 'cancelado', motivoCancelamento: motivo });
     setErro(problema);
     if (!problema) { setModo('ver'); setMotivoCancelamento(''); }
   };
@@ -645,6 +649,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   const livres = demandas.filter((d) => !ponto.demandas.includes(d.id));
   const cancelado = ponto.situacao === 'cancelado';
   const fase = faseDoPonto(ponto);
+  const vencido = pontoVencido(operacao, ponto, hoje, prazosDeElaboracao(demandas));
   const prazoRelatorio = fase === 'elaboracao' ? prazoDaElaboracao(operacao, ponto, prazosDeElaboracao(demandas)) : null;
   const abrirRelatorio = () => {
     setRelatorio({ enviadoEm: ponto.relatorio?.enviadoEm ?? hoje, protocoloSiga: ponto.relatorio?.protocoloSiga ?? '', notas: ponto.relatorio?.notas ?? '' });
@@ -666,16 +671,35 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
 
   return (
-    <li className="cartao" data-testid={`ponto-${ponto.id}`}>
-      <label className="texto-pequeno"><input type="checkbox" checked={selecionado} onChange={(e) => aoSelecionar(e.target.checked)} /> <span>Selecionar {rotulo}</span></label>
-      <p>
-        <strong>{rotulo}</strong>{ponto.municipio && <> · {ponto.municipio}</>}{' '}
-        <span className={CLASSE_SITUACAO[situacao] ?? 'texto-pequeno texto-suave'} data-testid={`situacao-${ponto.id}`}>{SITUACOES_ACOMPANHAMENTO[situacao]}</span>{' '}
-        <SeloAnotacoes anotacoes={ponto.anotacoes} testid={`anotacoes-${ponto.id}`} />{' '}
-        {pontoTravado(ponto) && (
-          <button type="button" className="botao botao--pequeno" aria-label={`Destravar ${rotulo}`} onClick={() => setErro(destravarPonto(operacao.id, ponto.id))}>Destravar</button>
-        )}
-      </p>
+    <li className="cartao ponto-cartao" data-testid={`ponto-${ponto.id}`}>
+      <div className="ponto-linha">
+        <input type="checkbox" checked={selecionado} aria-label={`Selecionar ${rotulo}`} onChange={(e) => aoSelecionar(e.target.checked)} />
+        <button type="button" className="ponto-gatilho" aria-expanded={aberto} aria-controls={`${idCampos}-corpo`} onClick={() => aoDefinirAberto(!aberto)}>
+          <span aria-hidden="true">{aberto ? '▾' : '▸'}</span> <strong>{rotulo}</strong>{ponto.municipio && <> · {ponto.municipio}</>}
+          {ponto.codigo && <span className="mono texto-pequeno"> · {ponto.codigo}</span>}
+        </button>
+        <span className="ponto-selos">
+          <span className={fase === 'concluido' ? 'selo-situacao selo-situacao--ok' : fase === 'elaboracao' ? 'selo-situacao' : CLASSE_SITUACAO[situacao] ?? 'texto-pequeno texto-suave'} data-testid={`situacao-${ponto.id}`}>
+            {fase === 'elaboracao' || fase === 'concluido' ? ROTULO_FASE[fase] : SITUACOES_ACOMPANHAMENTO[situacao]}
+          </span>
+          {vencido && <span className="selo-situacao selo-situacao--atencao" data-testid={`selo-vencido-${ponto.id}`}>vencido</span>}
+          {pontoTravado(ponto) && <span className="selo-situacao selo-situacao--atencao" data-testid={`selo-travado-${ponto.id}`}>travado</span>}
+          <SeloAnotacoes anotacoes={ponto.anotacoes} testid={`anotacoes-${ponto.id}`} />
+          {cancelado && ponto.motivoCancelamento && <span className="texto-pequeno texto-suave" data-testid={`motivo-cancelamento-${ponto.id}`}>· {ponto.motivoCancelamento}</span>}
+        </span>
+        <span className="ponto-principal">
+          {pontoTravado(ponto) && (
+            <button type="button" className="botao botao--pequeno" aria-label={`Destravar ${rotulo}`} onClick={() => setErro(destravarPonto(operacao.id, ponto.id))}>Destravar</button>
+          )}
+          {modo === 'ver' && fase === 'campo' && (
+            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Registrar resultado</button>
+          )}
+          {modo === 'ver' && fase === 'elaboracao' && (
+            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Registrar relatório no SIGA</button>
+          )}
+        </span>
+      </div>
+      <div id={`${idCampos}-corpo`} hidden={!aberto} className="ponto-corpo">
       <dl className="dados-definicao">
         <dt>Código</dt><dd className="mono" data-testid={`codigo-${ponto.id}`}>{ponto.codigo ?? <span className="texto--atencao">sem código</span>}</dd>
         <dt>Coordenada</dt><dd className="mono">{formatarGms(ponto.coordenada)}</dd>
@@ -713,7 +737,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
             {fase === 'concluido' ? `Concluído em ${dataBr(ponto.relatorio!.enviadoEm)}` : 'Em elaboração'}
             {ponto.relatorio?.protocoloSiga && <> · SIGA nº {ponto.relatorio.protocoloSiga}</>}
             {prazoRelatorio && <> · prazo {dataBr(prazoRelatorio)}</>}
-            {pontoVencido(operacao, ponto, hoje, prazosDeElaboracao(demandas)) && <span className="texto--atencao"> · vencido</span>}
+            {vencido && <span className="texto--atencao"> · vencido</span>}
           </p>
           {ponto.relatorio?.notas && <p className="texto-pequeno texto-suave">{ponto.relatorio.notas}</p>}
         </section>
@@ -799,15 +823,11 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         <>
           {!cancelado && (
             <div className="acoes acoes--base" role="group" aria-label={`Ações do ${rotulo}`}>
-              {!ponto.reprogramado && (
-                <button type="button" className={`botao botao--pequeno${ponto.resultado ? '' : ' botao--primario'}`} aria-label={`${ponto.resultado ? 'Editar' : 'Registrar'} resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>
-                  {ponto.resultado ? 'Editar resultado' : 'Registrar resultado'}
-                </button>
+              {!ponto.reprogramado && ponto.resultado && (
+                <button type="button" className="botao botao--pequeno" aria-label={`Editar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Editar resultado</button>
               )}
-              {(fase === 'elaboracao' || fase === 'concluido') && (
-                <button type="button" className={`botao botao--pequeno${fase === 'elaboracao' ? ' botao--primario' : ''}`} aria-label={`${fase === 'concluido' ? 'Editar' : 'Registrar'} relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>
-                  {fase === 'concluido' ? 'Editar relatório no SIGA' : 'Registrar relatório no SIGA'}
-                </button>
+              {fase === 'concluido' && (
+                <button type="button" className="botao botao--pequeno" aria-label={`Editar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Editar relatório no SIGA</button>
               )}
               <button type="button" className="botao botao--pequeno" aria-label={`Editar planejamento do ${rotulo}`} onClick={abrirEdicao}>Editar planejamento</button>
               {!ponto.reprogramado && (
@@ -818,15 +838,14 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
             </div>
           )}
           {!cancelado && (
-            <div className="acoes acoes--base" role="group" aria-label={`Demanda do ${rotulo}`}>
+            <div className="acoes acoes--base ponto-demanda" role="group" aria-label={`Demanda do ${rotulo}`}>
               <span className="texto-pequeno">Demanda:</span>
               <button type="button" className="botao botao--pequeno" disabled={jaCriada} aria-label={`Converter ${rotulo} em demanda`} onClick={criarDemanda}>
                 {jaCriada ? 'Demanda já criada' : 'Converter em demanda'}
               </button>
               {livres.length > 0 && (
                 <>
-                  <label className="campo-grupo">
-                    <span className="texto-pequeno">Ligar a:</span>
+                  <label className="campo-inline texto-pequeno">ou ligar a
                     <select className="campo" aria-label={`Ligar a uma demanda existente (${rotulo})`} value={ligar} onChange={(e) => setLigar(e.target.value)}>
                       <option value="">Escolha…</option>
                       {livres.map((d) => <option key={d.id} value={d.id}>{d.titulo}</option>)}
@@ -853,6 +872,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         </>
       )}
 
+      </div>
     </li>
   );
 }
@@ -1010,6 +1030,10 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
   const [viagemLote, setViagemLote] = useState('');
   const [erroLote, setErroLote] = useState<string | null>(null);
   const [avisoLote, setAvisoLote] = useState<string | null>(null);
+  // Cartões dos pontos recolhidos por padrão.
+  const [expandidos, setExpandidos] = useState<ReadonlySet<string>>(new Set());
+  const definirAbertos = (ids: readonly string[], aberto: boolean) =>
+    setExpandidos((s) => { const n = new Set(s); for (const id of ids) { if (aberto) n.add(id); else n.delete(id); } return n; });
 
   // Sem pontos, a importação já vem aberta (valor fixo: o React não fecha o bloco depois de importar).
   const [importacaoAberta] = useState(operacao.pontos.length === 0);
@@ -1053,7 +1077,7 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
     setErroLote(erro);
     if (!erro) { setSelecionados(new Set()); setNomeGrupo(''); setViagemLote(''); setAvisoLote(feito); }
   };
-  const cartao = (p: Ponto) => <CartaoPonto key={p.id} operacao={operacao} ponto={p} todas={todas} hoje={hoje} tiposDeDano={tiposDeDano} selecionado={selecionados.has(p.id)} aoSelecionar={(m) => marcar(p.id, m)} />;
+  const cartao = (p: Ponto) => <CartaoPonto key={p.id} operacao={operacao} ponto={p} todas={todas} hoje={hoje} tiposDeDano={tiposDeDano} selecionado={selecionados.has(p.id)} aoSelecionar={(m) => marcar(p.id, m)} aberto={expandidos.has(p.id)} aoDefinirAberto={(a) => definirAbertos([p.id], a)} />;
 
   return (
     <article aria-labelledby="titulo-operacao">
@@ -1180,6 +1204,13 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
         </section>
       )}
 
+      {visiveis.length > 0 && (
+        <div className="acoes">
+          <button type="button" className="botao botao--pequeno" onClick={() => definirAbertos(visiveis.map((p) => p.id), true)}>Expandir todos</button>
+          <button type="button" className="botao botao--pequeno" onClick={() => definirAbertos(visiveis.map((p) => p.id), false)}>Recolher todos</button>
+        </div>
+      )}
+
       {operacao.pontos.length === 0 ? (
         <EstadoVazio cartao texto="Nenhum ponto nesta operação." dica="Importe um CSV em “Importar e exportar pontos” para trazer a lista." />
       ) : visiveis.length === 0 ? (
@@ -1190,6 +1221,10 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
         secoes.map((s) => (
           <section key={s.chave} aria-label={s.rotulo} data-testid={`secao-${s.chave}`}>
             <h3 className="titulo-secao">{s.titulo} <span className="texto-pequeno texto-suave">· {s.detalhe}</span></h3>
+            <div className="acoes acoes--sem-margem">
+              <button type="button" className="botao botao--pequeno" aria-label={`Expandir pontos: ${s.rotulo}`} onClick={() => definirAbertos(s.pontos.map((p) => p.id), true)}>Expandir</button>
+              <button type="button" className="botao botao--pequeno" aria-label={`Recolher pontos: ${s.rotulo}`} onClick={() => definirAbertos(s.pontos.map((p) => p.id), false)}>Recolher</button>
+            </div>
             <ul className="lista-limpa grade grade--2" aria-label={s.rotulo}>{s.pontos.map(cartao)}</ul>
           </section>
         ))

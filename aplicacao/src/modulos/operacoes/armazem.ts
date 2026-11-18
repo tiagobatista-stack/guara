@@ -278,7 +278,7 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   const ponto = op?.pontos.find((p) => p.id === pontoId);
   if (!op || !ponto) return 'Ponto não encontrado.';
   const novo: Ponto = { ...ponto, ...mudancas };
-  for (const k of ['viagem', 'grupo', 'tipoDano'] as const) {
+  for (const k of ['viagem', 'grupo', 'tipoDano', 'motivoCancelamento'] as const) {
     if (novo[k] !== undefined && String(novo[k]).trim() === '') delete novo[k];
   }
   if (novo.numero !== undefined && (!Number.isInteger(novo.numero) || novo.numero < 0)) return 'O número do ponto deve ser um inteiro.';
@@ -287,6 +287,7 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   }
   if (novo.municipio.length > LIMITES_OPERACAO.municipio) return `O município pode ter no máximo ${LIMITES_OPERACAO.municipio} caracteres.`;
   if ((novo.tipoDano ?? '').length > LIMITES_OPERACAO.tipoDano) return `O tipo de dano pode ter no máximo ${LIMITES_OPERACAO.tipoDano} caracteres.`;
+  if ((novo.motivoCancelamento ?? '').length > 100) return 'O motivo do cancelamento pode ter no máximo 100 caracteres.';
   if (novo.viagem && !op.viagens.some((v) => v.id === novo.viagem)) return 'Viagem não encontrada.';
   if ((novo.grupo ?? '').length > LIMITES_OPERACAO.grupo) return `O grupo pode ter no máximo ${LIMITES_OPERACAO.grupo} caracteres.`;
   if (novo.notas.length > LIMITES_OPERACAO.notas) return `As notas podem ter no máximo ${LIMITES_OPERACAO.notas} caracteres.`;
