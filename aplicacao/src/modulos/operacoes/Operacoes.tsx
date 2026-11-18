@@ -6,6 +6,8 @@ import { useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, typ
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
+import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
+import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
@@ -19,7 +21,7 @@ import {
 } from './modelo.ts';
 import {
   alterarPeriodo, alterarPonto, alterarViagem, aplicarAtualizacoes, conflitoDeCodigo, definirSetor, criarOperacao, criarOperacaoComPontos, criarViagem, definirGrupo, definirViagem, excluirOperacao, excluirPonto,
-  excluirViagem, definirDiasPadraoElaboracao, destravarPonto, gerarCodigos, incluirPontos, lerDiasPadraoElaboracao, prazosDeElaboracao, registrarRelatorio, registrarResultado, travarPonto, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
+  excluirViagem, definirDiasPadraoElaboracao, destravarPonto, gerarCodigos, incluirPontos, lerDiasPadraoElaboracao, prazosDeElaboracao, registrarRelatorio, registrarResultado, salvarAnotacoesPonto, travarPonto, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
 } from './armazem.ts';
 import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_EXPORTACAO } from './exportar.ts';
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
@@ -639,11 +641,18 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
     setErro(null);
     setModo('relatorio');
   };
-  const salvarRelatorio = (e: FormEvent) => {
-    e.preventDefault();
+  // Registrar o envio com anotações abertas pergunta antes (não bloqueia).
+  const [confirmaEnvio, setConfirmaEnvio] = useState(false);
+  const gravarRelatorio = () => {
     const problema = registrarRelatorio(operacao.id, ponto.id, relatorio, hoje);
     setErro(problema);
+    setConfirmaEnvio(false);
     if (!problema) setModo('ver');
+  };
+  const salvarRelatorio = (e: FormEvent) => {
+    e.preventDefault();
+    if (relatorio.enviadoEm && fase !== 'concluido' && contarAbertas(ponto.anotacoes) > 0) return setConfirmaEnvio(true);
+    gravarRelatorio();
   };
 
   return (
@@ -651,7 +660,8 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       <label className="texto-pequeno"><input type="checkbox" checked={selecionado} onChange={(e) => aoSelecionar(e.target.checked)} /> <span>Selecionar {rotulo}</span></label>
       <p>
         <strong>{rotulo}</strong>{ponto.municipio && <> · {ponto.municipio}</>}{' '}
-        <span className={CLASSE_SITUACAO[situacao] ?? 'texto-pequeno texto-suave'} data-testid={`situacao-${ponto.id}`}>{SITUACOES_ACOMPANHAMENTO[situacao]}</span>
+        <span className={CLASSE_SITUACAO[situacao] ?? 'texto-pequeno texto-suave'} data-testid={`situacao-${ponto.id}`}>{SITUACOES_ACOMPANHAMENTO[situacao]}</span>{' '}
+        <SeloAnotacoes anotacoes={ponto.anotacoes} testid={`anotacoes-${ponto.id}`} />
       </p>
       <dl className="dados-definicao">
         <dt>Código</dt><dd className="mono" data-testid={`codigo-${ponto.id}`}>{ponto.codigo ?? <span className="texto--atencao">sem código</span>}</dd>
@@ -706,6 +716,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       {conflito && <p className="texto-pequeno texto--atencao" data-testid={`conflito-codigo-${ponto.id}`}>{conflito}</p>}
       {erro && <p role="alert" className="erro-campo">{erro}</p>}
 
+      {modo === 'ver' && (
+        <AnotacoesDoItem item="ponto" anotacoes={ponto.anotacoes} aoMudar={(lista) => setErro(salvarAnotacoesPonto(operacao.id, ponto.id, lista))} />
+      )}
+
       {modo === 'resultado' ? (
         <FormularioResultado operacao={operacao} ponto={ponto} rotulo={rotulo} hoje={hoje}
           protocolosSugeridos={ligadas.map((d) => d.processo).filter((x): x is string => !!x)} aoTerminar={() => setModo('ver')} />
@@ -720,6 +734,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <label className="campo-grupo"><span>Notas (opcional)</span>
             <textarea className="campo campo--area" rows={2} value={relatorio.notas} maxLength={LIMITES_OPERACAO.observacao} onChange={(e) => setRelatorio({ ...relatorio, notas: e.target.value })} /></label>
           <p className="texto-pequeno texto-suave">Data em branco desfaz o envio e o ponto volta para "em elaboração".</p>
+          {confirmaEnvio && <ConfirmaConclusao anotacoes={ponto.anotacoes} aoConcluir={gravarRelatorio} aoVoltar={() => setConfirmaEnvio(false)} />}
           {erro && <p role="alert" className="erro-campo">{erro}</p>}
           <div className="acoes">
             <button type="submit" className="botao botao--primario">Salvar envio</button>

@@ -4,6 +4,7 @@
 import { criarListaLocal, novoId } from '../atalhos/lista-local.ts';
 import { dataValida } from '../demandas/regras.ts';
 import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
+import { anotacoesValidas, comAnotacoes, type Anotacao } from '../../compartilhado/anotacoes.ts';
 import type { MotivoBloqueio } from '../demandas/modelo.ts';
 import {
   CHAVE_OPERACOES, LIMITES_OPERACAO, RESULTADOS_COM_MOTIVO,
@@ -107,6 +108,16 @@ export function travarPonto(operacaoId: string, pontoId: string, motivo: MotivoB
   if (ponto.reprogramado || ponto.situacao === 'cancelado') return 'Ponto cancelado ou reprogramado não é travado.';
   const bloqueio = novoBloqueio(ponto.bloqueio, motivo, agoraIso, detalhe);
   gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? { ...p, bloqueio } : p)) });
+  return null;
+}
+
+/** Grava a lista de anotações do ponto (já conferida pelo componente). Devolve o problema ou null. */
+export function salvarAnotacoesPonto(operacaoId: string, pontoId: string, lista: Anotacao[]): string | null {
+  if (!anotacoesValidas(lista)) return 'As anotações não são válidas.';
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op?.pontos.some((p) => p.id === pontoId)) return 'Ponto não encontrado.';
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? comAnotacoes(p, lista) : p)) });
   return null;
 }
 

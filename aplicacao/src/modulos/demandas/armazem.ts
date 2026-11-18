@@ -5,6 +5,7 @@
 import { createContext, useContext, useMemo, useSyncExternalStore } from 'react';
 import { CHAVE_DEMANDAS as CHAVE_DEMANDAS_ARMAZEM, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status } from './modelo.ts';
 import { conferirDetalheBloqueio } from '../../compartilhado/bloqueio.ts';
+import { anotacoesValidas, comAnotacoes, type Anotacao } from '../../compartilhado/anotacoes.ts';
 import { confirmarBloqueio, criarDemanda, destravarDemanda, editarDemanda, mudarStatus, travarDemanda, type ErrosValidacao } from './regras.ts';
 import { RepositorioLocal } from './repositorio-local.ts';
 import { demandasExemplo } from './exemplos.ts';
@@ -222,6 +223,11 @@ export function criarArmazem(armazenamento: Storage, opcoes: OpcoesArmazem = {})
       const nova = mudarStatus(atual, status, iso());
       if (nova === atual) return { ok: true, demanda: atual };
       return gravar(estado.demandas.map((d) => (d.id === id ? nova : d))) ?? { ok: true, demanda: nova };
+    },
+    /** Grava a lista de anotações da demanda (já conferida pelo componente); não conta como ação relevante. */
+    salvarAnotacoes(id: string, lista: Anotacao[]): RespostaAcao {
+      if (!anotacoesValidas(lista)) return { ok: false, mensagem: 'As anotações não são válidas.' };
+      return aplicar(id, (d) => comAnotacoes(d, lista), '');
     },
     travar(id: string, motivo: MotivoBloqueio, detalhe = ''): RespostaAcao {
       const r = conferirDetalheBloqueio(detalhe);

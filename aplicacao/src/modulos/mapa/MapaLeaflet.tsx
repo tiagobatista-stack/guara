@@ -7,6 +7,7 @@ import 'leaflet/dist/leaflet.css';
 import municipios from './municipios-mt.json';
 import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { FONTES_WMS, imagensOrdenadas } from './fontes-wms.ts';
+import { textoAnotacoesAbertas } from '../../compartilhado/anotacoes.ts';
 import { CENTRO_MT, COR_VENCIDO, corDaSituacao, estadoDaFonte, limitesDosItens, rotuloDaSituacao, type ItemMapa } from './regras.ts';
 
 const PNG_TRANSPARENTE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='; // 1x1: bloco que falhou fica transparente, não cinza
@@ -25,6 +26,7 @@ function balao(i: ItemMapa): HTMLElement {
   linha(i.rotulo, true);
   linha(`${i.tipo === 'demanda' ? 'Demanda' : 'Ponto de operação'} · ${rotuloDaSituacao(i)}`);
   if (i.travado) linha(`⛔ Travado: ${i.travado.motivo}${i.travado.detalhe ? ` — ${i.travado.detalhe}` : ''}`);
+  if (i.anotacoesAbertas) linha(textoAnotacoesAbertas(i.anotacoesAbertas));
   linha(i.municipio ?? '');
   linha(i.quando);
   linha(formatarDecimal(i.coordenada));

@@ -22,6 +22,9 @@ import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
+import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
+import { contarAbertas } from '../../compartilhado/anotacoes.ts';
+import type { EntradaDemanda } from './modelo.ts';
 
 type Modo = { tipo: 'lista' } | { tipo: 'nova' } | { tipo: 'editar'; id: string } | { tipo: 'detalhe'; id: string };
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
@@ -70,6 +73,20 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
     const r = armazem.excluir(d.id);
     setAviso(r.ok ? { tipo: 'sucesso', texto: 'Demanda excluída.' } : { tipo: 'erro', texto: r.mensagem });
     if (r.ok) setModo({ tipo: 'lista' });
+  };
+
+  // Concluir com anotações abertas pergunta antes (não bloqueia): guarda a entrada à espera do "Concluir".
+  const [confirmaEdicao, setConfirmaEdicao] = useState<EntradaDemanda | null>(null);
+  const salvarEdicao = (id: string, entrada: EntradaDemanda) => {
+    const r = armazem.editar(id, entrada);
+    if (!r.ok) {
+      if (!r.erros) setAviso({ tipo: 'erro', texto: r.mensagem });
+      return r.erros ?? {};
+    }
+    setConfirmaEdicao(null);
+    setAviso({ tipo: 'sucesso', texto: 'Alterações gravadas.' });
+    setModo({ tipo: 'detalhe', id });
+    return null;
   };
 
   const responder = (r: { ok: true } | { ok: false; mensagem: string }, sucesso: string) =>
@@ -153,18 +170,19 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           key={emEdicao.id}
           titulo="Editar demanda"
           inicial={paraEntrada(emEdicao)}
-          aoCancelar={() => setModo({ tipo: 'detalhe', id: emEdicao.id })}
+          aoCancelar={() => { setConfirmaEdicao(null); setModo({ tipo: 'detalhe', id: emEdicao.id }); }}
           aoSalvar={(entrada) => {
-            const r = armazem.editar(emEdicao.id, entrada);
-            if (!r.ok) {
-              if (!r.erros) setAviso({ tipo: 'erro', texto: r.mensagem });
-              return r.erros ?? {};
+            if (entrada.status === 'Concluída' && emEdicao.status !== 'Concluída' && contarAbertas(emEdicao.anotacoes) > 0) {
+              setConfirmaEdicao(entrada);
+              return {};
             }
-            setAviso({ tipo: 'sucesso', texto: 'Alterações gravadas.' });
-            setModo({ tipo: 'detalhe', id: emEdicao.id });
-            return null;
+            return salvarEdicao(emEdicao.id, entrada);
           }}
         />
+      )}
+      {emEdicao && confirmaEdicao && (
+        <ConfirmaConclusao anotacoes={emEdicao.anotacoes} aoVoltar={() => setConfirmaEdicao(null)}
+          aoConcluir={() => { if (salvarEdicao(emEdicao.id, confirmaEdicao) !== null) setAviso({ tipo: 'erro', texto: 'Corrija os campos do formulário.' }); }} />
       )}
 
       {emDetalhe && (
@@ -211,6 +229,8 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
               ajudaExtra="Evite nomes de pessoas: o texto vai no JSON exportado, mas não aparece na tela compartilhada nem no Kanban."
             />
           )}
+          <AnotacoesDoItem key={`anotacoes-${emDetalhe.id}`} item="demanda" anotacoes={emDetalhe.anotacoes}
+            aoMudar={(lista) => { const r = armazem.salvarAnotacoes(emDetalhe.id, lista); if (!r.ok) setAviso({ tipo: 'erro', texto: r.mensagem }); }} />
           <section className="bloco-detalhe" aria-labelledby="titulo-historico">
             <h3 id="titulo-historico" className="titulo-secao titulo-secao--bloco">Histórico</h3>
             {historicoRecente(emDetalhe).length > 0 && (
@@ -345,7 +365,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <ul className="lista-limpa grade grade--2" aria-label="Lista de demandas">
               {visiveis.map((d) => (
                 <li key={d.id} className="cartao" data-testid={`demanda-${d.id}`}>
-                  <p><strong>{d.titulo}</strong></p>
+                  <p><strong>{d.titulo}</strong> <SeloAnotacoes anotacoes={d.anotacoes} testid={`anotacoes-${d.id}`} /></p>
                   <dl className="dados-definicao">
                     <dt>Status</dt><dd>{d.status}</dd>
                     {textoEmAndamento(d, agora()) && <><dt>Andamento</dt><dd data-testid={`andamento-${d.id}`}>{textoEmAndamento(d, agora())}</dd></>}

@@ -6,6 +6,7 @@ import { camposQueFaltam } from './essenciais.ts';
 import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status, type Vistoria } from './modelo.ts';
 import { situacaoVistoria } from './vistoria.ts';
 import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
+import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
 import { eventoValido, registrar } from './historico.ts';
 import { coordenadaValida, formatarDecimal, lerCoordenada, type Coordenada } from './coordenadas.ts';
 
@@ -255,6 +256,7 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     typeof d.ultimaAcaoRelevante === 'string' && !Number.isNaN(Date.parse(d.ultimaAcaoRelevante)) &&
     (d.prazo === undefined || (typeof d.prazo === 'string' && dataValida(d.prazo))) &&
     (d.bloqueio === undefined || bloqueioValido(d.bloqueio)) &&
+    (d.anotacoes === undefined || anotacoesValidas(d.anotacoes)) &&
     NUMEROS.every((c) => d[c] === undefined || numeroGravadoValido(c, d[c])) &&
     (d.tipo === undefined || TIPOS.includes(d.tipo as never)) &&
     (d.natureza === undefined || NATUREZAS.includes(d.natureza as never)) &&

@@ -1,6 +1,7 @@
 // Regras puras do mapa (sem Leaflet): que itens têm lugar no mapa, legenda e enquadramento.
 
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
+import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import { MOTIVOS_BLOQUEIO, type Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { SITUACOES_ACOMPANHAMENTO } from '../operacoes/modelo.ts';
@@ -16,6 +17,8 @@ export interface ItemMapa {
   vencido?: boolean;
   /** Ponto com bloqueio ativo (motivo por extenso e detalhe, se houver): contorno tracejado. */
   travado?: { motivo: string; detalhe?: string };
+  /** Anotações em aberto (só a contagem; o texto fica na tela do item). */
+  anotacoesAbertas?: number;
   municipio?: string;
   /** Prazo da demanda ou datas da viagem, já formatados; vazio se não houver. */
   quando: string;
@@ -45,7 +48,7 @@ export const CENTRO_MT = { lat: -12.6, lon: -55.9, zoom: 6 } as const;
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '');
 
 export function itensDoMapa(
-  demandas: readonly Pick<Demanda, 'id' | 'titulo' | 'status' | 'prazo' | 'coordenada'>[],
+  demandas: readonly Pick<Demanda, 'id' | 'titulo' | 'status' | 'prazo' | 'coordenada' | 'anotacoes'>[],
   operacoes: readonly Operacao[],
   hoje = '',
   prazos: PrazosDeElaboracao = {},
@@ -54,7 +57,7 @@ export function itensDoMapa(
   const semLocal: { id: string; titulo: string }[] = [];
   for (const d of demandas) {
     if (coordenadaValida(d.coordenada)) {
-      noMapa.push({ id: d.id, tipo: 'demanda', rotulo: d.titulo, situacao: d.status, quando: d.prazo ? `prazo ${dataBr(d.prazo)}` : '', coordenada: d.coordenada });
+      noMapa.push({ id: d.id, tipo: 'demanda', rotulo: d.titulo, situacao: d.status, quando: d.prazo ? `prazo ${dataBr(d.prazo)}` : '', coordenada: d.coordenada, ...(contarAbertas(d.anotacoes) ? { anotacoesAbertas: contarAbertas(d.anotacoes) } : {}) });
     } else semLocal.push({ id: d.id, titulo: d.titulo });
   }
   for (const o of operacoes) {
@@ -72,6 +75,7 @@ export function itensDoMapa(
         municipio: p.municipio,
         quando: datas,
         coordenada: p.coordenada,
+        ...(contarAbertas(p.anotacoes) ? { anotacoesAbertas: contarAbertas(p.anotacoes) } : {}),
       });
     }
   }

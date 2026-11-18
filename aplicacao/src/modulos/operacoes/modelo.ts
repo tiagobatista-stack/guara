@@ -6,6 +6,7 @@
 
 import type { Coordenada } from '../demandas/coordenadas.ts';
 import type { Bloqueio } from '../demandas/modelo.ts';
+import type { Anotacao } from '../../compartilhado/anotacoes.ts';
 
 export const CHAVE_OPERACOES = 'guara:operacoes:v1';
 
@@ -77,6 +78,8 @@ export interface Ponto {
   dataVistoria?: string;
   /** Marca à parte da situação (mesmo formato da demanda): o ponto segue como está, mas há algo travando o encerramento (ex.: dados do autuado). */
   bloqueio?: Bloqueio;
+  /** Anotações em checklist (compartilhado/anotacoes.ts). */
+  anotacoes?: Anotacao[];
   /** Fase pós-campo: envio do relatório no SIGA-MT. Sem `enviadoEm`, o ponto com resultado está em elaboração. */
   relatorio?: { enviadoEm?: string; protocoloSiga?: string; notas?: string };
   /** Ponto "Não" levado para outra operação: onde ele está agora. */

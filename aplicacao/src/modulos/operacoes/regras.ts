@@ -3,6 +3,7 @@
 
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import { bloqueioValido, dataValida } from '../demandas/regras.ts';
+import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
 import {
   LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
@@ -141,6 +142,7 @@ function pontoValido(x: unknown): boolean {
     dataOpcional(p.dataVistoria) &&
     (p.bloqueio === undefined || bloqueioValido(p.bloqueio)) &&
     (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
+    (p.anotacoes === undefined || anotacoesValidas(p.anotacoes)) &&
     (p.reprogramado === undefined || (typeof p.reprogramado === 'object' && p.reprogramado !== null &&
       typeof (p.reprogramado as Record<string, unknown>).operacao === 'string' && typeof (p.reprogramado as Record<string, unknown>).ponto === 'string')) &&
     Array.isArray(p.demandas) && p.demandas.length <= LIMITES_OPERACAO.demandasPorPonto && p.demandas.every((d) => typeof d === 'string') &&
