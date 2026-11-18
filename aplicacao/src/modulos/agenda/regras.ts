@@ -31,6 +31,13 @@ export function montarAgenda(
   return [...dias.keys()].sort().map((dia) => ({ dia, itens: dias.get(dia)! }));
 }
 
+/** Nomes das operações cujo período (inicio a fim; com só um lado, aquele dia) cobre o dia AAAA-MM-DD. */
+export function operacoesNoDia(operacoes: readonly Pick<Operacao, 'nome' | 'inicio' | 'fim'>[], dia: string): string[] {
+  return operacoes
+    .filter((o) => (o.inicio || o.fim) && dia >= (o.inicio ?? o.fim!) && dia <= (o.fim ?? o.inicio!))
+    .map((o) => o.nome);
+}
+
 /** Semanas (domingo a sábado, como no Google Agenda) que cobrem o mês; `mes` de 1 a 12. `doMes` é falso nos dias de folga. */
 export function gradeDoMes(ano: number, mes: number): { data: string; doMes: boolean }[][] {
   const dia = new Date(ano, mes - 1, 1);

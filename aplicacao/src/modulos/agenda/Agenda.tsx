@@ -7,7 +7,7 @@ import { useOperacoes } from '../operacoes/armazem.ts';
 import { demandasEncaixadas } from '../operacoes/regras.ts';
 import { listarSemVistoria } from '../demandas/vistoria.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
-import { gerarIcs, gradeDoMes, montarAgenda } from './regras.ts';
+import { gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
 
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
@@ -62,13 +62,15 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
             <div role="row" className="agenda-linha" key={semana[0].data}>
               {semana.map(({ data, doMes }) => {
                 const itens = porDia.get(data) ?? [];
+                const emOperacao = operacoesNoDia(operacoes, data);
                 const nomeMes = new Date(`${data}T12:00:00`).toLocaleDateString('pt-BR', { month: 'long' });
                 return (
                   <button
                     type="button" role="gridcell" key={data} data-testid={`dia-${data}`}
-                    className={`agenda-dia${doMes ? '' : ' agenda-dia--fora'}${data === hoje ? ' agenda-dia--hoje' : ''}${data === escolhido ? ' agenda-dia--escolhido' : ''}`}
+                    className={`agenda-dia${doMes ? '' : ' agenda-dia--fora'}${emOperacao.length ? ' agenda-dia--operacao' : ''}${data === hoje ? ' agenda-dia--hoje' : ''}${data === escolhido ? ' agenda-dia--escolhido' : ''}`}
                     aria-selected={data === escolhido}
-                    aria-label={`${Number(data.slice(8))} de ${nomeMes}${itens.length ? `, ${itens.length} evento(s)` : ''}`}
+                    aria-label={`${Number(data.slice(8))} de ${nomeMes}${itens.length ? `, ${itens.length} evento(s)` : ''}${emOperacao.length ? `, em operação: ${emOperacao.join(', ')}` : ''}`}
+                    title={emOperacao.length ? `Operação: ${emOperacao.join(', ')}` : undefined}
                     onClick={() => setEscolhido(data)}
                   >
                     <span className="agenda-numero">{Number(data.slice(8))}</span>
@@ -80,11 +82,12 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
             </div>
           ))}
         </div>
-        <p className="texto-pequeno texto-suave">No Google Agenda: Configurações › Importar e exportar › Importar, e escolha o arquivo baixado. É uma cópia de hoje, não uma sincronização.</p>
+        <p className="texto-pequeno texto-suave">Dias em vermelho estão no período de uma operação. No Google Agenda: Configurações › Importar e exportar › Importar, e escolha o arquivo baixado. É uma cópia de hoje, não uma sincronização.</p>
       </div>
 
       <div className="cartao" data-testid="agenda-dia-escolhido">
         <h2 className="titulo-secao">{escolhido.split('-').reverse().join('/')}</h2>
+        {operacoesNoDia(operacoes, escolhido).map((n) => <p key={n} className="texto-medio texto--falha">Em operação: {n}</p>)}
         {doDia.length === 0 ? (
           <EstadoVazio texto="Nada marcado neste dia." />
         ) : (

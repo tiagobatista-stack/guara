@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Agenda } from './Agenda.tsx';
-import { gerarIcs, gradeDoMes, montarAgenda } from './regras.ts';
+import { gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 
 const op = (saida: string | undefined, situacao: 'planejado' | 'cancelado' = 'planejado'): Operacao => ({
@@ -61,5 +61,27 @@ describe('calendário mensal e .ics', () => {
     expect(screen.getByTestId('agenda-mes')).toHaveTextContent(/janeiro de 2027/i);
     fireEvent.click(screen.getByRole('button', { name: 'Hoje' }));
     expect(screen.getByTestId('agenda-mes')).toHaveTextContent(/dezembro de 2026/i);
+  });
+});
+
+describe('período da operação', () => {
+  it('cobre os dias de inicio a fim; com um lado só, aquele dia; sem período, nenhum', () => {
+    const ops = [{ nome: 'A', inicio: '2026-12-01', fim: '2026-12-05' }, { nome: 'B', inicio: '2026-12-10' }, { nome: 'C' }];
+    expect(operacoesNoDia(ops, '2026-12-03')).toEqual(['A']);
+    expect(operacoesNoDia(ops, '2026-12-05')).toEqual(['A']);
+    expect(operacoesNoDia(ops, '2026-12-06')).toEqual([]);
+    expect(operacoesNoDia(ops, '2026-12-10')).toEqual(['B']);
+    expect(operacoesNoDia(ops, '2026-12-11')).toEqual([]);
+  });
+
+  it('a tela marca os dias da operação em vermelho', () => {
+    localStorage.clear();
+    localStorage.setItem('guara:operacoes:v1', JSON.stringify([{ id: 'o1', nome: 'Op X', inicio: '2026-12-07', fim: '2026-12-11', criadaEm: '2026-11-01T00:00:00Z', pontos: [] }]));
+    const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [] });
+    render(<ContextoArmazem.Provider value={armazem}><Agenda agora={() => new Date('2026-12-01T10:00:00')} /></ContextoArmazem.Provider>);
+    expect(screen.getByTestId('dia-2026-12-09').className).toContain('agenda-dia--operacao');
+    expect(screen.getByTestId('dia-2026-12-12').className).not.toContain('agenda-dia--operacao');
+    fireEvent.click(screen.getByTestId('dia-2026-12-09'));
+    expect(screen.getByText('Em operação: Op X')).toBeInTheDocument();
   });
 });

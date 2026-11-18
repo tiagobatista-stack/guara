@@ -6,6 +6,7 @@ import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { decodificarCsv, importarPontosCsv, type ResultadoCsv } from './importar-csv.ts';
+import { ehXlsx, xlsxParaCsv } from './ler-xlsx.ts';
 import { LIMITES_OPERACAO, ROTULOS_SITUACAO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoPonto } from './modelo.ts';
 import {
   alterarPeriodo, alterarPonto, criarOperacao, definirGrupo, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
@@ -67,7 +68,14 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
   const lerArquivo = async (e: ChangeEvent<HTMLInputElement>) => {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
-    const conteudo = decodificarCsv(new Uint8Array(await arquivo.arrayBuffer()));
+    const bytes = new Uint8Array(await arquivo.arrayBuffer());
+    let conteudo: string;
+    try {
+      conteudo = ehXlsx(bytes) ? await xlsxParaCsv(bytes) : decodificarCsv(bytes);
+    } catch (erro) {
+      setResultado(null);
+      return setMensagem(erro instanceof Error ? erro.message : 'Não consegui ler o arquivo.');
+    }
     setTexto(conteudo);
     conferir(conteudo);
   };
@@ -90,14 +98,14 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
 
   return (
     <section className="cartao" aria-labelledby="titulo-importar">
-      <h3 id="titulo-importar" className="titulo-secao">Importar pontos (CSV)</h3>
+      <h3 id="titulo-importar" className="titulo-secao">Importar pontos (CSV ou .xlsx)</h3>
       <p className="texto-pequeno texto-suave">
-        Salve a planilha como CSV, ou copie as células e cole aqui. Colunas: N_PONTO, EQUIPE, COORD_X (longitude), COORD_Y (latitude),
+        Envie o CSV ou a planilha .xlsx (só a primeira aba é lida), ou copie as células e cole aqui. Colunas: N_PONTO, EQUIPE, COORD_X (longitude), COORD_Y (latitude),
         MUNICIPIO, DAT_SAIDA, DAT_RETOR, NOT_PLANEJ. Só a coordenada é obrigatória. Nada é gravado antes da conferência.
       </p>
       <label className="campo-grupo">
-        <span>Arquivo CSV</span>
-        <input className="campo" type="file" accept=".csv,text/csv,text/plain" onChange={lerArquivo} />
+        <span>Arquivo CSV ou planilha .xlsx</span>
+        <input className="campo" type="file" accept=".csv,.xlsx,text/csv,text/plain" onChange={lerArquivo} />
       </label>
       <label className="campo-grupo">
         <span>Ou cole o conteúdo</span>

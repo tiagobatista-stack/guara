@@ -414,3 +414,5 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .agenda-evento { font-size: 11px; line-height: 1.2; padding: 1px 4px; border-radius: 4px; background: rgba(128, 128, 128, .2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-evento--vistoria { border-left: 3px solid var(--guara-500); }
 @media (max-width: 600px) { .agenda-dia { min-height: 48px; } .agenda-evento { display: none; } }
+
+.agenda-dia--operacao { background: rgba(220, 38, 38, .16); border-color: #dc2626; }
