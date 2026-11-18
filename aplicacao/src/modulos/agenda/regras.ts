@@ -3,6 +3,7 @@
 
 import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
+import { viagemDoPonto } from '../operacoes/regras.ts';
 
 export interface ItemAgenda {
   /** AAAA-MM-DD. */
@@ -21,8 +22,9 @@ export function montarAgenda(
   }
   for (const o of operacoes) {
     for (const p of o.pontos) {
-      if (p.saida && p.situacao === 'planejado') {
-        itens.push({ data: p.saida, tipo: 'saida', texto: `${o.nome} · ${p.municipio}${p.equipe ? ` · ${p.equipe}` : ''}` });
+      const v = viagemDoPonto(o, p);
+      if (v?.saida && p.situacao === 'planejado') {
+        itens.push({ data: v.saida, tipo: 'saida', texto: `${o.nome} · ${p.municipio}${v.equipe ? ` · ${v.equipe}` : ''}` });
       }
     }
   }

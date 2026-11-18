@@ -6,7 +6,8 @@ import type { Operacao } from '../operacoes/modelo.ts';
 
 const op = (saida: string | undefined, situacao: 'planejado' | 'cancelado' = 'planejado'): Operacao => ({
   id: 'o1', nome: 'Op', criadaEm: '2026-11-01T00:00:00Z',
-  pontos: [{ id: 'p1', coordenada: { lat: -11, lon: -58 }, municipio: 'Cidade', equipe: 'A', saida, notas: '', demandas: [], situacao }],
+  viagens: [{ id: 'v1', equipe: 'A', integrantes: [], veiculos: [], saida, notas: '' }],
+  pontos: [{ id: 'p1', coordenada: { lat: -11, lon: -58 }, municipio: 'Cidade', viagem: 'v1', notas: '', demandas: [], situacao }],
 });
 
 function montar() {

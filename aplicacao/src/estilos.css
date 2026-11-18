@@ -262,6 +262,28 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .feedback--sucesso { background: var(--ok-fundo); color: var(--ok-texto); border-color: var(--ok-borda); }
 .feedback--erro { background: var(--falha-fundo); color: var(--falha-texto); border-color: var(--falha-borda); }
 .botao--perigo { color: var(--falha-texto); border-color: var(--falha-borda); }
+/* Linha de ações com rótulo + campo + botões: tudo alinhado pela base (cartão do ponto em Operações). */
+.acoes--base { align-items: flex-end; }
+/* Pergunta do mascote dentro de um aviso (período da operação, por exemplo). */
+.fala-mascote { display: flex; gap: 12px; align-items: flex-start; }
+.fala-mascote-texto { flex: 1; min-width: 0; display: grid; gap: 8px; }
+.fala-mascote-texto p { margin: 0; }
+/* Item de grade que ocupa a linha toda (formulário aberto no meio de uma lista de cartões). */
+.grade-linha-inteira { grid-column: 1 / -1; }
+.sem-quebra { white-space: nowrap; }
+/* Situação de acompanhamento do ponto (Operações). */
+.selo-situacao { display: inline-block; padding: 1px 8px; border-radius: 999px; font-size: 12px; font-weight: 600; border: 1px solid; }
+.selo-situacao--ok { background: var(--ok-fundo); color: var(--ok-texto); border-color: var(--ok-borda); }
+.selo-situacao--atencao { background: var(--atencao-fundo); color: var(--atencao-texto); border-color: var(--atencao-borda); }
+/* Ação destrutiva de menor peso: só o texto em vermelho, sem borda. */
+.botao--discreto { color: var(--falha-texto); border-color: transparent; background: transparent; }
+/* Lista editável de nomes (integrantes e veículos da viagem). */
+.campo-lista { border: 1px solid var(--borda); border-radius: 8px; padding: 8px 12px 12px; margin: 0; min-width: 0; }
+.campo-lista legend { font-size: 14px; font-weight: 600; padding: 0 4px; }
+.campo-lista-itens { display: flex; flex-wrap: wrap; gap: 8px; margin: 4px 0 0; }
+.campo-lista-itens li { display: inline-flex; align-items: center; gap: 4px; padding-left: 10px; border-radius: 999px; background: var(--superficie-2); font-size: 14px; }
+details.cartao > summary { cursor: pointer; margin: 0; }
+details.cartao[open] > summary { margin-bottom: 12px; }
 
 /* Blocos do detalhe da demanda: bloqueio, histórico e ações, separados por linha. */
 .bloco-detalhe { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--borda); display: grid; gap: 12px; }

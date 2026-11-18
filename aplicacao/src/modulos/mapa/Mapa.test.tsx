@@ -10,8 +10,9 @@ vi.mock('./MapaLeaflet.tsx', () => ({ MapaLeaflet: ({ itens }: { itens: unknown[
 
 const op: Operacao = {
   id: 'o1', nome: 'Op', criadaEm: '2026-11-01T00:00:00Z',
+  viagens: [{ id: 'v1', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-10-19', retorno: '2026-10-23', notas: '' }],
   pontos: [
-    { id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.8 }, municipio: 'Juína', equipe: 'A', saida: '2026-10-19', retorno: '2026-10-23', notas: '', demandas: [], situacao: 'planejado' },
+    { id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.8 }, municipio: 'Juína', viagem: 'v1', notas: '', demandas: [], situacao: 'planejado' },
     { id: 'p2', numero: 2, coordenada: { lat: -12.2, lon: -57.7 }, municipio: 'Brasnorte', notas: '', demandas: [], situacao: 'vistoriado' },
   ],
 };

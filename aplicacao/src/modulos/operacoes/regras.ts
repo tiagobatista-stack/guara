@@ -1,10 +1,13 @@
-// Regras puras das operações: validação, o que falta encaixar, distância e "local já visitado".
+// Regras puras das operações: validação (com a migração do ponto com equipe e datas para a viagem),
+// o que falta encaixar, conflito de agenda, distância e "local já visitado".
 
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import { dataValida } from '../demandas/regras.ts';
-import { LIMITES_OPERACAO, SITUACOES_PONTO, type Operacao, type Ponto } from './modelo.ts';
+import {
+  LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
+} from './modelo.ts';
 
-// ---------- Validação ----------
+// ---------- Datas ----------
 
 /** Texto de data brasileiro (DD/MM/AAAA) ou ISO (AAAA-MM-DD) para ISO; null se não for data válida. */
 export function lerData(texto: string): string | null {
@@ -14,13 +17,13 @@ export function lerData(texto: string): string | null {
   return dataValida(iso) ? iso : null;
 }
 
-/** Problemas de datas de um ponto dentro da janela da operação; lista vazia = ok. */
 export interface Periodo {
   inicio?: string;
   fim?: string;
 }
 
-export function problemasDeDatas(p: Pick<Ponto, 'saida' | 'retorno'>, janela?: Periodo): string[] {
+/** Problemas das datas de saída e retorno (de uma viagem ou linha do CSV) dentro da janela da operação; lista vazia = ok. */
+export function problemasDeDatas(p: { saida?: string; retorno?: string }, janela?: Periodo): string[] {
   const erros: string[] = [];
   if (p.saida && !dataValida(p.saida)) erros.push('Data de saída inválida.');
   if (p.retorno && !dataValida(p.retorno)) erros.push('Data de retorno inválida.');
@@ -34,9 +37,83 @@ export function problemasDeDatas(p: Pick<Ponto, 'saida' | 'retorno'>, janela?: P
   return erros;
 }
 
-const texto = (x: unknown, max: number) => typeof x === 'string' && x.length <= max;
+/** Menor e maior data de saída/retorno; lado ausente quando não há data. */
+export function periodoDosPontos(itens: readonly { saida?: string; retorno?: string }[]): Periodo {
+  const datas = itens.flatMap((p) => [p.saida, p.retorno]).filter((d): d is string => !!d).sort();
+  return datas.length ? { inicio: datas[0], fim: datas[datas.length - 1] } : {};
+}
 
-function pontoValido(x: unknown): x is Ponto {
+/** Período (vazio = sem limite) contém a data? */
+export const dentroDoPeriodo = (d: string, janela: Periodo) => !((janela.inicio && d < janela.inicio) || (janela.fim && d > janela.fim));
+
+/** "18/09/2027 a 22/09/2027"; lado ausente vira "…". */
+export const textoDoPeriodo = (p: Periodo) => {
+  const br = (d?: string) => (d ? d.split('-').reverse().join('/') : '…');
+  return p.inicio || p.fim ? `${br(p.inicio)} a ${br(p.fim)}` : 'sem período definido';
+};
+
+/** Menor período que contém os dois (para "ampliar"): lado sem data no período atual continua sem limite. */
+export function unirPeriodos(atual: Periodo, outro: Periodo): Periodo {
+  const inicio = atual.inicio && outro.inicio ? (outro.inicio < atual.inicio ? outro.inicio : atual.inicio) : atual.inicio;
+  const fim = atual.fim && outro.fim ? (outro.fim > atual.fim ? outro.fim : atual.fim) : atual.fim;
+  return { ...(inicio ? { inicio } : {}), ...(fim ? { fim } : {}) };
+}
+
+// ---------- Texto ----------
+
+/** Para comparar nomes: sem acento, minúsculo e com espaços simples. */
+export const normalizar = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().replace(/\s+/g, ' ').trim();
+
+/** Lista de nomes limpa: sem vazios e sem repetição (ignorando acento e maiúsculas), na ordem dada. */
+export function limparNomes(nomes: readonly string[], max: number): string[] {
+  const vistos = new Set<string>();
+  const saida: string[] = [];
+  for (const bruto of nomes) {
+    const nome = bruto.replace(/\s+/g, ' ').trim().slice(0, max);
+    const chave = normalizar(nome);
+    if (!chave || vistos.has(chave)) continue;
+    vistos.add(chave);
+    saida.push(nome);
+  }
+  return saida;
+}
+
+// ---------- Validação e migração ----------
+
+const texto = (x: unknown, max: number) => typeof x === 'string' && x.length <= max;
+const dataOpcional = (x: unknown) => x === undefined || (typeof x === 'string' && dataValida(x));
+const listaDeTextos = (x: unknown, maxItens: number, maxTexto: number) =>
+  Array.isArray(x) && x.length <= maxItens && x.every((t) => texto(t, maxTexto));
+
+function viagemValida(x: unknown): x is Viagem {
+  if (typeof x !== 'object' || x === null) return false;
+  const v = x as Record<string, unknown>;
+  return (
+    typeof v.id === 'string' && v.id.length > 0 &&
+    texto(v.equipe, LIMITES_OPERACAO.equipe) &&
+    listaDeTextos(v.integrantes, LIMITES_OPERACAO.integrantes, LIMITES_OPERACAO.integrante) &&
+    listaDeTextos(v.veiculos, LIMITES_OPERACAO.veiculos, LIMITES_OPERACAO.veiculo) &&
+    dataOpcional(v.saida) && dataOpcional(v.retorno) &&
+    !(typeof v.saida === 'string' && typeof v.retorno === 'string' && v.retorno < v.saida) &&
+    texto(v.notas, LIMITES_OPERACAO.notas)
+  );
+}
+
+const ladoPeriodo = (x: unknown) =>
+  typeof x === 'object' && x !== null && dataOpcional((x as Record<string, unknown>).inicio) && dataOpcional((x as Record<string, unknown>).fim);
+
+function eventoValido(x: unknown): boolean {
+  if (typeof x !== 'object' || x === null) return false;
+  const e = x as Record<string, unknown>;
+  return (
+    typeof e.quando === 'string' && !Number.isNaN(Date.parse(e.quando)) &&
+    (e.acao === 'criada' || (e.acao === 'periodo' && ladoPeriodo(e.de) && ladoPeriodo(e.para))) &&
+    (e.motivo === undefined || (typeof e.motivo === 'string' && e.motivo in MOTIVOS_PERIODO))
+  );
+}
+
+/** Ponto gravado; aceita o formato antigo (equipe e datas no ponto), que a migração converte. */
+function pontoValido(x: unknown): boolean {
   if (typeof x !== 'object' || x === null) return false;
   const p = x as Record<string, unknown>;
   return (
@@ -44,58 +121,278 @@ function pontoValido(x: unknown): x is Ponto {
     (p.numero === undefined || (typeof p.numero === 'number' && Number.isInteger(p.numero) && p.numero >= 0)) &&
     coordenadaValida(p.coordenada) &&
     texto(p.municipio, LIMITES_OPERACAO.municipio) &&
+    (p.viagem === undefined || (typeof p.viagem === 'string' && p.viagem.length > 0)) &&
     (p.equipe === undefined || texto(p.equipe, LIMITES_OPERACAO.equipe)) &&
-    (p.saida === undefined || (typeof p.saida === 'string' && dataValida(p.saida))) &&
-    (p.retorno === undefined || (typeof p.retorno === 'string' && dataValida(p.retorno))) &&
+    dataOpcional(p.saida) && dataOpcional(p.retorno) &&
     texto(p.notas, LIMITES_OPERACAO.notas) &&
     (p.grupo === undefined || texto(p.grupo, LIMITES_OPERACAO.grupo)) &&
+    (p.codigo === undefined || (texto(p.codigo, LIMITES_OPERACAO.codigo) && (p.codigo as string).trim().length > 0)) &&
+    (p.tipoDano === undefined || texto(p.tipoDano, LIMITES_OPERACAO.tipoDano)) &&
+    (p.resultado === undefined || (typeof p.resultado === 'string' && p.resultado in RESULTADOS)) &&
+    (p.motivo === undefined || texto(p.motivo, LIMITES_OPERACAO.motivo)) &&
+    (p.protocolo === undefined || texto(p.protocolo, LIMITES_OPERACAO.protocolo)) &&
+    (p.observacao === undefined || texto(p.observacao, LIMITES_OPERACAO.observacao)) &&
+    dataOpcional(p.dataVistoria) &&
+    (p.reprogramado === undefined || (typeof p.reprogramado === 'object' && p.reprogramado !== null &&
+      typeof (p.reprogramado as Record<string, unknown>).operacao === 'string' && typeof (p.reprogramado as Record<string, unknown>).ponto === 'string')) &&
     Array.isArray(p.demandas) && p.demandas.length <= LIMITES_OPERACAO.demandasPorPonto && p.demandas.every((d) => typeof d === 'string') &&
     SITUACOES_PONTO.includes(p.situacao as never)
   );
 }
 
-export function operacaoValida(x: unknown): x is Operacao {
-  if (typeof x !== 'object' || x === null) return false;
+/** Chave que identifica a viagem de uma linha da planilha: mesma equipe, saída e retorno = mesma viagem. */
+export const chaveViagem = (v: { equipe?: string; saida?: string; retorno?: string }) =>
+  `${normalizar(v.equipe ?? '')}|${v.saida ?? ''}|${v.retorno ?? ''}`;
+
+const temDadosDeViagem = (v: { equipe?: string; saida?: string; retorno?: string }) => !!(v.equipe?.trim() || v.saida || v.retorno);
+
+/**
+ * Encaixa pontos com equipe e datas (planilha ou formato antigo) nas viagens: usa a viagem com a mesma
+ * equipe, saída e retorno ou cria uma nova. Linhas sem equipe nem datas ficam sem viagem.
+ * `novoIdViagem` recebe as viagens já conhecidas, para não repetir id.
+ */
+export function encaixarEmViagens<T extends { equipe?: string; saida?: string; retorno?: string; integrantes?: string[] }>(
+  itens: readonly T[],
+  viagens: readonly Viagem[],
+  novoIdViagem: (conhecidas: readonly Viagem[]) => string,
+): { viagens: Viagem[]; itens: (Omit<T, 'equipe' | 'saida' | 'retorno' | 'integrantes'> & { viagem?: string })[] } {
+  const todas = [...viagens];
+  const porChave = new Map(todas.map((v) => [chaveViagem(v), v.id] as const));
+  const saida = itens.map((item) => {
+    const { equipe, saida: s, retorno, integrantes, ...resto } = item;
+    if (!temDadosDeViagem({ equipe, saida: s, retorno })) return resto;
+    const chave = chaveViagem({ equipe, saida: s, retorno });
+    let id = porChave.get(chave);
+    if (!id) {
+      id = novoIdViagem(todas);
+      todas.push({
+        id, equipe: (equipe ?? '').replace(/\s+/g, ' ').trim().slice(0, LIMITES_OPERACAO.equipe), integrantes: [], veiculos: [], notas: '',
+        ...(s ? { saida: s } : {}), ...(retorno ? { retorno } : {}),
+      });
+      porChave.set(chave, id);
+    }
+    // SERVIDOR_EQUIPE: os nomes da linha entram nos integrantes da viagem (sem repetir).
+    if (integrantes?.length) {
+      const i = todas.findIndex((v) => v.id === id);
+      const juntos = limparNomes([...todas[i].integrantes, ...integrantes], LIMITES_OPERACAO.integrante).slice(0, LIMITES_OPERACAO.integrantes);
+      if (juntos.length !== todas[i].integrantes.length) todas[i] = { ...todas[i], integrantes: juntos };
+    }
+    return { ...resto, viagem: id };
+  });
+  return { viagens: todas, itens: saida };
+}
+
+/** Id determinístico para a migração (a leitura não pode gerar ids diferentes a cada vez). */
+const idMigracao = (conhecidas: readonly Viagem[]) => {
+  let n = conhecidas.length + 1;
+  while (conhecidas.some((v) => v.id === `vg-${n}`)) n++;
+  return `vg-${n}`;
+};
+
+/** Operação gravada (formato atual ou antigo) para o formato atual; null se for inválida. */
+export function migrarOperacao(x: unknown): Operacao | null {
+  if (typeof x !== 'object' || x === null) return null;
   const o = x as Record<string, unknown>;
-  return (
+  const valida =
     typeof o.id === 'string' && o.id.length > 0 &&
     typeof o.nome === 'string' && o.nome.trim().length > 0 && o.nome.length <= LIMITES_OPERACAO.nome &&
-    (o.inicio === undefined || (typeof o.inicio === 'string' && dataValida(o.inicio))) &&
-    (o.fim === undefined || (typeof o.fim === 'string' && dataValida(o.fim))) &&
+    dataOpcional(o.inicio) && dataOpcional(o.fim) &&
     (o.inicio === undefined || o.fim === undefined || (o.fim as string) >= (o.inicio as string)) &&
     (o.origem === undefined || texto(o.origem, LIMITES_OPERACAO.origem)) &&
+    (o.setor === undefined || texto(o.setor, LIMITES_OPERACAO.setor)) &&
     typeof o.criadaEm === 'string' && !Number.isNaN(Date.parse(o.criadaEm)) &&
-    Array.isArray(o.pontos) && o.pontos.length <= LIMITES_OPERACAO.pontos && o.pontos.every(pontoValido)
-  );
+    (o.viagens === undefined || (Array.isArray(o.viagens) && o.viagens.length <= LIMITES_OPERACAO.viagens && o.viagens.every(viagemValida))) &&
+    Array.isArray(o.pontos) && o.pontos.length <= LIMITES_OPERACAO.pontos && o.pontos.every(pontoValido) &&
+    (o.historico === undefined || (Array.isArray(o.historico) && o.historico.length <= LIMITES_OPERACAO.historico && o.historico.every(eventoValido)));
+  if (!valida) return null;
+  const operacao = o as unknown as Omit<Operacao, 'viagens' | 'pontos'> & { viagens?: Viagem[]; pontos: (Ponto & { equipe?: string; saida?: string; retorno?: string })[] };
+  const { viagens, itens } = encaixarEmViagens(operacao.pontos, operacao.viagens ?? [], idMigracao);
+  const ids = new Set(viagens.map((v) => v.id));
+  // Ponto que aponta para viagem que não existe fica sem viagem (melhor que esconder o ponto).
+  const pontos = itens.map((p) => {
+    if (p.viagem === undefined || ids.has(p.viagem)) return p as Ponto;
+    const { viagem: _v, ...resto } = p;
+    void _v;
+    return resto as Ponto;
+  });
+  return { ...operacao, viagens, pontos };
 }
 
-/** Lista gravada: só as operações válidas; qualquer coisa que não seja lista vira vazia. */
+export function operacaoValida(x: unknown): boolean {
+  return migrarOperacao(x) !== null;
+}
+
+/** Lista gravada: só as operações válidas, já no formato atual; qualquer coisa que não seja lista vira vazia. */
 export function validarListaOperacoes(x: unknown): Operacao[] {
-  return Array.isArray(x) ? x.filter(operacaoValida).slice(0, LIMITES_OPERACAO.operacoes) : [];
+  if (!Array.isArray(x)) return [];
+  return x.map(migrarOperacao).filter((o): o is Operacao => o !== null).slice(0, LIMITES_OPERACAO.operacoes);
 }
 
-/** Menor e maior data de saída/retorno dos pontos; lado ausente quando nenhum ponto tem data. */
-export function periodoDosPontos(pontos: readonly Pick<Ponto, 'saida' | 'retorno'>[]): Periodo {
-  const datas = pontos.flatMap((p) => [p.saida, p.retorno]).filter((d): d is string => !!d).sort();
-  return datas.length ? { inicio: datas[0], fim: datas[datas.length - 1] } : {};
+// ---------- Viagens ----------
+
+export const viagemDoPonto = (o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'viagem'>): Viagem | undefined =>
+  p.viagem ? o.viagens.find((v) => v.id === p.viagem) : undefined;
+
+/** O que falta para a viagem ficar completa; lista vazia = completa. */
+export function faltasDaViagem(v: Viagem): string[] {
+  const faltas: string[] = [];
+  if (!v.equipe.trim()) faltas.push('nome da equipe');
+  if (v.integrantes.length < MINIMOS_VIAGEM.integrantes) faltas.push(`integrantes (mínimo ${MINIMOS_VIAGEM.integrantes})`);
+  if (v.veiculos.length < MINIMOS_VIAGEM.veiculos) faltas.push('veículo');
+  if (!v.saida) faltas.push('data de saída');
+  if (!v.retorno) faltas.push('data de retorno');
+  return faltas;
+}
+
+/** Viagens em ordem de cronograma: saída, depois equipe; sem data por último. */
+export function ordenarViagens(viagens: readonly Viagem[]): Viagem[] {
+  return [...viagens].sort((a, b) =>
+    (a.saida ?? '9999').localeCompare(b.saida ?? '9999') || a.equipe.localeCompare(b.equipe, 'pt-BR'));
+}
+
+/** "Equipe A · 18/09/2026 a 22/09/2026". */
+export function textoViagem(v: Viagem): string {
+  const br = (d?: string) => (d ? d.split('-').reverse().join('/') : '…');
+  const datas = v.saida || v.retorno ? `${br(v.saida)} a ${br(v.retorno)}` : 'sem datas';
+  return `${v.equipe.trim() || 'Equipe sem nome'} · ${datas}`;
+}
+
+export interface ConflitoAgenda {
+  /** Operação e viagem com quem há sobreposição. */
+  operacao: string;
+  viagem: Viagem;
+  pessoas: string[];
+  veiculos: string[];
+}
+
+/** Chave da viagem no mapa de conflitos: o id da viagem só é único dentro da operação. */
+export const chaveAgenda = (operacaoId: string, viagemId: string) => `${operacaoId}:${viagemId}`;
+
+/**
+ * Mesma pessoa ou mesmo veículo em viagens com datas sobrepostas, em qualquer operação. Viagem sem saída não entra.
+ * Devolve, para cada viagem (chave `chaveAgenda`), com quem ela conflita. Sugestão: quem decide é o analista.
+ */
+export function conflitosDeAgenda(operacoes: readonly Operacao[]): Map<string, ConflitoAgenda[]> {
+  const todas = operacoes.flatMap((o) => o.viagens.filter((v) => v.saida).map((v) => ({ o, v, fim: v.retorno ?? v.saida! })));
+  const mapa = new Map<string, ConflitoAgenda[]>();
+  const comuns = (a: readonly string[], b: readonly string[]) => {
+    const nb = new Set(b.map(normalizar));
+    return a.filter((x) => nb.has(normalizar(x)));
+  };
+  for (let i = 0; i < todas.length; i++) {
+    for (let j = i + 1; j < todas.length; j++) {
+      const a = todas[i];
+      const b = todas[j];
+      if (a.v.saida! > b.fim || b.v.saida! > a.fim) continue;
+      const pessoas = comuns(a.v.integrantes, b.v.integrantes);
+      const veiculos = comuns(a.v.veiculos, b.v.veiculos);
+      if (!pessoas.length && !veiculos.length) continue;
+      const ka = chaveAgenda(a.o.id, a.v.id);
+      const kb = chaveAgenda(b.o.id, b.v.id);
+      mapa.set(ka, [...(mapa.get(ka) ?? []), { operacao: b.o.nome, viagem: b.v, pessoas, veiculos }]);
+      mapa.set(kb, [...(mapa.get(kb) ?? []), { operacao: a.o.nome, viagem: a.v, pessoas, veiculos }]);
+    }
+  }
+  return mapa;
+}
+
+/** Nomes já usados em todas as operações, para sugerir ao digitar (sem repetir; ordem alfabética). */
+export function sugestoesDeViagem(operacoes: readonly Operacao[]): { equipes: string[]; integrantes: string[]; veiculos: string[] } {
+  const viagens = operacoes.flatMap((o) => o.viagens);
+  const ordenar = (nomes: string[], max: number) => limparNomes(nomes, max).sort((a, b) => a.localeCompare(b, 'pt-BR'));
+  return {
+    equipes: ordenar(viagens.map((v) => v.equipe), LIMITES_OPERACAO.equipe),
+    integrantes: ordenar(viagens.flatMap((v) => v.integrantes), LIMITES_OPERACAO.integrante),
+    veiculos: ordenar(viagens.flatMap((v) => v.veiculos), LIMITES_OPERACAO.veiculo),
+  };
 }
 
 // ---------- O que falta encaixar ----------
 
-const ativo = (p: Pick<Ponto, 'situacao'>) => p.situacao === 'planejado';
+/** Ponto ainda planejado (sem resultado) sem viagem, ou cuja viagem não tem data de saída. */
+export const pontoPendente = (o: Pick<Operacao, 'viagens'>, p: Ponto) => situacaoDoPonto(p) === 'planejado' && !viagemDoPonto(o, p)?.saida;
 
-/** Pontos ainda planejados e sem equipe. */
-export const pontosSemEquipe = <T extends Pick<Ponto, 'situacao' | 'equipe'>>(pontos: readonly T[]): T[] =>
-  pontos.filter((p) => ativo(p) && !p.equipe?.trim());
+/** Pontos ainda planejados (sem resultado) e sem viagem. */
+export const pontosSemViagem = (o: Pick<Operacao, 'viagens' | 'pontos'>): Ponto[] =>
+  o.pontos.filter((p) => situacaoDoPonto(p) === 'planejado' && !viagemDoPonto(o, p));
 
-/** Pontos ainda planejados e sem data de saída. */
-export const pontosSemData = <T extends Pick<Ponto, 'situacao' | 'saida'>>(pontos: readonly T[]): T[] =>
-  pontos.filter((p) => ativo(p) && !p.saida);
-
-/** Pontos planejados sem equipe ou sem data, de todas as operações (aviso do Painel). */
+/** Pontos planejados sem viagem ou com viagem sem data, de todas as operações (aviso do Painel). */
 export function contarPontosPendentes(operacoes: readonly Operacao[]): number {
-  return operacoes.reduce((n, o) => n + o.pontos.filter((p) => ativo(p) && (!p.equipe?.trim() || !p.saida)).length, 0);
+  return operacoes.reduce((n, o) => n + o.pontos.filter((p) => pontoPendente(o, p)).length, 0);
 }
+
+// ---------- Código, resultado e acompanhamento ----------
+
+/** Texto de FISCALIZADO_AUTUADO para o resultado ("Fiscalizado não autuado" → 'fiscalizado-nao-autuado'); null se não reconhecer. */
+export function resultadoDaPlanilha(texto: string): keyof typeof RESULTADOS | null {
+  const t = texto.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z]/g, '');
+  const mapa: Record<string, keyof typeof RESULTADOS> = { SIM: 'sim', FISCALIZADONAOAUTUADO: 'fiscalizado-nao-autuado', NAOCABEATUACAO: 'nao-cabe-atuacao', NAO: 'nao' };
+  return mapa[t] ?? null;
+}
+
+/** Município para o código: sem acento, sem espaço e em maiúsculas ("São José do Rio Claro" → "SAOJOSEDORIOCLARO"). */
+export const municipioParaCodigo = (m: string) => m.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toUpperCase().replace(/[^A-Z0-9]/g, '');
+
+/** MUNICIPIO+AAAAMM-NN (ex.: JUINA202610-01); null se faltar município, início da operação ou número. */
+export function gerarCodigo(municipio: string, inicioOperacao: string | undefined, numero: number | undefined): string | null {
+  const m = municipioParaCodigo(municipio);
+  if (!m || !inicioOperacao || numero === undefined) return null;
+  return `${m}${inicioOperacao.slice(0, 4)}${inicioOperacao.slice(5, 7)}-${String(numero).padStart(2, '0')}`;
+}
+
+/** Códigos em uso em todas as operações (comparação sem diferença de maiúsculas), com onde cada um está. */
+export function codigosEmUso(operacoes: readonly Operacao[]): Map<string, { operacao: string; ponto: string }> {
+  const mapa = new Map<string, { operacao: string; ponto: string }>();
+  for (const o of operacoes) for (const p of o.pontos) if (p.codigo) mapa.set(p.codigo.toUpperCase(), { operacao: o.nome, ponto: p.id });
+  return mapa;
+}
+
+/** Situação de acompanhamento do ponto (ver SITUACOES_ACOMPANHAMENTO). */
+export function situacaoDoPonto(p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado'>): SituacaoAcompanhamento {
+  if (p.situacao === 'cancelado') return 'cancelado';
+  if (p.reprogramado) return 'reprogramado';
+  if (p.resultado === 'nao') return 'a-reprogramar';
+  if (p.resultado) return 'finalizado';
+  return p.situacao === 'vistoriado' ? 'resultado-pendente' : 'planejado';
+}
+
+/** Situações que encerram o ponto (não acumulam). */
+const ENCERRADAS: readonly SituacaoAcompanhamento[] = ['finalizado', 'cancelado', 'reprogramado'];
+export const pontoEncerrado = (p: Ponto) => ENCERRADAS.includes(situacaoDoPonto(p));
+
+/** Operação encerrada: tem pontos e todos estão finalizados, cancelados ou reprogramados. */
+export const operacaoEncerrada = (o: Pick<Operacao, 'pontos'>) => o.pontos.length > 0 && o.pontos.every(pontoEncerrado);
+
+export interface PendenciaDeCampo {
+  operacao: Operacao;
+  ponto: Ponto;
+}
+
+/**
+ * O que acumula depois do campo: pontos sem resultado cuja viagem já voltou (retorno antes de `hoje`)
+ * e pontos "Não" ainda não reprogramados.
+ */
+export function pendenciasDeCampo(operacoes: readonly Operacao[], hoje: string): { semResultado: PendenciaDeCampo[]; aReprogramar: PendenciaDeCampo[] } {
+  const semResultado: PendenciaDeCampo[] = [];
+  const aReprogramar: PendenciaDeCampo[] = [];
+  for (const operacao of operacoes) {
+    for (const ponto of operacao.pontos) {
+      const s = situacaoDoPonto(ponto);
+      if (s === 'a-reprogramar') aReprogramar.push({ operacao, ponto });
+      else if (s === 'planejado' || s === 'resultado-pendente') {
+        const retorno = viagemDoPonto(operacao, ponto)?.retorno;
+        if (retorno && retorno < hoje) semResultado.push({ operacao, ponto });
+      }
+    }
+  }
+  return { semResultado, aReprogramar };
+}
+
+/** AAAA-MM-DD no fuso do navegador (não em UTC: à noite em Mato Grosso, o UTC já é o dia seguinte). */
+export const dataLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** Rótulo curto do ponto: o código, ou "Ponto N" enquanto não houver código. */
+export const rotuloDoPonto = (p: Pick<Ponto, 'codigo' | 'numero'>) => p.codigo ?? (p.numero !== undefined ? `Ponto ${p.numero}` : 'Ponto');
 
 // ---------- Mesmo local ----------
 
@@ -118,7 +415,7 @@ export interface LocalProximo {
   rotulo: string;
   distanciaM: number;
   equipe?: string;
-  /** AAAA-MM-DD: retorno, ou saída, do ponto; ausente se não houver data. */
+  /** AAAA-MM-DD: retorno, ou saída, da viagem do ponto; ausente se não houver data. */
   data?: string;
   situacao?: Ponto['situacao'];
   /** Id do ponto ou da demanda. */
@@ -147,10 +444,12 @@ export function pontosProximos(
       if (p.id === ponto.id) continue;
       const d = distanciaMetros(ponto.coordenada, p.coordenada);
       if (d <= raioM) {
+        const v = viagemDoPonto(o, p);
+        const data = v?.retorno ?? v?.saida;
         achados.push({
           origem: 'operacao', rotulo: o.nome, distanciaM: d, id: p.id, situacao: p.situacao,
-          ...(p.equipe ? { equipe: p.equipe } : {}),
-          ...((p.retorno ?? p.saida) ? { data: (p.retorno ?? p.saida)! } : {}),
+          ...(v?.equipe.trim() ? { equipe: v.equipe.trim() } : {}),
+          ...(data ? { data } : {}),
         });
       }
     }
@@ -163,7 +462,7 @@ export function pontosProximos(
   return achados.sort((a, b) => a.distanciaM - b.distanciaM);
 }
 
-/** "Operação X: equipe A, vistoriado, 22/09/2023, a 35 m". */
+/** "Operação X, Equipe A, vistoriado, 22/09/2023, a 35 m". */
 export function textoLocalProximo(l: LocalProximo): string {
   const partes = [l.origem === 'operacao' ? `Operação ${l.rotulo}` : `Demanda ${l.rotulo}`];
   if (l.equipe) partes.push(l.equipe);
@@ -195,18 +494,18 @@ export function vinculosDasDemandas(operacoes: readonly Operacao[]): Map<string,
 /** Ids das demandas já encaixadas em alguma operação. */
 export const demandasEncaixadas = (operacoes: readonly Operacao[]): Set<string> => new Set(vinculosDasDemandas(operacoes).keys());
 
-// ---------- Grupos de pontos ----------
+// ---------- Organização da lista ----------
 
-export interface GrupoDePontos {
+export interface GrupoDePontos<T> {
   /** Nome do grupo; vazio = pontos sem grupo. */
   nome: string;
-  pontos: Ponto[];
+  pontos: T[];
   /** Equipes distintas dos pontos do grupo, em ordem alfabética. */
   equipes: string[];
 }
 
 /** Grupos existentes, em ordem alfabética, com "sem grupo" por último (só se houver). Sem nenhum grupo, devolve lista vazia. */
-export function agruparPontos<T extends Pick<Ponto, 'grupo' | 'equipe'>>(pontos: readonly T[]): { nome: string; pontos: T[]; equipes: string[] }[] {
+export function agruparPontos<T extends Pick<Ponto, 'grupo'>>(pontos: readonly T[], equipeDe: (p: T) => string | undefined = () => undefined): GrupoDePontos<T>[] {
   if (!pontos.some((p) => p.grupo?.trim())) return [];
   const mapa = new Map<string, T[]>();
   for (const p of pontos) {
@@ -218,7 +517,7 @@ export function agruparPontos<T extends Pick<Ponto, 'grupo' | 'equipe'>>(pontos:
   return nomes.map((nome) => ({
     nome,
     pontos: mapa.get(nome)!,
-    equipes: [...new Set(mapa.get(nome)!.map((p) => p.equipe?.trim()).filter((e): e is string => !!e))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
+    equipes: [...new Set(mapa.get(nome)!.map((p) => equipeDe(p)?.trim()).filter((e): e is string => !!e))].sort((a, b) => a.localeCompare(b, 'pt-BR')),
   }));
 }
 
@@ -279,3 +578,14 @@ export function sugerirNomeOperacao(linhas: readonly LinhaParaNome[], existentes
     if (!usados.has(semAcentoMinusculo(nome))) return nome;
   }
 }
+
+/** Pontos por viagem, na ordem do cronograma, com "sem viagem" por último. Só seções com pontos. */
+export function pontosPorViagem(o: Pick<Operacao, 'viagens'>, pontos: readonly Ponto[]): { viagem?: Viagem; pontos: Ponto[] }[] {
+  const secoes: { viagem?: Viagem; pontos: Ponto[] }[] = ordenarViagens(o.viagens)
+    .map((viagem) => ({ viagem, pontos: pontos.filter((p) => p.viagem === viagem.id) }))
+    .filter((s) => s.pontos.length > 0);
+  const sem = pontos.filter((p) => !viagemDoPonto(o, p));
+  if (sem.length) secoes.push({ pontos: sem });
+  return secoes;
+}
+

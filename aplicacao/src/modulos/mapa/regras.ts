@@ -3,6 +3,7 @@
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
+import { viagemDoPonto } from '../operacoes/regras.ts';
 
 export interface ItemMapa {
   id: string;
@@ -41,11 +42,12 @@ export function itensDoMapa(
   }
   for (const o of operacoes) {
     for (const p of o.pontos) {
-      const datas = [p.saida, p.retorno].filter(Boolean).map(dataBr).join(' a ');
+      const v = viagemDoPonto(o, p);
+      const datas = [v?.saida, v?.retorno].filter(Boolean).map(dataBr).join(' a ');
       noMapa.push({
         id: p.id,
         tipo: 'ponto',
-        rotulo: `${o.nome} · ponto ${p.numero ?? ''}`.trim() + (p.equipe ? ` · ${p.equipe}` : ''),
+        rotulo: `${o.nome} · ponto ${p.numero ?? ''}`.trim() + (v?.equipe ? ` · ${v.equipe}` : ''),
         situacao: p.situacao,
         municipio: p.municipio,
         quando: datas,
