@@ -72,6 +72,8 @@ describe('anotações na demanda', () => {
   it('anota (botão e Enter), marca, edita, oculta feitas e exclui; grava no armazém sem mexer na última ação', () => {
     const armazem = montarDemandas([demanda()]);
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Vistoria fictícia' }));
+    expect(screen.queryByLabelText('Nova anotação')).toBeNull(); // sem itens: só o link
+    fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     expect(screen.getAllByText(/Não registre CPF, endereço ou nome do autuado aqui\./).length).toBeGreaterThan(0);
     const campo = screen.getByLabelText('Nova anotação');
     fireEvent.change(campo, { target: { value: 'pedir croqui' } });
@@ -164,6 +166,7 @@ function montarPonto() {
 describe('anotações no ponto de operação', () => {
   it('mesmo componente: anota, marca e mostra o selo no cartão do ponto', () => {
     const { ponto: p } = montarPonto();
+    fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'confirmar coordenada com o CAR' } });
     fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
     expect(screen.getAllByText(/Não registre CPF, endereço ou nome do autuado aqui\./).length).toBeGreaterThan(0);
@@ -177,6 +180,7 @@ describe('anotações no ponto de operação', () => {
   it('registrar o envio do relatório com aberta pergunta; Voltar não grava, Concluir grava; sem aberta grava direto', () => {
     const { id, ponto: p } = montarPonto();
     act(() => { registrarResultado(id, p.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
+    fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'juntar croqui' } });
     fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
     const enviar = () => {

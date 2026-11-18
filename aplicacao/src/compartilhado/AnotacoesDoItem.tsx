@@ -43,6 +43,7 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
   const [erro, setErro] = useState<string | null>(null);
   const [editando, setEditando] = useState<{ id: string; texto: string } | null>(null);
   const [ocultarFeitas, setOcultarFeitas] = useState(false);
+  const [campoAberto, setCampoAberto] = useState(false);
   const lista = ordenarAnotacoes(anotacoes);
   const feitas = lista.length - anotacoesAbertas(lista).length;
   const visiveis = ocultarFeitas ? lista.filter((a) => !a.feita) : lista;
@@ -73,18 +74,22 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
   return (
     <section className="bloco-detalhe" aria-labelledby={`${id}-titulo`}>
       <h3 id={`${id}-titulo`} className="titulo-secao titulo-secao--bloco">Anotações <SeloAnotacoes anotacoes={anotacoes} /></h3>
-      <form className="formulario" aria-label={`Nova anotação ${item === 'demanda' ? 'da demanda' : 'do ponto'}`} onSubmit={anotar}>
-        <div className="campo-grupo">
-          <div className="acoes acoes--sem-margem acoes--centro">
-            <label htmlFor={`${id}-nova`}>Nova anotação</label>
-            <input id={`${id}-nova`} className="campo" value={texto} maxLength={LIMITES_ANOTACAO.texto} autoComplete="off" aria-describedby={`${id}-dica`} onChange={(e) => setTexto(e.target.value)} />
-            <button type="submit" className="botao botao--primario">Anotar</button>
+      {!campoAberto && lista.length === 0 ? (
+        <button type="button" className="botao botao--pequeno botao--sutil" onClick={() => setCampoAberto(true)}>+ Anotação</button>
+      ) : (
+        <form className="formulario" aria-label={`Nova anotação ${item === 'demanda' ? 'da demanda' : 'do ponto'}`} onSubmit={anotar}>
+          <div className="campo-grupo">
+            <div className="acoes acoes--sem-margem acoes--centro">
+              <label htmlFor={`${id}-nova`}>Nova anotação</label>
+              <input id={`${id}-nova`} className="campo" value={texto} maxLength={LIMITES_ANOTACAO.texto} autoComplete="off" autoFocus={campoAberto && lista.length === 0} aria-describedby={`${id}-dica`} onChange={(e) => setTexto(e.target.value)} />
+              <button type="submit" className="botao botao--primario">Anotar</button>
+            </div>
+            <span id={`${id}-dica`} className="texto-pequeno texto-suave">
+              Para lembrar e resolver ao longo da análise. Até {LIMITES_ANOTACAO.texto} caracteres. Não registre CPF, endereço ou nome do autuado aqui.
+            </span>
           </div>
-          <span id={`${id}-dica`} className="texto-pequeno texto-suave">
-            Para lembrar e resolver ao longo da análise. Até {LIMITES_ANOTACAO.texto} caracteres. Não registre CPF, endereço ou nome do autuado aqui.
-          </span>
-        </div>
-      </form>
+        </form>
+      )}
       {erro && <p role="alert" className="erro-campo">{erro}</p>}
       {feitas > 0 && (
         <button type="button" className="botao botao--pequeno" aria-pressed={ocultarFeitas} onClick={() => setOcultarFeitas(!ocultarFeitas)}>

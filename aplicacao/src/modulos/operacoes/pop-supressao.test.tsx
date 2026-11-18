@@ -7,7 +7,7 @@ import { Operacoes } from './Operacoes.tsx';
 import { criarOperacao, incluirPontos, obterOperacoes, registrarResultado } from './armazem.ts';
 import { validarListaOperacoes } from './regras.ts';
 import {
-  caracterizacaoValida, itensAplicaveis, itensDeCampoSemResposta, ITENS_POP, possivelSupressao, textoCaracterizacao,
+  caracterizacaoValida, itensAplicaveis, itensDeCampoSemResposta, ITENS_POP, blocoPopAtivo, textoCaracterizacao,
 } from './pop-supressao.ts';
 
 beforeEach(() => localStorage.clear());
@@ -47,8 +47,12 @@ describe('desvios do formulário', () => {
     expect(ids({ 'A-19': 'Não foi possível verificar' })).not.toContain('A-20');
   });
 
-  it('A-12 não tem desvio no formulário (a opção "sem alteração" segue para a próxima pergunta)', () => {
-    expect(ids({ 'A-12': 'Não houve alteração perceptível da camada superficial do solo' })).toContain('A-13');
+  it('A-12 (seção 4.2.12 do POP): sem alteração do solo pula para A-18; com alteração segue para A-13', () => {
+    const semAlteracao = ids({ 'A-12': 'Não houve alteração perceptível da camada superficial do solo' });
+    expect(semAlteracao).not.toContain('A-13');
+    expect(semAlteracao).not.toContain('A-17');
+    expect(semAlteracao).toContain('A-18');
+    expect(ids({ 'A-12': 'Aterro' })).toContain('A-13');
   });
 
   it('B-1: Público pergunta o domínio (B-2); Privado e Indeterminado pulam para B-3', () => {
@@ -84,13 +88,13 @@ describe('itens de campo sem resposta e texto do relatório', () => {
   });
 });
 
-describe('quando o ponto entra na caracterização', () => {
-  it('tipo de dano de supressão, ou nenhuma demanda de embargo ligada', () => {
-    expect(possivelSupressao({ tipoDano: 'Desmatamento' }, ['Embargo X'])).toBe(true);
-    expect(possivelSupressao({ tipoDano: 'Exploração seletiva' }, ['Embargo X'])).toBe(true);
-    expect(possivelSupressao({ tipoDano: 'Queimada' }, ['Embargo X'])).toBe(true);
-    expect(possivelSupressao({}, [])).toBe(true);
-    expect(possivelSupressao({ tipoDano: 'Cerca' }, ['Vistoria do embargo 12'])).toBe(false);
+describe('quando o bloco da caracterização está ativo', () => {
+  it('automático em desmatamento e exploração seletiva; nos demais, só com popAtivo', () => {
+    expect(blocoPopAtivo({ tipoDano: 'Desmatamento' })).toBe(true);
+    expect(blocoPopAtivo({ tipoDano: 'Exploração seletiva' })).toBe(true);
+    expect(blocoPopAtivo({ tipoDano: 'Queimada' })).toBe(false);
+    expect(blocoPopAtivo({})).toBe(false);
+    expect(blocoPopAtivo({ tipoDano: 'Queimada', popAtivo: true })).toBe(true);
   });
 
   it('validação: só ids e opções do POP', () => {
@@ -109,7 +113,7 @@ const EMBARGO: Demanda = {
   criadaEm: '2026-11-13T09:00:00.000Z', ultimaAcaoRelevante: '2026-11-13T09:00:00.000Z',
 };
 
-function montar(pontos: Array<Partial<typeof ponto> & { tipoDano?: string }>) {
+function montar(pontos: Array<Partial<typeof ponto> & { tipoDano?: string; popAtivo?: boolean }>) {
   const r = criarOperacao({ nome: 'Brasnorte', inicio: '2026-10-05', fim: '2026-10-12', origem: '' }, '2026-09-01T00:00:00Z');
   if (!r.ok) throw new Error('operação não criada');
   incluirPontos(r.id, pontos.map((p, i) => ({ ...ponto, coordenada: { lat: -12.1 - i, lon: -58.2 }, ...p })));
@@ -121,14 +125,19 @@ function montar(pontos: Array<Partial<typeof ponto> & { tipoDano?: string }>) {
 }
 
 describe('tela do ponto', () => {
-  it('o bloco aparece em ponto de possível supressão e não aparece em ponto com demanda de embargo', () => {
-    const { pontos } = montar([{ tipoDano: 'Cerca', demandas: ['dE'] }, {}]);
-    expect(screen.queryByTestId(`caracterizacao-${pontos[0].id}`)).toBeNull();
+  it('o bloco é automático em desmatamento; nos demais aparece o botão "Caracterizar dano (POP)", que o ativa no ponto', () => {
+    const { pontos } = montar([{ tipoDano: 'Desmatamento' }, { tipoDano: 'Cerca' }]);
+    expect(screen.getByTestId(`caracterizacao-${pontos[0].id}`)).toBeInTheDocument();
+    expect(screen.getAllByRole('button', { name: 'Caracterizar dano (POP)' })).toHaveLength(1); // só o ponto 2
+    expect(screen.queryByTestId(`caracterizacao-${pontos[1].id}`)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Caracterizar dano (POP)' }));
+    expect(obterOperacoes()[0].pontos[1].popAtivo).toBe(true);
     expect(screen.getByTestId(`caracterizacao-${pontos[1].id}`)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Caracterizar dano (POP)' })).toBeNull();
   });
 
   it('transcreve respostas (única, múltipla, texto), aplica o desvio e grava no ponto; mostra a fonte e o aviso de CPF', () => {
-    const { pontos } = montar([{}]);
+    const { pontos } = montar([{ tipoDano: 'Desmatamento' }]);
     const bloco = screen.getByTestId(`caracterizacao-${pontos[0].id}`);
     expect(within(bloco).getByText(/Fonte: POP IBAMA \(Portaria Ibama nº 83\/2022\), Anexo I/)).toBeInTheDocument();
     expect(within(bloco).getByText(/Não registre CPF, endereço ou nome do autuado/)).toBeInTheDocument();
@@ -147,7 +156,7 @@ describe('tela do ponto', () => {
   });
 
   it('dados de campo do roteiro: coordenada aferida, waypoint, fotos, drone e pessoa contatada', () => {
-    const { pontos } = montar([{}]);
+    const { pontos } = montar([{ tipoDano: 'Desmatamento' }]);
     const bloco = screen.getByTestId(`caracterizacao-${pontos[0].id}`);
     for (const [rot, v] of [['Coordenada aferida', '-12,1; -58,2'], ['Waypoint', 'WP 14'], ['Fotos', '18'], ['Pessoa contatada (nome e função, sem CPF)', 'Fulano, vaqueiro']] as const) {
       const campo = within(bloco).getByLabelText(rot);
@@ -165,7 +174,7 @@ describe('tela do ponto', () => {
   it('copia o texto de caracterização (só o respondido) para a área de transferência', async () => {
     const escrever = vi.fn().mockResolvedValue(undefined);
     Object.defineProperty(navigator, 'clipboard', { value: { writeText: escrever }, configurable: true });
-    const { pontos } = montar([{}]);
+    const { pontos } = montar([{ tipoDano: 'Desmatamento' }]);
     const bloco = screen.getByTestId(`caracterizacao-${pontos[0].id}`);
     expect(within(bloco).getByRole('button', { name: 'Copiar texto para o relatório' })).toBeDisabled();
     fireEvent.change(within(bloco).getByLabelText(/^A-10\./), { target: { value: 'Sim' } });
@@ -175,7 +184,7 @@ describe('tela do ponto', () => {
   });
 
   it('registrar o relatório mostra quantos itens de campo faltam (não bloqueia); sem falta não pergunta; ponto fora do POP não pergunta', () => {
-    const { id, pontos } = montar([{}, { tipoDano: 'Cerca', demandas: ['dE'] }]);
+    const { id, pontos } = montar([{ tipoDano: 'Desmatamento' }, { tipoDano: 'Cerca' }]);
     act(() => { for (const p of pontos) registrarResultado(id, p.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
     const enviar = (n: number) => {
       fireEvent.click(screen.getByRole('button', { name: `Registrar relatório no SIGA do Ponto ${n}` }));
@@ -190,7 +199,7 @@ describe('tela do ponto', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Salvar envio' }));
     fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
     expect(obterOperacoes()[0].pontos[0].relatorio?.enviadoEm).toBe('2026-11-17');
-    // o outro ponto tem demanda de embargo: grava direto
+    // o outro ponto não ativou o bloco do POP: grava direto
     enviar(2);
     expect(screen.queryByTestId('confirma-conclusao')).toBeNull();
     expect(obterOperacoes()[0].pontos[1].relatorio?.enviadoEm).toBe('2026-11-17');

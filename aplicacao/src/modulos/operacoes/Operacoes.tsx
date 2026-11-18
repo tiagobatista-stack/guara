@@ -9,7 +9,7 @@ import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
-import { itensDeCampoSemResposta, possivelSupressao } from './pop-supressao.ts';
+import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
@@ -573,7 +573,8 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 }) {
   const armazem = useArmazem();
   const { demandas } = useEstadoDemandas();
-  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio' | 'cancelar'>('ver');
+  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio' | 'cancelar' | 'reprogramar'>('ver');
+  const [destinoReprog, setDestinoReprog] = useState('');
   const [relatorio, setRelatorio] = useState({ enviadoEm: '', protocoloSiga: '', notas: '' });
   const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '' });
   const [erro, setErro] = useState<string | null>(null);
@@ -660,8 +661,8 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
   // Registrar o envio com anotações abertas pergunta antes (não bloqueia).
   const [confirmaEnvio, setConfirmaEnvio] = useState(false);
-  // Ponto de possível supressão: o POP IBAMA tem itens de campo a transcrever; quantos faltam entra no aviso do envio.
-  const supressao = possivelSupressao(ponto, ligadas.map((d) => d.titulo));
+  // Bloco do POP IBAMA ativo (tipo de dano de supressão ou ativado pelo botão): quantos itens de campo faltam entra no aviso do envio.
+  const supressao = blocoPopAtivo(ponto);
   const faltamPop = supressao ? itensDeCampoSemResposta(ponto.caracterizacao).length : 0;
   const gravarRelatorio = () => {
     const problema = registrarRelatorio(operacao.id, ponto.id, relatorio, hoje);
@@ -676,7 +677,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
 
   return (
-    <li className="cartao ponto-cartao" data-testid={`ponto-${ponto.id}`}>
+    <li className={`cartao ponto-cartao${aberto ? ' grade-linha-inteira' : ''}`} data-testid={`ponto-${ponto.id}`}>
       <div className="ponto-linha">
         <input type="checkbox" checked={selecionado} aria-label={`Selecionar ${rotulo}`} onChange={(e) => aoSelecionar(e.target.checked)} />
         <button type="button" className="ponto-gatilho" aria-expanded={aberto} aria-controls={`${idCampos}-corpo`} onClick={() => aoDefinirAberto(!aberto)}>
@@ -698,6 +699,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           )}
           {modo === 'ver' && fase === 'campo' && (
             <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Registrar resultado</button>
+          )}
+          {modo === 'ver' && situacao === 'a-reprogramar' && (
+            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Reprogramar ${rotulo}`} onClick={() => { setErro(null); setDestinoReprog(''); setModo('reprogramar'); }}>Reprogramar</button>
           )}
           {modo === 'ver' && fase === 'elaboracao' && (
             <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Registrar relatório no SIGA</button>
@@ -761,6 +765,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       {modo === 'ver' && (
         <AnotacoesDoItem item="ponto" anotacoes={ponto.anotacoes} aoMudar={(lista) => setErro(salvarAnotacoesPonto(operacao.id, ponto.id, lista))} />
       )}
+      {modo === 'ver' && !supressao && (
+        <div className="acoes"><button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { popAtivo: true }))}>Caracterizar dano (POP)</button></div>
+      )}
       {modo === 'ver' && supressao && (
         <CaracterizacaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} />
       )}
@@ -816,6 +823,24 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <div className="acoes">
             <button type="submit" className="botao botao--primario">Salvar ponto</button>
             <button type="button" className="botao" onClick={() => { setModo('ver'); setErro(null); }}>Cancelar</button>
+          </div>
+        </form>
+      ) : modo === 'reprogramar' ? (
+        <form className="formulario" noValidate aria-label={`Reprogramar ${rotulo}`} onSubmit={(e) => {
+          e.preventDefault();
+          const problema = reprogramarPonto(operacao.id, ponto.id, destinoReprog);
+          setErro(problema);
+          if (!problema) setModo('ver');
+        }}>
+          <label className="campo-grupo"><span>Levar para a operação</span>
+            <select className="campo" aria-label={`Operação para reprogramar ${rotulo}`} value={destinoReprog} onChange={(e) => setDestinoReprog(e.target.value)}>
+              <option value="">Escolha…</option>
+              {todas.filter((o) => o.id !== operacao.id && !campoEncerrado(o)).map((o) => <option key={o.id} value={o.id}>{o.nome} ({textoPeriodo(o)})</option>)}
+            </select></label>
+          {todas.filter((o) => o.id !== operacao.id && !campoEncerrado(o)).length === 0 && <p className="texto-pequeno texto-suave">Crie a próxima operação para reprogramar.</p>}
+          <div className="acoes">
+            <button type="submit" className="botao botao--primario" disabled={!destinoReprog}>Confirmar reprogramação</button>
+            <button type="button" className="botao" onClick={() => { setModo('ver'); setErro(null); }}>Voltar</button>
           </div>
         </form>
       ) : modo === 'cancelar' ? (
@@ -1224,16 +1249,16 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
       ) : visiveis.length === 0 ? (
         <EstadoVazio cartao texto="Nenhum ponto corresponde aos filtros." dica="Mude ou limpe os filtros." />
       ) : secoes.length === 0 ? (
-        <ul className="lista-limpa grade grade--2" aria-label="Pontos da operação">{visiveis.map(cartao)}</ul>
+        <ul className="lista-limpa grade grade--2 grade--topo" aria-label="Pontos da operação">{visiveis.map(cartao)}</ul>
       ) : (
         secoes.map((s) => (
           <section key={s.chave} aria-label={s.rotulo} data-testid={`secao-${s.chave}`}>
             <h3 className="titulo-secao">{s.titulo} <span className="texto-pequeno texto-suave">· {s.detalhe}</span></h3>
             <div className="acoes acoes--sem-margem">
-              <button type="button" className="botao botao--pequeno" aria-label={`Expandir pontos: ${s.rotulo}`} onClick={() => definirAbertos(s.pontos.map((p) => p.id), true)}>Expandir</button>
-              <button type="button" className="botao botao--pequeno" aria-label={`Recolher pontos: ${s.rotulo}`} onClick={() => definirAbertos(s.pontos.map((p) => p.id), false)}>Recolher</button>
+              <button type="button" className="botao botao--pequeno botao--icone" aria-label={`Expandir pontos da ${s.rotulo}`} title="Expandir pontos" onClick={() => definirAbertos(s.pontos.map((p) => p.id), true)}><span aria-hidden="true">▾</span></button>
+              <button type="button" className="botao botao--pequeno botao--icone" aria-label={`Recolher pontos da ${s.rotulo}`} title="Recolher pontos" onClick={() => definirAbertos(s.pontos.map((p) => p.id), false)}><span aria-hidden="true">▴</span></button>
             </div>
-            <ul className="lista-limpa grade grade--2" aria-label={s.rotulo}>{s.pontos.map(cartao)}</ul>
+            <ul className="lista-limpa grade grade--2 grade--topo" aria-label={s.rotulo}>{s.pontos.map(cartao)}</ul>
           </section>
         ))
       )}

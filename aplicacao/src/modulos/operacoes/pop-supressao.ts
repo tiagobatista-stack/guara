@@ -1,6 +1,8 @@
 // Caracterização do dano por supressão de vegetação nativa: perguntas e opções do Anexo I (Formulários A e B) do POP do IBAMA
 // (Portaria Ibama nº 83/2022, DOU de 29/09/2022; PDF em docs/referencias/). Os itens são DADOS, copiados do Anexo I sem resumir;
 // os desvios ("siga para a pergunta N") ficam na opção que os causa. A adoção deste POP pela SEMA-MT precisa ser confirmada pelo responsável.
+// Desvios do texto do POP (não só do Anexo): seção 4.2.12 (sem alteração da camada superficial do solo, siga para o item 18) e seção 4.2.15
+// (sem arraste, siga para o item 18; com arraste, item 16).
 // Leituras minhas, fora do texto do formulário (ver `nota` e `opcional`): A-5 aceita várias marcas; os itens `opcional` não entram na conta
 // de "sem resposta". Onde o PDF traz símbolo, usei o equivalente: "£ 50%" é "≤ 50%"; "At e r r o" é "Aterro".
 
@@ -87,7 +89,7 @@ export const ITENS_POP: readonly ItemPop[] = [
   item('A-10', 'Houve ocorrência de fogo recente ou indícios?', 'unica', { opcoes: SIM_NAO_NFV }),
   item('A-11', 'Há solo exposto na área?', 'unica', { opcoes: o('Sim', 'Sim, parcialmente', 'Não') }),
   item('A-12', 'Indique o tipo de alteração da camada superficial do solo', 'unica', {
-    opcoes: o('Preparo do solo com máquinas', 'Aterro', 'Remoção de solo', 'Uso de correntão', 'Outros recursos', 'Não houve alteração perceptível da camada superficial do solo'),
+    opcoes: [...o('Preparo do solo com máquinas', 'Aterro', 'Remoção de solo', 'Uso de correntão', 'Outros recursos'), { texto: 'Não houve alteração perceptível da camada superficial do solo', vai: 'A-18' }],
   }),
   item('A-13', 'Houve destoca?', 'unica', { opcoes: CONSTATACAO }),
   item('A-14', 'Houve enleiramento?', 'unica', { opcoes: CONSTATACAO }),
@@ -175,9 +177,9 @@ export function textoCaracterizacao(resp: Caracterizacao | undefined): string {
 }
 
 const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
-/** Ponto de possível supressão: tipo de dano de supressão ou nenhuma demanda de embargo ligada. */
-export const possivelSupressao = (p: { tipoDano?: string }, titulosDasDemandasLigadas: readonly string[]): boolean =>
-  /desmat|exploracao seletiva|queimad/.test(norm(p.tipoDano ?? '')) || !titulosDasDemandasLigadas.some((t) => norm(t).includes('embargo'));
+/** O bloco da caracterização é automático para desmatamento e exploração seletiva; nos demais tipos, só se o ponto o ativar (`popAtivo`). */
+export const blocoPopAtivo = (p: { tipoDano?: string; popAtivo?: boolean }): boolean =>
+  /desmat|exploracao seletiva/.test(norm(p.tipoDano ?? '')) || p.popAtivo === true;
 
 /** Valida o que vem do armazenamento: só ids do POP, só opções do POP, texto até 500 caracteres. */
 export function caracterizacaoValida(x: unknown): x is Caracterizacao {

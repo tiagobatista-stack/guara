@@ -157,3 +157,44 @@ describe('cartão do ponto recolhido por padrão', () => {
     expect(screen.queryByRole('button', { name: 'Registrar resultado do Ponto 1' })).toBeNull();
   });
 });
+
+describe('ajustes do cartão (18/11/2026)', () => {
+  it('ponto a reprogramar: principal Reprogramar (também recolhido), escolhe a operação de destino e move', () => {
+    const { id, pid } = montar();
+    const dest = criarOperacao({ nome: 'Próxima', inicio: '2026-12-01', fim: '2026-12-10', origem: '' }, '2026-09-01T00:00:00Z');
+    if (!dest.ok) throw new Error('destino');
+    act(() => { registrarResultado(id, pid, { ...RES, resultado: 'nao', motivo: 'chuva' }, '2026-11-15'); });
+    expect(principais()).toEqual(['Reprogramar Ponto 1']);
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher todos' }));
+    expect(principais()).toEqual(['Reprogramar Ponto 1']); // na linha recolhida
+    fireEvent.click(screen.getByRole('button', { name: 'Reprogramar Ponto 1' }));
+    const form = screen.getByRole('form', { name: 'Reprogramar Ponto 1' });
+    expect(within(form).getByRole('button', { name: 'Confirmar reprogramação' })).toBeDisabled();
+    fireEvent.change(within(form).getByLabelText('Operação para reprogramar Ponto 1'), { target: { value: dest.id } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Confirmar reprogramação' }));
+    expect(obterOperacoes().find((o) => o.id === dest.id)!.pontos).toHaveLength(1);
+    expect(obterOperacoes().find((o) => o.id === id)!.pontos[0].reprogramado?.operacao).toBe(dest.id);
+    expect(principais()).toEqual([]);
+  });
+
+  it('cartão expandido ocupa a linha inteira da grade; recolhido não', () => {
+    montar();
+    expect(screen.getByTestId(`ponto-${obterOperacoes()[0].pontos[0].id}`)).toHaveClass('grade-linha-inteira');
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher todos' }));
+    expect(screen.getByTestId(`ponto-${obterOperacoes()[0].pontos[0].id}`)).not.toHaveClass('grade-linha-inteira');
+  });
+
+  it('por viagem: botões de seta "Expandir/Recolher pontos da <equipe>"', () => {
+    montar();
+    const botao = (n: string) => screen.queryByRole('button', { name: new RegExp(`^${n} pontos da `) });
+    fireEvent.click(screen.getByRole('button', { name: 'Recolher todos' }));
+    const exp = botao('Expandir')!;
+    expect(exp).toBeInTheDocument();
+    expect(exp.getAttribute('aria-label')).toMatch(/pontos da .*A/);
+    fireEvent.click(exp);
+    expect(screen.getAllByRole('button', { expanded: true }).length).toBeGreaterThan(0);
+    fireEvent.click(botao('Recolher')!);
+    expect(screen.queryAllByRole('button', { expanded: true })).toHaveLength(0);
+  });
+});
+

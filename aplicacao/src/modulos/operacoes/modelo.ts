@@ -83,6 +83,8 @@ export interface Ponto {
   anotacoes?: Anotacao[];
   /** Caracterização do dano (POP IBAMA, Anexo I): resposta por item ("A-10"); ver pop-supressao.ts. Sem CPF, endereço ou nome do autuado. */
   caracterizacao?: Caracterizacao;
+  /** Ativa o bloco da caracterização (POP) num ponto cujo tipo de dano não o traz sozinho. */
+  popAtivo?: boolean;
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
   coordenadaAferida?: string;
   waypoint?: string;

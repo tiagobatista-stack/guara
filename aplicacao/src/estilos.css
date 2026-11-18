@@ -471,6 +471,8 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .ponto-selos { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
 .ponto-principal { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
 .ponto-corpo { margin-top: 8px; }
+.botao--icone { min-width: 36px; padding: 0 8px; }
+@media (min-width: 1024px) { .ponto-gatilho { flex: 1 1 auto; white-space: nowrap; } .ponto-principal { flex-wrap: nowrap; } }
 .campo-inline { display: inline-flex; align-items: center; gap: 6px; }
 .acoes--centro { align-items: center; }
 .botao--sutil { border-color: transparent; background: transparent; }

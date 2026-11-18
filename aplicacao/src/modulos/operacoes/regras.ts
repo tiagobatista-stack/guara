@@ -150,6 +150,7 @@ function pontoValido(x: unknown): boolean {
     (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
     (p.anotacoes === undefined || anotacoesValidas(p.anotacoes)) &&
     (p.caracterizacao === undefined || caracterizacaoValida(p.caracterizacao)) &&
+    (p.popAtivo === undefined || typeof p.popAtivo === 'boolean') &&
     (['coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const).every((k) => p[k] === undefined || (typeof p[k] === 'string' && p[k].length <= 100)) &&
     (p.drone === undefined || droneValido(p.drone)) &&
     (p.motivoCancelamento === undefined || (typeof p.motivoCancelamento === 'string' && p.motivoCancelamento.length <= 100)) &&
