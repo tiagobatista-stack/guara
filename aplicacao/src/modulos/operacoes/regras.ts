@@ -4,6 +4,7 @@
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import { bloqueioValido, dataValida } from '../demandas/regras.ts';
 import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
+import { caracterizacaoValida } from './pop-supressao.ts';
 import {
   LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
@@ -113,6 +114,11 @@ function eventoValido(x: unknown): boolean {
   );
 }
 
+function droneValido(x: unknown): boolean {
+  const d = x as { voou?: unknown; arquivo?: unknown } | null;
+  return typeof d === 'object' && d !== null && typeof d.voou === 'boolean' && (d.arquivo === undefined || (typeof d.arquivo === 'string' && d.arquivo.length <= 100));
+}
+
 function relatorioValido(x: unknown): boolean {
   if (typeof x !== 'object' || x === null) return false;
   const r = x as Record<string, unknown>;
@@ -143,6 +149,9 @@ function pontoValido(x: unknown): boolean {
     (p.bloqueio === undefined || bloqueioValido(p.bloqueio)) &&
     (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
     (p.anotacoes === undefined || anotacoesValidas(p.anotacoes)) &&
+    (p.caracterizacao === undefined || caracterizacaoValida(p.caracterizacao)) &&
+    (['coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const).every((k) => p[k] === undefined || (typeof p[k] === 'string' && p[k].length <= 100)) &&
+    (p.drone === undefined || droneValido(p.drone)) &&
     (p.motivoCancelamento === undefined || (typeof p.motivoCancelamento === 'string' && p.motivoCancelamento.length <= 100)) &&
     (p.reprogramado === undefined || (typeof p.reprogramado === 'object' && p.reprogramado !== null &&
       typeof (p.reprogramado as Record<string, unknown>).operacao === 'string' && typeof (p.reprogramado as Record<string, unknown>).ponto === 'string')) &&

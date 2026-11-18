@@ -7,6 +7,7 @@
 import type { Coordenada } from '../demandas/coordenadas.ts';
 import type { Bloqueio } from '../demandas/modelo.ts';
 import type { Anotacao } from '../../compartilhado/anotacoes.ts';
+import type { Caracterizacao } from './pop-supressao.ts';
 
 export const CHAVE_OPERACOES = 'guara:operacoes:v1';
 
@@ -80,6 +81,16 @@ export interface Ponto {
   bloqueio?: Bloqueio;
   /** Anotações em checklist (compartilhado/anotacoes.ts). */
   anotacoes?: Anotacao[];
+  /** Caracterização do dano (POP IBAMA, Anexo I): resposta por item ("A-10"); ver pop-supressao.ts. Sem CPF, endereço ou nome do autuado. */
+  caracterizacao?: Caracterizacao;
+  /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
+  coordenadaAferida?: string;
+  waypoint?: string;
+  /** Quantidade de fotos (o roteiro pede de 12 a 30). */
+  fotos?: string;
+  drone?: { voou: boolean; arquivo?: string };
+  /** Só nome e função. */
+  pessoaContatada?: string;
   /** Por que a vistoria foi cancelada (até 100 caracteres); some ao reativar. */
   motivoCancelamento?: string;
   /** Fase pós-campo: envio do relatório no SIGA-MT. Sem `enviadoEm`, o ponto com resultado está em elaboração. */

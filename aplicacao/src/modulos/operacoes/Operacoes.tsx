@@ -8,6 +8,8 @@ import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
+import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
+import { itensDeCampoSemResposta, possivelSupressao } from './pop-supressao.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
@@ -658,6 +660,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
   // Registrar o envio com anotações abertas pergunta antes (não bloqueia).
   const [confirmaEnvio, setConfirmaEnvio] = useState(false);
+  // Ponto de possível supressão: o POP IBAMA tem itens de campo a transcrever; quantos faltam entra no aviso do envio.
+  const supressao = possivelSupressao(ponto, ligadas.map((d) => d.titulo));
+  const faltamPop = supressao ? itensDeCampoSemResposta(ponto.caracterizacao).length : 0;
   const gravarRelatorio = () => {
     const problema = registrarRelatorio(operacao.id, ponto.id, relatorio, hoje);
     setErro(problema);
@@ -666,7 +671,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
   const salvarRelatorio = (e: FormEvent) => {
     e.preventDefault();
-    if (relatorio.enviadoEm && fase !== 'concluido' && contarAbertas(ponto.anotacoes) > 0) return setConfirmaEnvio(true);
+    if (relatorio.enviadoEm && fase !== 'concluido' && (contarAbertas(ponto.anotacoes) > 0 || faltamPop > 0)) return setConfirmaEnvio(true);
     gravarRelatorio();
   };
 
@@ -756,6 +761,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       {modo === 'ver' && (
         <AnotacoesDoItem item="ponto" anotacoes={ponto.anotacoes} aoMudar={(lista) => setErro(salvarAnotacoesPonto(operacao.id, ponto.id, lista))} />
       )}
+      {modo === 'ver' && supressao && (
+        <CaracterizacaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} />
+      )}
 
       {modo === 'resultado' ? (
         <FormularioResultado operacao={operacao} ponto={ponto} rotulo={rotulo} hoje={hoje}
@@ -771,7 +779,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <label className="campo-grupo"><span>Notas (opcional)</span>
             <textarea className="campo campo--area" rows={2} value={relatorio.notas} maxLength={LIMITES_OPERACAO.observacao} onChange={(e) => setRelatorio({ ...relatorio, notas: e.target.value })} /></label>
           <p className="texto-pequeno texto-suave">Data em branco desfaz o envio e o ponto volta para "em elaboração".</p>
-          {confirmaEnvio && <ConfirmaConclusao anotacoes={ponto.anotacoes} aoConcluir={gravarRelatorio} aoVoltar={() => setConfirmaEnvio(false)} />}
+          {confirmaEnvio && <ConfirmaConclusao anotacoes={ponto.anotacoes} itensPopSemResposta={faltamPop} aoConcluir={gravarRelatorio} aoVoltar={() => setConfirmaEnvio(false)} />}
           {erro && <p role="alert" className="erro-campo">{erro}</p>}
           <div className="acoes">
             <button type="submit" className="botao botao--primario">Salvar envio</button>

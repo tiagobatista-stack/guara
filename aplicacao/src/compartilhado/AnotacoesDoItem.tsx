@@ -14,11 +14,15 @@ export function SeloAnotacoes({ anotacoes, testid }: { anotacoes?: readonly Anot
   return n > 0 ? <span className="selo-situacao selo-situacao--atencao" data-testid={testid}>{textoAnotacoesAbertas(n)}</span> : null;
 }
 
-/** Aviso ao concluir com anotações abertas: não bloqueia, só pergunta. */
-export function ConfirmaConclusao({ anotacoes, aoConcluir, aoVoltar }: { anotacoes?: readonly Anotacao[]; aoConcluir: () => void; aoVoltar: () => void }) {
+/** Aviso ao concluir com anotações abertas (e, no ponto de supressão, itens de campo do POP sem resposta): não bloqueia, só pergunta. */
+export function ConfirmaConclusao({ anotacoes, itensPopSemResposta = 0, aoConcluir, aoVoltar }: {
+  anotacoes?: readonly Anotacao[]; itensPopSemResposta?: number; aoConcluir: () => void; aoVoltar: () => void;
+}) {
+  const abertas = contarAbertas(anotacoes);
+  const partes = [abertas > 0 ? textoAnotacoesAbertas(abertas) : '', itensPopSemResposta > 0 ? `${itensPopSemResposta} item(ns) de campo do POP sem resposta` : ''].filter(Boolean);
   return (
     <div role="alert" className="aviso" data-testid="confirma-conclusao">
-      <p>Há {textoAnotacoesAbertas(contarAbertas(anotacoes))}. Concluir mesmo assim?</p>
+      <p>Há {partes.join(' e ')}. Concluir mesmo assim?</p>
       <div className="acoes">
         <button type="button" className="botao botao--primario" onClick={aoConcluir}>Concluir</button>
         <button type="button" className="botao" onClick={aoVoltar}>Voltar</button>

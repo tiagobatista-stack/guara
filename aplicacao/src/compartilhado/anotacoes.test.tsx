@@ -152,8 +152,9 @@ const ponto = { coordenada: { lat: -12.1, lon: -58.2 }, municipio: 'Brasnorte', 
 function montarPonto() {
   const r = criarOperacao({ nome: 'Brasnorte', inicio: '2026-10-05', fim: '2026-10-12', origem: '' }, '2026-09-01T00:00:00Z');
   if (!r.ok) throw new Error('operação não criada');
-  incluirPontos(r.id, [ponto]);
-  const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [] });
+  // Ponto com demanda de embargo ligada: fora do POP de supressão (que tem o seu próprio aviso).
+  incluirPontos(r.id, [{ ...ponto, demandas: ['dE'] }]);
+  const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [demanda({ id: 'dE', titulo: 'Embargo fictício' })] });
   render(<ContextoArmazem.Provider value={armazem}><Operacoes agora={() => new Date(2026, 10, 18, 10)} /></ContextoArmazem.Provider>);
   fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
   fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));

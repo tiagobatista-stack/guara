@@ -638,6 +638,7 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-14' } });
     fireEvent.change(within(envio).getByLabelText('Número no SIGA-MT (opcional)'), { target: { value: 'FIC-SIGA-1' } });
     fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    if (screen.queryByTestId('confirma-conclusao')) fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
     expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Concluído em 14/11/2026 · SIGA nº FIC-SIGA-1');
     expect(screen.getByTestId('operacao-encerrada')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reativar Ponto 2' }));
@@ -651,9 +652,11 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     const envio = screen.getByRole('form', { name: 'Envio do relatório do Ponto 1' });
     fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-16' } });
     fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    if (screen.queryByTestId('confirma-conclusao')) fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
     expect(within(envio).getByRole('alert')).toHaveTextContent('não pode ser futura');
     fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '' } });
     fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    if (screen.queryByTestId('confirma-conclusao')) fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
     expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Em elaboração');
   });
 
