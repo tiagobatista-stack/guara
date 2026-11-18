@@ -24,6 +24,7 @@ function balao(i: ItemMapa): HTMLElement {
   };
   linha(i.rotulo, true);
   linha(`${i.tipo === 'demanda' ? 'Demanda' : 'Ponto de operação'} · ${rotuloDaSituacao(i)}`);
+  if (i.travado) linha(`⛔ Travado: ${i.travado.motivo}${i.travado.detalhe ? ` — ${i.travado.detalhe}` : ''}`);
   linha(i.municipio ?? '');
   linha(i.quando);
   linha(formatarDecimal(i.coordenada));
@@ -94,7 +95,7 @@ export function MapaLeaflet({ itens, aoEstado }: { itens: ItemMapa[]; aoEstado: 
       const cor = corDaSituacao(i.situacao);
       const marcador = i.tipo === 'demanda'
         ? L.circleMarker(pos, { radius: 7, color: '#fff', weight: 2.5, fillColor: cor, fillOpacity: 1 })
-        : L.marker(pos, { icon: L.divIcon({ className: '', html: `<span class="mapa-quadrado" style="background:${cor}${i.vencido ? `;outline:3px solid ${COR_VENCIDO}` : ''}"></span>`, iconSize: [14, 14] }) });
+        : L.marker(pos, { icon: L.divIcon({ className: '', html: `<span class="mapa-quadrado" style="background:${cor}${i.travado ? `;outline:3px dashed ${i.vencido ? COR_VENCIDO : '#0f172a'};outline-offset:1px` : i.vencido ? `;outline:3px solid ${COR_VENCIDO}` : ''}"></span>`, iconSize: [14, 14] }) });
       marcador.bindPopup(balao(i)).addTo(i.tipo === 'demanda' ? demandas.current! : pontos.current!);
     }
     const lim = limitesDosItens(itens);

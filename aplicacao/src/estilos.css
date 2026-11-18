@@ -461,3 +461,4 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .mapa-quadrado { display: block; width: 14px; height: 14px; border: 2px solid #fff; box-sizing: border-box; }
 
 .acoes--entre { justify-content: space-between; align-items: center; margin: 0; }
+.grade--topo { align-items: start; }

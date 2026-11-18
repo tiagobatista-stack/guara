@@ -12,6 +12,7 @@ export type Prioridade = (typeof PRIORIDADES)[number];
 /** Motivos de bloqueio, por botões (ideia do TOCA, `travada_modulo.py`). Só a categoria: texto livre poderia ter nomes. */
 export const MOTIVOS_BLOQUEIO = {
   documento: 'falta documento',
+  autuado: 'aguardando dados do autuado',
   setor: 'aguardando outro setor',
   campo: 'depende de campo',
   outro: 'outro motivo',

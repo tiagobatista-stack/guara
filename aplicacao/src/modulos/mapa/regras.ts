@@ -1,10 +1,10 @@
 // Regras puras do mapa (sem Leaflet): que itens têm lugar no mapa, legenda e enquadramento.
 
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
-import type { Demanda } from '../demandas/modelo.ts';
+import { MOTIVOS_BLOQUEIO, type Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { SITUACOES_ACOMPANHAMENTO } from '../operacoes/modelo.ts';
-import { pontoVencido, situacaoDoPonto, viagemDoPonto } from '../operacoes/regras.ts';
+import { pontoTravado, pontoVencido, situacaoDoPonto, viagemDoPonto } from '../operacoes/regras.ts';
 
 export interface ItemMapa {
   id: string;
@@ -14,6 +14,8 @@ export interface ItemMapa {
   situacao: string;
   /** Ponto em aberto cuja viagem já voltou: alerta derivado, não situação. */
   vencido?: boolean;
+  /** Ponto com bloqueio ativo (motivo por extenso e detalhe, se houver): contorno tracejado. */
+  travado?: { motivo: string; detalhe?: string };
   municipio?: string;
   /** Prazo da demanda ou datas da viagem, já formatados; vazio se não houver. */
   quando: string;
@@ -59,7 +61,8 @@ export function itensDoMapa(
         tipo: 'ponto',
         rotulo: `${o.nome} · ponto ${p.numero ?? ''}`.trim() + (v?.equipe ? ` · ${v.equipe}` : ''),
         situacao: situacaoDoPonto(p),
-        vencido: !!hoje && pontoVencido(o, p, hoje),
+        vencido: !!hoje && !p.bloqueio && pontoVencido(o, p, hoje),
+        ...(pontoTravado(p) ? { travado: { motivo: MOTIVOS_BLOQUEIO[p.bloqueio!.motivo], ...(p.bloqueio!.detalhe ? { detalhe: p.bloqueio!.detalhe } : {}) } } : {}),
         municipio: p.municipio,
         quando: datas,
         coordenada: p.coordenada,

@@ -3,11 +3,13 @@
 
 import { criarListaLocal, novoId } from '../atalhos/lista-local.ts';
 import { dataValida } from '../demandas/regras.ts';
+import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
+import type { MotivoBloqueio } from '../demandas/modelo.ts';
 import {
   CHAVE_OPERACOES, LIMITES_OPERACAO, RESULTADOS_COM_MOTIVO,
   type EventoOperacao, type MotivoPeriodo, type Operacao, type Ponto, type PontoNovo, type ResultadoPonto, type Viagem,
 } from './modelo.ts';
-import { codigosEmUso, encaixarEmViagens, gerarCodigo, limparNomes, periodoDosPontos, problemasDeDatas, situacaoDoPonto, validarListaOperacoes, type Periodo } from './regras.ts';
+import { codigosEmUso, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, periodoDosPontos, problemasDeDatas, situacaoDoPonto, validarListaOperacoes, type Periodo } from './regras.ts';
 
 const lista = criarListaLocal<Operacao>(CHAVE_OPERACOES, () => [], validarListaOperacoes);
 
@@ -80,18 +82,41 @@ export function excluirOperacao(id: string): void {
  * Se o gerado já existir em outra operação, o ponto fica sem código (a tela mostra o conflito).
  */
 function completarCodigos(op: Operacao, todas: readonly Operacao[]): Operacao {
-  const emUso = codigosEmUso(todas.filter((o) => o.id !== op.id));
-  for (const p of op.pontos) if (p.codigo) emUso.set(p.codigo.toUpperCase(), { operacao: op.nome, ponto: p.id });
-  let mudou = false;
-  const pontos = op.pontos.map((p) => {
-    if (p.codigo) return p;
-    const codigo = gerarCodigo(p.municipio, op.inicio, p.numero);
-    if (!codigo || emUso.has(codigo)) return p;
-    emUso.set(codigo, { operacao: op.nome, ponto: p.id });
-    mudou = true;
-    return { ...p, codigo };
-  });
-  return mudou ? { ...op, pontos } : op;
+  const { gerar } = planejarCodigos(op, todas);
+  if (gerar.length === 0) return op;
+  const novos = new Map(gerar.map((g) => [g.pontoId, g.codigo]));
+  return { ...op, pontos: op.pontos.map((p) => (novos.has(p.id) ? { ...p, codigo: novos.get(p.id) } : p)) };
+}
+
+/** Confirma o plano de "Gerar códigos": grava só os pontos sem código (a regra é a de planejarCodigos). Devolve quantos ganharam código. */
+export function gerarCodigos(operacaoId: string): number {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op) return 0;
+  const { gerar } = planejarCodigos(op, atuais);
+  if (gerar.length) gravarOperacao(atuais, op);
+  return gerar.length;
+}
+
+/** Marca (ou atualiza) o bloqueio do ponto; `detalhe` já conferido. Devolve o problema ou null. */
+export function travarPonto(operacaoId: string, pontoId: string, motivo: MotivoBloqueio, detalhe: string, agoraIso: string): string | null {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  const ponto = op?.pontos.find((p) => p.id === pontoId);
+  if (!op || !ponto) return 'Ponto não encontrado.';
+  if (ponto.reprogramado || ponto.situacao === 'cancelado') return 'Ponto cancelado ou reprogramado não é travado.';
+  const bloqueio = novoBloqueio(ponto.bloqueio, motivo, agoraIso, detalhe);
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? { ...p, bloqueio } : p)) });
+  return null;
+}
+
+/** Tira o bloqueio do ponto (a situação do ponto não muda). */
+export function destravarPonto(operacaoId: string, pontoId: string): string | null {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op?.pontos.some((p) => p.id === pontoId)) return 'Ponto não encontrado.';
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => { if (p.id !== pontoId) return p; const { bloqueio: _b, ...resto } = p; void _b; return resto; }) });
+  return null;
 }
 
 /** Grava a operação alterada, já com os códigos que faltavam. */

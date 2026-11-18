@@ -5,6 +5,7 @@
 // (duas ou mais pessoas, um ou mais veículos) e percorre vários pontos (pedido do responsável, 15/11/2026).
 
 import type { Coordenada } from '../demandas/coordenadas.ts';
+import type { Bloqueio } from '../demandas/modelo.ts';
 
 export const CHAVE_OPERACOES = 'guara:operacoes:v1';
 
@@ -74,6 +75,8 @@ export interface Ponto {
   observacao?: string;
   /** AAAA-MM-DD: data em que o ponto foi vistoriado. */
   dataVistoria?: string;
+  /** Marca à parte da situação (mesmo formato da demanda): o ponto segue como está, mas há algo travando o encerramento (ex.: dados do autuado). */
+  bloqueio?: Bloqueio;
   /** Ponto "Não" levado para outra operação: onde ele está agora. */
   reprogramado?: { operacao: string; ponto: string };
   coordenada: Coordenada;

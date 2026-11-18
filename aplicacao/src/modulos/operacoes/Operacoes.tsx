@@ -5,8 +5,11 @@
 import { useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { Mascote } from '../../compartilhado/Mascote.tsx';
+import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
+import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
+import { MOTIVOS_BLOQUEIO } from '../demandas/modelo.ts';
 import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { decodificarCsv, importarPontosCsv, type LinhaImportada, type ResultadoCsv } from './importar-csv.ts';
 import { ehXlsx, xlsxParaCsv } from './ler-xlsx.ts';
@@ -16,13 +19,13 @@ import {
 } from './modelo.ts';
 import {
   alterarPeriodo, alterarPonto, alterarViagem, aplicarAtualizacoes, conflitoDeCodigo, definirSetor, criarOperacao, criarOperacaoComPontos, criarViagem, definirGrupo, definirViagem, excluirOperacao, excluirPonto,
-  excluirViagem, incluirPontos, registrarResultado, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
+  excluirViagem, destravarPonto, gerarCodigos, incluirPontos, registrarResultado, travarPonto, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
 } from './armazem.ts';
 import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_EXPORTACAO } from './exportar.ts';
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
 import {
   agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, operacaoEncerrada, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
-  progressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
+  planejarCodigos, pontoTravado, progressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
 } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
@@ -515,7 +518,7 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   };
   return (
     <form onSubmit={salvar} className="formulario" noValidate aria-label={`Resultado do ${rotulo}`}>
-      <div className="grade grade--2">
+      <div className="grade grade--2 grade--topo">
         <label className="campo-grupo"><span>Resultado (fiscalizado/autuado)</span>
           <select className="campo" value={form.resultado} onChange={(e) => setForm({ ...form, resultado: e.target.value as '' | ResultadoPonto })}>
             <option value="">Sem resultado</option>
@@ -564,7 +567,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 }) {
   const armazem = useArmazem();
   const { demandas } = useEstadoDemandas();
-  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado'>('ver');
+  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio'>('ver');
   const editando = modo !== 'ver';
   const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '' });
   const [erro, setErro] = useState<string | null>(null);
@@ -646,6 +649,12 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         {ponto.resultado && (
           <><dt>Resultado</dt><dd data-testid={`resultado-${ponto.id}`}>{RESULTADOS[ponto.resultado]}{ponto.motivo && <> · {ponto.motivo}</>}</dd></>
         )}
+        {ponto.bloqueio && (
+          <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${ponto.id}`}>
+            {(textoBloqueio(ponto, new Date(`${hoje}T12:00:00`), {}, 'travado') ?? '').replace('⛔ ', '')}
+            {ponto.bloqueio.detalhe && <> — {ponto.bloqueio.detalhe}</>}
+          </dd></>
+        )}
         {ponto.dataVistoria && <><dt>Vistoria</dt><dd>{dataBr(ponto.dataVistoria)}</dd></>}
         {ponto.protocolo && <><dt>Protocolo</dt><dd className="mono">{ponto.protocolo}</dd></>}
         {ponto.observacao && <><dt>Observação</dt><dd>{ponto.observacao}</dd></>}
@@ -673,6 +682,13 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       {modo === 'resultado' ? (
         <FormularioResultado operacao={operacao} ponto={ponto} rotulo={rotulo} hoje={hoje}
           protocolosSugeridos={ligadas.map((d) => d.processo).filter((x): x is string => !!x)} aoTerminar={() => setModo('ver')} />
+      ) : modo === 'bloqueio' ? (
+        <>
+          <BloqueioDoItem item="ponto" bloqueio={ponto.bloqueio}
+            aoDestravar={() => { const p = destravarPonto(operacao.id, ponto.id); setErro(p); if (!p) setModo('ver'); }}
+            aoTravar={(motivo, detalhe) => { const p = travarPonto(operacao.id, ponto.id, motivo, detalhe, new Date().toISOString()); setErro(p); if (!p) setModo('ver'); }} />
+          <div className="acoes"><button type="button" className="botao" onClick={() => setModo('ver')}>Fechar</button></div>
+        </>
       ) : modo === 'editar' ? (
         <form onSubmit={salvar} className="formulario" noValidate aria-label={`Editar ${rotulo}`}>
           <div className="grade grade--2">
@@ -704,6 +720,11 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           {!ponto.reprogramado && ponto.situacao !== 'cancelado' && (
             <button type="button" className="botao botao--pequeno" aria-label={`${ponto.resultado ? 'Editar' : 'Registrar'} resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>
               {ponto.resultado ? 'Editar resultado' : 'Registrar resultado'}
+            </button>
+          )}
+          {!ponto.reprogramado && ponto.situacao !== 'cancelado' && (
+            <button type="button" className="botao botao--pequeno" aria-label={`Bloqueio do ${rotulo}`} onClick={() => { setErro(null); setModo('bloqueio'); }}>
+              {ponto.bloqueio ? 'Editar bloqueio' : 'Bloquear'}
             </button>
           )}
           {!ponto.reprogramado && (
@@ -861,6 +882,10 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
   const tiposDeDano = useMemo(() => limparNomes(todas.flatMap((o) => o.pontos.map((p) => p.tipoDano ?? '')), LIMITES_OPERACAO.tipoDano).sort((a, b) => a.localeCompare(b, 'pt-BR')), [todas]);
   const pendencias = pendenciasDeCampo([operacao], hoje);
   const finalizados = operacao.pontos.filter((p) => situacaoDoPonto(p) === 'finalizado').length;
+  const pontoTravadoNaOperacao = operacao.pontos.some(pontoTravado);
+  const planoCodigos = useMemo(() => planejarCodigos(operacao, todas), [operacao, todas]);
+  const semCodigo = planoCodigos.gerar.length + planoCodigos.fora.length;
+  const [previaCodigos, setPreviaCodigos] = useState(false);
   const conflitos = useMemo(() => conflitosDeAgenda(todas), [todas]);
   const sugestoes = useMemo(() => sugestoesDeViagem(todas), [todas]);
   const viagens = ordenarViagens(operacao.viagens);
@@ -908,8 +933,30 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
         {operacao.viagens.length} viagem(ns){incompletas > 0 && <> · <span className="texto--atencao">{incompletas} incompleta(s)</span></>} ·{' '}
         {finalizados} finalizado(s)
         {pendencias.aReprogramar.length > 0 && <> · <span className="texto--atencao">{pendencias.aReprogramar.length} a reprogramar</span></>}
-        {operacaoEncerrada(operacao) && <> · <strong className="selo-situacao selo-situacao--ok" data-testid="operacao-encerrada">operação encerrada</strong></>}
+        {operacaoEncerrada(operacao) && !pontoTravadoNaOperacao && <> · <strong className="selo-situacao selo-situacao--ok" data-testid="operacao-encerrada">operação encerrada</strong></>}
       </p>
+      {semCodigo > 0 && (
+        <div className="aviso" data-testid="sem-codigo">
+          <p>{semCodigo} ponto(s) sem código {!previaCodigos && <button type="button" className="botao botao--pequeno" onClick={() => setPreviaCodigos(true)}>Gerar códigos</button>}</p>
+          {previaCodigos && (
+            <>
+              <ul className="lista-limpa" aria-label="Códigos a gerar">
+                {planoCodigos.gerar.map((g) => <li key={g.pontoId} className="texto-pequeno mono">{g.rotulo} → {g.codigo}</li>)}
+                {planoCodigos.fora.map((f) => <li key={f.pontoId} className="texto-pequeno texto--atencao">{f.rotulo}: não entra — {f.motivo}.</li>)}
+              </ul>
+              <div className="acoes">
+                {planoCodigos.gerar.length > 0 && <button type="button" className="botao botao--primario botao--pequeno" onClick={() => { gerarCodigos(operacao.id); setPreviaCodigos(false); }}>Confirmar {planoCodigos.gerar.length} código(s)</button>}
+                <button type="button" className="botao botao--pequeno" onClick={() => setPreviaCodigos(false)}>Cancelar</button>
+              </div>
+            </>
+          )}
+        </div>
+      )}
+      {operacao.pontos.some((p) => p.bloqueio && !p.resultado && pontoTravado(p)) && (
+        <p className="texto-pequeno texto--atencao" data-testid="travados-sem-resultado">
+          Travado(s) sem resultado: {operacao.pontos.filter((p) => p.bloqueio && !p.resultado && pontoTravado(p)).map((p) => `${rotuloDoPonto(p)} (${MOTIVOS_BLOQUEIO[p.bloqueio!.motivo]})`).join(', ')}.
+        </p>
+      )}
       {(pendencias.semResultado.length > 0 || pendencias.aReprogramar.length > 0) && (
         <FalaMascote id="pendencias-operacao">
           <p id="pendencias-operacao-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length)}</p>
@@ -1124,9 +1171,9 @@ function NovaOperacao({ operacoes, agora, aoCriar }: { operacoes: readonly Opera
 
 // ---------- Lista ----------
 
-const ROTULO_SELO = { planejada: 'planejada', 'em-andamento': 'em andamento', pendente: 'pendente', encerrada: 'encerrada' } as const;
-const CLASSE_SELO = { planejada: '', 'em-andamento': '', pendente: ' selo-situacao--atencao', encerrada: ' selo-situacao--ok' } as const;
-const ORDEM_SELO = ['pendente', 'em-andamento', 'planejada', 'encerrada'] as const;
+const ROTULO_SELO = { planejada: 'planejada', 'em-andamento': 'em andamento', pendente: 'pendente', 'campo-encerrado': 'campo encerrado', encerrada: 'encerrada' } as const;
+const CLASSE_SELO = { planejada: '', 'em-andamento': '', pendente: ' selo-situacao--atencao', 'campo-encerrado': ' selo-situacao--atencao', encerrada: ' selo-situacao--ok' } as const;
+const ORDEM_SELO = ['pendente', 'campo-encerrado', 'em-andamento', 'planejada', 'encerrada'] as const;
 
 /** Pendente, em andamento, planejada, encerrada; dentro de cada uma, pelo início (sem início por último). */
 function ordenarOperacoes(operacoes: readonly Operacao[], hoje: string) {
@@ -1193,7 +1240,7 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
                   {pr.total > 0 && (
                     <div data-testid={`progresso-${o.id}`}>
                       <progress max={pr.total} value={pr.encerrados} aria-label={`Progresso de ${o.nome}`} />
-                      <p className="texto-pequeno">{pr.encerrados} de {pr.total} encerrados · {pr.aFinalizar} a finalizar</p>
+                      <p className="texto-pequeno">{pr.encerrados} de {pr.total} encerrados · {pr.aFinalizar} a finalizar{pr.travados > 0 && <span className="texto--atencao"> · {pr.travados} travado(s)</span>}</p>
                       <p className="texto-pequeno">
                         {(Object.keys(SITUACOES_ACOMPANHAMENTO) as SituacaoAcompanhamento[]).filter((s) => pr.porSituacao[s] > 0).map((s, i) => (
                           <span key={s} className={s === 'a-reprogramar' ? 'texto--atencao' : ''}>{i > 0 && ' · '}{pr.porSituacao[s]} {SITUACOES_ACOMPANHAMENTO[s]}</span>

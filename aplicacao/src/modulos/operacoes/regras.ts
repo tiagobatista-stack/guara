@@ -2,7 +2,7 @@
 // o que falta encaixar, conflito de agenda, distância e "local já visitado".
 
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
-import { dataValida } from '../demandas/regras.ts';
+import { bloqueioValido, dataValida } from '../demandas/regras.ts';
 import {
   LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
@@ -133,6 +133,7 @@ function pontoValido(x: unknown): boolean {
     (p.protocolo === undefined || texto(p.protocolo, LIMITES_OPERACAO.protocolo)) &&
     (p.observacao === undefined || texto(p.observacao, LIMITES_OPERACAO.observacao)) &&
     dataOpcional(p.dataVistoria) &&
+    (p.bloqueio === undefined || bloqueioValido(p.bloqueio)) &&
     (p.reprogramado === undefined || (typeof p.reprogramado === 'object' && p.reprogramado !== null &&
       typeof (p.reprogramado as Record<string, unknown>).operacao === 'string' && typeof (p.reprogramado as Record<string, unknown>).ponto === 'string')) &&
     Array.isArray(p.demandas) && p.demandas.length <= LIMITES_OPERACAO.demandasPorPonto && p.demandas.every((d) => typeof d === 'string') &&
@@ -347,6 +348,35 @@ export function codigosEmUso(operacoes: readonly Operacao[]): Map<string, { oper
   return mapa;
 }
 
+export interface PlanoDeCodigos {
+  /** Pontos que ganham código (na ordem da operação). */
+  gerar: { pontoId: string; rotulo: string; codigo: string }[];
+  /** Pontos sem código que continuam sem: falta dado ou o código já existe. */
+  fora: { pontoId: string; rotulo: string; motivo: string }[];
+}
+
+/**
+ * O que "gerar códigos" faria na operação: só pontos sem código; nunca troca um código existente.
+ * Código igual ao de outra operação (ou de outro ponto desta) deixa o ponto de fora, com o motivo.
+ */
+export function planejarCodigos(op: Operacao, todas: readonly Operacao[]): PlanoDeCodigos {
+  const emUso = codigosEmUso(todas.filter((o) => o.id !== op.id));
+  for (const p of op.pontos) if (p.codigo) emUso.set(p.codigo.toUpperCase(), { operacao: op.nome, ponto: p.id });
+  const plano: PlanoDeCodigos = { gerar: [], fora: [] };
+  for (const p of op.pontos) {
+    if (p.codigo) continue;
+    const rotulo = rotuloDoPonto(p);
+    const falta = [!municipioParaCodigo(p.municipio) && 'município', p.numero === undefined && 'número do ponto', !op.inicio && 'início da operação'].filter(Boolean);
+    if (falta.length) { plano.fora.push({ pontoId: p.id, rotulo, motivo: `falta ${falta.join(' e ')}` }); continue; }
+    const codigo = gerarCodigo(p.municipio, op.inicio, p.numero)!;
+    const onde = emUso.get(codigo);
+    if (onde) { plano.fora.push({ pontoId: p.id, rotulo, motivo: `o código ${codigo} já existe (${onde.operacao})` }); continue; }
+    emUso.set(codigo, { operacao: op.nome, ponto: p.id });
+    plano.gerar.push({ pontoId: p.id, rotulo, codigo });
+  }
+  return plano;
+}
+
 /** Situação de acompanhamento do ponto (ver SITUACOES_ACOMPANHAMENTO). */
 export function situacaoDoPonto(p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado'>): SituacaoAcompanhamento {
   if (p.situacao === 'cancelado') return 'cancelado';
@@ -397,7 +427,10 @@ export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situa
 const ENCERRADAS: readonly SituacaoAcompanhamento[] = ['finalizado', 'cancelado', 'reprogramado'];
 export const pontoEncerrado = (p: Ponto) => ENCERRADAS.includes(situacaoDoPonto(p));
 
-export type SeloDaOperacao = 'planejada' | 'em-andamento' | 'pendente' | 'encerrada';
+export type SeloDaOperacao = 'planejada' | 'em-andamento' | 'pendente' | 'campo-encerrado' | 'encerrada';
+
+/** Ponto com bloqueio ativo que ainda não saiu do jogo (cancelado e reprogramado não contam). */
+export const pontoTravado = (p: Ponto) => !!p.bloqueio && situacaoDoPonto(p) !== 'cancelado' && situacaoDoPonto(p) !== 'reprogramado';
 export interface ProgressoDaOperacao {
   total: number;
   /** finalizado + cancelado + reprogramado. */
@@ -406,6 +439,8 @@ export interface ProgressoDaOperacao {
   aFinalizar: number;
   porSituacao: Record<SituacaoAcompanhamento, number>;
   vencidos: number;
+  /** Pontos com bloqueio ativo. */
+  travados: number;
   selo: SeloDaOperacao;
 }
 
@@ -417,7 +452,9 @@ export function progressoDaOperacao(o: Pick<Operacao, 'pontos' | 'viagens'>, hoj
   const porSituacao = Object.fromEntries(Object.keys(SITUACOES_ACOMPANHAMENTO).map((k) => [k, 0])) as Record<SituacaoAcompanhamento, number>;
   let encerrados = 0;
   let vencidos = 0;
+  let travados = 0;
   for (const p of o.pontos) {
+    if (pontoTravado(p as Ponto)) travados++;
     porSituacao[situacaoDoPonto(p)]++;
     if (pontoEncerrado(p as Ponto)) encerrados++;
     if (pontoVencido(o, p, hoje)) vencidos++;
@@ -426,11 +463,11 @@ export function progressoDaOperacao(o: Pick<Operacao, 'pontos' | 'viagens'>, hoj
   const comDatas = o.viagens.filter((v) => v.saida || v.retorno);
   let selo: SeloDaOperacao = 'planejada';
   if (total > 0) {
-    if (operacaoEncerrada(o)) selo = 'encerrada';
+    if (operacaoEncerrada(o)) selo = travados > 0 ? 'campo-encerrado' : 'encerrada';
     else if (comDatas.length > 0 && comDatas.every((v) => (v.retorno ?? v.saida)! < hoje)) selo = 'pendente';
     else if (comDatas.some((v) => v.saida && v.saida <= hoje)) selo = 'em-andamento';
   }
-  return { total, encerrados, aFinalizar: total - encerrados, porSituacao, vencidos, selo };
+  return { total, encerrados, aFinalizar: total - encerrados, porSituacao, vencidos, travados, selo };
 }
 
 /** Operação encerrada: tem pontos e todos estão finalizados, cancelados ou reprogramados. */
@@ -452,7 +489,7 @@ export function pendenciasDeCampo(operacoes: readonly Operacao[], hoje: string):
     for (const ponto of operacao.pontos) {
       const s = situacaoDoPonto(ponto);
       if (s === 'a-reprogramar') aReprogramar.push({ operacao, ponto });
-      else if (pontoVencido(operacao, ponto, hoje)) semResultado.push({ operacao, ponto });
+      else if (!ponto.bloqueio && pontoVencido(operacao, ponto, hoje)) semResultado.push({ operacao, ponto });
     }
   }
   return { semResultado, aReprogramar };
