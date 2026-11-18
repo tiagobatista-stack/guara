@@ -114,6 +114,26 @@ function regrava_cancelado() {
   regravar((p) => ({ ...p, situacao: 'cancelado' }));
 }
 
+describe('uma regra só para vencido e travado', () => {
+  it('1 vencido sem bloqueio e 2 com bloqueio: vencidos 1, travados 2 no progresso, no aviso, no mapa e no cartão', () => {
+    const id = operacao('Brasnorte', '2026-10-05', 3);
+    const [, p2, p3] = obterOperacoes()[0].pontos;
+    travarPonto(id, p2.id, 'autuado', '', '2026-11-10T12:00:00Z');
+    travarPonto(id, p3.id, 'campo', '', '2026-11-10T12:00:00Z');
+    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ vencidos: 1, travados: 2 });
+    expect(pendenciasDeCampo(obterOperacoes(), HOJE).semResultado).toHaveLength(1);
+    const { noMapa } = itensDoMapa([], obterOperacoes(), HOJE);
+    expect([noMapa.filter((i) => i.vencido).length, noMapa.filter((i) => i.travado).length]).toEqual([1, 2]);
+    montarTela();
+    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('2 travado(s)');
+    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('1 vencido(s)');
+    expect(screen.getByTestId('pendencias-campo')).toHaveTextContent('1 ponto(s)');
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
+    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('1 ponto(s)');
+    expect(screen.getByTestId('travados-sem-resultado')).toHaveTextContent(/-02.*-03/);
+  });
+});
+
 describe('Gerar códigos', () => {
   it('planejarCodigos: gera, deixa de fora conflito e falta de dado, nunca troca código existente', () => {
     operacao('Outra', '2026-10-05', 1); // já tem BRASNORTE202610-01

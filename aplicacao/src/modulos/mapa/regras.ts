@@ -61,7 +61,7 @@ export function itensDoMapa(
         tipo: 'ponto',
         rotulo: `${o.nome} · ponto ${p.numero ?? ''}`.trim() + (v?.equipe ? ` · ${v.equipe}` : ''),
         situacao: situacaoDoPonto(p),
-        vencido: !!hoje && !p.bloqueio && pontoVencido(o, p, hoje),
+        vencido: !!hoje && pontoVencido(o, p, hoje),
         ...(pontoTravado(p) ? { travado: { motivo: MOTIVOS_BLOQUEIO[p.bloqueio!.motivo], ...(p.bloqueio!.detalhe ? { detalhe: p.bloqueio!.detalhe } : {}) } } : {}),
         municipio: p.municipio,
         quando: datas,

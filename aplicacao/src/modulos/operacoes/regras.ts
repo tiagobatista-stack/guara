@@ -415,8 +415,9 @@ export function textoPeriodoViagem(v: Pick<Viagem, 'saida' | 'retorno'>): string
   return v.saida.slice(0, 4) === v.retorno.slice(0, 4) ? `${br(v.saida).slice(0, 5)} a ${br(v.retorno)}` : `${br(v.saida)} a ${br(v.retorno)}`;
 }
 
-/** "Vencido" não é situação: ponto ainda em aberto (planejado ou sem resultado) cuja viagem terminou antes de `hoje` (retorno, ou a saída se não há retorno). Sem viagem ou datas: não vence. */
-export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'viagem'>, hoje: string): boolean {
+/** "Vencido" não é situação: ponto ainda em aberto (planejado ou sem resultado) cuja viagem terminou antes de `hoje` (retorno, ou a saída se não há retorno). Sem viagem ou datas: não vence. Ponto com bloqueio ativo não vence: conta como travado (regra única do progresso, do aviso e do mapa). */
+export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'viagem' | 'bloqueio'>, hoje: string): boolean {
+  if (p.bloqueio) return false;
   const s = situacaoDoPonto(p);
   const v = viagemDoPonto(o, p);
   const fim = v?.retorno ?? v?.saida;
@@ -489,7 +490,7 @@ export function pendenciasDeCampo(operacoes: readonly Operacao[], hoje: string):
     for (const ponto of operacao.pontos) {
       const s = situacaoDoPonto(ponto);
       if (s === 'a-reprogramar') aReprogramar.push({ operacao, ponto });
-      else if (!ponto.bloqueio && pontoVencido(operacao, ponto, hoje)) semResultado.push({ operacao, ponto });
+      else if (pontoVencido(operacao, ponto, hoje)) semResultado.push({ operacao, ponto });
     }
   }
   return { semResultado, aReprogramar };
