@@ -18,6 +18,7 @@ import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosVi
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { Operacoes } from '../modulos/operacoes/Operacoes.tsx';
 import { Atalhos } from '../modulos/atalhos/Atalhos.tsx';
+import { Agenda } from '../modulos/agenda/Agenda.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 import { Gaveta } from '../compartilhado/Gaveta.tsx';
 
@@ -40,6 +41,7 @@ function Conteudo({ rota }: { rota: string }) {
   if (rota === 'configuracoes') return <Configuracoes />;
   if (rota === 'atalhos') return <Atalhos />;
   if (rota === 'operacoes') return <Operacoes />;
+  if (rota === 'agenda') return <Agenda />;
   const m = modulos.find((x) => x.id === rota);
   return <EmConstrucao titulo={m?.rotulo ?? rota} />;
 }
