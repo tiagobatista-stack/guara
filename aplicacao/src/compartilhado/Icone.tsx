@@ -16,6 +16,8 @@ const CAMINHOS = {
   enviar: 'M4 12l16-8-6 16-2-6z',
   link: 'M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1',
   local: 'M12 21s-6-5.3-6-10a6 6 0 1 1 12 0c0 4.7-6 10-6 10zM12 8.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z',
+  // Dois pontos ligados por um caminho sinuoso.
+  rota: 'M5 16a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM19 4a2 2 0 1 0 0 4 2 2 0 0 0 0-4zM7 18h6a3 3 0 0 0 0-6H9a3 3 0 0 1 0-6h8',
   busca: 'M11 4a7 7 0 1 0 0 14 7 7 0 0 0 0-14zM20 20l-4-4',
 } as const;
 

@@ -4,7 +4,7 @@
 // Smartphone: barra inferior com os módulos principais, menu completo em gaveta
 // e botão flutuante para a conversa. Regras de layout em estilos.css.
 
-import { useCallback, useEffect, useState } from 'react';
+import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Icone } from '../compartilhado/Icone.tsx';
 import { modulos, moduloDaRota } from './registro-modulos.ts';
 import { Painel } from '../modulos/painel/Painel.tsx';
@@ -21,6 +21,9 @@ import { Atalhos } from '../modulos/atalhos/Atalhos.tsx';
 import { Agenda } from '../modulos/agenda/Agenda.tsx';
 import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 import { Gaveta } from '../compartilhado/Gaveta.tsx';
+
+// O mapa (Leaflet e a malha municipal) só é baixado quando a tela abre.
+const Mapa = lazy(() => import('../modulos/mapa/Mapa.tsx').then((m) => ({ default: m.Mapa })));
 
 function useRota(): [string, (id: string) => void] {
   const [rota, setRota] = useState(() => moduloDaRota(window.location.hash));
@@ -42,6 +45,7 @@ function Conteudo({ rota }: { rota: string }) {
   if (rota === 'atalhos') return <Atalhos />;
   if (rota === 'operacoes') return <Operacoes />;
   if (rota === 'agenda') return <Agenda />;
+  if (rota === 'mapa') return <Suspense fallback={<p role="status" className="texto-suave pagina">Carregando o mapa…</p>}><Mapa /></Suspense>;
   const m = modulos.find((x) => x.id === rota);
   return <EmConstrucao titulo={m?.rotulo ?? rota} />;
 }

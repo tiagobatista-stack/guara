@@ -1,0 +1,84 @@
+// Regras puras do mapa (sem Leaflet): que itens têm lugar no mapa, legenda e enquadramento.
+
+import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
+import type { Demanda } from '../demandas/modelo.ts';
+import type { Operacao } from '../operacoes/modelo.ts';
+
+export interface ItemMapa {
+  id: string;
+  tipo: 'demanda' | 'ponto';
+  rotulo: string;
+  /** Status da demanda ou situação do ponto. */
+  situacao: string;
+  municipio?: string;
+  /** Prazo da demanda ou datas da viagem, já formatados; vazio se não houver. */
+  quando: string;
+  coordenada: Coordenada;
+}
+
+/** Cor por situação; a forma (círculo = demanda, quadrado = ponto) não depende dela. Desconhecida: cinza. */
+export const COR_SITUACAO: Record<string, string> = {
+  'A Fazer': '#d97706', 'Em Andamento': '#2563eb', 'Em Validação': '#7c3aed', 'Concluída': '#16a34a',
+  planejado: '#2563eb', vistoriado: '#16a34a', cancelado: '#6b7280',
+};
+export const corDaSituacao = (s: string) => COR_SITUACAO[s] ?? '#6b7280';
+
+/** Centro de Mato Grosso, para quando não há nada a mostrar. */
+export const CENTRO_MT = { lat: -12.6, lon: -55.9, zoom: 6 } as const;
+
+const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '');
+
+export function itensDoMapa(
+  demandas: readonly Pick<Demanda, 'id' | 'titulo' | 'status' | 'prazo' | 'coordenada'>[],
+  operacoes: readonly Operacao[],
+): { noMapa: ItemMapa[]; semLocal: { id: string; titulo: string }[] } {
+  const noMapa: ItemMapa[] = [];
+  const semLocal: { id: string; titulo: string }[] = [];
+  for (const d of demandas) {
+    if (coordenadaValida(d.coordenada)) {
+      noMapa.push({ id: d.id, tipo: 'demanda', rotulo: d.titulo, situacao: d.status, quando: d.prazo ? `prazo ${dataBr(d.prazo)}` : '', coordenada: d.coordenada });
+    } else semLocal.push({ id: d.id, titulo: d.titulo });
+  }
+  for (const o of operacoes) {
+    for (const p of o.pontos) {
+      const datas = [p.saida, p.retorno].filter(Boolean).map(dataBr).join(' a ');
+      noMapa.push({
+        id: p.id,
+        tipo: 'ponto',
+        rotulo: `${o.nome} · ponto ${p.numero ?? ''}`.trim() + (p.equipe ? ` · ${p.equipe}` : ''),
+        situacao: p.situacao,
+        municipio: p.municipio,
+        quando: datas,
+        coordenada: p.coordenada,
+      });
+    }
+  }
+  return { noMapa, semLocal };
+}
+
+export function legenda(itens: readonly ItemMapa[]): { tipo: ItemMapa['tipo']; situacao: string; n: number }[] {
+  const conta = new Map<string, { tipo: ItemMapa['tipo']; situacao: string; n: number }>();
+  for (const i of itens) {
+    const k = `${i.tipo}|${i.situacao}`;
+    conta.set(k, { tipo: i.tipo, situacao: i.situacao, n: (conta.get(k)?.n ?? 0) + 1 });
+  }
+  return [...conta.values()];
+}
+
+/** [[sul, oeste], [norte, leste]], ou null sem itens. Com um item só o quadro é um ponto: quem desenha limita o zoom. */
+export function limitesDosItens(itens: readonly ItemMapa[]): [[number, number], [number, number]] | null {
+  if (itens.length === 0) return null;
+  const lats = itens.map((i) => i.coordenada.lat);
+  const lons = itens.map((i) => i.coordenada.lon);
+  return [[Math.min(...lats), Math.min(...lons)], [Math.max(...lats), Math.max(...lons)]];
+}
+
+/**
+ * Situação de uma fonte de imagens a partir dos pedidos de tile desde que a camada foi ligada.
+ * O servidor da SEMA limita a 15 pedidos por janela e atrasa os excedentes: erro depois de carga é lentidão,
+ * não queda; só 3 erros sem nenhuma carga indicam fonte fora do ar.
+ */
+export function estadoDaFonte(erros: number, cargas: number): 'normal' | 'devagar' | 'indisponivel' {
+  if (cargas > 0) return erros > 0 ? 'devagar' : 'normal';
+  return erros >= 3 ? 'indisponivel' : 'normal';
+}
