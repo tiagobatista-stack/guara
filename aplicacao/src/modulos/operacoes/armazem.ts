@@ -54,16 +54,21 @@ export function criarOperacao(d: DadosOperacao, agoraIso: string): { ok: true; i
   return { ok: true, id };
 }
 
-/** Cria a operação já com os pontos conferidos (viagens e códigos como em `incluirPontos`). Se algum ponto for recusado, a operação não fica. */
+/** Cria a operação já com os pontos (viagens e códigos como em `incluirPontos`). Valida tudo antes e grava uma vez; exige ao menos um ponto. */
 export function criarOperacaoComPontos(d: DadosOperacao, agoraIso: string, novos: readonly PontoNovo[]): { ok: true; id: string } | { ok: false; erro: string } {
-  const r = criarOperacao(d, agoraIso);
+  if (novos.length === 0) return { ok: false, erro: 'Nenhuma linha válida para criar a operação.' };
+  const atuais = obterOperacoes();
+  if (atuais.length >= LIMITES_OPERACAO.operacoes) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.operacoes} operações.` };
+  const erro = problemaDaOperacao(d);
+  if (erro) return { ok: false, erro };
+  const id = novoId('op', atuais);
+  const origem = d.origem.trim();
+  const setor = (d.setor ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const vazia: Operacao = { id, nome: d.nome.trim(), ...(d.inicio ? { inicio: d.inicio } : {}), ...(d.fim ? { fim: d.fim } : {}), ...(origem ? { origem } : {}), ...(setor ? { setor } : {}), viagens: [], pontos: [], criadaEm: agoraIso, historico: [{ quando: agoraIso, acao: 'criada' }] };
+  const r = acrescentarPontos(atuais, vazia, novos);
   if (!r.ok) return r;
-  const erro = incluirPontos(r.id, novos);
-  if (erro) {
-    excluirOperacao(r.id);
-    return { ok: false, erro };
-  }
-  return r;
+  lista.gravar([...atuais, completarCodigos(r.op, atuais)]);
+  return { ok: true, id };
 }
 
 export function excluirOperacao(id: string): void {
@@ -112,23 +117,31 @@ export function incluirPontos(operacaoId: string, novos: readonly PontoNovo[]): 
   const atuais = obterOperacoes();
   const op = atuais.find((o) => o.id === operacaoId);
   if (!op) return 'Operação não encontrada.';
-  if (op.pontos.length + novos.length > LIMITES_OPERACAO.pontos) return `O limite é de ${LIMITES_OPERACAO.pontos} pontos por operação.`;
+  const r = acrescentarPontos(atuais, op, novos);
+  if (!r.ok) return r.erro;
+  gravarOperacao(atuais, r.op);
+  return null;
+}
+
+/** Valida e monta a operação com os pontos acrescentados, sem gravar nada. */
+function acrescentarPontos(atuais: readonly Operacao[], op: Operacao, novos: readonly PontoNovo[]): { ok: true; op: Operacao } | { ok: false; erro: string } {
+  if (op.pontos.length + novos.length > LIMITES_OPERACAO.pontos) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.pontos} pontos por operação.` };
   for (const p of novos) {
     const erros = problemasDeDatas(p, { inicio: op.inicio, fim: op.fim });
-    if (erros.length) return erros[0];
+    if (erros.length) return { ok: false, erro: erros[0] };
   }
   // Código vindo da planilha: não pode repetir outro já usado, nem dentro do próprio arquivo.
   const emUso = codigosEmUso(atuais);
   for (const p of novos) {
     if (!p.codigo) continue;
     const codigo = p.codigo.trim();
-    if (codigo.length > LIMITES_OPERACAO.codigo) return `O código ${codigo.slice(0, 20)}… passa de ${LIMITES_OPERACAO.codigo} caracteres.`;
+    if (codigo.length > LIMITES_OPERACAO.codigo) return { ok: false, erro: `O código ${codigo.slice(0, 20)}… passa de ${LIMITES_OPERACAO.codigo} caracteres.` };
     const onde = emUso.get(codigo.toUpperCase());
-    if (onde) return `O código ${codigo} já existe (${onde.operacao}).`;
+    if (onde) return { ok: false, erro: `O código ${codigo} já existe (${onde.operacao}).` };
     emUso.set(codigo.toUpperCase(), { operacao: op.nome, ponto: '' });
   }
   const { viagens, itens } = encaixarEmViagens(novos, op.viagens, (conhecidas) => novoId('vg', conhecidas));
-  if (viagens.length > LIMITES_OPERACAO.viagens) return `O limite é de ${LIMITES_OPERACAO.viagens} viagens por operação.`;
+  if (viagens.length > LIMITES_OPERACAO.viagens) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.viagens} viagens por operação.` };
   const pontos = [...op.pontos];
   // Ponto sem número recebe o próximo livre da operação (o número entra no código).
   let proximo = Math.max(0, ...pontos.map((p) => p.numero ?? 0), ...itens.map((p) => p.numero ?? 0)) + 1;
@@ -140,8 +153,7 @@ export function incluirPontos(operacaoId: string, novos: readonly PontoNovo[]): 
   const doArquivo = periodoDosPontos(novos);
   const inicio = op.inicio ?? doArquivo.inicio;
   const fim = op.fim ?? doArquivo.fim;
-  gravarOperacao(atuais, { ...op, ...(inicio ? { inicio } : {}), ...(fim ? { fim } : {}), viagens, pontos });
-  return null;
+  return { ok: true, op: { ...op, ...(inicio ? { inicio } : {}), ...(fim ? { fim } : {}), viagens, pontos } };
 }
 
 /** Acrescenta um evento ao histórico do pedido (guarda os mais recentes, até o limite). */

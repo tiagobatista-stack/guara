@@ -137,3 +137,34 @@ it('importação: lê CODIGO_PONTO, NUMERO_DO_PONTO, NOTA_PLANEJAMENTO e TIPO_DA
 it('dataLocal usa o fuso do navegador', () => {
   assert.equal(R.dataLocal(new Date(2026, 10, 15, 23, 30)), '2026-11-15');
 });
+
+it('pontoVencido: retorno (ou saída) antes de hoje, só planejado ou sem resultado; sem viagem ou datas não vence', () => {
+  const viagem = (v: { retorno?: string; saida?: string }) => ({ viagens: [{ id: 'v', equipe: 'A', integrantes: [], veiculos: [], notas: '', ...v }] });
+  const ponto = (extra = {}) => ({ ...base, viagem: 'v', ...extra });
+  assert.equal(R.pontoVencido(viagem({ retorno: HOJE }), ponto(), HOJE), false); // retorno hoje
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto(), HOJE), true); // ontem
+  assert.equal(R.pontoVencido(viagem({ saida: '2026-11-14' }), ponto(), HOJE), true); // sem retorno: vale a saída
+  assert.equal(R.pontoVencido(viagem({ saida: HOJE }), ponto(), HOJE), false);
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ situacao: 'vistoriado' }), HOJE), true); // resultado pendente
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ resultado: 'sim' }), HOJE), false); // finalizado
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ resultado: 'nao' }), HOJE), false); // a reprogramar
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ situacao: 'cancelado' }), HOJE), false);
+  assert.equal(R.pontoVencido({ viagens: [] }, { ...base }, HOJE), false); // sem viagem
+  assert.equal(R.pontoVencido(viagem({}), ponto(), HOJE), false); // viagem sem datas
+});
+
+it('criarOperacaoComPontos: valida tudo antes; ponto recusado ou lista vazia não cria nada', () => {
+  const d = { nome: 'Nova', inicio: '', fim: '', origem: '' };
+  const ok = { ...base, codigo: 'X-01' };
+  novaOp('Outra');
+  A.incluirPontos(A.obterOperacoes()[0].id, [{ ...base, codigo: 'X-01' }]);
+  const antes = JSON.stringify(A.obterOperacoes());
+  assert.equal(A.criarOperacaoComPontos(d, '2026-11-18T00:00:00Z', []).ok, false);
+  const r = A.criarOperacaoComPontos(d, '2026-11-18T00:00:00Z', [{ ...base, municipio: 'Outro' }, ok]); // código repetido
+  assert.equal(r.ok, false);
+  assert.equal(JSON.stringify(A.obterOperacoes()), antes);
+  const certo = A.criarOperacaoComPontos(d, '2026-11-18T00:00:00Z', [{ ...base, equipe: 'A', saida: '2026-12-07', retorno: '2026-12-11' }]);
+  assert.ok(certo.ok);
+  const nova = A.obterOperacoes()[1];
+  assert.deepEqual([nova.inicio, nova.fim, nova.viagens.length, nova.pontos.length], ['2026-12-07', '2026-12-11', 1, 1]);
+});

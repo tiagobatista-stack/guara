@@ -356,11 +356,12 @@ export function situacaoDoPonto(p: Pick<Ponto, 'situacao' | 'resultado' | 'repro
   return p.situacao === 'vistoriado' ? 'resultado-pendente' : 'planejado';
 }
 
-/** "Vencido" não é situação: é um ponto ainda em aberto (planejado ou sem resultado) cuja viagem já voltou antes de `hoje`. */
+/** "Vencido" não é situação: ponto ainda em aberto (planejado ou sem resultado) cuja viagem terminou antes de `hoje` (retorno, ou a saída se não há retorno). Sem viagem ou datas: não vence. */
 export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'viagem'>, hoje: string): boolean {
   const s = situacaoDoPonto(p);
-  const retorno = viagemDoPonto(o, p)?.retorno;
-  return (s === 'planejado' || s === 'resultado-pendente') && !!retorno && retorno < hoje;
+  const v = viagemDoPonto(o, p);
+  const fim = v?.retorno ?? v?.saida;
+  return (s === 'planejado' || s === 'resultado-pendente') && !!fim && fim < hoje;
 }
 
 /** Situações que encerram o ponto (não acumulam). */

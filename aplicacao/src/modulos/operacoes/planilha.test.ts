@@ -38,10 +38,12 @@ it('importa a planilha da SEMA: resultado, motivo, protocolo, observação, serv
   assert.ok(R.distanciaMetros(p.coordenada, { lat: -10.8305025, lon: -58.64058972 }) < 1);
 });
 
-it('resultado: os quatro valores da planilha; desconhecido é erro; "Não" sem motivo é aviso', () => {
+it('resultado: os quatro valores da planilha; desconhecido vira aviso e o ponto entra sem resultado; "Não" sem motivo é aviso', () => {
   assert.deepEqual(['Sim', 'fiscalizado não autuado', 'Não Cabe Atuação', 'NÃO', 'talvez'].map(R.resultadoDaPlanilha), ['sim', 'fiscalizado-nao-autuado', 'nao-cabe-atuacao', 'nao', null]);
   const r = C.importarPontosCsv(csv(linha({ resultado: 'Talvez' }), linha({ numero: '2', resultado: 'Não' })));
-  assert.match(r.linhas[0].erros[0], /^FISCALIZADO_AUTUADO "Talvez" não reconhecido/);
+  assert.deepEqual(r.linhas[0].erros, []);
+  assert.deepEqual(r.linhas[0].avisos, ["Resultado não reconhecido: 'Talvez'. Corrija na planilha ou registre no ponto."]);
+  assert.equal(r.linhas[0].ponto!.resultado, undefined);
   assert.deepEqual(r.linhas[1].avisos, ['Resultado "Não" sem o motivo.']);
   assert.equal(r.linhas[1].ponto!.situacao, 'planejado');
 });

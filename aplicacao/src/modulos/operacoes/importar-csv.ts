@@ -163,7 +163,7 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
     const integrantes = limparNomes((campo('integrantes') ?? '').split(/\s*[,;/|]\s*|\s+e\s+/), LIMITES_OPERACAO.integrante);
     const resultadoBruto = limpar(campo('resultado'), 60);
     const resultado = resultadoBruto ? resultadoDaPlanilha(resultadoBruto) : null;
-    if (resultadoBruto && !resultado) erros.push(`FISCALIZADO_AUTUADO "${resultadoBruto}" não reconhecido (use ${Object.values(RESULTADOS).join(', ')}).`);
+    if (resultadoBruto && !resultado) avisos.push(`Resultado não reconhecido: '${resultadoBruto}'. Corrija na planilha ou registre no ponto.`);
     const motivo = limpar(campo('motivo'), LIMITES_OPERACAO.motivo);
     const protocolo = limpar(campo('protocolo'), LIMITES_OPERACAO.protocolo);
     const observacao = limpar(campo('observacao'), LIMITES_OPERACAO.observacao);
