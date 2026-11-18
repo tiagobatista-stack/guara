@@ -646,14 +646,45 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     const p = obterOperacoes()[0].pontos[0];
     registrarResultado(a.id, p.id, { resultado: 'nao', motivo: 'Infrator não localizado', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15');
     montarEm();
-    const item = screen.getByTestId(`a-reprogramar-${p.id}`);
+    // Na lista, o aviso agrupa por operação (sem listar os pontos); o ponto se reprograma no detalhe da operação.
     expect(screen.getByTestId('pendencias-campo')).toHaveTextContent('1 ponto(s) não fiscalizado(s) a reprogramar');
+    expect(screen.getByTestId(`pendencia-${a.id}`)).toHaveTextContent('Operação Outubro fictícia: 1 ponto(s)');
+    expect(screen.queryByTestId(`a-reprogramar-${p.id}`)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir Outubro fictícia (pendências)' }));
+    const item = screen.getByTestId(`a-reprogramar-${p.id}`);
     expect(item).toHaveTextContent('JUINA202610-01 (Outubro fictícia; Infrator não localizado)');
     fireEvent.change(within(item).getByLabelText('Operação para reprogramar JUINA202610-01'), { target: { value: b.id } });
     fireEvent.click(within(item).getByRole('button', { name: 'Reprogramar JUINA202610-01' }));
-    expect(screen.queryByTestId('pendencias-campo')).toBeNull();
+    expect(screen.queryByTestId('pendencias-operacao')).toBeNull();
     expect(obterOperacoes()[1].pontos[0]).toMatchObject({ codigo: 'JUINA202611-01', situacao: 'planejado' });
     expect(obterOperacoes()[0].pontos[0].reprogramado).toEqual({ operacao: b.id, ponto: obterOperacoes()[1].pontos[0].id });
+  });
+
+  it('lista: selo, progresso e ordem (pendente, em andamento, planejada, encerrada)', () => {
+    const mk = (nome: string, inicio: string, saida: string, retorno: string, resultado?: 'sim') => {
+      const r = criarOperacao({ nome, inicio, fim: retorno, origem: '' }, '2026-09-01T00:00:00Z');
+      if (!r.ok) throw new Error();
+      incluirPontos(r.id, [
+        { coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Juína', notas: '', demandas: [], situacao: 'planejado', equipe: 'A', saida, retorno },
+        { coordenada: { lat: -11.6, lon: -58.5 }, municipio: 'Juína', notas: '', demandas: [], situacao: 'planejado', equipe: 'A', saida, retorno },
+      ]);
+      if (resultado) for (const p of obterOperacoes().find((o) => o.id === r.id)!.pontos) registrarResultado(r.id, p.id, { resultado, motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15');
+      return r.id;
+    };
+    const futura = mk('Futura', '2026-12-01', '2026-12-01', '2026-12-05');
+    const encerrada = mk('Feita', '2026-09-01', '2026-09-01', '2026-09-05', 'sim');
+    const andando = mk('Andando', '2026-11-14', '2026-11-14', '2026-11-20');
+    const pendente = mk('Vencida', '2026-10-05', '2026-10-05', '2026-10-09');
+    montarEm();
+    const itens = within(screen.getByRole('list', { name: 'Lista de operações' })).getAllByRole('listitem').map((li) => li.getAttribute('data-testid'));
+    expect(itens).toEqual([pendente, andando, futura, encerrada].map((id) => `operacao-${id}`));
+    expect(screen.getByTestId(`selo-${pendente}`)).toHaveTextContent('pendente');
+    expect(screen.getByTestId(`selo-${andando}`)).toHaveTextContent('em andamento');
+    expect(screen.getByTestId(`selo-${encerrada}`)).toHaveTextContent('encerrada');
+    expect(screen.getByTestId(`progresso-${encerrada}`)).toHaveTextContent('2 de 2 encerrados · 0 a finalizar');
+    expect(screen.getByTestId(`progresso-${pendente}`)).toHaveTextContent('0 de 2 encerrados · 2 a finalizar');
+    expect(screen.getByTestId(`progresso-${pendente}`)).toHaveTextContent('2 planejado · 2 vencido(s)');
+    expect(within(screen.getByTestId(`progresso-${pendente}`)).getByRole('progressbar')).toHaveAttribute('max', '2');
   });
 
   it('Painel: avisa ponto sem resultado depois do retorno e ponto a reprogramar', () => {

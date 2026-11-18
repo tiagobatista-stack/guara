@@ -186,3 +186,41 @@ it('diasDaViagem e dataForaDaViagem: viagem de 4 dias, só saída, sem datas, li
   assert.equal(R.dataForaDaViagem(v, ''), false);
   assert.equal(R.textoPeriodoViagem(v), '06/10 a 09/10/2026');
 });
+
+describe('progressoDaOperacao', () => {
+  const vg = (id: string, saida?: string, retorno?: string) => ({ id, equipe: 'A', integrantes: [], veiculos: [], notas: '', ...(saida ? { saida } : {}), ...(retorno ? { retorno } : {}) });
+  const pt = (viagem: string | undefined, extra = {}) => ({ id: Math.random().toString(), ...base, ...(viagem ? { viagem } : {}), ...extra });
+  const prog = (o: { viagens: ReturnType<typeof vg>[]; pontos: ReturnType<typeof pt>[] }) => R.progressoDaOperacao(o as never, HOJE);
+
+  it('sem pontos: planejada e tudo zero', () => {
+    const r = prog({ viagens: [vg('v', '2026-10-01', '2026-10-05')], pontos: [] });
+    assert.equal(r.selo, 'planejada');
+    assert.deepEqual([r.total, r.encerrados, r.aFinalizar, r.vencidos], [0, 0, 0, 0]);
+  });
+  it('tudo encerrado (finalizado, cancelado, reprogramado): selo encerrada, sem vencidos', () => {
+    const r = prog({ viagens: [vg('v', '2026-10-01', '2026-10-05')], pontos: [pt('v', { resultado: 'sim' }), pt('v', { situacao: 'cancelado' }), pt('v', { reprogramado: { operacao: 'o', ponto: 'p' } })] });
+    assert.deepEqual([r.selo, r.total, r.encerrados, r.aFinalizar, r.vencidos], ['encerrada', 3, 3, 0, 0]);
+    assert.deepEqual(r.porSituacao, { planejado: 0, 'resultado-pendente': 0, finalizado: 1, 'a-reprogramar': 0, reprogramado: 1, cancelado: 1 });
+  });
+  it('misto com vencidos: a reprogramar conta como a finalizar', () => {
+    const r = prog({ viagens: [vg('v', '2026-10-01', '2026-10-05')], pontos: [pt('v', { resultado: 'sim' }), pt('v', { resultado: 'nao' }), pt('v'), pt('v', { situacao: 'vistoriado' })] });
+    assert.deepEqual([r.total, r.encerrados, r.aFinalizar, r.vencidos, r.selo], [4, 1, 3, 2, 'pendente']);
+    assert.equal(r.porSituacao['a-reprogramar'], 1);
+    assert.equal(r.porSituacao['resultado-pendente'], 1);
+  });
+  it('selos: pendente, em andamento, planejada; limites de hoje', () => {
+    assert.equal(prog({ viagens: [vg('v', '2026-11-14', '2026-11-14')], pontos: [pt('v')] }).selo, 'pendente'); // terminou ontem
+    assert.equal(prog({ viagens: [vg('v', '2026-11-14', HOJE)], pontos: [pt('v')] }).selo, 'em-andamento'); // retorno hoje: ainda não passou
+    assert.equal(prog({ viagens: [vg('v', HOJE, '2026-11-20')], pontos: [pt('v')] }).selo, 'em-andamento'); // saída hoje
+    assert.equal(prog({ viagens: [vg('v', '2026-11-16', '2026-11-20')], pontos: [pt('v')] }).selo, 'planejada');
+    const duas = { viagens: [vg('v', '2026-11-01', '2026-11-05'), vg('w', '2026-11-20', '2026-11-25')], pontos: [pt('v'), pt('w')] };
+    assert.equal(prog(duas).selo, 'em-andamento'); // uma já voltou e a outra ainda não saiu: há saída até hoje
+    assert.equal(prog(duas).vencidos, 1);
+  });
+  it('viagem sem retorno vale pela saída; sem viagem ou datas: planejada e nada vence', () => {
+    assert.equal(prog({ viagens: [vg('v', '2026-10-01')], pontos: [pt('v')] }).selo, 'pendente');
+    assert.equal(prog({ viagens: [vg('v', '2026-10-01')], pontos: [pt('v')] }).vencidos, 1);
+    const r = prog({ viagens: [vg('v')], pontos: [pt('v'), pt(undefined)] });
+    assert.deepEqual([r.selo, r.vencidos], ['planejada', 0]);
+  });
+});

@@ -22,7 +22,7 @@ import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
 import {
   agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, operacaoEncerrada, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
-  diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
+  progressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
 } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
@@ -914,7 +914,11 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
         <FalaMascote id="pendencias-operacao">
           <p id="pendencias-operacao-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length)}</p>
           {pendencias.semResultado.length > 0 && <p className="texto-pequeno">Sem resultado: {pendencias.semResultado.map((x) => rotuloDoPonto(x.ponto)).join(', ')}.</p>}
-          {pendencias.aReprogramar.length > 0 && <p className="texto-pequeno">A reprogramar: {pendencias.aReprogramar.map((x) => rotuloDoPonto(x.ponto)).join(', ')}. Leve-os para outra operação na lista de operações.</p>}
+          {pendencias.aReprogramar.length > 0 && (
+            <ul className="lista-limpa" aria-label="Pontos a reprogramar">
+              {pendencias.aReprogramar.map((x) => <Reprogramar key={x.ponto.id} operacoes={todas} item={x} />)}
+            </ul>
+          )}
         </FalaMascote>
       )}
 
@@ -1120,12 +1124,28 @@ function NovaOperacao({ operacoes, agora, aoCriar }: { operacoes: readonly Opera
 
 // ---------- Lista ----------
 
+const ROTULO_SELO = { planejada: 'planejada', 'em-andamento': 'em andamento', pendente: 'pendente', encerrada: 'encerrada' } as const;
+const CLASSE_SELO = { planejada: '', 'em-andamento': '', pendente: ' selo-situacao--atencao', encerrada: ' selo-situacao--ok' } as const;
+const ORDEM_SELO = ['pendente', 'em-andamento', 'planejada', 'encerrada'] as const;
+
+/** Pendente, em andamento, planejada, encerrada; dentro de cada uma, pelo início (sem início por último). */
+function ordenarOperacoes(operacoes: readonly Operacao[], hoje: string) {
+  return operacoes
+    .map((o) => ({ o, progresso: progressoDaOperacao(o, hoje) }))
+    .sort((a, b) => ORDEM_SELO.indexOf(a.progresso.selo) - ORDEM_SELO.indexOf(b.progresso.selo) || (a.o.inicio ?? '9999').localeCompare(b.o.inicio ?? '9999'));
+}
+
 export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) {
   const operacoes = useOperacoes();
   const soNaMemoria = useOperacoesSoNaMemoria();
   const [aberta, setAberta] = useState<string | null>(null);
   const emDetalhe = operacoes.find((o) => o.id === aberta);
-  const pendencias = pendenciasDeCampo(operacoes, dataLocal(agora()));
+  const hoje = dataLocal(agora());
+  const pendencias = pendenciasDeCampo(operacoes, hoje);
+  const porOperacao = operacoes
+    .map((operacao) => ({ operacao, n: [...pendencias.semResultado, ...pendencias.aReprogramar].filter((x) => x.operacao.id === operacao.id).length }))
+    .filter((x) => x.n > 0);
+  const ordenadas = ordenarOperacoes(operacoes, hoje);
 
   return (
     <section aria-labelledby="titulo-operacoes" className="pagina">
@@ -1146,14 +1166,14 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
           {(pendencias.semResultado.length > 0 || pendencias.aReprogramar.length > 0) && (
             <FalaMascote id="pendencias-campo">
               <p id="pendencias-campo-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length)}</p>
-              {pendencias.semResultado.length > 0 && (
-                <p className="texto-pequeno">Sem resultado: {pendencias.semResultado.map((x) => `${rotuloDoPonto(x.ponto)} (${x.operacao.nome})`).join(', ')}.</p>
-              )}
-              {pendencias.aReprogramar.length > 0 && (
-                <ul className="lista-limpa" aria-label="Pontos a reprogramar">
-                  {pendencias.aReprogramar.map((x) => <Reprogramar key={x.ponto.id} operacoes={operacoes} item={x} />)}
-                </ul>
-              )}
+              <ul className="lista-limpa" aria-label="Operações com pendências">
+                {porOperacao.map(({ operacao, n }) => (
+                  <li key={operacao.id} className="texto-pequeno" data-testid={`pendencia-${operacao.id}`}>
+                    Operação {operacao.nome}: {n} ponto(s){' '}
+                    <button type="button" className="botao botao--pequeno" aria-label={`Abrir ${operacao.nome} (pendências)`} onClick={() => setAberta(operacao.id)}>Abrir</button>
+                  </li>
+                ))}
+              </ul>
             </FalaMascote>
           )}
           <NovaOperacao operacoes={operacoes} agora={agora} aoCriar={setAberta} />
@@ -1162,14 +1182,26 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
             <EstadoVazio cartao texto="Nenhuma operação cadastrada." dica="Importe a planilha de pontos ou crie a operação sem planilha." />
           ) : (
             <ul className="lista-limpa grade grade--2" aria-label="Lista de operações">
-              {operacoes.map((o) => (
+              {ordenadas.map(({ o, progresso: pr }) => (
                 <li key={o.id} className="cartao" data-testid={`operacao-${o.id}`}>
-                  <p><strong>{o.nome}</strong></p>
-                  <p className="texto-pequeno texto-suave">{textoPeriodo(o)}</p>
-                  <p className="texto-pequeno">
-                    {o.pontos.length} ponto(s) · {o.viagens.length} viagem(ns) · {pontosSemViagem(o).length} sem viagem
-                    {operacaoEncerrada(o) && <> · <strong className="selo-situacao selo-situacao--ok">encerrada</strong></>}
+                  <p className="acoes acoes--entre">
+                    <strong>{o.nome}</strong>
+                    <span className={`selo-situacao${CLASSE_SELO[pr.selo]}`} data-testid={`selo-${o.id}`}>{ROTULO_SELO[pr.selo]}</span>
                   </p>
+                  <p className="texto-pequeno texto-suave">{textoPeriodo(o)}</p>
+                  <p className="texto-pequeno">{o.viagens.length} viagem(ns) · {pontosSemViagem(o).length} sem viagem</p>
+                  {pr.total > 0 && (
+                    <div data-testid={`progresso-${o.id}`}>
+                      <progress max={pr.total} value={pr.encerrados} aria-label={`Progresso de ${o.nome}`} />
+                      <p className="texto-pequeno">{pr.encerrados} de {pr.total} encerrados · {pr.aFinalizar} a finalizar</p>
+                      <p className="texto-pequeno">
+                        {(Object.keys(SITUACOES_ACOMPANHAMENTO) as SituacaoAcompanhamento[]).filter((s) => pr.porSituacao[s] > 0).map((s, i) => (
+                          <span key={s} className={s === 'a-reprogramar' ? 'texto--atencao' : ''}>{i > 0 && ' · '}{pr.porSituacao[s]} {SITUACOES_ACOMPANHAMENTO[s]}</span>
+                        ))}
+                        {pr.vencidos > 0 && <span className="texto--atencao"> · {pr.vencidos} vencido(s)</span>}
+                      </p>
+                    </div>
+                  )}
                   <div className="acoes">
                     <button type="button" className="botao botao--pequeno" aria-label={`Abrir ${o.nome}`} onClick={() => setAberta(o.id)}>Abrir</button>
                     <button

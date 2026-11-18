@@ -4,7 +4,7 @@
 import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import { dataValida } from '../demandas/regras.ts';
 import {
-  LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
+  LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
 
 // ---------- Datas ----------
@@ -396,6 +396,42 @@ export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situa
 /** Situações que encerram o ponto (não acumulam). */
 const ENCERRADAS: readonly SituacaoAcompanhamento[] = ['finalizado', 'cancelado', 'reprogramado'];
 export const pontoEncerrado = (p: Ponto) => ENCERRADAS.includes(situacaoDoPonto(p));
+
+export type SeloDaOperacao = 'planejada' | 'em-andamento' | 'pendente' | 'encerrada';
+export interface ProgressoDaOperacao {
+  total: number;
+  /** finalizado + cancelado + reprogramado. */
+  encerrados: number;
+  /** total − encerrados (o "a reprogramar" conta como a finalizar). */
+  aFinalizar: number;
+  porSituacao: Record<SituacaoAcompanhamento, number>;
+  vencidos: number;
+  selo: SeloDaOperacao;
+}
+
+/**
+ * Andamento da operação. Selo: encerrada se todos os pontos encerraram; pendente se todas as viagens com datas já terminaram
+ * (retorno, ou a saída sem retorno, antes de `hoje`); em andamento se alguma saída é hoje ou antes; senão planejada. Sem pontos: planejada.
+ */
+export function progressoDaOperacao(o: Pick<Operacao, 'pontos' | 'viagens'>, hoje: string): ProgressoDaOperacao {
+  const porSituacao = Object.fromEntries(Object.keys(SITUACOES_ACOMPANHAMENTO).map((k) => [k, 0])) as Record<SituacaoAcompanhamento, number>;
+  let encerrados = 0;
+  let vencidos = 0;
+  for (const p of o.pontos) {
+    porSituacao[situacaoDoPonto(p)]++;
+    if (pontoEncerrado(p as Ponto)) encerrados++;
+    if (pontoVencido(o, p, hoje)) vencidos++;
+  }
+  const total = o.pontos.length;
+  const comDatas = o.viagens.filter((v) => v.saida || v.retorno);
+  let selo: SeloDaOperacao = 'planejada';
+  if (total > 0) {
+    if (operacaoEncerrada(o)) selo = 'encerrada';
+    else if (comDatas.length > 0 && comDatas.every((v) => (v.retorno ?? v.saida)! < hoje)) selo = 'pendente';
+    else if (comDatas.some((v) => v.saida && v.saida <= hoje)) selo = 'em-andamento';
+  }
+  return { total, encerrados, aFinalizar: total - encerrados, porSituacao, vencidos, selo };
+}
 
 /** Operação encerrada: tem pontos e todos estão finalizados, cancelados ou reprogramados. */
 export const operacaoEncerrada = (o: Pick<Operacao, 'pontos'>) => o.pontos.length > 0 && o.pontos.every(pontoEncerrado);
