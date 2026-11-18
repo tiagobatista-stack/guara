@@ -10,8 +10,9 @@ vi.mock('./MapaLeaflet.tsx', () => ({ MapaLeaflet: ({ itens }: { itens: unknown[
 
 const op: Operacao = {
   id: 'o1', nome: 'Op', criadaEm: '2026-11-01T00:00:00Z',
+  viagens: [{ id: 'v1', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-10-19', retorno: '2026-10-23', notas: '' }],
   pontos: [
-    { id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.8 }, municipio: 'Juína', equipe: 'A', saida: '2026-10-19', retorno: '2026-10-23', notas: '', demandas: [], situacao: 'planejado' },
+    { id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.8 }, municipio: 'Juína', viagem: 'v1', notas: '', demandas: [], situacao: 'planejado' },
     { id: 'p2', numero: 2, coordenada: { lat: -12.2, lon: -57.7 }, municipio: 'Brasnorte', notas: '', demandas: [], situacao: 'vistoriado' },
   ],
 };
@@ -19,18 +20,19 @@ const d = (id: string, coordenada: unknown, status = 'A Fazer') => ({ id, titulo
 
 describe('regras do mapa', () => {
   it('separa demanda com coordenada, sem coordenada e com coordenada inválida; inclui os pontos', () => {
-    const { noMapa, semLocal } = itensDoMapa([d('1', { lat: -12, lon: -56 }), d('2', undefined), d('3', { lat: 99, lon: 0 })], [op]);
+    const { noMapa, semLocal } = itensDoMapa([d('1', { lat: -12, lon: -56 }), d('2', undefined), d('3', { lat: 99, lon: 0 })], [op], '2026-11-18');
     expect(noMapa.map((i) => i.id)).toEqual(['1', 'p1', 'p2']);
     expect(semLocal.map((i) => i.id)).toEqual(['2', '3']);
-    expect(noMapa[1]).toMatchObject({ tipo: 'ponto', municipio: 'Juína', quando: '19/10/2026 a 23/10/2026' });
+    expect(noMapa[1]).toMatchObject({ tipo: 'ponto', municipio: 'Juína', quando: '19/10/2026 a 23/10/2026', situacao: 'planejado', vencido: true });
+    expect(itensDoMapa([], [op]).noMapa[0].vencido).toBe(false); // sem "hoje", nada vence
   });
 
   it('legenda conta por tipo e situação; situação desconhecida é cinza', () => {
     const { noMapa } = itensDoMapa([d('1', { lat: -12, lon: -56 })], [op]);
     expect(legenda(noMapa)).toEqual([
-      { tipo: 'demanda', situacao: 'A Fazer', n: 1 },
-      { tipo: 'ponto', situacao: 'planejado', n: 1 },
-      { tipo: 'ponto', situacao: 'vistoriado', n: 1 },
+      { tipo: 'demanda', situacao: 'A Fazer', vencido: false, n: 1 },
+      { tipo: 'ponto', situacao: 'planejado', vencido: false, n: 1 },
+      { tipo: 'ponto', situacao: 'resultado-pendente', vencido: false, n: 1 },
     ]);
     expect(corDaSituacao('outra')).toBe('#6b7280');
   });

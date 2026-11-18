@@ -11,6 +11,7 @@ import { listarSemPrazo, PRAZO_SUGERIDO_DIAS_UTEIS, sugerirPrazo } from './triag
 import { dataValida, paraEntrada } from '../demandas/regras.ts';
 import type { Demanda } from '../demandas/modelo.ts';
 import { exportarDados, NOME_ARQUIVO, validarImportacao } from './dados-portaveis.ts';
+import { definirDiasPadraoElaboracao, lerDiasPadraoElaboracao } from '../operacoes/armazem.ts';
 import { definirPreferencias, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
@@ -59,7 +60,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   };
 
   const exportar = () => {
-    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote));
+    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote, lerDiasPadraoElaboracao()));
     setAviso({ tipo: 'sucesso', texto: `Arquivo ${NOME_ARQUIVO} gerado com ${demandas.length} demanda(s).` });
   };
 
@@ -95,6 +96,8 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       setDias(String(r.dados.configuracao.diasInatividade));
       // Preferência visual, fora do armazém das demandas: o desfazer da importação não a restaura.
       if (r.dados.mascote) definirPreferencias(r.dados.mascote);
+      // Idem o prazo padrão do relatório (Operações); o arquivo sem ele não apaga o que já está configurado.
+      if (r.dados.configuracao.diasPadraoElaboracao !== undefined) definirDiasPadraoElaboracao(r.dados.configuracao.diasPadraoElaboracao);
     }
   };
 

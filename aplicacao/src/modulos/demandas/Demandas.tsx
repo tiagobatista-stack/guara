@@ -2,7 +2,7 @@
 // com confirmação (incremento 1 do PLANO.md). Dados no localStorage deste navegador.
 
 import { Fragment, useMemo, useState } from 'react';
-import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type MotivoBloqueio } from './modelo.ts';
+import { PRIORIDADES, STATUS, type Demanda } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useAjusteFeriados, useArmazem, useEstadoDemandas } from './armazem.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
@@ -21,6 +21,10 @@ import { historicoRecente, textoEvento } from './historico.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
+import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
+import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
+import { contarAbertas } from '../../compartilhado/anotacoes.ts';
+import type { EntradaDemanda } from './modelo.ts';
 
 type Modo = { tipo: 'lista' } | { tipo: 'nova' } | { tipo: 'editar'; id: string } | { tipo: 'detalhe'; id: string };
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
@@ -50,12 +54,8 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const [modo, setModo] = useState<Modo>({ tipo: 'lista' });
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [aviso, setAviso] = useState<Aviso>(null);
-  const [motivo, setMotivo] = useState<MotivoBloqueio>('documento');
-  const [detalheBloqueio, setDetalheBloqueio] = useState('');
-  const abrirDetalhe = (d: Demanda | undefined, id: string) => {
+  const abrirDetalhe = (_d: Demanda | undefined, id: string) => {
     setAviso(null);
-    setMotivo(d?.bloqueio?.motivo ?? 'documento');
-    setDetalheBloqueio('');
     setModo({ tipo: 'detalhe', id });
   };
   // Tela compartilhada (projetor, reunião): só o resumo por lista branca, sem dado pessoal.
@@ -73,6 +73,20 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
     const r = armazem.excluir(d.id);
     setAviso(r.ok ? { tipo: 'sucesso', texto: 'Demanda excluída.' } : { tipo: 'erro', texto: r.mensagem });
     if (r.ok) setModo({ tipo: 'lista' });
+  };
+
+  // Concluir com anotações abertas pergunta antes (não bloqueia): guarda a entrada à espera do "Concluir".
+  const [confirmaEdicao, setConfirmaEdicao] = useState<EntradaDemanda | null>(null);
+  const salvarEdicao = (id: string, entrada: EntradaDemanda) => {
+    const r = armazem.editar(id, entrada);
+    if (!r.ok) {
+      if (!r.erros) setAviso({ tipo: 'erro', texto: r.mensagem });
+      return r.erros ?? {};
+    }
+    setConfirmaEdicao(null);
+    setAviso({ tipo: 'sucesso', texto: 'Alterações gravadas.' });
+    setModo({ tipo: 'detalhe', id });
+    return null;
   };
 
   const responder = (r: { ok: true } | { ok: false; mensagem: string }, sucesso: string) =>
@@ -156,18 +170,19 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           key={emEdicao.id}
           titulo="Editar demanda"
           inicial={paraEntrada(emEdicao)}
-          aoCancelar={() => setModo({ tipo: 'detalhe', id: emEdicao.id })}
+          aoCancelar={() => { setConfirmaEdicao(null); setModo({ tipo: 'detalhe', id: emEdicao.id }); }}
           aoSalvar={(entrada) => {
-            const r = armazem.editar(emEdicao.id, entrada);
-            if (!r.ok) {
-              if (!r.erros) setAviso({ tipo: 'erro', texto: r.mensagem });
-              return r.erros ?? {};
+            if (entrada.status === 'Concluída' && emEdicao.status !== 'Concluída' && contarAbertas(emEdicao.anotacoes) > 0) {
+              setConfirmaEdicao(entrada);
+              return {};
             }
-            setAviso({ tipo: 'sucesso', texto: 'Alterações gravadas.' });
-            setModo({ tipo: 'detalhe', id: emEdicao.id });
-            return null;
+            return salvarEdicao(emEdicao.id, entrada);
           }}
         />
+      )}
+      {emEdicao && confirmaEdicao && (
+        <ConfirmaConclusao anotacoes={emEdicao.anotacoes} aoVoltar={() => setConfirmaEdicao(null)}
+          aoConcluir={() => { if (salvarEdicao(emEdicao.id, confirmaEdicao) !== null) setAviso({ tipo: 'erro', texto: 'Corrija os campos do formulário.' }); }} />
       )}
 
       {emDetalhe && (
@@ -201,53 +216,21 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           </dl>
           <VinculoOperacao demanda={emDetalhe} aoEditar={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }} />
           {emDetalhe.status !== 'Concluída' && (
-            <section className="bloco-detalhe" aria-labelledby="titulo-bloqueio">
-              <h3 id="titulo-bloqueio" className="titulo-secao titulo-secao--bloco">Bloqueio</h3>
-              {emDetalhe.bloqueio && (
-                <div className="acoes acoes--sem-margem">
-                  <button type="button" className="botao botao--primario" onClick={() => responder(armazem.destravar(emDetalhe.id), 'Demanda destravada.')}>Destravou</button>
-                  <button type="button" className="botao" onClick={() => responder(armazem.confirmarBloqueio(emDetalhe.id), 'Reavaliação registrada: a demanda continua travada.')}>Ainda travada</button>
-                </div>
+            <BloqueioDoItem
+              key={emDetalhe.id}
+              item="demanda"
+              bloqueio={emDetalhe.bloqueio}
+              aoDestravar={() => responder(armazem.destravar(emDetalhe.id), 'Demanda destravada.')}
+              aoConfirmar={() => responder(armazem.confirmarBloqueio(emDetalhe.id), 'Reavaliação registrada: a demanda continua travada.')}
+              aoTravar={(motivo, detalhe, acao) => responder(
+                armazem.travar(emDetalhe.id, motivo, detalhe),
+                acao === 'apagar-detalhe' ? 'Detalhe do bloqueio apagado.' : emDetalhe.bloqueio ? 'Bloqueio atualizado.' : 'Demanda marcada como travada.',
               )}
-              <form className="formulario" aria-label="Bloqueio da demanda" onSubmit={(e) => {
-                e.preventDefault();
-                // Campo em branco numa demanda já travada mantém o detalhe gravado; apagar é ação explícita.
-                const detalhe = detalheBloqueio.trim() ? detalheBloqueio : (emDetalhe.bloqueio?.detalhe ?? '');
-                const r = armazem.travar(emDetalhe.id, motivo, detalhe);
-                responder(r, emDetalhe.bloqueio ? 'Bloqueio atualizado.' : 'Demanda marcada como travada.');
-                if (r.ok) setDetalheBloqueio('');
-              }}>
-                <label className="campo-grupo campo-grupo--curto">
-                  <span>Motivo do bloqueio</span>
-                  <select className="campo" value={motivo} onChange={(e) => setMotivo(e.target.value as MotivoBloqueio)}>
-                    {Object.entries(MOTIVOS_BLOQUEIO).map(([k, v]) => <option key={k} value={k}>{v}</option>)}
-                  </select>
-                </label>
-                <div className="campo-grupo">
-                  <label htmlFor="detalhe-bloqueio">Detalhe do bloqueio (opcional)</label>
-                  <textarea
-                    id="detalhe-bloqueio"
-                    className="campo campo--area"
-                    rows={2}
-                    maxLength={LIMITES.detalheBloqueioMax}
-                    value={detalheBloqueio}
-                    onChange={(e) => setDetalheBloqueio(e.target.value)}
-                    aria-describedby="dica-detalhe-bloqueio"
-                  />
-                  <span id="dica-detalhe-bloqueio" className="texto-pequeno texto-suave">
-                    {emDetalhe.bloqueio?.detalhe && 'Em branco, mantém o detalhe atual. '}
-                    Ex.: aguardando resposta do ofício enviado ao setor de cadastro. Até {LIMITES.detalheBloqueioMax} caracteres. Evite nomes de pessoas: o texto vai no JSON exportado, mas não aparece na tela compartilhada nem no Kanban.
-                  </span>
-                </div>
-                <div className="acoes acoes--sem-margem">
-                  <button type="submit" className={emDetalhe.bloqueio ? 'botao' : 'botao botao--primario'}>{emDetalhe.bloqueio ? 'Atualizar bloqueio' : 'Marcar como travada'}</button>
-                  {emDetalhe.bloqueio?.detalhe && (
-                    <button type="button" className="botao botao--perigo" onClick={() => responder(armazem.travar(emDetalhe.id, emDetalhe.bloqueio!.motivo, ''), 'Detalhe do bloqueio apagado.')}>Apagar detalhe</button>
-                  )}
-                </div>
-              </form>
-            </section>
+              ajudaExtra="Evite nomes de pessoas: o texto vai no JSON exportado, mas não aparece na tela compartilhada nem no Kanban."
+            />
           )}
+          <AnotacoesDoItem key={`anotacoes-${emDetalhe.id}`} item="demanda" anotacoes={emDetalhe.anotacoes}
+            aoMudar={(lista) => { const r = armazem.salvarAnotacoes(emDetalhe.id, lista); if (!r.ok) setAviso({ tipo: 'erro', texto: r.mensagem }); }} />
           <section className="bloco-detalhe" aria-labelledby="titulo-historico">
             <h3 id="titulo-historico" className="titulo-secao titulo-secao--bloco">Histórico</h3>
             {historicoRecente(emDetalhe).length > 0 && (
@@ -382,7 +365,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <ul className="lista-limpa grade grade--2" aria-label="Lista de demandas">
               {visiveis.map((d) => (
                 <li key={d.id} className="cartao" data-testid={`demanda-${d.id}`}>
-                  <p><strong>{d.titulo}</strong></p>
+                  <p><strong>{d.titulo}</strong> <SeloAnotacoes anotacoes={d.anotacoes} testid={`anotacoes-${d.id}`} /></p>
                   <dl className="dados-definicao">
                     <dt>Status</dt><dd>{d.status}</dd>
                     {textoEmAndamento(d, agora()) && <><dt>Andamento</dt><dd data-testid={`andamento-${d.id}`}>{textoEmAndamento(d, agora())}</dd></>}

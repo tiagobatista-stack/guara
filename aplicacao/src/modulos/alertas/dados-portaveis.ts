@@ -15,19 +15,20 @@ export interface DadosPortaveis {
   versao: 1;
   ficticio: true;
   exportadoEm: string;
-  configuracao: { diasInatividade: number };
+  /** `diasPadraoElaboracao`: prazo padrão do relatório (SIGA-MT) das Operações; opcional (arquivos antigos não o têm). */
+  configuracao: { diasInatividade: number; diasPadraoElaboracao?: number };
   demandas: Demanda[];
   /** Mascote principal e nomes (preferência visual). Opcional: arquivos antigos não o têm e o formato continua `versao: 1`. */
   mascote?: PreferenciasMascote;
 }
 
-export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date, mascote?: PreferenciasMascote): string {
+export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date, mascote?: PreferenciasMascote, diasPadraoElaboracao?: number): string {
   const dados: DadosPortaveis = {
     formato: FORMATO,
     versao: 1,
     ficticio: true,
     exportadoEm: agora.toISOString(),
-    configuracao: { diasInatividade },
+    configuracao: { diasInatividade, ...(diasPadraoElaboracao !== undefined ? { diasPadraoElaboracao } : {}) },
     demandas: [...demandas],
     ...(mascote ? { mascote } : {}),
   };
@@ -62,6 +63,8 @@ export function validarImportacao(texto: string): ResultadoImportacao {
   if (new Set(d.demandas.map((x) => x.id)).size !== d.demandas.length) return { ok: false, erro: 'Há IDs de demanda duplicados.' };
   const dias = d.configuracao?.diasInatividade;
   if (dias !== undefined && !diasValidos(dias)) return { ok: false, erro: 'Configuração de inatividade inválida.' };
+  const padrao = d.configuracao?.diasPadraoElaboracao;
+  if (padrao !== undefined && !(Number.isInteger(padrao) && padrao >= 0 && padrao <= 365)) return { ok: false, erro: 'Prazo padrão do relatório inválido.' };
   return {
     ok: true,
     dados: {
@@ -69,7 +72,7 @@ export function validarImportacao(texto: string): ResultadoImportacao {
       versao: 1,
       ficticio: true,
       exportadoEm: typeof d.exportadoEm === 'string' ? d.exportadoEm : '',
-      configuracao: { diasInatividade: dias ?? 3 },
+      configuracao: { diasInatividade: dias ?? 3, ...(padrao !== undefined ? { diasPadraoElaboracao: padrao } : {}) },
       demandas: d.demandas,
       // Parte inválida da preferência volta ao padrão em vez de recusar o arquivo: é só visual.
       ...(d.mascote !== undefined ? { mascote: validarPreferencias(d.mascote) } : {}),

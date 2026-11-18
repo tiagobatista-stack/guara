@@ -1,8 +1,12 @@
 // Operações de fiscalização (planejamento de viagens). Pedido do responsável, 15/11/2026.
 // Uma operação reúne pontos entregues por terceiros e dura cerca de uma semana. O ponto é identificado
 // pela localização: o mesmo lugar pode voltar em outra operação ou demanda, e saber se já foi vistoriado importa.
+// As datas de saída e retorno são do cronograma da viagem, não do ponto: cada viagem tem uma equipe
+// (duas ou mais pessoas, um ou mais veículos) e percorre vários pontos (pedido do responsável, 15/11/2026).
 
 import type { Coordenada } from '../demandas/coordenadas.ts';
+import type { Bloqueio } from '../demandas/modelo.ts';
+import type { Anotacao } from '../../compartilhado/anotacoes.ts';
 
 export const CHAVE_OPERACOES = 'guara:operacoes:v1';
 
@@ -14,17 +18,78 @@ export const ROTULOS_SITUACAO: Record<SituacaoPonto, string> = {
   cancelado: 'cancelado',
 };
 
-export interface Ponto {
+/** Viagem do cronograma: uma equipe, com integrantes e veículos, e as datas de saída e retorno. */
+export interface Viagem {
   id: string;
-  /** Número do ponto na lista recebida, quando houver. */
-  numero?: number;
-  coordenada: Coordenada;
-  municipio: string;
-  /** Nome da equipe, como na planilha. */
-  equipe?: string;
+  /** Nome da equipe, como na planilha ("Equipe A"); vazio enquanto não for informado. */
+  equipe: string;
+  /** Pessoas da equipe (duas ou mais para a viagem ficar completa). Nomes: só neste navegador. */
+  integrantes: string[];
+  /** Veículos (prefixo, placa ou descrição curta); um ou mais para a viagem ficar completa. */
+  veiculos: string[];
   /** AAAA-MM-DD. */
   saida?: string;
   retorno?: string;
+  notas: string;
+}
+
+/** Resultado do ponto, com os mesmos rótulos da planilha da SEMA (FISCALIZADO_AUTUADO). Pedido do responsável, 15/11/2026. */
+export const RESULTADOS = {
+  sim: 'Sim',
+  'fiscalizado-nao-autuado': 'Fiscalizado não autuado',
+  'nao-cabe-atuacao': 'Não Cabe Atuação',
+  nao: 'Não',
+} as const;
+export type ResultadoPonto = keyof typeof RESULTADOS;
+/** Resultados que exigem o motivo (MOTIVO DE NÃO FISCALIZAR/AUTUAR). */
+export const RESULTADOS_COM_MOTIVO: readonly ResultadoPonto[] = ['fiscalizado-nao-autuado', 'nao'];
+/** Motivos mais comuns; o campo é aberto. */
+export const MOTIVOS_SUGERIDOS = ['Área sem acesso', 'Infrator não localizado', 'Outros'] as const;
+
+/**
+ * Situação de acompanhamento, calculada (regras.ts `situacaoDoPonto`): o ponto só sai da lista de pendências
+ * quando é finalizado, cancelado ou reprogramado em outra operação. "Não" (não fiscalizado) fica a reprogramar.
+ */
+export const SITUACOES_ACOMPANHAMENTO = {
+  planejado: 'planejado',
+  'resultado-pendente': 'vistoriado, resultado pendente',
+  finalizado: 'finalizado',
+  'a-reprogramar': 'a reprogramar',
+  reprogramado: 'reprogramado',
+  cancelado: 'cancelado',
+} as const;
+export type SituacaoAcompanhamento = keyof typeof SITUACOES_ACOMPANHAMENTO;
+
+export interface Ponto {
+  id: string;
+  /** Número do ponto na lista recebida, quando houver; sem ele, o próximo livre da operação. */
+  numero?: number;
+  /** Código do ponto (CODIGO_PONTO): o da planilha ou MUNICIPIO+AAAAMM-NN. Fixo depois de criado e único entre as operações. */
+  codigo?: string;
+  /** Tipo de dano esperado (TIPO_DANO), texto aberto. */
+  tipoDano?: string;
+  /** Resultado (FISCALIZADO_AUTUADO) e o registro pós-campo. */
+  resultado?: ResultadoPonto;
+  motivo?: string;
+  /** NUM_PROTOCOLO: protocolo da demanda e/ou do auto (um ou mais, texto). */
+  protocolo?: string;
+  observacao?: string;
+  /** AAAA-MM-DD: data em que o ponto foi vistoriado. */
+  dataVistoria?: string;
+  /** Marca à parte da situação (mesmo formato da demanda): o ponto segue como está, mas há algo travando o encerramento (ex.: dados do autuado). */
+  bloqueio?: Bloqueio;
+  /** Anotações em checklist (compartilhado/anotacoes.ts). */
+  anotacoes?: Anotacao[];
+  /** Por que a vistoria foi cancelada (até 100 caracteres); some ao reativar. */
+  motivoCancelamento?: string;
+  /** Fase pós-campo: envio do relatório no SIGA-MT. Sem `enviadoEm`, o ponto com resultado está em elaboração. */
+  relatorio?: { enviadoEm?: string; protocoloSiga?: string; notas?: string };
+  /** Ponto "Não" levado para outra operação: onde ele está agora. */
+  reprogramado?: { operacao: string; ponto: string };
+  coordenada: Coordenada;
+  municipio: string;
+  /** Id da viagem da operação em que o ponto foi encaixado; ausente = sem viagem. */
+  viagem?: string;
   notas: string;
   /** Rótulo livre: pontos com o mesmo rótulo estão relacionados à mesma demanda. */
   grupo?: string;
@@ -32,6 +97,37 @@ export interface Ponto {
   demandas: string[];
   /** Marcação humana: o sistema não decide que um ponto foi vistoriado. */
   situacao: SituacaoPonto;
+}
+
+/**
+ * Ponto ainda não gravado (importação, formulário, testes): pode trazer equipe e datas, como na planilha.
+ * Ao incluir, elas viram (ou encontram) a viagem da operação.
+ */
+export type PontoNovo = Omit<Ponto, 'id' | 'viagem' | 'reprogramado'> & {
+  equipe?: string; saida?: string; retorno?: string;
+  /** SERVIDOR_EQUIPE: entram nos integrantes da viagem. */
+  integrantes?: string[];
+};
+
+/** Motivo de mudança do período (opcional ao registrar). Pedido do responsável, 15/11/2026. */
+export const MOTIVOS_PERIODO = {
+  adiada: 'adiada',
+  adiantada: 'adiantada',
+  prorrogada: 'prorrogada',
+  'falta-diaria': 'falta de diária',
+  outro: 'outro motivo',
+} as const;
+export type MotivoPeriodo = keyof typeof MOTIVOS_PERIODO;
+
+/** Evento do histórico do pedido. Só se acrescenta: a tela não edita nem apaga eventos. */
+export interface EventoOperacao {
+  /** ISO 8601. */
+  quando: string;
+  acao: 'criada' | 'periodo';
+  /** Mudança de período: o anterior e o novo (lados ausentes = sem data). */
+  de?: { inicio?: string; fim?: string };
+  para?: { inicio?: string; fim?: string };
+  motivo?: MotivoPeriodo;
 }
 
 export interface Operacao {
@@ -42,9 +138,14 @@ export interface Operacao {
   fim?: string;
   /** Quem encaminhou (texto livre, opcional). */
   origem?: string;
+  /** Setor que fiscaliza (AG_FISCALIZACAO da planilha da SEMA, ex.: DUDJUINA). */
+  setor?: string;
+  viagens: Viagem[];
   pontos: Ponto[];
   /** ISO 8601. */
   criadaEm: string;
+  /** Histórico do pedido, do mais antigo ao mais novo. Ausente em operações anteriores ao histórico. */
+  historico?: EventoOperacao[];
 }
 
 export const LIMITES_OPERACAO = {
@@ -57,4 +158,19 @@ export const LIMITES_OPERACAO = {
   pontos: 300,
   operacoes: 100,
   demandasPorPonto: 20,
+  viagens: 100,
+  integrantes: 20,
+  integrante: 80,
+  veiculos: 10,
+  veiculo: 60,
+  historico: 200,
+  codigo: 40,
+  tipoDano: 80,
+  motivo: 120,
+  protocolo: 120,
+  observacao: 500,
+  setor: 40,
 } as const;
+
+/** Mínimos para a viagem ficar completa (sem eles, aviso; nada é bloqueado). */
+export const MINIMOS_VIAGEM = { integrantes: 2, veiculos: 1 } as const;

@@ -10,13 +10,13 @@ import {
   desvincularDemandaDePonto, incluirDemandaComoPonto, useOperacoes, vincularDemandaAPonto,
 } from '../operacoes/armazem.ts';
 import { ROTULOS_SITUACAO, type Operacao, type Ponto } from '../operacoes/modelo.ts';
-import { vinculosDasDemandas } from '../operacoes/regras.ts';
+import { viagemDoPonto, vinculosDasDemandas } from '../operacoes/regras.ts';
 
 const dataBr = (d: string) => d.split('-').reverse().join('/');
 const periodo = (o: Operacao) =>
   o.inicio || o.fim ? `${o.inicio ? dataBr(o.inicio) : '…'} a ${o.fim ? dataBr(o.fim) : '…'}` : 'sem período definido';
-const rotuloPonto = (p: Ponto) =>
-  [p.numero !== undefined ? `Ponto ${p.numero}` : 'Ponto', p.municipio, ROTULOS_SITUACAO[p.situacao], p.equipe].filter(Boolean).join(' · ');
+const rotuloPonto = (o: Operacao, p: Ponto) =>
+  [p.numero !== undefined ? `Ponto ${p.numero}` : 'Ponto', p.municipio, ROTULOS_SITUACAO[p.situacao], viagemDoPonto(o, p)?.equipe].filter(Boolean).join(' · ');
 
 export function VinculoOperacao({ demanda, aoEditar }: { demanda: Demanda; aoEditar: () => void }) {
   const armazem = useArmazem();
@@ -33,7 +33,8 @@ export function VinculoOperacao({ demanda, aoEditar }: { demanda: Demanda; aoEdi
   const [pontoVincular, setPontoVincular] = useState('');
 
   const leitura = coordenada.trim() ? lerCoordenada(coordenada) : null;
-  const pontosDaOperacao = operacoes.find((o) => o.id === opVincular)?.pontos.filter((p) => !p.demandas.includes(demanda.id)) ?? [];
+  const operacaoVincular = operacoes.find((o) => o.id === opVincular);
+  const pontosDaOperacao = operacaoVincular?.pontos.filter((p) => !p.demandas.includes(demanda.id)) ?? [];
   const vistoriadoSemData = vinculos.some((v) => v.ponto.situacao === 'vistoriado') && !demanda.vistoria?.data;
 
   const avisar = (erro: string | null, ok: string) => setMensagem(erro ? { tipo: 'erro', texto: erro } : { tipo: 'sucesso', texto: ok });
@@ -49,7 +50,7 @@ export function VinculoOperacao({ demanda, aoEditar }: { demanda: Demanda; aoEdi
     }
     const erro = incluirDemandaComoPonto(opAgendar, { demandaId: demanda.id, coordenada: coord, municipio });
     if (erro) return avisar(erro, '');
-    let texto = 'Vistoria agendada: a demanda entrou na operação como um ponto (sem equipe e sem data de saída ainda).';
+    let texto = 'Vistoria agendada: a demanda entrou na operação como um ponto (ainda sem viagem: encaixe-o numa viagem na tela Operações).';
     if (!demanda.coordenada) {
       // A coordenada informada também fica na demanda.
       const r = armazem.editar(demanda.id, { ...paraEntrada(demanda), coordenada: formatarDecimal(coord) });
@@ -84,7 +85,7 @@ export function VinculoOperacao({ demanda, aoEditar }: { demanda: Demanda; aoEdi
         <ul className="lista-limpa" aria-label="Operações da demanda">
           {vinculos.map(({ operacao, ponto }) => (
             <li key={ponto.id} data-testid={`vinculo-${ponto.id}`}>
-              <strong>{operacao.nome}</strong> ({periodo(operacao)}) · {rotuloPonto(ponto)} · <span className="mono">{formatarGms(ponto.coordenada)}</span>{' '}
+              <strong>{operacao.nome}</strong> ({periodo(operacao)}) · {rotuloPonto(operacao, ponto)} · <span className="mono">{formatarGms(ponto.coordenada)}</span>{' '}
               <button
                 type="button" className="botao botao--pequeno" aria-label={`Desvincular de ${operacao.nome}`}
                 onClick={() => avisar(desvincularDemandaDePonto(operacao.id, ponto.id, demanda.id), 'Demanda desligada do ponto.')}
@@ -145,7 +146,7 @@ export function VinculoOperacao({ demanda, aoEditar }: { demanda: Demanda; aoEdi
               <label className="campo-grupo"><span>Ponto</span>
                 <select className="campo" value={pontoVincular} disabled={!opVincular} onChange={(e) => setPontoVincular(e.target.value)}>
                   <option value="">Escolha…</option>
-                  {pontosDaOperacao.map((p) => <option key={p.id} value={p.id}>{rotuloPonto(p)}</option>)}
+                  {pontosDaOperacao.map((p) => <option key={p.id} value={p.id}>{rotuloPonto(operacaoVincular!, p)}</option>)}
                 </select></label>
             </div>
             <div className="acoes"><button type="submit" className="botao">Vincular ao ponto</button></div>

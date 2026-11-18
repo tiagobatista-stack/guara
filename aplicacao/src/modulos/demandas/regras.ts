@@ -5,6 +5,8 @@ import { NATUREZAS, TIPOS } from './classificacao.ts';
 import { camposQueFaltam } from './essenciais.ts';
 import { LIMITES, MOTIVOS_BLOQUEIO, PRIORIDADES, STATUS, type Demanda, type EntradaDemanda, type MotivoBloqueio, type Status, type Vistoria } from './modelo.ts';
 import { situacaoVistoria } from './vistoria.ts';
+import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
+import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
 import { eventoValido, registrar } from './historico.ts';
 import { coordenadaValida, formatarDecimal, lerCoordenada, type Coordenada } from './coordenadas.ts';
 
@@ -154,7 +156,7 @@ export const ehMotivoBloqueio = (x: unknown): x is MotivoBloqueio =>
   typeof x === 'string' && Object.prototype.hasOwnProperty.call(MOTIVOS_BLOQUEIO, x);
 
 /** Detalhe do bloqueio sem espaços sobrando; '' quando não há detalhe. */
-export const limparDetalheBloqueio = (detalhe: string): string => detalhe.replace(/\s+/g, ' ').trim();
+export { limparDetalheBloqueio } from '../../compartilhado/bloqueio.ts';
 
 /**
  * Trava a demanda ou muda o motivo e o detalhe (mantendo o "desde"). Concluída não trava: devolve null.
@@ -163,7 +165,7 @@ export const limparDetalheBloqueio = (detalhe: string): string => detalhe.replac
 export function travarDemanda(d: Demanda, motivo: MotivoBloqueio, agoraIso: string, detalhe = ''): Demanda | null {
   if (d.status === 'Concluída') return null;
   if (d.bloqueio?.motivo === motivo && (d.bloqueio.detalhe ?? '') === detalhe) return d;
-  const bloqueio = { motivo, desde: d.bloqueio?.desde ?? agoraIso, ...(detalhe ? { detalhe } : {}) };
+  const bloqueio = novoBloqueio(d.bloqueio, motivo, agoraIso, detalhe);
   const nova: Demanda = { ...d, bloqueio, ultimaAcaoRelevante: agoraIso };
   return registrar(nova, { quando: agoraIso, acao: d.bloqueio ? 'bloqueio-alterado' : 'travou', ...dadosDoBloqueio(nova) });
 }
@@ -254,6 +256,7 @@ export function ehDemandaValida(x: unknown): x is Demanda {
     typeof d.ultimaAcaoRelevante === 'string' && !Number.isNaN(Date.parse(d.ultimaAcaoRelevante)) &&
     (d.prazo === undefined || (typeof d.prazo === 'string' && dataValida(d.prazo))) &&
     (d.bloqueio === undefined || bloqueioValido(d.bloqueio)) &&
+    (d.anotacoes === undefined || anotacoesValidas(d.anotacoes)) &&
     NUMEROS.every((c) => d[c] === undefined || numeroGravadoValido(c, d[c])) &&
     (d.tipo === undefined || TIPOS.includes(d.tipo as never)) &&
     (d.natureza === undefined || NATUREZAS.includes(d.natureza as never)) &&
@@ -264,7 +267,7 @@ export function ehDemandaValida(x: unknown): x is Demanda {
   );
 }
 
-function bloqueioValido(x: unknown): boolean {
+export function bloqueioValido(x: unknown): boolean {
   if (typeof x !== 'object' || x === null) return false;
   const b = x as Record<string, unknown>;
   return (

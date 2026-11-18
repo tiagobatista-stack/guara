@@ -5,9 +5,9 @@ import { MOTIVOS_BLOQUEIO, type Bloqueio } from '../demandas/modelo.ts';
 import { dataLocal, diasUteis, rotuloDias, type AjusteFeriados } from './dias-uteis.ts';
 
 /** Texto do bloqueio, ou null se a demanda não está travada. */
-export function textoBloqueio(d: { bloqueio?: Bloqueio }, agora: Date, ajuste: AjusteFeriados = {}): string | null {
+export function textoBloqueio(d: { bloqueio?: Bloqueio }, agora: Date, ajuste: AjusteFeriados = {}, travada = 'travada'): string | null {
   if (!d.bloqueio) return null;
   const desde = dataLocal(new Date(d.bloqueio.desde));
   const n = Math.max(0, diasUteis(desde, dataLocal(agora), ajuste));
-  return `⛔ travada ${n === 0 ? 'hoje' : `há ${rotuloDias(n)}`}: ${MOTIVOS_BLOQUEIO[d.bloqueio.motivo]}`;
+  return `⛔ ${travada} ${n === 0 ? 'hoje' : `há ${rotuloDias(n)}`}: ${MOTIVOS_BLOQUEIO[d.bloqueio.motivo]}`;
 }

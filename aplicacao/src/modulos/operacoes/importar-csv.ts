@@ -1,23 +1,37 @@
 // Importação da lista de pontos de uma operação a partir de CSV (sem biblioteca de planilha).
-// Colunas da planilha de exemplo: N_PONTO, EQUIPE, COORD_X, COORD_Y, MUNICIPIO, DAT_SAIDA, DAT_RETOR, NOT_PLANEJ.
+// Aceita a planilha de exemplo (N_PONTO, EQUIPE, COORD_X, COORD_Y, MUNICIPIO, DAT_SAIDA, DAT_RETOR, NOT_PLANEJ) e a de
+// controle da SEMA (MES_PPROG, CODIGO_PONTO, NUMERO_DO_PONTO, …, FISCALIZADO_AUTUADO, …, LONGITUDE, LATITUDE, AG_FISCALIZACAO, TIPO_DANO).
 // COORD_X é a longitude e COORD_Y a latitude. Linha com problema não entra em silêncio: volta com a mensagem.
 
 import { lerCoordenada } from '../demandas/coordenadas.ts';
-import { LIMITES_OPERACAO, type Ponto } from './modelo.ts';
-import { lerData, periodoDosPontos, problemasDeDatas, type Periodo } from './regras.ts';
+import { LIMITES_OPERACAO, RESULTADOS, RESULTADOS_COM_MOTIVO, type PontoNovo } from './modelo.ts';
+import { distanciaMetros, lerData, limparNomes, periodoDosPontos, problemasDeDatas, resultadoDaPlanilha, type Periodo } from './regras.ts';
 
 /** Remove acento, espaços e maiúsculas do nome de coluna. */
 const chave = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
+// Aceita a planilha de exemplo (N_PONTO, NOT_PLANEJ…) e a de controle da SEMA (NUMERO_DO_PONTO, NOTA_PLANEJAMENTO, CODIGO_PONTO…).
 const COLUNAS = {
-  numero: ['NPONTO', 'NUMERO', 'PONTO', 'N'],
+  numero: ['NPONTO', 'NUMERODOPONTO', 'NUMERO', 'PONTO', 'N'],
+  codigo: ['CODIGOPONTO', 'CODIGO'],
+  tipoDano: ['TIPODANO', 'TIPODEDANO'],
   equipe: ['EQUIPE'],
-  x: ['COORDX', 'LONGITUDE', 'LON', 'X'],
-  y: ['COORDY', 'LATITUDE', 'LAT', 'Y'],
+  x: ['COORDX', 'X'],
+  y: ['COORDY', 'Y'],
+  // Na planilha da SEMA, a mesma coordenada em graus decimais com vírgula (-58,64058972).
+  lonDecimal: ['LONGITUDE', 'LON'],
+  latDecimal: ['LATITUDE', 'LAT'],
   municipio: ['MUNICIPIO', 'CIDADE'],
   saida: ['DATSAIDA', 'SAIDA', 'DATASAIDA'],
   retorno: ['DATRETOR', 'RETORNO', 'DATARETORNO', 'DATRETORNO'],
-  notas: ['NOTPLANEJ', 'NOTAS', 'OBSERVACOES', 'OBS'],
+  notas: ['NOTPLANEJ', 'NOTAPLANEJAMENTO', 'NOTAS', 'OBSERVACOES', 'OBS'],
+  integrantes: ['SERVIDOREQUIPE', 'SERVIDORES', 'INTEGRANTES'],
+  mes: ['MESPPROG'], // só serve para sugerir o nome da operação
+  resultado: ['FISCALIZADOAUTUADO', 'RESULTADO'],
+  motivo: ['MOTIVODENAOFISCALIZARAUTUAR', 'MOTIVO'],
+  protocolo: ['NUMPROTOCOLO', 'PROTOCOLO'],
+  observacao: ['OBSERVACAO'],
+  setor: ['AGFISCALIZACAO', 'SETOR'],
 } as const;
 type Coluna = keyof typeof COLUNAS;
 
@@ -67,8 +81,14 @@ export function decodificarCsv(bytes: Uint8Array): string {
 export interface LinhaImportada {
   /** Linha no arquivo (cabeçalho = 1). */
   linha: number;
-  ponto?: Omit<Ponto, 'id'>;
+  /** Ponto com equipe e datas da linha: ao importar, elas viram (ou encontram) a viagem. */
+  ponto?: PontoNovo;
   erros: string[];
+  /** FISCALIZADO_AUTUADO e MES_PPROG como vieram, para sugerir o nome da operação. */
+  resultado: string;
+  mes: string;
+  /** Não impedem a importação, mas pedem conferência (coordenadas divergentes, resultado sem motivo). */
+  avisos: string[];
 }
 
 export interface ResultadoCsv {
@@ -77,9 +97,21 @@ export interface ResultadoCsv {
   linhas: LinhaImportada[];
   /** Menor e maior data das linhas válidas, para a prévia ("período tirado do arquivo"). */
   periodoDoArquivo?: Periodo;
+  /** AG_FISCALIZACAO: o primeiro setor informado no arquivo. */
+  setor?: string;
 }
 
-const limpar = (t: string | undefined, max: number) => (t ?? '').replace(/\s+/g, ' ').trim().slice(0, max);
+/** Graus decimais com ponto ou vírgula ("-58,64058972"); null se não for número. */
+const numeroDecimal = (t: string | undefined) => {
+  const v = (t ?? '').trim().replace(',', '.');
+  return /^-?\d+(\.\d+)?$/.test(v) ? Number(v) : null;
+};
+
+/** Distância a partir da qual COORD_X/COORD_Y e LONGITUDE/LATITUDE contam como lugares diferentes. */
+export const DIVERGENCIA_COORDENADAS_M = 50;
+
+// O apóstrofo que a exportação põe antes de = + - @ (proteção contra fórmula) não faz parte do dado.
+const limpar = (t: string | undefined, max: number) => (t ?? '').replace(/\s+/g, ' ').trim().replace(/^'(?=[=+\-@])/, '').slice(0, max);
 
 /** Lê o CSV e confere cada linha; `janela` (opcional) é o período da operação. */
 export function importarPontosCsv(conteudo: string, janela?: Periodo): ResultadoCsv {
@@ -88,17 +120,29 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
   const cabecalho = tabela[0].map(chave);
   const indice = {} as Record<Coluna, number>;
   for (const c of Object.keys(COLUNAS) as Coluna[]) indice[c] = cabecalho.findIndex((h) => (COLUNAS[c] as readonly string[]).includes(h));
-  const faltam = (['x', 'y'] as const).filter((c) => indice[c] < 0);
-  if (faltam.length) return { erro: 'Não achei as colunas de coordenada (COORD_X e COORD_Y, ou LONGITUDE e LATITUDE).', linhas: [] };
+  const temGms = indice.x >= 0 && indice.y >= 0;
+  const temDecimal = indice.lonDecimal >= 0 && indice.latDecimal >= 0;
+  if (!temGms && !temDecimal) return { erro: 'Não achei as colunas de coordenada (COORD_X e COORD_Y, ou LONGITUDE e LATITUDE).', linhas: [] };
   if (tabela.length - 1 > LIMITES_OPERACAO.pontos) return { erro: `O limite é de ${LIMITES_OPERACAO.pontos} pontos por operação.`, linhas: [] };
 
   const linhas = tabela.slice(1).map((celulas, i): LinhaImportada => {
     const campo = (c: Coluna) => (indice[c] >= 0 ? celulas[indice[c]] : undefined);
     const erros: string[] = [];
+    const avisos: string[] = [];
 
-    const coord = lerCoordenada(`${(campo('y') ?? '').trim()} ${(campo('x') ?? '').trim()}`);
+    // COORD_X/COORD_Y valem; LONGITUDE/LATITUDE só conferem (ou substituem, se a planilha não tiver as outras).
+    const lonDec = numeroDecimal(campo('lonDecimal'));
+    const latDec = numeroDecimal(campo('latDecimal'));
+    const usarDecimal = (!temGms || !(campo('x') ?? '').trim()) && lonDec !== null && latDec !== null;
+    const coord = lerCoordenada(usarDecimal ? `${latDec} ${lonDec}` : `${(campo('y') ?? '').trim()} ${(campo('x') ?? '').trim()}`);
     if (!coord.ok) erros.push(`Coordenada: ${coord.erro}`);
     else if (coord.avisos.length) erros.push(`Coordenada: ${coord.avisos.join(' ')}`);
+    else if (!usarDecimal && lonDec !== null && latDec !== null) {
+      const d = distanciaMetros(coord.valor, { lat: latDec, lon: lonDec });
+      if (d > DIVERGENCIA_COORDENADAS_M) {
+        avisos.push(`COORD_X/COORD_Y e LONGITUDE/LATITUDE apontam lugares a ${Math.round(d)} m um do outro; vale COORD_X/COORD_Y. Confira a planilha.`);
+      }
+    }
 
     const lerCampoData = (c: 'saida' | 'retorno', rotulo: string) => {
       const bruto = (campo(c) ?? '').trim();
@@ -114,22 +158,41 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
     const numeroBruto = (campo('numero') ?? '').trim();
     const numero = /^\d+$/.test(numeroBruto) ? Number(numeroBruto) : undefined;
     const equipe = limpar(campo('equipe'), LIMITES_OPERACAO.equipe);
+    const codigo = limpar(campo('codigo'), LIMITES_OPERACAO.codigo);
+    const tipoDano = limpar(campo('tipoDano'), LIMITES_OPERACAO.tipoDano);
+    const integrantes = limparNomes((campo('integrantes') ?? '').split(/\s*[,;/|]\s*|\s+e\s+/), LIMITES_OPERACAO.integrante);
+    const resultadoBruto = limpar(campo('resultado'), 60);
+    const resultado = resultadoBruto ? resultadoDaPlanilha(resultadoBruto) : null;
+    if (resultadoBruto && !resultado) avisos.push(`Resultado não reconhecido: '${resultadoBruto}'. Corrija na planilha ou registre no ponto.`);
+    const motivo = limpar(campo('motivo'), LIMITES_OPERACAO.motivo);
+    const protocolo = limpar(campo('protocolo'), LIMITES_OPERACAO.protocolo);
+    const observacao = limpar(campo('observacao'), LIMITES_OPERACAO.observacao);
+    if (resultado && RESULTADOS_COM_MOTIVO.includes(resultado) && !motivo) avisos.push(`Resultado "${RESULTADOS[resultado]}" sem o motivo.`);
 
-    const ponto: Omit<Ponto, 'id'> | undefined = coord.ok && !erros.length
+    const ponto: PontoNovo | undefined = coord.ok && !erros.length
       ? {
           ...(numero !== undefined ? { numero } : {}),
+          ...(codigo ? { codigo } : {}),
+          ...(tipoDano ? { tipoDano } : {}),
           coordenada: coord.valor,
           municipio: limpar(campo('municipio'), LIMITES_OPERACAO.municipio),
           ...(equipe ? { equipe } : {}),
           ...(saida ? { saida } : {}),
           ...(retorno ? { retorno } : {}),
           notas: limpar(campo('notas'), LIMITES_OPERACAO.notas),
+          ...(integrantes.length ? { integrantes } : {}),
+          ...(resultado ? { resultado } : {}),
+          ...(motivo ? { motivo } : {}),
+          ...(protocolo ? { protocolo } : {}),
+          ...(observacao ? { observacao } : {}),
           demandas: [],
-          situacao: 'planejado',
+          // Com resultado, o ponto já foi a campo ("Não" = não fiscalizado: continua planejado e fica a reprogramar).
+          situacao: resultado && resultado !== 'nao' ? 'vistoriado' : 'planejado',
         }
       : undefined;
-    return { linha: i + 2, ...(ponto ? { ponto } : {}), erros };
+    return { linha: i + 2, ...(ponto ? { ponto } : {}), erros, avisos, resultado: limpar(campo('resultado'), 80), mes: limpar(campo('mes'), 10) };
   });
   const periodo = periodoDosPontos(linhas.flatMap((l) => (l.ponto ? [l.ponto] : [])));
-  return { linhas, ...(periodo.inicio ? { periodoDoArquivo: periodo } : {}) };
+  const setor = tabela.slice(1).map((c) => limpar(indice.setor >= 0 ? c[indice.setor] : '', LIMITES_OPERACAO.setor)).find(Boolean);
+  return { linhas, ...(periodo.inicio ? { periodoDoArquivo: periodo } : {}), ...(setor ? { setor } : {}) };
 }

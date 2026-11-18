@@ -27,3 +27,9 @@ export const FONTES_WMS: FonteWms[] = [
     ],
   },
 ];
+
+/** Imagens de todas as fontes, da mais recente à mais antiga (ano do título; sem ano vai para o fim). */
+export function imagensOrdenadas(fontes: readonly FonteWms[]): { fonte: FonteWms; camada: CamadaWms }[] {
+  const ano = (t: string) => Number(/(?:19|20)\d{2}/.exec(t)?.[0] ?? 0);
+  return fontes.flatMap((fonte) => fonte.camadas.map((camada) => ({ fonte, camada }))).sort((a, b) => ano(b.camada.titulo) - ano(a.camada.titulo));
+}
