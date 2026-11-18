@@ -10,6 +10,7 @@ import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compart
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
 import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
+import { htmlDoRoteiro } from './roteiro.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
@@ -448,7 +449,13 @@ const textoConflito = (c: ConflitoAgenda) =>
 
 function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; conflitos: Map<string, ConflitoAgenda[]>; sugestoes: Sugestoes }) {
   const [editando, setEditando] = useState<string | 'nova' | null>(null);
+  const { demandas } = useEstadoDemandas();
   const viagens = ordenarViagens(operacao.viagens);
+  // O roteiro abre numa aba nova (endereço blob:); lá o navegador imprime ou salva em PDF.
+  const abrirRoteiro = (v: Viagem) => {
+    const html = htmlDoRoteiro({ operacao, viagem: v, pontos: operacao.pontos.filter((p) => p.viagem === v.id), demandas, geradoEm: dataLocal(new Date()) });
+    window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
+  };
   return (
     <section className="cartao" aria-labelledby="titulo-viagens" data-testid="viagens">
       <h3 id="titulo-viagens" className="titulo-secao">Viagens (cronograma)</h3>
@@ -479,6 +486,7 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
                 </div>
               )}
               <div className="acoes">
+                <button type="button" className="botao botao--pequeno" aria-label={`Roteiro de vistoria da viagem ${textoViagem(v)}`} disabled={qtd === 0} onClick={() => abrirRoteiro(v)}>Roteiro de vistoria</button>
                 <button type="button" className="botao botao--pequeno" aria-label={`Editar viagem ${textoViagem(v)}`} onClick={() => setEditando(v.id)}>Editar</button>
                 <button
                   type="button" className="botao botao--pequeno botao--discreto" aria-label={`Excluir viagem ${textoViagem(v)}`}

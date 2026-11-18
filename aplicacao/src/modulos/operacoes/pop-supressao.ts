@@ -2,7 +2,8 @@
 // (Portaria Ibama nº 83/2022, DOU de 29/09/2022; PDF em docs/referencias/). Os itens são DADOS, copiados do Anexo I sem resumir;
 // os desvios ("siga para a pergunta N") ficam na opção que os causa. A adoção deste POP pela SEMA-MT precisa ser confirmada pelo responsável.
 // Desvios do texto do POP (não só do Anexo): seção 4.2.12 (sem alteração da camada superficial do solo, siga para o item 18) e seção 4.2.15
-// (sem arraste, siga para o item 18; com arraste, item 16).
+// (sem arraste, siga para o item 18; com arraste, item 16). Divergência conhecida: A-15 "Fogo → A-16" segue o Anexo I; o texto da
+// seção 4.2.15 só trata de arraste/sem arraste. Mantido o Anexo.
 // Leituras minhas, fora do texto do formulário (ver `nota` e `opcional`): A-5 aceita várias marcas; os itens `opcional` não entram na conta
 // de "sem resposta". Onde o PDF traz símbolo, usei o equivalente: "£ 50%" é "≤ 50%"; "At e r r o" é "Aterro".
 
