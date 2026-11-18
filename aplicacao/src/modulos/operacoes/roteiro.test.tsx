@@ -1,11 +1,12 @@
 // Roteiro de vistoria imprimível: bloco do POP só nos pontos com o bloco ativo; texto escapado; botão por viagem.
 
-import { fireEvent, render, screen } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Operacoes } from './Operacoes.tsx';
 import { criarOperacao, incluirPontos, obterOperacoes } from './armazem.ts';
 import { ITENS_POP } from './pop-supressao.ts';
-import { htmlDoRoteiro } from './roteiro.ts';
+import { qrSvg } from './qr.ts';
+import { htmlDoRoteiro, urlDoMapa } from './roteiro.ts';
 
 beforeEach(() => localStorage.clear());
 const base = { coordenada: { lat: -12.1, lon: -58.2 }, municipio: 'Brasnorte', notas: '', demandas: [] as string[], situacao: 'planejado' as const, equipe: 'A', saida: '2026-10-05', retorno: '2026-10-09' };
@@ -65,6 +66,37 @@ describe('constatação de embargo', () => {
   });
 });
 
+describe('QR do ponto e sem croqui', () => {
+  it('a URL do Google Maps: lat,lon com 6 casas, ponto decimal e sinal', () => {
+    expect(urlDoMapa({ lat: -12.1, lon: -58.2 })).toBe('https://www.google.com/maps/search/?api=1&query=-12.100000,-58.200000');
+    expect(urlDoMapa({ lat: 3.123456789, lon: 0.5 })).toBe('https://www.google.com/maps/search/?api=1&query=3.123457,0.500000');
+  });
+
+  it('o SVG do QR vem do gerador local e a legenda "Abrir no Google Maps" fica na folha de cada ponto', () => {
+    const svg = qrSvg('https://www.google.com/maps/search/?api=1&query=-12.100000,-58.200000');
+    expect(svg).toMatch(/^<svg/);
+    expect(svg).toContain('viewBox');
+    const { op, viagem } = operacaoComPontos([{}, { tipoDano: 'Cerca' }]);
+    const chamadas: string[] = [];
+    const html = htmlDoRoteiro({ operacao: op, viagem, pontos: op.pontos, demandas: [], geradoEm: '2026-11-18', qrSvg: (t) => { chamadas.push(t); return '<svg id="qr-teste"></svg>'; } });
+    expect(chamadas).toEqual([urlDoMapa(op.pontos[0].coordenada), urlDoMapa(op.pontos[1].coordenada)]);
+    expect(html.match(/<svg id="qr-teste">/g)).toHaveLength(2);
+    expect(html.match(/Abrir no Google Maps/g)).toHaveLength(2);
+    expect(html).toContain('.qr svg{display:block;width:28mm;height:28mm}');
+  });
+
+  it('sem coordenada válida ou sem gerador: sem QR; e o croqui não existe mais', () => {
+    const { op, viagem } = operacaoComPontos([{}]);
+    const invalido = { ...op.pontos[0], coordenada: { lat: NaN, lon: 0 } };
+    const comQr = htmlDoRoteiro({ operacao: op, viagem, pontos: [invalido], demandas: [], geradoEm: '2026-11-18', qrSvg: () => '<svg id="qr-teste"></svg>' });
+    expect(comQr).not.toContain('qr-teste');
+    const semGerador = htmlDoRoteiro({ operacao: op, viagem, pontos: op.pontos, demandas: [], geradoEm: '2026-11-18' });
+    expect(semGerador).not.toContain('class="qr"');
+    expect(semGerador).not.toMatch(/Croqui/i);
+    expect(semGerador).toContain('Observações de campo');
+  });
+});
+
 describe('botão na viagem', () => {
   it('abre o roteiro numa aba nova com o HTML da viagem', async () => {
     operacaoComPontos([{ tipoDano: 'Desmatamento' }]);
@@ -75,7 +107,9 @@ describe('botão na viagem', () => {
     render(<ContextoArmazem.Provider value={armazem}><Operacoes agora={() => new Date(2026, 10, 18, 10)} /></ContextoArmazem.Provider>);
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
     fireEvent.click(screen.getByRole('button', { name: /^Roteiro de vistoria da viagem / }));
-    expect(abrir).toHaveBeenCalledWith('blob:x', '_blank');
-    expect(await blob!.text()).toContain('Roteiro de vistoria · Brasnorte');
+    await waitFor(() => expect(abrir).toHaveBeenCalledWith('blob:x', '_blank')); // o QR carrega por import dinâmico
+    const html = await blob!.text();
+    expect(html).toContain('Roteiro de vistoria · Brasnorte');
+    expect(html).toContain('<svg'); // QR gerado localmente
   });
 });

@@ -1,13 +1,17 @@
 // Roteiro de vistoria imprimível de uma viagem, no modelo de docs/referencias/roteiro_exemplo.pdf: capa com a lista dos pontos
-// e o que levar, uma folha por ponto (dados, campo a preencher à mão, croqui, assinaturas) e, nos pontos com o bloco ativo,
+// e o que levar, uma folha por ponto (dados, QR do ponto no Google Maps, campo à mão, observações até as assinaturas) e, nos pontos com o bloco ativo,
 // o verso "Caracterização do dano (POP)" com caixas de marcar (itens, opções e desvios de pop-supressao.ts).
 // O navegador imprime ou salva em PDF. Só dados do próprio navegador; nada sai daqui.
 // Não entram, de propósito: responsável/contato/documento (sem CPF nem contato de pessoa). CAR federal fica "—" (o GUARÁ não tem).
 
-import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
+import { coordenadaValida, formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { SITUACOES_CAR, type Operacao, type Ponto, type Viagem } from './modelo.ts';
 import { blocoPopAtivo, FONTE_POP, ITENS_POP, sugestoesPop, type ItemPop } from './pop-supressao.ts';
 import { textoViagem } from './regras.ts';
+
+/** Link do ponto no Google Maps (6 casas, ponto decimal, lat,lon). */
+export const urlDoMapa = ({ lat, lon }: { lat: number; lon: number }) =>
+  `https://www.google.com/maps/search/?api=1&query=${lat.toFixed(6)},${lon.toFixed(6)}`;
 
 export interface DemandaDoRoteiro { id: string; titulo: string; processo?: string }
 
@@ -48,7 +52,7 @@ ${k === 0 ? `<p class="peq">Formulário A, preencher em campo. Fonte: ${esc(FONT
 /** Constatação de embargo só em ponto com demanda de embargo ligada. */
 export const temDemandaDeEmbargo = (ligadas: readonly { titulo: string }[]) => ligadas.some((d) => /embargo/.test(d.titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()));
 
-function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly DemandaDoRoteiro[], nomeOperacao: string, rotuloViagem: string): string {
+function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly DemandaDoRoteiro[], nomeOperacao: string, rotuloViagem: string, qrSvg?: (texto: string) => string): string {
   const rotuloPonto = `Ponto ${String(p.numero ?? n).padStart(2, '0')}`;
   const ligadas = p.demandas.map((id) => demandas.find((d) => d.id === id)).filter((d): d is DemandaDoRoteiro => !!d);
   const dados: [string, string][] = [
@@ -66,8 +70,9 @@ function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly Deman
     ['', `${formatarDecimal(p.coordenada)} (graus decimais, EPSG:4674)`],
     ['Observações / planejamento', p.notas || '—'],
   ];
-  const frente = `<article class="folha"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>${n} de ${total} · ${esc(nomeOperacao)}</p></header>
-<p class="sub">${esc(rotuloViagem)}</p>
+  const qr = qrSvg && coordenadaValida(p.coordenada) ? `<div class="qr" data-testid="qr">${qrSvg(urlDoMapa(p.coordenada))}<p>Abrir no Google Maps</p></div>` : '';
+  const frente = `<article class="folha"><header class="topo"><div class="topo-texto"><div class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>${n} de ${total} · ${esc(nomeOperacao)}</p></div>
+<p class="sub">${esc(rotuloViagem)}</p></div>${qr}</header>
 <dl>${dados.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
 <h3>Campo · preencher à mão</h3>
 <p>Data/hora de chegada: ${linha(10)}/${linha(10)}/${linha(14)} ${linha(8)}:${linha(8)}</p>
@@ -76,8 +81,7 @@ function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly Deman
 <p>Auto / notificação lavrado: ${caixas('auto de infração', 'notificação', 'termo de embargo')} nº ${linha(34)}</p>
 <p>Fotos nº ${linha(14)} a ${linha(14)} (12 a 30) · Voo de drone: ${caixas('sim', 'não')} Arquivo: ${linha(40)}</p>
 <p>Pessoa contatada (nome e função, sem CPF): ${linha(80)}</p>
-<p>Observações de campo:</p>${'<p class="obs"><span class="ln"></span></p>'.repeat(6)}
-<h3>Croqui</h3><div class="croqui"><span>N ↑</span></div>
+<p>Observações de campo:</p><div class="obsbox">${'<p class="obs"><span class="ln"></span></p>'.repeat(30)}</div>
 <p class="ass"><span>Fiscal ${linha(60)}</span><span>Acompanhante ${linha(60)}</span></p></article>`;
   return frente + (blocoPopAtivo(p) ? versoPop(p, rotuloPonto) : '');
 }
@@ -91,12 +95,14 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:2p
 .cx{display:inline-block;width:10px;height:10px;border:1px solid #000;vertical-align:-1px}.op{white-space:nowrap;margin-right:6px}
 .ln{display:inline-block;border-bottom:1px solid #000;height:1em;vertical-align:baseline}.obs{height:1.9em}.obs .ln{display:block;width:100%}
 .folha{display:flex;flex-direction:column;break-after:page;page-break-after:always;min-height:260mm}.folha:last-child{break-after:auto;page-break-after:auto}
-.croqui{flex:1;min-height:40mm;border:1px solid #000;padding:2px;text-align:right;font-size:9pt}.ass{display:flex;justify-content:space-between;margin-top:14px}
+.topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}.topo-texto{flex:1;min-width:0}.topo-texto .cab{margin-bottom:2px}
+.qr{width:28mm;text-align:center;font-size:8pt;line-height:1.1}.qr svg{display:block;width:28mm;height:28mm}.qr p{margin:1px 0 0}
+.obsbox{flex:1;overflow:hidden;min-height:20mm}.ass{display:flex;justify-content:space-between;margin-top:14px}
 .folha--pop{min-height:0}.col{column-count:2;column-gap:10px;font-size:8.5pt;line-height:1.25}.it{break-inside:avoid;margin-bottom:5px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
 .barra{margin:0 0 8px}@media screen{body{max-width:190mm;margin:0 auto}}@media print{.barra{display:none}body{padding:0}}`;
 
 /** Página completa do roteiro. `geradoEm` é AAAA-MM-DD. */
-export function htmlDoRoteiro(o: { operacao: Operacao; viagem: Viagem; pontos: readonly Ponto[]; demandas: readonly DemandaDoRoteiro[]; geradoEm: string }): string {
+export function htmlDoRoteiro(o: { operacao: Operacao; viagem: Viagem; pontos: readonly Ponto[]; demandas: readonly DemandaDoRoteiro[]; geradoEm: string; qrSvg?: (texto: string) => string }): string {
   const { operacao, viagem, demandas, geradoEm } = o;
   const pontos = o.pontos.filter((p) => p.situacao !== 'cancelado');
   const rotuloViagem = textoViagem(viagem);
@@ -116,6 +122,6 @@ ${pontos.length ? `<table><thead><tr><th>Nº</th><th>Ponto</th><th>Município</t
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Roteiro de vistoria · ${esc(operacao.nome)} · ${esc(rotuloViagem)}</title><style>${ESTILO}</style></head><body>
 <div class="barra"><button type="button" onclick="window.print()">Imprimir ou salvar em PDF</button></div>
-${capa}${pontos.map((p, i) => folhaPonto(p, i + 1, pontos.length, demandas, operacao.nome, rotuloViagem)).join('')}
+${capa}${pontos.map((p, i) => folhaPonto(p, i + 1, pontos.length, demandas, operacao.nome, rotuloViagem, o.qrSvg)).join('')}
 </body></html>`;
 }

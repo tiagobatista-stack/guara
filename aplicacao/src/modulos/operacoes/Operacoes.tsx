@@ -459,8 +459,9 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
   const { demandas } = useEstadoDemandas();
   const viagens = ordenarViagens(operacao.viagens);
   // O roteiro abre numa aba nova (endereço blob:); lá o navegador imprime ou salva em PDF.
-  const abrirRoteiro = (v: Viagem) => {
-    const html = htmlDoRoteiro({ operacao, viagem: v, pontos: operacao.pontos.filter((p) => p.viagem === v.id), demandas, geradoEm: dataLocal(new Date()) });
+  const abrirRoteiro = async (v: Viagem) => {
+    const { qrSvg } = await import('./qr.ts'); // fora do pacote principal: só carrega ao gerar o roteiro
+    const html = htmlDoRoteiro({ operacao, viagem: v, pontos: operacao.pontos.filter((p) => p.viagem === v.id), demandas, geradoEm: dataLocal(new Date()), qrSvg });
     window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
   };
   return (
