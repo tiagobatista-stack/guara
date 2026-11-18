@@ -225,3 +225,57 @@ export function agruparPontos<T extends Pick<Ponto, 'grupo' | 'equipe'>>(pontos:
 /** Nomes de grupo já usados na operação, em ordem alfabética. */
 export const nomesDeGrupos = (pontos: readonly Pick<Ponto, 'grupo'>[]): string[] =>
   [...new Set(pontos.map((p) => p.grupo?.trim()).filter((g): g is string => !!g))].sort((a, b) => a.localeCompare(b, 'pt-BR'));
+
+// ---------- Nome sugerido da operação ----------
+
+export interface LinhaParaNome {
+  /** Município como veio na planilha. */
+  municipio: string;
+  /** FISCALIZADO_AUTUADO: vazio = ainda sem resultado. */
+  resultado?: string;
+  /** MES_PPROG, AAAAMM. */
+  mes?: string;
+  /** DATA_SAIDA, AAAA-MM-DD. */
+  saida?: string;
+}
+
+const MESES = ['jan', 'fev', 'mar', 'abr', 'mai', 'jun', 'jul', 'ago', 'set', 'out', 'nov', 'dez'];
+const semAcentoMinusculo = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim().toLowerCase();
+
+/** "out/2026" a partir de MES_PPROG (AAAAMM) ou, sem ele, da menor data de saída; '' se não houver nenhum. */
+function textoDoMes(linhas: readonly LinhaParaNome[]): string {
+  const doPlano = linhas.map((l) => /^(\d{4})(0[1-9]|1[0-2])$/.exec((l.mes ?? '').trim())).filter((m) => m !== null).map((m) => `${m[1]}${m[2]}`).sort()[0];
+  if (doPlano) return `${MESES[Number(doPlano.slice(4)) - 1]}/${doPlano.slice(0, 4)}`;
+  const saida = linhas.map((l) => l.saida).filter((s): s is string => !!s && dataValida(s)).sort()[0];
+  return saida ? `${MESES[Number(saida.slice(5, 7)) - 1]}/${saida.slice(0, 4)}` : '';
+}
+
+/** Corta no último espaço antes do limite, sem deixar separador (" –") pendurado no fim. */
+function cortarNome(nome: string, limite: number): string {
+  if (nome.length <= limite) return nome;
+  const corte = nome.slice(0, limite);
+  const ate = nome[limite] === ' ' ? limite : corte.lastIndexOf(' ');
+  return (ate > 0 ? corte.slice(0, ate) : corte).replace(/[\s–-]+$/, '');
+}
+
+/**
+ * "Operação <Município> – <mês>/<ano>". O município é o de mais pontos ainda sem resultado (se todos têm resultado,
+ * o de mais pontos), empate em ordem alfabética. Nome já existente (sem diferenciar maiúsculas e acentos) ganha " (2)", " (3)"...
+ * Devolve '' quando não há município nem mês.
+ */
+export function sugerirNomeOperacao(linhas: readonly LinhaParaNome[], existentes: readonly Pick<Operacao, 'nome'>[]): string {
+  const comNome = linhas.filter((l) => l.municipio.trim());
+  const semResultado = comNome.filter((l) => !(l.resultado ?? '').trim());
+  const contagem = new Map<string, number>();
+  for (const l of semResultado.length ? semResultado : comNome) contagem.set(l.municipio.trim(), (contagem.get(l.municipio.trim()) ?? 0) + 1);
+  const municipio = [...contagem].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0], 'pt-BR'))[0]?.[0];
+  const mes = textoDoMes(linhas);
+  const base = [municipio && `Operação ${municipio}`, mes && (municipio ? mes : `Operação ${mes}`)].filter(Boolean).join(' – ');
+  if (!base) return '';
+  const usados = new Set(existentes.map((o) => semAcentoMinusculo(o.nome)));
+  for (let n = 1; ; n++) {
+    const sufixo = n === 1 ? '' : ` (${n})`;
+    const nome = cortarNome(base, LIMITES_OPERACAO.nome - sufixo.length) + sufixo;
+    if (!usados.has(semAcentoMinusculo(nome))) return nome;
+  }
+}

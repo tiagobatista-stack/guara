@@ -10,14 +10,17 @@ import { lerData, periodoDosPontos, problemasDeDatas, type Periodo } from './reg
 const chave = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-zA-Z0-9]/g, '').toUpperCase();
 
 const COLUNAS = {
-  numero: ['NPONTO', 'NUMERO', 'PONTO', 'N'],
+  numero: ['NPONTO', 'NUMERO', 'NUMERODOPONTO', 'PONTO', 'N'],
   equipe: ['EQUIPE'],
   x: ['COORDX', 'LONGITUDE', 'LON', 'X'],
   y: ['COORDY', 'LATITUDE', 'LAT', 'Y'],
   municipio: ['MUNICIPIO', 'CIDADE'],
   saida: ['DATSAIDA', 'SAIDA', 'DATASAIDA'],
   retorno: ['DATRETOR', 'RETORNO', 'DATARETORNO', 'DATRETORNO'],
-  notas: ['NOTPLANEJ', 'NOTAS', 'OBSERVACOES', 'OBS'],
+  notas: ['NOTPLANEJ', 'NOTAPLANEJAMENTO', 'NOTAS', 'OBSERVACOES', 'OBS'],
+  // Só servem para sugerir o nome da operação; não entram no ponto.
+  resultado: ['FISCALIZADOAUTUADO'],
+  mes: ['MESPPROG'],
 } as const;
 type Coluna = keyof typeof COLUNAS;
 
@@ -69,6 +72,9 @@ export interface LinhaImportada {
   linha: number;
   ponto?: Omit<Ponto, 'id'>;
   erros: string[];
+  /** FISCALIZADO_AUTUADO e MES_PPROG da linha, se a planilha tiver essas colunas. */
+  resultado: string;
+  mes: string;
 }
 
 export interface ResultadoCsv {
@@ -128,7 +134,7 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
           situacao: 'planejado',
         }
       : undefined;
-    return { linha: i + 2, ...(ponto ? { ponto } : {}), erros };
+    return { linha: i + 2, ...(ponto ? { ponto } : {}), erros, resultado: limpar(campo('resultado'), 80), mes: limpar(campo('mes'), 10) };
   });
   const periodo = periodoDosPontos(linhas.flatMap((l) => (l.ponto ? [l.ponto] : [])));
   return { linhas, ...(periodo.inicio ? { periodoDoArquivo: periodo } : {}) };

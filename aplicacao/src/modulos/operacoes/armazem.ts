@@ -47,6 +47,28 @@ export function criarOperacao(d: DadosOperacao, agoraIso: string): { ok: true; i
   return { ok: true, id };
 }
 
+/** Cria a operação já com os pontos conferidos, numa gravação só (nada fica pela metade). O período vazio vem das datas dos pontos. */
+export function criarOperacaoComPontos(d: DadosOperacao, agoraIso: string, novos: readonly Omit<Ponto, 'id'>[]): { ok: true; id: string } | { ok: false; erro: string } {
+  const atuais = obterOperacoes();
+  if (atuais.length >= LIMITES_OPERACAO.operacoes) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.operacoes} operações.` };
+  const erro = problemaDaOperacao(d);
+  if (erro) return { ok: false, erro };
+  if (novos.length > LIMITES_OPERACAO.pontos) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.pontos} pontos por operação.` };
+  const doArquivo = periodoDosPontos(novos);
+  const inicio = d.inicio || doArquivo.inicio;
+  const fim = d.fim || doArquivo.fim;
+  for (const p of novos) {
+    const erros = problemasDeDatas(p, { inicio, fim });
+    if (erros.length) return { ok: false, erro: erros[0] };
+  }
+  const id = novoId('op', atuais);
+  const pontos: Ponto[] = [];
+  for (const p of novos) pontos.push({ id: novoId('pt', pontos), ...p });
+  const origem = d.origem.trim();
+  lista.gravar([...atuais, { id, nome: d.nome.trim(), ...(inicio ? { inicio } : {}), ...(fim ? { fim } : {}), ...(origem ? { origem } : {}), pontos, criadaEm: agoraIso }]);
+  return { ok: true, id };
+}
+
 export function excluirOperacao(id: string): void {
   lista.gravar(obterOperacoes().filter((o) => o.id !== id));
 }

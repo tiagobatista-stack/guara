@@ -1,16 +1,17 @@
 // Operações: fiscalizações encaminhadas por terceiros, com lista de pontos, equipes e datas (planejamento de viagens).
 // Coordenadas podem identificar imóvel: os dados ficam só neste navegador.
 
-import { useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
-import { decodificarCsv, importarPontosCsv, type ResultadoCsv } from './importar-csv.ts';
+import { decodificarCsv, importarPontosCsv, type LinhaImportada, type ResultadoCsv } from './importar-csv.ts';
 import { ehXlsx, xlsxParaCsv } from './ler-xlsx.ts';
 import { LIMITES_OPERACAO, ROTULOS_SITUACAO, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoPonto } from './modelo.ts';
 import {
-  alterarPeriodo, alterarPonto, criarOperacao, definirGrupo, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
+  alterarPeriodo, alterarPonto, criarOperacao, criarOperacaoComPontos, definirGrupo, excluirOperacao, excluirPonto, incluirPontos, useOperacoes, useOperacoesSoNaMemoria,
 } from './armazem.ts';
+import { sugerirNomeOperacao } from './regras.ts';
 import { exportarCsv, exportarGeoJson, nomeDoArquivo, SRC_EXPORTACAO } from './exportar.ts';
 import { agruparPontos, nomesDeGrupos, pontosProximos, pontosSemData, pontosSemEquipe, textoLocalProximo } from './regras.ts';
 
@@ -56,6 +57,34 @@ function ExportarPontos({ operacao, agora }: { operacao: Operacao; agora: () => 
 
 // ---------- Importação por CSV ----------
 
+/** Texto CSV do arquivo escolhido (CSV ou .xlsx); lança com a mensagem para a pessoa se não der. */
+async function textoDoArquivo(arquivo: File): Promise<string> {
+  const bytes = new Uint8Array(await arquivo.arrayBuffer());
+  try {
+    return ehXlsx(bytes) ? await xlsxParaCsv(bytes) : decodificarCsv(bytes);
+  } catch (erro) {
+    throw new Error(erro instanceof Error ? erro.message : 'Não consegui ler o arquivo.');
+  }
+}
+
+/** O que a conferência achou: pontos prontos, linhas com problema e o período tirado do arquivo. */
+function ResumoDaPrevia({ validos, comErro, periodo }: { validos: number; comErro: LinhaImportada[]; periodo: { inicio?: string; fim?: string } | null }) {
+  return (
+    <>
+      <p>
+        <strong>{validos}</strong> ponto(s) pronto(s) para importar
+        {comErro.length > 0 && <> e <strong className="texto--atencao">{comErro.length}</strong> linha(s) com problema (não entram; corrija o arquivo e confira de novo)</>}.
+      </p>
+      {periodo && <p data-testid="periodo-do-arquivo">Período tirado do arquivo: {textoPeriodo(periodo)}. Ele será gravado na operação ao importar.</p>}
+      {comErro.length > 0 && (
+        <ul className="lista-limpa" aria-label="Linhas com problema">
+          {comErro.map((l) => <li key={l.linha} className="texto--atencao texto-pequeno">Linha {l.linha}: {l.erros.join(' ')}</li>)}
+        </ul>
+      )}
+    </>
+  );
+}
+
 function ImportarCsv({ operacao }: { operacao: Operacao }) {
   const [texto, setTexto] = useState('');
   const [resultado, setResultado] = useState<ResultadoCsv | null>(null);
@@ -68,13 +97,12 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
   const lerArquivo = async (e: ChangeEvent<HTMLInputElement>) => {
     const arquivo = e.target.files?.[0];
     if (!arquivo) return;
-    const bytes = new Uint8Array(await arquivo.arrayBuffer());
     let conteudo: string;
     try {
-      conteudo = ehXlsx(bytes) ? await xlsxParaCsv(bytes) : decodificarCsv(bytes);
+      conteudo = await textoDoArquivo(arquivo);
     } catch (erro) {
       setResultado(null);
-      return setMensagem(erro instanceof Error ? erro.message : 'Não consegui ler o arquivo.');
+      return setMensagem((erro as Error).message);
     }
     setTexto(conteudo);
     conferir(conteudo);
@@ -118,18 +146,7 @@ function ImportarCsv({ operacao }: { operacao: Operacao }) {
       {resultado?.erro && <p role="alert" className="erro-campo">{resultado.erro}</p>}
       {resultado && !resultado.erro && (
         <div data-testid="previa-importacao">
-          <p>
-            <strong>{validos.length}</strong> ponto(s) pronto(s) para importar
-            {comErro.length > 0 && <> e <strong className="texto--atencao">{comErro.length}</strong> linha(s) com problema (não entram; corrija o arquivo e confira de novo)</>}.
-          </p>
-          {vaiPreencher && (
-            <p data-testid="periodo-do-arquivo">Período tirado do arquivo: {textoPeriodo(vaiPreencher)}. Ele será gravado na operação ao importar.</p>
-          )}
-          {comErro.length > 0 && (
-            <ul className="lista-limpa" aria-label="Linhas com problema">
-              {comErro.map((l) => <li key={l.linha} className="texto--atencao texto-pequeno">Linha {l.linha}: {l.erros.join(' ')}</li>)}
-            </ul>
-          )}
+          <ResumoDaPrevia validos={validos.length} comErro={comErro} periodo={vaiPreencher} />
           <div className="acoes">
             <button type="button" className="botao botao--primario" disabled={validos.length === 0} onClick={importar}>
               Importar {validos.length} ponto(s)
@@ -416,24 +433,119 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
   );
 }
 
+// ---------- Nova operação: importar primeiro, nomear depois ----------
+
+function NovaOperacao({ operacoes, agora, aoCriar }: { operacoes: readonly Operacao[]; agora: () => Date; aoCriar: (id: string) => void }) {
+  const entrada = useRef<HTMLInputElement>(null);
+  const [manual, setManual] = useState(false);
+  const [form, setForm] = useState({ nome: '', inicio: '', fim: '', origem: '' });
+  const [previa, setPrevia] = useState<ResultadoCsv | null>(null);
+  const [importada, setImportada] = useState({ nome: '', origem: '' });
+  const [erro, setErro] = useState<string | null>(null);
+  const validos = previa?.linhas.filter((l) => l.ponto) ?? [];
+  const comErro = previa?.linhas.filter((l) => l.erros.length) ?? [];
+
+  const criarManual = (e: FormEvent) => {
+    e.preventDefault();
+    const r = criarOperacao(form, agora().toISOString());
+    if (!r.ok) return setErro(r.erro);
+    setErro(null);
+    setForm({ nome: '', inicio: '', fim: '', origem: '' });
+    aoCriar(r.id);
+  };
+
+  const escolher = async (e: ChangeEvent<HTMLInputElement>) => {
+    const arquivo = e.target.files?.[0];
+    if (!arquivo) return;
+    setErro(null);
+    try {
+      const resultado = importarPontosCsv(await textoDoArquivo(arquivo));
+      const ok = resultado.linhas.filter((l) => l.ponto);
+      setPrevia(resultado);
+      setImportada({
+        nome: sugerirNomeOperacao(ok.map((l) => ({ municipio: l.ponto!.municipio, resultado: l.resultado, mes: l.mes, saida: l.ponto!.saida })), operacoes),
+        origem: '',
+      });
+    } catch (falha) {
+      setPrevia(null);
+      setErro((falha as Error).message);
+    }
+  };
+
+  const criarImportada = (e: FormEvent) => {
+    e.preventDefault();
+    const r = criarOperacaoComPontos({ nome: importada.nome, inicio: '', fim: '', origem: importada.origem }, agora().toISOString(), validos.map((l) => l.ponto!));
+    if (!r.ok) return setErro(r.erro);
+    setPrevia(null);
+    setErro(null);
+    aoCriar(r.id);
+  };
+
+  return (
+    <section className="cartao formulario" aria-labelledby="titulo-nova-operacao">
+      <h2 id="titulo-nova-operacao" className="titulo-secao">Nova operação</h2>
+      <input ref={entrada} type="file" hidden accept=".csv,.xlsx,text/csv,text/plain" data-testid="arquivo-nova-operacao" onChange={escolher} onClick={(e) => { e.currentTarget.value = ''; }} />
+      {previa === null && (
+        <div className="acoes">
+          <button type="button" className="botao botao--primario" onClick={() => entrada.current?.click()}>Importar planilha</button>
+          <button type="button" className="botao botao--pequeno" aria-expanded={manual} onClick={() => setManual(!manual)}>ou criar sem planilha</button>
+        </div>
+      )}
+      {erro && previa === null && !manual && <span role="alert" className="erro-campo">{erro}</span>}
+
+      {previa?.erro && (
+        <>
+          <p role="alert" className="erro-campo">{previa.erro}</p>
+          <div className="acoes"><button type="button" className="botao" onClick={() => setPrevia(null)}>Cancelar</button></div>
+        </>
+      )}
+
+      {previa && !previa.erro && (
+        <form onSubmit={criarImportada} noValidate data-testid="previa-nova-operacao">
+          <ResumoDaPrevia validos={validos.length} comErro={comErro} periodo={previa.periodoDoArquivo ?? null} />
+          {validos.length > 0 && (
+            <>
+              <label className="campo-grupo"><span>Nome *</span>
+                <input className="campo" value={importada.nome} maxLength={LIMITES_OPERACAO.nome} onChange={(e) => setImportada({ ...importada, nome: e.target.value })} /></label>
+              <label className="campo-grupo"><span>Quem encaminhou (opcional)</span>
+                <input className="campo" value={importada.origem} maxLength={LIMITES_OPERACAO.origem} onChange={(e) => setImportada({ ...importada, origem: e.target.value })} /></label>
+            </>
+          )}
+          {erro && <span role="alert" className="erro-campo">{erro}</span>}
+          <div className="acoes">
+            {validos.length > 0 && <button type="submit" className="botao botao--primario">Criar operação com {validos.length} ponto(s)</button>}
+            <button type="button" className="botao" onClick={() => { setPrevia(null); setErro(null); }}>Cancelar</button>
+          </div>
+        </form>
+      )}
+
+      {manual && previa === null && (
+        <form onSubmit={criarManual} noValidate aria-label="Criar operação sem planilha">
+          <label className="campo-grupo"><span>Nome *</span>
+            <input className="campo" value={form.nome} maxLength={LIMITES_OPERACAO.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></label>
+          <div className="grade grade--2">
+            <label className="campo-grupo"><span>Início (opcional)</span>
+              <input className="campo" type="date" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Fim (opcional)</span>
+              <input className="campo" type="date" value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} /></label>
+          </div>
+          <label className="campo-grupo"><span>Quem encaminhou (opcional)</span>
+            <input className="campo" value={form.origem} maxLength={LIMITES_OPERACAO.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} /></label>
+          {erro && <span role="alert" className="erro-campo">{erro}</span>}
+          <div className="acoes"><button type="submit" className="botao botao--primario">Criar operação</button></div>
+        </form>
+      )}
+    </section>
+  );
+}
+
 // ---------- Lista ----------
 
 export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) {
   const operacoes = useOperacoes();
   const soNaMemoria = useOperacoesSoNaMemoria();
   const [aberta, setAberta] = useState<string | null>(null);
-  const [form, setForm] = useState({ nome: '', inicio: '', fim: '', origem: '' });
-  const [erro, setErro] = useState<string | null>(null);
   const emDetalhe = operacoes.find((o) => o.id === aberta);
-
-  const criar = (e: FormEvent) => {
-    e.preventDefault();
-    const r = criarOperacao(form, agora().toISOString());
-    if (!r.ok) return setErro(r.erro);
-    setErro(null);
-    setForm({ nome: '', inicio: '', fim: '', origem: '' });
-    setAberta(r.id);
-  };
 
   return (
     <section aria-labelledby="titulo-operacoes" className="pagina">
@@ -451,25 +563,10 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
             Fiscalizações encaminhadas por terceiros, com lista de pontos para vistoria. Os dados ficam só neste navegador:
             use dados reais apenas depois de classificação e autorização institucional.
           </p>
-          <form onSubmit={criar} className="cartao formulario" noValidate aria-labelledby="titulo-nova-operacao">
-            <h2 id="titulo-nova-operacao" className="titulo-secao">Nova operação</h2>
-            <label className="campo-grupo"><span>Nome *</span>
-              <input className="campo" value={form.nome} maxLength={LIMITES_OPERACAO.nome} onChange={(e) => setForm({ ...form, nome: e.target.value })} /></label>
-            <div className="grade grade--2">
-              <label className="campo-grupo"><span>Início (opcional)</span>
-                <input className="campo" type="date" value={form.inicio} onChange={(e) => setForm({ ...form, inicio: e.target.value })} /></label>
-              <label className="campo-grupo"><span>Fim (opcional)</span>
-                <input className="campo" type="date" value={form.fim} onChange={(e) => setForm({ ...form, fim: e.target.value })} /></label>
-            </div>
-            <p className="texto-pequeno texto-suave">Se o CSV trouxer as datas de saída e retorno, o período vem dele. Sem CSV, o período é opcional.</p>
-            <label className="campo-grupo"><span>Quem encaminhou (opcional)</span>
-              <input className="campo" value={form.origem} maxLength={LIMITES_OPERACAO.origem} onChange={(e) => setForm({ ...form, origem: e.target.value })} /></label>
-            {erro && <span role="alert" className="erro-campo">{erro}</span>}
-            <div className="acoes"><button type="submit" className="botao botao--primario">Criar operação</button></div>
-          </form>
+          <NovaOperacao operacoes={operacoes} agora={agora} aoCriar={setAberta} />
 
           {operacoes.length === 0 ? (
-            <EstadoVazio cartao texto="Nenhuma operação cadastrada." dica="Crie a operação e depois importe a lista de pontos." />
+            <EstadoVazio cartao texto="Nenhuma operação cadastrada." dica="Importe a planilha de pontos ou crie a operação sem planilha." />
           ) : (
             <ul className="lista-limpa grade grade--2" aria-label="Lista de operações">
               {operacoes.map((o) => (

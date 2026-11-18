@@ -14,6 +14,7 @@ function montar() {
       <Operacoes />
     </ContextoArmazem.Provider>,
   );
+  fireEvent.click(screen.getByRole('button', { name: 'ou criar sem planilha' })); // os testes antigos criam pelo formulário
   return armazem;
 }
 
@@ -340,5 +341,57 @@ describe('Painel: demanda encaixada numa operação não conta como "falta encai
       incluirPontos(r.id, [{ coordenada: { lat: -11.5, lon: -58.5 }, municipio: '', notas: '', demandas: ['dem-1'], situacao: 'planejado' }]);
     });
     expect(screen.queryByTestId('sem-vistoria')).toBeNull();
+  });
+});
+
+describe('nova operação: importar primeiro, nomear depois', () => {
+  const CSV_DEZ = [
+    'N_PONTO;EQUIPE;COORD_X;COORD_Y;MUNICIPIO;DAT_SAIDA;DAT_RETOR;NOT_PLANEJ;MES_PPROG;FISCALIZADO_AUTUADO',
+    '1;Equipe A;58.5 W;11.5 S;Castanheira;2026-12-07;2026-12-11;;202612;',
+    '2;Equipe A;58.6 W;11.6 S;Castanheira;2026-12-07;2026-12-11;;202612;',
+    '3;Equipe B;58.7 W;11.7 S;Castanheira;2026-12-08;2026-12-11;;202612;',
+    '4;Equipe B;58.8 W;11.8 S;Juína;2026-12-08;2026-12-11;;202612;FISCALIZADO',
+  ].join('\n');
+  // O File do jsdom não tem arrayBuffer(); o navegador tem.
+  const escolher = (texto: string) => {
+    const arquivo = new File([texto], 'pontos.csv', { type: 'text/csv' });
+    Object.defineProperty(arquivo, 'arrayBuffer', { value: async () => new TextEncoder().encode(texto).buffer });
+    fireEvent.change(screen.getByTestId('arquivo-nova-operacao'), { target: { files: [arquivo] } });
+  };
+
+  it('importa, sugere o nome, deixa editar e cria a operação com os pontos de uma vez', async () => {
+    montar();
+    escolher(CSV_DEZ);
+    await screen.findByTestId('previa-nova-operacao');
+    expect(screen.getByLabelText('Nome *')).toHaveValue('Operação Castanheira – dez/2026');
+    expect(screen.getByTestId('previa-nova-operacao')).toHaveTextContent('4 ponto(s) pronto(s)');
+    expect(obterOperacoes()).toHaveLength(0); // nada é gravado antes da confirmação
+    fireEvent.change(screen.getByLabelText('Nome *'), { target: { value: 'Operação de dezembro' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação com 4 ponto(s)' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Operação de dezembro' })).toBeInTheDocument();
+    expect(screen.getByTestId('resumo-operacao')).toHaveTextContent('4 ponto(s)');
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar às operações' }));
+    expect(screen.getByText('Operação de dezembro')).toBeInTheDocument();
+    expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-12-07', fim: '2026-12-11' });
+  });
+
+  it('exige o nome e "Cancelar" descarta tudo', async () => {
+    montar();
+    escolher(CSV_DEZ);
+    await screen.findByTestId('previa-nova-operacao');
+    fireEvent.change(screen.getByLabelText('Nome *'), { target: { value: '  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação com 4 ponto(s)' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Informe o nome da operação.');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByTestId('previa-nova-operacao')).toBeNull();
+    expect(obterOperacoes()).toHaveLength(0);
+  });
+
+  it('sem nenhuma linha válida: mostra os erros e não oferece criar', async () => {
+    montar();
+    escolher('N_PONTO;COORD_X;COORD_Y;MUNICIPIO\n1;abc;def;Lugar');
+    expect(await screen.findByText(/Linha 2:/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Criar operação com/ })).toBeNull();
+    expect(screen.queryByLabelText('Nome *')).toBeNull();
   });
 });
