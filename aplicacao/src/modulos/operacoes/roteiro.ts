@@ -2,11 +2,11 @@
 // e o que levar, uma folha por ponto (dados, campo a preencher à mão, croqui, assinaturas) e, nos pontos com o bloco ativo,
 // o verso "Caracterização do dano (POP)" com caixas de marcar (itens, opções e desvios de pop-supressao.ts).
 // O navegador imprime ou salva em PDF. Só dados do próprio navegador; nada sai daqui.
-// Não entram (o GUARÁ não tem): imóvel/local, área desmatada, CAR e situação, responsável/contato/documento, etiquetas, motorista.
+// Não entram, de propósito: responsável/contato/documento (sem CPF nem contato de pessoa). CAR federal fica "—" (o GUARÁ não tem).
 
 import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
-import type { Operacao, Ponto, Viagem } from './modelo.ts';
-import { blocoPopAtivo, FONTE_POP, ITENS_POP, type ItemPop } from './pop-supressao.ts';
+import { SITUACOES_CAR, type Operacao, type Ponto, type Viagem } from './modelo.ts';
+import { blocoPopAtivo, FONTE_POP, ITENS_POP, sugestoesPop, type ItemPop } from './pop-supressao.ts';
 import { textoViagem } from './regras.ts';
 
 export interface DemandaDoRoteiro { id: string; titulo: string; processo?: string }
@@ -23,10 +23,10 @@ function desvios(it: ItemPop): string[] {
   return (it.opcoes ?? []).filter((op) => op.vai && POSICAO.get(op.vai)! > i + 1).map((op) => `Se "${esc(op.texto)}", pule para ${esc(op.vai!)}.`);
 }
 
-function itemPop(it: ItemPop): string {
+function itemPop(it: ItemPop, sugestao?: string): string {
   const titulo = `<b>${esc(it.id)}.</b> ${esc(it.texto)}${it.tipo === 'multipla' ? ' <i>(pode marcar mais de um)</i>' : ''}`;
   if (it.tipo === 'texto') return `<div class="it"><p>${titulo}</p><p>${linha(60)}</p></div>`;
-  return `<div class="it"><p>${titulo}</p><p class="ops">${caixas(...it.opcoes!.map((o) => o.texto))}</p>${desvios(it).map((d) => `<p class="desvio">${d}</p>`).join('')}</div>`;
+  return `<div class="it"><p>${titulo}</p><p class="ops">${it.opcoes!.map((o) => `<span class="op">${CAIXA} ${esc(o.texto)}${o.texto === sugestao ? ' <i class="sug">(sugerido — conferir)</i>' : ''}</span>`).join(' ')}</p>${desvios(it).map((d) => `<p class="desvio">${d}</p>`).join('')}</div>`;
 }
 
 /** Formulário A em duas páginas, divididas pelo peso (texto das perguntas e opções) para não deixar uma cheia e a outra vazia. */
@@ -42,7 +42,7 @@ function paginasPop(): ItemPop[][] {
 function versoPop(p: Ponto, rotuloPonto: string): string {
   return paginasPop().map((itens, k) => `<article class="folha folha--pop"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Caracterização do dano (POP) · ${k + 1}/2</p></header>
 ${k === 0 ? `<p class="peq">Formulário A, preencher em campo. Fonte: ${esc(FONTE_POP)}. Transcreva depois no ponto do GUARÁ. Não anote CPF, endereço ou nome do autuado.</p>` : ''}
-<div class="col">${itens.map(itemPop).join('')}</div></article>`).join('');
+<div class="col">${itens.map((it) => itemPop(it, sugestoesPop(p)[it.id])).join('')}</div></article>`).join('');
 }
 
 /** Constatação de embargo só em ponto com demanda de embargo ligada. */
@@ -55,7 +55,13 @@ function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly Deman
     ['Demanda', ligadas.map((d) => d.titulo).join('; ') || '—'],
     ['Processo', ligadas.map((d) => d.processo).filter(Boolean).join('; ') || '—'],
     ['Código', p.codigo ?? '—'],
+    ['Imóvel / local', p.imovel ?? '—'],
+    ['Desmate (ha)', p.areaHa !== undefined ? String(p.areaHa).replace('.', ',') : '—'],
+    ['CAR estadual', p.car ?? '—'],
+    ['CAR federal', '—'],
+    ['Situação do CAR', p.situacaoCar ? SITUACOES_CAR[p.situacaoCar] : '—'],
     ['Tipo de dano', p.tipoDano ?? '—'],
+    ['Etiquetas', p.etiquetas?.join(', ') || '—'],
     ['Coordenadas', formatarGms(p.coordenada)],
     ['', `${formatarDecimal(p.coordenada)} (graus decimais, EPSG:4674)`],
     ['Observações / planejamento', p.notas || '—'],
@@ -86,7 +92,7 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:2p
 .ln{display:inline-block;border-bottom:1px solid #000;height:1em;vertical-align:baseline}.obs{height:1.9em}.obs .ln{display:block;width:100%}
 .folha{display:flex;flex-direction:column;break-after:page;page-break-after:always;min-height:260mm}.folha:last-child{break-after:auto;page-break-after:auto}
 .croqui{flex:1;min-height:40mm;border:1px solid #000;padding:2px;text-align:right;font-size:9pt}.ass{display:flex;justify-content:space-between;margin-top:14px}
-.folha--pop{min-height:0}.col{column-count:2;column-gap:10px;font-size:8.5pt;line-height:1.25}.it{break-inside:avoid;margin-bottom:5px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .op{white-space:normal}.desvio{font-style:italic}
+.folha--pop{min-height:0}.col{column-count:2;column-gap:10px;font-size:8.5pt;line-height:1.25}.it{break-inside:avoid;margin-bottom:5px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
 .barra{margin:0 0 8px}@media screen{body{max-width:190mm;margin:0 auto}}@media print{.barra{display:none}body{padding:0}}`;
 
 /** Página completa do roteiro. `geradoEm` é AAAA-MM-DD. */
@@ -96,14 +102,14 @@ export function htmlDoRoteiro(o: { operacao: Operacao; viagem: Viagem; pontos: r
   const rotuloViagem = textoViagem(viagem);
   const municipios = [...new Set(pontos.map((p) => p.municipio).filter(Boolean))];
   const gerado = geradoEm.split('-').reverse().join('/');
-  const capa = `<article class="folha"><header class="cab"><h1>Roteiro de vistoria</h1><p>Motorista: ${linha(60)}</p></header>
+  const capa = `<article class="folha"><header class="cab"><h1>Roteiro de vistoria</h1><p>Motorista: ${viagem.motorista ? `<b>${esc(viagem.motorista)}</b>` : linha(60)}</p></header>
 <h2>${esc(operacao.nome)}</h2><p>${esc(rotuloViagem)}</p>
 ${municipios.length ? `<p>Municípios: ${esc(municipios.join(', '))}</p>` : ''}
 <p>Equipe: ${esc(viagem.equipe || '—')}${viagem.integrantes.length ? ` · Integrantes: ${esc(viagem.integrantes.join(', '))}` : ''}${viagem.veiculos.length ? ` · Veículos: ${esc(viagem.veiculos.join(', '))}` : ''}</p>
 <h3>Pontos na ordem</h3>
-${pontos.length ? `<table><thead><tr><th>Nº</th><th>Ponto</th><th>Município</th><th>Coordenadas</th><th>Demanda</th></tr></thead><tbody>${pontos.map((p, i) => {
+${pontos.length ? `<table><thead><tr><th>Nº</th><th>Ponto</th><th>Município</th><th>Coordenadas</th><th>Demanda / etiquetas</th></tr></thead><tbody>${pontos.map((p, i) => {
     const ligadas = p.demandas.map((id) => demandas.find((d) => d.id === id)).filter((d): d is DemandaDoRoteiro => !!d);
-    return `<tr><td>${i + 1}</td><td>${String(p.numero ?? i + 1).padStart(2, '0')}</td><td>${esc(p.municipio)}</td><td>${esc(formatarGms(p.coordenada))}</td><td>${esc(ligadas.map((d) => d.titulo + (d.processo ? ` · ${d.processo}` : '')).join('; ') || '—')}</td></tr>`;
+    return `<tr><td>${i + 1}</td><td>${String(p.numero ?? i + 1).padStart(2, '0')}</td><td>${esc(p.municipio)}</td><td>${esc(formatarGms(p.coordenada))}</td><td>${esc(ligadas.map((d) => d.titulo + (d.processo ? ` · ${d.processo}` : '')).join('; ') || '—')}${p.etiquetas?.length ? `<br><i>${esc(p.etiquetas.join(', '))}</i>` : ''}</td></tr>`;
   }).join('')}</tbody></table>` : '<p>Nenhum ponto nesta viagem.</p>'}
 <h3>Checklist: o que levar</h3><p>${caixas('Pontos e coordenadas', 'Mapa', 'Documentos', 'GPS', 'Drone', 'Câmera')}</p>
 <p class="peq">Gerado em ${gerado} pelo GUARÁ, com dados do seu navegador. Apoio ao trabalho; decisões e registros oficiais são humanos.</p></article>`;

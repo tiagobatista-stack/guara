@@ -1,10 +1,10 @@
 // Caracterização do dano no cartão do ponto: transcrição das respostas do POP IBAMA (itens e desvios em pop-supressao.ts)
 // e dos dados de campo do roteiro. Quem usa grava a mudança no armazém da operação.
 
-import { useId, useState } from 'react';
+import { Fragment, useId, useState } from 'react';
 import type { Ponto } from './modelo.ts';
 import {
-  FONTE_POP, itensAplicaveis, itensDeCampoSemResposta, ITENS_POP, LIMITE_TEXTO_POP, respondido, textoCaracterizacao, type Caracterizacao, type ItemPop, type Resposta,
+  FONTE_POP, itensAplicaveis, marcadas, sugestoesPop, itensDeCampoSemResposta, ITENS_POP, LIMITE_TEXTO_POP, respondido, textoCaracterizacao, type Caracterizacao, type ItemPop, type Resposta,
 } from './pop-supressao.ts';
 
 type Mudancas = Partial<Pick<Ponto, 'caracterizacao' | 'coordenadaAferida' | 'waypoint' | 'fotos' | 'drone' | 'pessoaContatada'>>;
@@ -44,6 +44,7 @@ function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undef
 }
 
 export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
+  const sugestoes = sugestoesPop(ponto);
   const [aviso, setAviso] = useState<string | null>(null);
   const resp: Caracterizacao = ponto.caracterizacao ?? {};
   const aplicaveis = itensAplicaveis(resp);
@@ -97,7 +98,21 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto
           <div key={f}>
             <h4 className="titulo-secao titulo-secao--bloco">{f === 'A' ? 'Formulário A (preencher em campo)' : 'Formulário B (preencher em escritório)'}</h4>
             <div className="formulario">
-              {aplicaveis.filter((it) => it.formulario === f).map((it) => <Item key={it.id} item={it} valor={resp[it.id]} aoMudar={(v) => mudar(it, v)} />)}
+              {aplicaveis.filter((it) => it.formulario === f).map((it) => {
+                const sug = sugestoes[it.id];
+                const jaMarcada = marcadas(resp[it.id]).includes(sug);
+                return (
+                  <Fragment key={it.id}>
+                    <Item item={it} valor={resp[it.id]} aoMudar={(v) => mudar(it, v)} />
+                    {sug && !jaMarcada && (
+                      <p className="texto-pequeno" data-testid={`sugestao-${it.id}`}>
+                        Sugerido — conferir ({it.id}): {sug}.{' '}
+                        <button type="button" className="botao botao--pequeno" onClick={() => mudar(it, it.tipo === 'multipla' ? [...marcadas(resp[it.id]), sug] : sug)}>Usar sugestão</button>
+                      </p>
+                    )}
+                  </Fragment>
+                );
+              })}
             </div>
           </div>
         ))}

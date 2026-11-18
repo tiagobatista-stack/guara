@@ -19,7 +19,7 @@ import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { decodificarCsv, importarPontosCsv, type LinhaImportada, type ResultadoCsv } from './importar-csv.ts';
 import { ehXlsx, xlsxParaCsv } from './ler-xlsx.ts';
 import {
-  LIMITES_OPERACAO, MOTIVOS_PERIODO, MOTIVOS_SUGERIDOS, RESULTADOS, RESULTADOS_COM_MOTIVO, SITUACOES_ACOMPANHAMENTO,
+  ETIQUETAS_SUGERIDAS, LIMITES_OPERACAO, MOTIVOS_PERIODO, SITUACOES_CAR, type SituacaoCar, MOTIVOS_SUGERIDOS, RESULTADOS, RESULTADOS_COM_MOTIVO, SITUACOES_ACOMPANHAMENTO,
   type MotivoPeriodo, type Operacao, type Ponto, type PontoNovo, type ResultadoPonto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
 import {
@@ -380,7 +380,7 @@ function CampoLista({ rotulo, itens, sugestoes, max, aoMudar }: { rotulo: string
 type Sugestoes = ReturnType<typeof sugestoesDeViagem>;
 
 const dadosDaViagem = (v?: Viagem): DadosViagem => ({
-  equipe: v?.equipe ?? '', integrantes: v?.integrantes ?? [], veiculos: v?.veiculos ?? [], saida: v?.saida ?? '', retorno: v?.retorno ?? '', notas: v?.notas ?? '',
+  equipe: v?.equipe ?? '', integrantes: v?.integrantes ?? [], veiculos: v?.veiculos ?? [], motorista: v?.motorista ?? '', saida: v?.saida ?? '', retorno: v?.retorno ?? '', notas: v?.notas ?? '',
 });
 
 function FormularioViagem({ operacao, viagem, sugestoes, aoTerminar }: { operacao: Operacao; viagem?: Viagem; sugestoes: Sugestoes; aoTerminar: () => void }) {
@@ -418,6 +418,13 @@ function FormularioViagem({ operacao, viagem, sugestoes, aoTerminar }: { operaca
       </div>
       <CampoLista rotulo="Integrantes" itens={[...form.integrantes]} sugestoes={sugestoes.integrantes} max={LIMITES_OPERACAO.integrante}
         aoMudar={(integrantes) => setForm({ ...form, integrantes })} />
+      {form.integrantes.length > 0 && (
+        <label className="campo-grupo"><span>Motorista</span>
+          <select className="campo" value={form.integrantes.includes(form.motorista ?? '') ? form.motorista : ''} onChange={(e) => setForm({ ...form, motorista: e.target.value })}>
+            <option value="">Não definido</option>
+            {form.integrantes.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select></label>
+      )}
       <CampoLista rotulo="Veículos" itens={[...form.veiculos]} sugestoes={sugestoes.veiculos} max={LIMITES_OPERACAO.veiculo}
         aoMudar={(veiculos) => setForm({ ...form, veiculos })} />
       <label className="campo-grupo"><span>Notas da viagem</span>
@@ -476,6 +483,7 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
               <dl className="dados-definicao">
                 <dt>Integrantes</dt><dd>{v.integrantes.length ? v.integrantes.join(', ') : <span className="texto--atencao">nenhum</span>}</dd>
                 <dt>Veículos</dt><dd>{v.veiculos.length ? v.veiculos.join(', ') : <span className="texto--atencao">nenhum</span>}</dd>
+                {v.motorista && <><dt>Motorista</dt><dd>{v.motorista}</dd></>}
                 {v.notas && <><dt>Notas</dt><dd>{v.notas}</dd></>}
               </dl>
               {faltas.length > 0 && <p className="texto-pequeno texto--atencao" data-testid={`incompleta-${v.id}`}>Incompleta: falta {faltas.join(', ')}.</p>}
@@ -584,7 +592,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio' | 'cancelar' | 'reprogramar'>('ver');
   const [destinoReprog, setDestinoReprog] = useState('');
   const [relatorio, setRelatorio] = useState({ enviadoEm: '', protocoloSiga: '', notas: '' });
-  const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '' });
+  const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '', imovel: '', areaHa: '', car: '', situacaoCar: '' as SituacaoCar | '', etiquetas: [] as string[] });
   const [erro, setErro] = useState<string | null>(null);
   const [ligar, setLigar] = useState('');
   const [motivoCancelamento, setMotivoCancelamento] = useState('');
@@ -605,7 +613,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 
   // O formulário parte do ponto como está agora (agrupar em lote ou mudar de viagem não pode ser desfeito por um "Salvar" antigo).
   const abrirEdicao = () => {
-    setForm({ viagem: ponto.viagem ?? '', grupo: ponto.grupo ?? '', notas: ponto.notas, numero: ponto.numero !== undefined ? String(ponto.numero) : '', municipio: ponto.municipio, tipoDano: ponto.tipoDano ?? '' });
+    setForm({ viagem: ponto.viagem ?? '', grupo: ponto.grupo ?? '', notas: ponto.notas, numero: ponto.numero !== undefined ? String(ponto.numero) : '', municipio: ponto.municipio, tipoDano: ponto.tipoDano ?? '', imovel: ponto.imovel ?? '', areaHa: ponto.areaHa !== undefined ? String(ponto.areaHa).replace('.', ',') : '', car: ponto.car ?? '', situacaoCar: ponto.situacaoCar ?? '', etiquetas: ponto.etiquetas ?? [] });
     setErro(null);
     setModo('editar');
   };
@@ -613,7 +621,11 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
     e.preventDefault();
     const numero = form.numero.trim();
     if (numero && !/^\d+$/.test(numero)) return setErro('O número do ponto deve ser um inteiro.');
+    const areaTexto = form.areaHa.trim().replace(',', '.');
+    const areaHa = areaTexto ? Number(areaTexto) : undefined;
+    if (areaHa !== undefined && !(areaHa > 0)) return setErro('A área deve ser um número maior que zero.');
     const problema = alterarPonto(operacao.id, ponto.id, {
+      imovel: form.imovel.trim(), car: form.car.trim(), areaHa, situacaoCar: form.situacaoCar || undefined, etiquetas: form.etiquetas,
       viagem: form.viagem, grupo: form.grupo.trim(), notas: form.notas.trim(), municipio: form.municipio.replace(/\s+/g, ' ').trim(), tipoDano: form.tipoDano.trim(),
       ...(numero ? { numero: Number(numero) } : {}),
     });
@@ -721,6 +733,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         <dt>Código</dt><dd className="mono" data-testid={`codigo-${ponto.id}`}>{ponto.codigo ?? <span className="texto--atencao">sem código</span>}</dd>
         <dt>Coordenada</dt><dd className="mono">{formatarGms(ponto.coordenada)}</dd>
         {ponto.tipoDano && <><dt>Tipo de dano</dt><dd data-testid={`tipo-dano-${ponto.id}`}>{ponto.tipoDano}</dd></>}
+        {ponto.imovel && <><dt>Imóvel / local</dt><dd data-testid={`imovel-${ponto.id}`}>{ponto.imovel}</dd></>}
+        {ponto.areaHa !== undefined && <><dt>Desmate (ha)</dt><dd data-testid={`area-${ponto.id}`}>{String(ponto.areaHa).replace('.', ',')}</dd></>}
+        {(ponto.car || ponto.situacaoCar) && <><dt>CAR</dt><dd data-testid={`car-${ponto.id}`}>{[ponto.car, ponto.situacaoCar && SITUACOES_CAR[ponto.situacaoCar]].filter(Boolean).join(' · ')}</dd></>}
+        {ponto.etiquetas && <><dt>Etiquetas</dt><dd data-testid={`etiquetas-${ponto.id}`}>{ponto.etiquetas.map((e) => <span key={e} className="selo-situacao texto-pequeno">{e}</span>)}</dd></>}
         <dt>Viagem</dt><dd data-testid={`viagem-ponto-${ponto.id}`}>{viagem ? textoViagem(viagem) : <span className="texto--atencao">sem viagem</span>}</dd>
         {ponto.grupo && <><dt>Grupo</dt><dd data-testid={`grupo-${ponto.id}`}>{ponto.grupo}</dd></>}
         {ponto.notas && <><dt>Notas</dt><dd>{ponto.notas}</dd></>}
@@ -825,7 +841,19 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
               </select></label>
             <label className="campo-grupo"><span>Grupo</span>
               <input className="campo" value={form.grupo} maxLength={LIMITES_OPERACAO.grupo} onChange={(e) => setForm({ ...form, grupo: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Imóvel / local</span>
+              <input className="campo" value={form.imovel} maxLength={LIMITES_OPERACAO.imovel} autoComplete="off" onChange={(e) => setForm({ ...form, imovel: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Desmate (ha)</span>
+              <input className="campo" inputMode="decimal" value={form.areaHa} autoComplete="off" onChange={(e) => setForm({ ...form, areaHa: e.target.value })} /></label>
+            <label className="campo-grupo"><span>CAR estadual</span>
+              <input className="campo" value={form.car} maxLength={LIMITES_OPERACAO.car} autoComplete="off" onChange={(e) => setForm({ ...form, car: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Situação do CAR</span>
+              <select className="campo" value={form.situacaoCar} onChange={(e) => setForm({ ...form, situacaoCar: e.target.value as SituacaoCar | '' })}>
+                <option value="">Não informada</option>
+                {(Object.keys(SITUACOES_CAR) as SituacaoCar[]).map((k) => <option key={k} value={k}>{SITUACOES_CAR[k]}</option>)}
+              </select></label>
           </div>
+          <CampoLista rotulo="Etiquetas" itens={form.etiquetas} sugestoes={[...ETIQUETAS_SUGERIDAS]} max={LIMITES_OPERACAO.etiqueta} aoMudar={(etiquetas) => setForm({ ...form, etiquetas })} />
           <label className="campo-grupo"><span>Notas</span>
             <textarea className="campo campo--area" rows={2} value={form.notas} maxLength={LIMITES_OPERACAO.notas} onChange={(e) => setForm({ ...form, notas: e.target.value })} /></label>
           <div className="acoes">

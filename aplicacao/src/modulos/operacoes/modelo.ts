@@ -28,6 +28,8 @@ export interface Viagem {
   integrantes: string[];
   /** Veículos (prefixo, placa ou descrição curta); um ou mais para a viagem ficar completa. */
   veiculos: string[];
+  /** Um dos integrantes, que dirige; o roteiro imprime o nome. */
+  motorista?: string;
   /** AAAA-MM-DD. */
   saida?: string;
   retorno?: string;
@@ -83,6 +85,13 @@ export interface Ponto {
   anotacoes?: Anotacao[];
   /** Caracterização do dano (POP IBAMA, Anexo I): resposta por item ("A-10"); ver pop-supressao.ts. Sem CPF, endereço ou nome do autuado. */
   caracterizacao?: Caracterizacao;
+  /** Planejamento (opcionais): imóvel/local, área desmatada em ha (> 0, 1 casa), CAR estadual e situação do CAR. */
+  imovel?: string;
+  areaHa?: number;
+  car?: string;
+  situacaoCar?: SituacaoCar;
+  /** Etiquetas livres (até 10, 30 caracteres cada), com sugestões em ETIQUETAS_SUGERIDAS. */
+  etiquetas?: string[];
   /** Ativa o bloco da caracterização (POP) num ponto cujo tipo de dano não o traz sozinho. */
   popAtivo?: boolean;
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
@@ -161,7 +170,15 @@ export interface Operacao {
   historico?: EventoOperacao[];
 }
 
+export type SituacaoCar = 'com-car' | 'sem-car' | 'nao-verificado';
+export const SITUACOES_CAR: Record<SituacaoCar, string> = { 'com-car': 'com CAR', 'sem-car': 'sem CAR', 'nao-verificado': 'não verificado' };
+export const ETIQUETAS_SUGERIDAS = ['hot spot', 'DLA suspeita', 'fora de CAR', 'não embargado', 'perto de TI', 'perto de embargo', 'não fiscalizado antes', 'desmate 2026'] as const;
+
 export const LIMITES_OPERACAO = {
+  imovel: 120,
+  car: 60,
+  etiquetas: 10,
+  etiqueta: 30,
   nome: 80,
   origem: 80,
   municipio: 80,

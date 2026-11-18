@@ -23,7 +23,10 @@ export function Mapa() {
   const alternarTelaCheia = () => { void (telaCheia ? document.exitFullscreen() : cartao.current?.requestFullscreen()); };
   const [ver, setVer] = useState({ demanda: true, ponto: true });
   const { noMapa, semLocal } = useMemo(() => itensDoMapa(demandas, operacoes, dataLocal(new Date()), prazosDeElaboracao(demandas)), [demandas, operacoes]);
-  const visiveis = useMemo(() => noMapa.filter((i) => ver[i.tipo]), [noMapa, ver]);
+  const [etiqueta, setEtiqueta] = useState('');
+  const etiquetas = useMemo(() => [...new Set(noMapa.flatMap((i) => i.etiquetas ?? []))].sort((a, b) => a.localeCompare(b, 'pt-BR')), [noMapa]);
+  // Filtro por etiqueta vale para os pontos; demandas não têm etiqueta e saem enquanto o filtro estiver ligado.
+  const visiveis = useMemo(() => noMapa.filter((i) => ver[i.tipo] && (!etiqueta || i.etiquetas?.includes(etiqueta))), [noMapa, ver, etiqueta]);
 
   return (
     <section aria-labelledby="titulo-mapa-pagina" className="pagina">
@@ -36,6 +39,13 @@ export function Mapa() {
         <div className="agenda-barra">
           <label><input type="checkbox" checked={ver.demanda} onChange={(e) => setVer({ ...ver, demanda: e.target.checked })} /> Demandas</label>
           <label><input type="checkbox" checked={ver.ponto} onChange={(e) => setVer({ ...ver, ponto: e.target.checked })} /> Operações</label>
+          {etiquetas.length > 0 && (
+            <label>Etiqueta{' '}
+              <select value={etiqueta} onChange={(e) => setEtiqueta(e.target.value)}>
+                <option value="">Todas</option>
+                {etiquetas.map((e) => <option key={e} value={e}>{e}</option>)}
+              </select></label>
+          )}
           {document.fullscreenEnabled && <button type="button" className="botao botao--pequeno" aria-pressed={telaCheia} onClick={alternarTelaCheia}>{telaCheia ? 'Sair da tela cheia' : 'Tela cheia'}</button>}
         </div>
         {Object.entries(avisos).map(([n, e]) => e === 'indisponivel'

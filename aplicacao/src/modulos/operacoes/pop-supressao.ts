@@ -151,7 +151,7 @@ export const FONTE_POP = 'POP IBAMA (Portaria Ibama nº 83/2022), Anexo I';
 export const LIMITE_TEXTO_POP = 500;
 
 const POSICAO = new Map(ITENS_POP.map((it, i) => [it.id, i]));
-const marcadas = (r: Resposta | undefined): string[] => (Array.isArray(r) ? r : r ? [r] : []);
+export const marcadas = (r: Resposta | undefined): string[] => (Array.isArray(r) ? r : r ? [r] : []);
 export const respondido = (r: Resposta | undefined) => marcadas(r).some((t) => t.trim() !== '');
 
 /** Itens a perguntar, em ordem, já com os desvios aplicados ("siga para a pergunta N" pula o que fica no meio). */
@@ -178,6 +178,18 @@ export function textoCaracterizacao(resp: Caracterizacao | undefined): string {
 }
 
 const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+/**
+ * Sugestões de resposta tiradas dos dados do ponto, sempre "sugerido — conferir", nunca resposta final:
+ * sem CAR (situação ou etiqueta "fora de CAR") sugere "Não" em B-3; etiqueta "perto de TI" sugere a proteção legal de A-6.
+ */
+export function sugestoesPop(p: { situacaoCar?: string; etiquetas?: readonly string[] }): Record<string, string> {
+  const etiquetas = (p.etiquetas ?? []).map(norm);
+  const s: Record<string, string> = {};
+  if (p.situacaoCar === 'sem-car' || etiquetas.includes('fora de car')) s['B-3'] = 'Não';
+  if (etiquetas.includes('perto de ti')) s['A-6'] = ITENS_POP.find((i) => i.id === 'A-6')!.opcoes![0].texto;
+  return s;
+}
+
 /** O bloco da caracterização é automático para desmatamento e exploração seletiva; nos demais tipos, só se o ponto o ativar (`popAtivo`). */
 export const blocoPopAtivo = (p: { tipoDano?: string; popAtivo?: boolean }): boolean =>
   /desmat|exploracao seletiva/.test(norm(p.tipoDano ?? '')) || p.popAtivo === true;
