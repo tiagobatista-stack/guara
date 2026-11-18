@@ -441,4 +441,4 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 
 /* Mapa */
 .mapa-area { height: 60vh; min-height: 320px; border-radius: 8px; }
-.mapa-quadrado { display: block; width: 14px; height: 14px; border: 1.5px solid #fff; box-sizing: border-box; }
+.mapa-quadrado { display: block; width: 14px; height: 14px; border: 2px solid #fff; box-sizing: border-box; }

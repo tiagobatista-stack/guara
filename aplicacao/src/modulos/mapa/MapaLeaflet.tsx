@@ -9,6 +9,10 @@ import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { FONTES_WMS, imagensOrdenadas } from './fontes-wms.ts';
 import { CENTRO_MT, COR_VENCIDO, corDaSituacao, estadoDaFonte, limitesDosItens, rotuloDaSituacao, type ItemMapa } from './regras.ts';
 
+const PNG_TRANSPARENTE = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg=='; // 1x1: bloco que falhou fica transparente, não cinza
+const ESTILO_SEM_IMAGEM = { halo: { weight: 0, opacity: 0, fill: false }, traco: { color: '#64748b', weight: 1, opacity: 1, fill: false } };
+const ESTILO_COM_IMAGEM = { halo: { color: '#0f172a', weight: 3, opacity: 0.8, fill: false }, traco: { color: '#fff', weight: 1.5, opacity: 0.8, fill: false } };
+
 function balao(i: ItemMapa): HTMLElement {
   const div = document.createElement('div');
   const linha = (texto: string, forte = false) => {
@@ -39,10 +43,19 @@ export function MapaLeaflet({ itens, aoEstado }: { itens: ItemMapa[]; aoEstado: 
 
   useEffect(() => {
     const m = L.map(alvo.current!, { attributionControl: false }).setView([CENTRO_MT.lat, CENTRO_MT.lon], CENTRO_MT.zoom);
-    const limites = L.geoJSON(municipios as never, {
-      style: { color: '#64748b', weight: 1, fill: false },
+    // Limites no painel de vetores (acima das imagens). Sobre satélite: linha clara com halo escuro; sem imagem: o traço cinza de sempre.
+    const halo = L.geoJSON(municipios as never, { style: ESTILO_SEM_IMAGEM.halo, interactive: false });
+    const traco = L.geoJSON(municipios as never, {
+      style: ESTILO_SEM_IMAGEM.traco,
       onEachFeature: (f, l) => l.bindTooltip(String(f.properties?.nome ?? ''), { sticky: true }),
-    }).addTo(m); // vai no painel de vetores (acima das imagens, que ficam no painel de tiles)
+    });
+    const limites = L.layerGroup([halo, traco]).addTo(m);
+    const estiloDosLimites = (comImagem: boolean) => {
+      const e = comImagem ? ESTILO_COM_IMAGEM : ESTILO_SEM_IMAGEM;
+      halo.setStyle(e.halo);
+      traco.setStyle(e.traco);
+    };
+    m.on('baselayerchange', (e) => estiloDosLimites(e.layer !== semImagem));
     L.control.scale({ imperial: false }).addTo(m);
     L.control.attribution({ prefix: false }).addAttribution('Limites: IBGE · Imagens: SEMA-MT').addTo(m);
     // Imagens: uma só por vez (botões de opção); "Sem imagem" é a inicial. Se a fonte não responder, volta para ela e a tela avisa.
@@ -50,7 +63,7 @@ export function MapaLeaflet({ itens, aoEstado }: { itens: ItemMapa[]; aoEstado: 
     const bases: Record<string, L.Layer> = { 'Sem imagem': semImagem };
     for (const { fonte, camada: c } of imagensOrdenadas(FONTES_WMS)) {
       // Tiles grandes e carga só ao parar: o servidor da SEMA atrasa quem passa de 15 pedidos por janela.
-      const t = L.tileLayer.wms(fonte.url, { layers: c.nome, format: 'image/png', transparent: true, tileSize: 512, updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 2 });
+      const t = L.tileLayer.wms(fonte.url, { layers: c.nome, format: 'image/png', transparent: true, errorTileUrl: PNG_TRANSPARENTE, tileSize: 512, updateWhenIdle: true, updateWhenZooming: false, keepBuffer: 2 });
       let erros = 0;
       let cargas = 0;
       t.on('add', () => { erros = 0; cargas = 0; aoEstado(c.titulo, 'normal'); });
@@ -58,7 +71,7 @@ export function MapaLeaflet({ itens, aoEstado }: { itens: ItemMapa[]; aoEstado: 
       t.on('tileerror', () => {
         erros++;
         const estado = estadoDaFonte(erros, cargas);
-        if (estado === 'indisponivel') { m.removeLayer(t); semImagem.addTo(m); }
+        if (estado === 'indisponivel') { m.removeLayer(t); semImagem.addTo(m); estiloDosLimites(false); }
         if (estado !== 'normal') aoEstado(c.titulo, estado);
       });
       bases[c.titulo] = t;
@@ -77,7 +90,7 @@ export function MapaLeaflet({ itens, aoEstado }: { itens: ItemMapa[]; aoEstado: 
       const pos: L.LatLngTuple = [i.coordenada.lat, i.coordenada.lon];
       const cor = corDaSituacao(i.situacao);
       const marcador = i.tipo === 'demanda'
-        ? L.circleMarker(pos, { radius: 7, color: '#fff', weight: 1.5, fillColor: cor, fillOpacity: 1 })
+        ? L.circleMarker(pos, { radius: 7, color: '#fff', weight: 2.5, fillColor: cor, fillOpacity: 1 })
         : L.marker(pos, { icon: L.divIcon({ className: '', html: `<span class="mapa-quadrado" style="background:${cor}${i.vencido ? `;outline:3px solid ${COR_VENCIDO}` : ''}"></span>`, iconSize: [14, 14] }) });
       marcador.bindPopup(balao(i)).addTo(i.tipo === 'demanda' ? demandas.current! : pontos.current!);
     }
