@@ -51,7 +51,7 @@ export function BloqueioDoItem({ item, bloqueio, aoTravar, aoDestravar, aoConfir
             onChange={(e) => setDetalhe(e.target.value)} aria-describedby={`${id}-dica`} />
           <span id={`${id}-dica`} className="texto-pequeno texto-suave">
             {bloqueio?.detalhe && 'Em branco, mantém o detalhe atual. '}
-            Ex.: aguardando resposta do ofício enviado ao setor de cadastro. Até {LIMITES.detalheBloqueioMax} caracteres. Não registre CPF, endereço ou nome do autuado aqui. {ajudaExtra}
+            Ex.: aguardando resposta do ofício enviado ao setor de cadastro. Até {LIMITES.detalheBloqueioMax} caracteres. Não registre CPF, endereço ou nome do autuado aqui. O bloqueio não suspende o prazo. {ajudaExtra}
           </span>
         </div>
         {erro && <p role="alert" className="erro-campo">{erro}</p>}

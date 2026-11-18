@@ -5,13 +5,14 @@ import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { MOTIVOS_BLOQUEIO } from '../demandas/modelo.ts';
 import { Operacoes } from './Operacoes.tsx';
-import { criarOperacao, destravarPonto, gerarCodigos, incluirPontos, obterOperacoes, registrarResultado, travarPonto } from './armazem.ts';
+import { criarOperacao, destravarPonto, gerarCodigos, incluirPontos, obterOperacoes, registrarRelatorio, registrarResultado, travarPonto } from './armazem.ts';
 import { CHAVE_OPERACOES } from './modelo.ts';
 import { pendenciasDeCampo, planejarCodigos, progressoDaOperacao, validarListaOperacoes } from './regras.ts';
-import { itensDoMapa } from '../mapa/regras.ts';
+import { corDaSituacao, itensDoMapa, rotuloDaSituacao } from '../mapa/regras.ts';
 
 const HOJE = '2026-11-18';
 const ponto = (municipio = 'Brasnorte') => ({ coordenada: { lat: -12.1, lon: -58.2 }, municipio, notas: '', demandas: [], situacao: 'planejado' as const, equipe: 'A', saida: '2026-10-05', retorno: '2026-10-09' });
+const envio = { enviadoEm: '2026-11-10', protocoloSiga: '', notas: '' };
 const sim = { resultado: 'sim' as const, motivo: '', protocolo: '', observacao: '', dataVistoria: '' };
 beforeEach(() => localStorage.clear());
 
@@ -80,33 +81,48 @@ describe('bloqueio do ponto: regra', () => {
     expect(validarListaOperacoes([{ ...o, pontos: [{ ...o.pontos[0], bloqueio: { motivo: 'inventado', desde: 'x' } }] }])).toEqual([]);
   });
 
-  it('selo: campo encerrado com ponto travado; encerrada só sem bloqueio', () => {
+  it('selo: campo encerrado com elaboração ou com ponto travado; encerrada só com tudo concluído e sem bloqueio', () => {
     const id = operacao();
-    for (const p of obterOperacoes()[0].pontos) registrarResultado(id, p.id, sim, HOJE);
-    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ selo: 'encerrada', travados: 0 });
-    const [p1] = obterOperacoes()[0].pontos;
+    const [p1, p2] = obterOperacoes()[0].pontos;
+    for (const p of [p1, p2]) registrarResultado(id, p.id, sim, HOJE);
+    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ selo: 'campo-encerrado', emElaboracao: 2, concluidos: 0, travados: 0 });
+    for (const p of [p1, p2]) registrarRelatorio(id, p.id, envio, HOJE);
+    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ selo: 'encerrada', concluidos: 2, travados: 0, aFinalizar: 0 });
     travarPonto(id, p1.id, 'autuado', '', '2026-11-10T12:00:00Z');
     expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ selo: 'campo-encerrado', travados: 1, encerrados: 2, aFinalizar: 0 });
     destravarPonto(id, p1.id);
     expect(progressoDaOperacao(obterOperacoes()[0], HOJE).selo).toBe('encerrada');
   });
 
-  it('ponto travado sem resultado conta como a finalizar, mas sai do aviso genérico de sem resultado', () => {
+  it('ponto travado continua vencido (o bloqueio não suspende o prazo) e entra na lista de travados', () => {
     const id = operacao();
     const [p1] = obterOperacoes()[0].pontos;
-    expect(pendenciasDeCampo(obterOperacoes(), HOJE).semResultado).toHaveLength(2);
     travarPonto(id, p1.id, 'campo', '', '2026-11-10T12:00:00Z');
-    expect(pendenciasDeCampo(obterOperacoes(), HOJE).semResultado).toHaveLength(1);
-    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ aFinalizar: 2, travados: 1 });
+    const r = pendenciasDeCampo(obterOperacoes(), HOJE);
+    expect([r.semResultado.length, r.travados.length]).toEqual([2, 1]);
+    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ aFinalizar: 2, vencidos: 2, travados: 1 });
   });
 
-  it('mapa: ponto travado leva o motivo e o detalhe', () => {
+  it('mapa: ponto travado leva o motivo e o detalhe e segue vencido', () => {
     const id = operacao();
     const [p1] = obterOperacoes()[0].pontos;
     travarPonto(id, p1.id, 'autuado', 'aguardando a polícia', '2026-11-10T12:00:00Z');
     const { noMapa } = itensDoMapa([], obterOperacoes(), HOJE);
-    expect(noMapa.find((i) => i.id === p1.id)).toMatchObject({ travado: { motivo: 'aguardando dados do autuado', detalhe: 'aguardando a polícia' }, vencido: false });
+    expect(noMapa.find((i) => i.id === p1.id)).toMatchObject({ travado: { motivo: 'aguardando dados do autuado', detalhe: 'aguardando a polícia' }, vencido: true });
     expect(noMapa.find((i) => i.id !== p1.id)?.travado).toBeUndefined();
+  });
+
+  it('mapa: cor e rótulo pela fase (em elaboração diferente de concluído)', () => {
+    const id = operacao();
+    const [p1, p2] = obterOperacoes()[0].pontos;
+    registrarResultado(id, p1.id, sim, HOJE);
+    registrarResultado(id, p2.id, sim, HOJE);
+    registrarRelatorio(id, p2.id, envio, HOJE);
+    const { noMapa } = itensDoMapa([], obterOperacoes(), HOJE);
+    const [a, b] = [p1, p2].map((p) => noMapa.find((i) => i.id === p.id)!);
+    expect([a.situacao, b.situacao]).toEqual(['elaboracao', 'concluido']);
+    expect(corDaSituacao('elaboracao')).not.toBe(corDaSituacao('concluido'));
+    expect([rotuloDaSituacao(a), rotuloDaSituacao(b)]).toEqual(['em elaboração', 'concluído']);
   });
 });
 
@@ -115,22 +131,28 @@ function regrava_cancelado() {
 }
 
 describe('uma regra só para vencido e travado', () => {
-  it('1 vencido sem bloqueio e 2 com bloqueio: vencidos 1, travados 2 no progresso, no aviso, no mapa e no cartão', () => {
+  it('1 vencido sem bloqueio e 2 com bloqueio: vencidos 3, travados 2 no progresso, no aviso, no mapa e no cartão', () => {
     const id = operacao('Brasnorte', '2026-10-05', 3);
     const [, p2, p3] = obterOperacoes()[0].pontos;
     travarPonto(id, p2.id, 'autuado', '', '2026-11-10T12:00:00Z');
-    travarPonto(id, p3.id, 'campo', '', '2026-11-10T12:00:00Z');
-    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ vencidos: 1, travados: 2 });
-    expect(pendenciasDeCampo(obterOperacoes(), HOJE).semResultado).toHaveLength(1);
+    travarPonto(id, p3.id, 'campo', '', '2026-10-01T12:00:00Z');
+    expect(progressoDaOperacao(obterOperacoes()[0], HOJE)).toMatchObject({ vencidos: 3, travados: 2 });
+    const aviso = pendenciasDeCampo(obterOperacoes(), HOJE);
+    expect(aviso.semResultado).toHaveLength(3);
+    expect(aviso.travados.map((x) => x.ponto.id)).toEqual([p3.id, p2.id]); // do mais antigo ao mais recente
     const { noMapa } = itensDoMapa([], obterOperacoes(), HOJE);
-    expect([noMapa.filter((i) => i.vencido).length, noMapa.filter((i) => i.travado).length]).toEqual([1, 2]);
+    expect([noMapa.filter((i) => i.vencido).length, noMapa.filter((i) => i.travado).length]).toEqual([3, 2]);
     montarTela();
     expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('2 travado(s)');
-    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('1 vencido(s)');
-    expect(screen.getByTestId('pendencias-campo')).toHaveTextContent('1 ponto(s)');
+    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('3 vencido(s)');
+    expect(screen.getByTestId('pendencias-campo')).toHaveTextContent('3 ponto(s) sem resultado');
+    const grupo = screen.getByTestId(`travados-${id}`);
+    expect(within(grupo).getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))).toEqual([`travado-${p3.id}`, `travado-${p2.id}`]);
+    expect(screen.getByTestId(`travado-${p3.id}`)).toHaveTextContent('depende de campo · parado há 48 dias');
+    expect(screen.getByTestId(`travado-${p2.id}`)).toHaveTextContent('aguardando dados do autuado · parado há 8 dias');
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
-    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('1 ponto(s)');
-    expect(screen.getByTestId('travados-sem-resultado')).toHaveTextContent(/-02.*-03/);
+    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('3 ponto(s) sem resultado');
+    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('2 ponto(s) travado(s)');
   });
 });
 
@@ -175,16 +197,16 @@ describe('Gerar códigos', () => {
     expect(screen.queryByTestId('sem-codigo')).toBeNull();
   });
 
-  it('tela: ponto bloqueado mostra o motivo no cartão e no aviso de travados sem resultado', () => {
+  it('tela: ponto bloqueado mostra o motivo no cartão e na lista de travados, e a ajuda diz que o prazo não para', () => {
     const id = operacao('Brasnorte', '2026-10-05', 1);
     montarTela();
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
     fireEvent.click(screen.getByRole('button', { name: 'Bloqueio do Ponto 1' }));
+    expect(screen.getByText(/O bloqueio não suspende o prazo\./)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'autuado' } });
     fireEvent.click(screen.getByRole('button', { name: 'Marcar como travado' }));
     const p = obterOperacoes().find((o) => o.id === id)!.pontos[0];
     expect(screen.getByTestId(`bloqueio-${p.id}`)).toHaveTextContent('travado hoje: aguardando dados do autuado');
-    expect(screen.getByTestId('travados-sem-resultado')).toHaveTextContent('aguardando dados do autuado');
-    expect(screen.queryByTestId('pendencias-operacao')).toBeNull();
+    expect(screen.getByTestId(`travado-${p.id}`)).toHaveTextContent('aguardando dados do autuado · parado desde hoje');
   });
 });

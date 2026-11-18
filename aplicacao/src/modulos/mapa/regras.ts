@@ -4,7 +4,7 @@ import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import { MOTIVOS_BLOQUEIO, type Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { SITUACOES_ACOMPANHAMENTO } from '../operacoes/modelo.ts';
-import { pontoTravado, pontoVencido, situacaoDoPonto, viagemDoPonto } from '../operacoes/regras.ts';
+import { faseDoPonto, pontoTravado, pontoVencido, ROTULO_FASE, situacaoDoPonto, viagemDoPonto, type PrazosDeElaboracao } from '../operacoes/regras.ts';
 
 export interface ItemMapa {
   id: string;
@@ -26,13 +26,17 @@ export interface ItemMapa {
 export const COR_SITUACAO: Record<string, string> = {
   'A Fazer': '#d97706', 'Em Andamento': '#2563eb', 'Em Validação': '#7c3aed', 'Concluída': '#16a34a',
   planejado: '#2563eb', 'resultado-pendente': '#7c3aed', finalizado: '#16a34a', 'a-reprogramar': '#dc2626', reprogramado: '#0891b2', cancelado: '#6b7280',
+  // Fase pós-campo do ponto: em elaboração (relatório a enviar) e concluído (relatório enviado no SIGA-MT).
+  elaboracao: '#ca8a04', concluido: '#16a34a',
 };
 /** Contorno de alerta do ponto vencido. */
 export const COR_VENCIDO = '#b91c1c';
 
-/** Texto da situação para balão e legenda: o rótulo do ponto (com "vencido") ou o status da demanda. */
+/** Texto da situação para balão e legenda: a fase ou situação do ponto (com "vencido") ou o status da demanda. */
 export const rotuloDaSituacao = (i: Pick<ItemMapa, 'tipo' | 'situacao' | 'vencido'>) =>
-  i.tipo === 'ponto' ? `${SITUACOES_ACOMPANHAMENTO[i.situacao as keyof typeof SITUACOES_ACOMPANHAMENTO] ?? i.situacao}${i.vencido ? ' · vencido' : ''}` : i.situacao;
+  i.tipo === 'ponto'
+    ? `${(i.situacao === 'elaboracao' || i.situacao === 'concluido' ? ROTULO_FASE[i.situacao] : SITUACOES_ACOMPANHAMENTO[i.situacao as keyof typeof SITUACOES_ACOMPANHAMENTO]) ?? i.situacao}${i.vencido ? ' · vencido' : ''}`
+    : i.situacao;
 export const corDaSituacao = (s: string) => COR_SITUACAO[s] ?? '#6b7280';
 
 /** Centro de Mato Grosso, para quando não há nada a mostrar. */
@@ -44,6 +48,7 @@ export function itensDoMapa(
   demandas: readonly Pick<Demanda, 'id' | 'titulo' | 'status' | 'prazo' | 'coordenada'>[],
   operacoes: readonly Operacao[],
   hoje = '',
+  prazos: PrazosDeElaboracao = {},
 ): { noMapa: ItemMapa[]; semLocal: { id: string; titulo: string }[] } {
   const noMapa: ItemMapa[] = [];
   const semLocal: { id: string; titulo: string }[] = [];
@@ -60,8 +65,9 @@ export function itensDoMapa(
         id: p.id,
         tipo: 'ponto',
         rotulo: `${o.nome} · ponto ${p.numero ?? ''}`.trim() + (v?.equipe ? ` · ${v.equipe}` : ''),
-        situacao: situacaoDoPonto(p),
-        vencido: !!hoje && pontoVencido(o, p, hoje),
+        // Depois do campo, a cor e o rótulo vêm da fase (em elaboração / concluído); antes, da situação.
+        situacao: ((f) => (f === 'elaboracao' || f === 'concluido' ? f : situacaoDoPonto(p)))(faseDoPonto(p)),
+        vencido: !!hoje && pontoVencido(o, p, hoje, prazos),
         ...(pontoTravado(p) ? { travado: { motivo: MOTIVOS_BLOQUEIO[p.bloqueio!.motivo], ...(p.bloqueio!.detalhe ? { detalhe: p.bloqueio!.detalhe } : {}) } } : {}),
         municipio: p.municipio,
         quando: datas,

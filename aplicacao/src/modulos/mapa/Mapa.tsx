@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useEstadoDemandas } from '../demandas/armazem.ts';
+import { prazosDeElaboracao } from '../operacoes/armazem.ts';
 import { useOperacoes } from '../operacoes/armazem.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { MapaLeaflet } from './MapaLeaflet.tsx';
@@ -21,7 +22,7 @@ export function Mapa() {
   }, []);
   const alternarTelaCheia = () => { void (telaCheia ? document.exitFullscreen() : cartao.current?.requestFullscreen()); };
   const [ver, setVer] = useState({ demanda: true, ponto: true });
-  const { noMapa, semLocal } = useMemo(() => itensDoMapa(demandas, operacoes, dataLocal(new Date())), [demandas, operacoes]);
+  const { noMapa, semLocal } = useMemo(() => itensDoMapa(demandas, operacoes, dataLocal(new Date()), prazosDeElaboracao(demandas)), [demandas, operacoes]);
   const visiveis = useMemo(() => noMapa.filter((i) => ver[i.tipo]), [noMapa, ver]);
 
   return (

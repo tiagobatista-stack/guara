@@ -77,6 +77,8 @@ export interface Ponto {
   dataVistoria?: string;
   /** Marca à parte da situação (mesmo formato da demanda): o ponto segue como está, mas há algo travando o encerramento (ex.: dados do autuado). */
   bloqueio?: Bloqueio;
+  /** Fase pós-campo: envio do relatório no SIGA-MT. Sem `enviadoEm`, o ponto com resultado está em elaboração. */
+  relatorio?: { enviadoEm?: string; protocoloSiga?: string; notas?: string };
   /** Ponto "Não" levado para outra operação: onde ele está agora. */
   reprogramado?: { operacao: string; ponto: string };
   coordenada: Coordenada;

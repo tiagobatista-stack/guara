@@ -56,7 +56,7 @@ describe('importação das planilhas de teste', () => {
     expect(out.pontos.map((p) => pontoVencido(out, p, hoje))).toEqual([false, false, false, false, false, true]);
     expect(pontoVencido(out, porNumero(6), '2026-10-09')).toBe(false); // retorno em 09/10: só vence depois dele
     const noMapa = itensDoMapa([], [out], hoje).noMapa;
-    expect(noMapa.map((i) => [i.situacao, i.vencido])).toEqual([['finalizado', false], ['finalizado', false], ['finalizado', false], ['a-reprogramar', false], ['finalizado', false], ['planejado', true]]);
+    expect(noMapa.map((i) => [i.situacao, i.vencido])).toEqual([['elaboracao', false], ['elaboracao', false], ['elaboracao', false], ['a-reprogramar', false], ['elaboracao', false], ['planejado', true]]);
     const ponto5 = jan.pontos.find((p) => p.numero === 5)!;
     expect(screen.getByTestId(`proximos-${ponto5.id}`)).toHaveTextContent(/out\/2026.*a 6\d m/);
     const ponto1 = jan.pontos.find((p) => p.numero === 1)!;

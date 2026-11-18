@@ -9,7 +9,7 @@ import {
   CHAVE_OPERACOES, LIMITES_OPERACAO, RESULTADOS_COM_MOTIVO,
   type EventoOperacao, type MotivoPeriodo, type Operacao, type Ponto, type PontoNovo, type ResultadoPonto, type Viagem,
 } from './modelo.ts';
-import { codigosEmUso, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, periodoDosPontos, problemasDeDatas, situacaoDoPonto, validarListaOperacoes, type Periodo } from './regras.ts';
+import { codigosEmUso, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, periodoDosPontos, problemasDeDatas, situacaoDoPonto, type PrazosDeElaboracao, validarListaOperacoes, type Periodo } from './regras.ts';
 
 const lista = criarListaLocal<Operacao>(CHAVE_OPERACOES, () => [], validarListaOperacoes);
 
@@ -108,6 +108,53 @@ export function travarPonto(operacaoId: string, pontoId: string, motivo: MotivoB
   const bloqueio = novoBloqueio(ponto.bloqueio, motivo, agoraIso, detalhe);
   gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? { ...p, bloqueio } : p)) });
   return null;
+}
+
+export interface DadosRelatorio { enviadoEm: string; protocoloSiga: string; notas: string }
+
+/** Registra o envio do relatório no SIGA-MT (data vazia desfaz o envio). Só vale para ponto com resultado (não "Não"). `hoje`: a data não pode ser futura. */
+export function registrarRelatorio(operacaoId: string, pontoId: string, d: DadosRelatorio, hoje: string): string | null {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  const ponto = op?.pontos.find((p) => p.id === pontoId);
+  if (!op || !ponto) return 'Ponto não encontrado.';
+  if (!ponto.resultado || ponto.resultado === 'nao' || ponto.reprogramado || ponto.situacao === 'cancelado') return 'O relatório só vale para ponto com resultado registrado.';
+  const protocoloSiga = d.protocoloSiga.replace(/\s+/g, ' ').trim();
+  const notas = d.notas.trim();
+  if (protocoloSiga.length > LIMITES_OPERACAO.protocolo) return `O número no SIGA-MT pode ter no máximo ${LIMITES_OPERACAO.protocolo} caracteres.`;
+  if (notas.length > LIMITES_OPERACAO.observacao) return `A nota pode ter no máximo ${LIMITES_OPERACAO.observacao} caracteres.`;
+  if (d.enviadoEm && !dataValida(d.enviadoEm)) return 'Informe uma data de envio válida.';
+  if (d.enviadoEm > hoje) return 'A data de envio não pode ser futura.';
+  const relatorio = { ...(d.enviadoEm ? { enviadoEm: d.enviadoEm } : {}), ...(protocoloSiga ? { protocoloSiga } : {}), ...(notas ? { notas } : {}) };
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => { if (p.id !== pontoId) return p; const { relatorio: _r, ...resto } = p; void _r; return Object.keys(relatorio).length ? { ...resto, relatorio } : resto; }) });
+  return null;
+}
+
+// ---------- Prazo da elaboração ----------
+
+const CHAVE_PRAZO_ELABORACAO = 'guara:operacoes:prazo-elaboracao:v1';
+
+/** Dias após o retorno para elaborar o relatório quando o ponto não tem demanda com prazo; undefined = não configurado (não vence). */
+export function lerDiasPadraoElaboracao(): number | undefined {
+  try {
+    const n = Number(localStorage.getItem(CHAVE_PRAZO_ELABORACAO));
+    return localStorage.getItem(CHAVE_PRAZO_ELABORACAO) !== null && Number.isInteger(n) && n >= 0 && n <= 365 ? n : undefined;
+  } catch { return undefined; }
+}
+
+/** Grava o prazo padrão (inteiro de 0 a 365) ou, com null, limpa. Devolve o problema ou null. */
+export function definirDiasPadraoElaboracao(dias: number | null): string | null {
+  if (dias !== null && (!Number.isInteger(dias) || dias < 0 || dias > 365)) return 'Informe um número inteiro de dias, de 0 a 365.';
+  try {
+    if (dias === null) localStorage.removeItem(CHAVE_PRAZO_ELABORACAO); else localStorage.setItem(CHAVE_PRAZO_ELABORACAO, String(dias));
+    return null;
+  } catch { return 'Este navegador não deixou gravar o prazo.'; }
+}
+
+/** Contexto de prazo da elaboração: prazos das demandas e o padrão configurado. */
+export function prazosDeElaboracao(demandas: readonly { id: string; prazo?: string }[]): PrazosDeElaboracao {
+  const diasPadrao = lerDiasPadraoElaboracao();
+  return { prazosDemandas: new Map(demandas.filter((d) => d.prazo).map((d) => [d.id, d.prazo!])), ...(diasPadrao !== undefined ? { diasPadrao } : {}) };
 }
 
 /** Tira o bloqueio do ponto (a situação do ponto não muda). */

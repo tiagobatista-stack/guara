@@ -19,13 +19,13 @@ import {
 } from './modelo.ts';
 import {
   alterarPeriodo, alterarPonto, alterarViagem, aplicarAtualizacoes, conflitoDeCodigo, definirSetor, criarOperacao, criarOperacaoComPontos, criarViagem, definirGrupo, definirViagem, excluirOperacao, excluirPonto,
-  excluirViagem, destravarPonto, gerarCodigos, incluirPontos, registrarResultado, travarPonto, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
+  excluirViagem, definirDiasPadraoElaboracao, destravarPonto, gerarCodigos, incluirPontos, lerDiasPadraoElaboracao, prazosDeElaboracao, registrarRelatorio, registrarResultado, travarPonto, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
 } from './armazem.ts';
 import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_EXPORTACAO } from './exportar.ts';
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
 import {
-  agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, operacaoEncerrada, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
-  planejarCodigos, pontoTravado, progressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
+  agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
+  campoEncerrado, diasParado, faseDoPonto, planejarCodigos, prazoDaElaboracao, pontoVencido, progressoDaOperacao, textoParado, type PendenciaDeCampo, type PrazosDeElaboracao, type ProgressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
 } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
@@ -567,7 +567,8 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 }) {
   const armazem = useArmazem();
   const { demandas } = useEstadoDemandas();
-  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio'>('ver');
+  const [modo, setModo] = useState<'ver' | 'editar' | 'resultado' | 'bloqueio' | 'relatorio'>('ver');
+  const [relatorio, setRelatorio] = useState({ enviadoEm: '', protocoloSiga: '', notas: '' });
   const editando = modo !== 'ver';
   const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '' });
   const [erro, setErro] = useState<string | null>(null);
@@ -631,6 +632,19 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
     setErro(alterarPonto(operacao.id, ponto.id, { demandas: [...ponto.demandas, r.demanda.id] }));
   };
   const livres = demandas.filter((d) => !ponto.demandas.includes(d.id));
+  const fase = faseDoPonto(ponto);
+  const prazoRelatorio = fase === 'elaboracao' ? prazoDaElaboracao(operacao, ponto, prazosDeElaboracao(demandas)) : null;
+  const abrirRelatorio = () => {
+    setRelatorio({ enviadoEm: ponto.relatorio?.enviadoEm ?? hoje, protocoloSiga: ponto.relatorio?.protocoloSiga ?? '', notas: ponto.relatorio?.notas ?? '' });
+    setErro(null);
+    setModo('relatorio');
+  };
+  const salvarRelatorio = (e: FormEvent) => {
+    e.preventDefault();
+    const problema = registrarRelatorio(operacao.id, ponto.id, relatorio, hoje);
+    setErro(problema);
+    if (!problema) setModo('ver');
+  };
 
   return (
     <li className="cartao" data-testid={`ponto-${ponto.id}`}>
@@ -669,6 +683,19 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         )}
       </dl>
 
+      {(fase === 'elaboracao' || fase === 'concluido') && (
+        <section aria-label={`Relatório (SIGA-MT) do ${rotulo}`} data-testid={`relatorio-${ponto.id}`}>
+          <h4 className="titulo-secao titulo-secao--bloco">Relatório (SIGA-MT)</h4>
+          <p className="texto-pequeno" data-testid={`fase-${ponto.id}`}>
+            {fase === 'concluido' ? `Concluído em ${dataBr(ponto.relatorio!.enviadoEm)}` : 'Em elaboração'}
+            {ponto.relatorio?.protocoloSiga && <> · nº {ponto.relatorio.protocoloSiga}</>}
+            {prazoRelatorio && <> · prazo {dataBr(prazoRelatorio)}</>}
+            {pontoVencido(operacao, ponto, hoje, prazosDeElaboracao(demandas)) && <span className="texto--atencao"> · vencido</span>}
+          </p>
+          {ponto.relatorio?.notas && <p className="texto-pequeno texto-suave">{ponto.relatorio.notas}</p>}
+        </section>
+      )}
+
       {proximos.length > 0 && (
         <div className="aviso" data-testid={`proximos-${ponto.id}`}>
           <p><strong>Local já aparece em outro registro</strong> (até 200 m; confira, a decisão é sua):</p>
@@ -682,6 +709,23 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       {modo === 'resultado' ? (
         <FormularioResultado operacao={operacao} ponto={ponto} rotulo={rotulo} hoje={hoje}
           protocolosSugeridos={ligadas.map((d) => d.processo).filter((x): x is string => !!x)} aoTerminar={() => setModo('ver')} />
+      ) : modo === 'relatorio' ? (
+        <form onSubmit={salvarRelatorio} className="formulario" noValidate aria-label={`Envio do relatório do ${rotulo}`}>
+          <div className="grade grade--2 grade--topo">
+            <label className="campo-grupo"><span>Data de envio no SIGA-MT</span>
+              <input className="campo" type="date" max={hoje} value={relatorio.enviadoEm} onChange={(e) => setRelatorio({ ...relatorio, enviadoEm: e.target.value })} /></label>
+            <label className="campo-grupo"><span>Número no SIGA-MT (opcional)</span>
+              <input className="campo" value={relatorio.protocoloSiga} maxLength={LIMITES_OPERACAO.protocolo} autoComplete="off" onChange={(e) => setRelatorio({ ...relatorio, protocoloSiga: e.target.value })} /></label>
+          </div>
+          <label className="campo-grupo"><span>Notas (opcional)</span>
+            <textarea className="campo campo--area" rows={2} value={relatorio.notas} maxLength={LIMITES_OPERACAO.observacao} onChange={(e) => setRelatorio({ ...relatorio, notas: e.target.value })} /></label>
+          <p className="texto-pequeno texto-suave">Data em branco desfaz o envio e o ponto volta para "em elaboração".</p>
+          {erro && <p role="alert" className="erro-campo">{erro}</p>}
+          <div className="acoes">
+            <button type="submit" className="botao botao--primario">Salvar envio</button>
+            <button type="button" className="botao" onClick={() => { setModo('ver'); setErro(null); }}>Cancelar</button>
+          </div>
+        </form>
       ) : modo === 'bloqueio' ? (
         <>
           <BloqueioDoItem item="ponto" bloqueio={ponto.bloqueio}
@@ -720,6 +764,11 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           {!ponto.reprogramado && ponto.situacao !== 'cancelado' && (
             <button type="button" className="botao botao--pequeno" aria-label={`${ponto.resultado ? 'Editar' : 'Registrar'} resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>
               {ponto.resultado ? 'Editar resultado' : 'Registrar resultado'}
+            </button>
+          )}
+          {(fase === 'elaboracao' || fase === 'concluido') && (
+            <button type="button" className={`botao botao--pequeno${fase === 'elaboracao' ? ' botao--primario' : ''}`} aria-label={`${fase === 'concluido' ? 'Editar envio do' : 'Registrar envio do'} relatório do ${rotulo}`} onClick={abrirRelatorio}>
+              {fase === 'concluido' ? 'Editar envio' : 'Registrar envio'}
             </button>
           )}
           {!ponto.reprogramado && ponto.situacao !== 'cancelado' && (
@@ -786,18 +835,54 @@ function PeriodoOperacao({ operacao }: { operacao: Operacao }) {
 
 // ---------- Pendências de campo (não deixar acumular) ----------
 
-function textoPendencias(semResultado: number, aReprogramar: number): string {
+function textoPendencias(semResultado: number, aReprogramar: number, relatorioAtrasado = 0, travados = 0): string {
   const partes = [
     semResultado ? `${semResultado} ponto(s) sem resultado depois do retorno da viagem` : '',
+    relatorioAtrasado ? `${relatorioAtrasado} ponto(s) com o relatório (SIGA-MT) atrasado` : '',
     aReprogramar ? `${aReprogramar} ponto(s) não fiscalizado(s) a reprogramar` : '',
+    travados ? `${travados} ponto(s) travado(s)` : '',
   ].filter(Boolean);
-  return `Há ${partes.join(' e ')}. Registre o resultado ou reprograme para não acumular.`;
+  return `Há ${partes.join(' e ')}. O bloqueio não suspende o prazo: resolva o motivo, registre o resultado, envie o relatório ou reprograme para não acumular.`;
 }
+
+const temPendencia = (p: { semResultado: unknown[]; relatorioAtrasado: unknown[]; aReprogramar: unknown[]; travados: unknown[] }) =>
+  p.semResultado.length + p.relatorioAtrasado.length + p.aReprogramar.length + p.travados.length > 0;
+
+/** Pontos travados, do bloqueio mais antigo ao mais recente, com o motivo e há quantos dias; agrupados por operação quando `agrupar`. */
+function PontosTravados({ travados, hoje, agrupar }: { travados: readonly PendenciaDeCampo[]; hoje: string; agrupar: boolean }) {
+  if (travados.length === 0) return null;
+  const linha = (x: PendenciaDeCampo) => (
+    <li key={x.ponto.id} className="texto-pequeno" data-testid={`travado-${x.ponto.id}`}>
+      {rotuloDoPonto(x.ponto)} — {MOTIVOS_BLOQUEIO[x.ponto.bloqueio!.motivo]} · {textoParado(diasParado(x.ponto.bloqueio!, hoje))}
+    </li>
+  );
+  const grupos = [...new Map(travados.map((x) => [x.operacao.id, x.operacao.nome])).entries()];
+  return (
+    <div data-testid="pontos-travados">
+      <p className="texto-pequeno"><strong>Travados</strong> (parados desde a data do bloqueio):</p>
+      {agrupar ? (
+        <ul className="lista-limpa" aria-label="Pontos travados">
+          {grupos.map(([id, nome]) => (
+            <li key={id} className="texto-pequeno" data-testid={`travados-${id}`}>
+              Operação {nome}
+              <ul className="lista-limpa">{travados.filter((x) => x.operacao.id === id).map(linha)}</ul>
+            </li>
+          ))}
+        </ul>
+      ) : <ul className="lista-limpa" aria-label="Pontos travados">{travados.map(linha)}</ul>}
+    </div>
+  );
+}
+
+const textoSelo = (pr: ProgressoDaOperacao) =>
+  pr.selo === 'campo-encerrado'
+    ? `Campo encerrado${pr.emElaboracao ? ` · ${pr.emElaboracao} em elaboração` : ''}${pr.travados ? ` · ${pr.travados} travado(s)` : ''}`
+    : ROTULO_SELO[pr.selo];
 
 function Reprogramar({ operacoes, item }: { operacoes: readonly Operacao[]; item: { operacao: Operacao; ponto: Ponto } }) {
   const [destino, setDestino] = useState('');
   const [erro, setErro] = useState<string | null>(null);
-  const outras = operacoes.filter((o) => o.id !== item.operacao.id && !operacaoEncerrada(o));
+  const outras = operacoes.filter((o) => o.id !== item.operacao.id && !campoEncerrado(o));
   const rotulo = rotuloDoPonto(item.ponto);
   return (
     <li className="texto-pequeno" data-testid={`a-reprogramar-${item.ponto.id}`}>
@@ -880,9 +965,11 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
   const [importacaoAberta] = useState(operacao.pontos.length === 0);
   const hoje = dataLocal(agora());
   const tiposDeDano = useMemo(() => limparNomes(todas.flatMap((o) => o.pontos.map((p) => p.tipoDano ?? '')), LIMITES_OPERACAO.tipoDano).sort((a, b) => a.localeCompare(b, 'pt-BR')), [todas]);
-  const pendencias = pendenciasDeCampo([operacao], hoje);
+  const { demandas: todasDemandas } = useEstadoDemandas();
+  const prazos = prazosDeElaboracao(todasDemandas);
+  const pendencias = pendenciasDeCampo([operacao], hoje, prazos);
+  const progresso = progressoDaOperacao(operacao, hoje, prazos);
   const finalizados = operacao.pontos.filter((p) => situacaoDoPonto(p) === 'finalizado').length;
-  const pontoTravadoNaOperacao = operacao.pontos.some(pontoTravado);
   const planoCodigos = useMemo(() => planejarCodigos(operacao, todas), [operacao, todas]);
   const semCodigo = planoCodigos.gerar.length + planoCodigos.fora.length;
   const [previaCodigos, setPreviaCodigos] = useState(false);
@@ -933,7 +1020,8 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
         {operacao.viagens.length} viagem(ns){incompletas > 0 && <> · <span className="texto--atencao">{incompletas} incompleta(s)</span></>} ·{' '}
         {finalizados} finalizado(s)
         {pendencias.aReprogramar.length > 0 && <> · <span className="texto--atencao">{pendencias.aReprogramar.length} a reprogramar</span></>}
-        {operacaoEncerrada(operacao) && !pontoTravadoNaOperacao && <> · <strong className="selo-situacao selo-situacao--ok" data-testid="operacao-encerrada">operação encerrada</strong></>}
+        {progresso.selo === 'encerrada' && <> · <strong className="selo-situacao selo-situacao--ok" data-testid="operacao-encerrada">operação encerrada</strong></>}
+        {progresso.selo === 'campo-encerrado' && <> · <strong className="selo-situacao selo-situacao--atencao" data-testid="campo-encerrado">{textoSelo(progresso)}</strong></>}
       </p>
       {semCodigo > 0 && (
         <div className="aviso" data-testid="sem-codigo">
@@ -952,15 +1040,12 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
           )}
         </div>
       )}
-      {operacao.pontos.some((p) => p.bloqueio && !p.resultado && pontoTravado(p)) && (
-        <p className="texto-pequeno texto--atencao" data-testid="travados-sem-resultado">
-          Travado(s) sem resultado: {operacao.pontos.filter((p) => p.bloqueio && !p.resultado && pontoTravado(p)).map((p) => `${rotuloDoPonto(p)} (${MOTIVOS_BLOQUEIO[p.bloqueio!.motivo]})`).join(', ')}.
-        </p>
-      )}
-      {(pendencias.semResultado.length > 0 || pendencias.aReprogramar.length > 0) && (
+      {temPendencia(pendencias) && (
         <FalaMascote id="pendencias-operacao">
-          <p id="pendencias-operacao-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length)}</p>
+          <p id="pendencias-operacao-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length, pendencias.relatorioAtrasado.length, pendencias.travados.length)}</p>
           {pendencias.semResultado.length > 0 && <p className="texto-pequeno">Sem resultado: {pendencias.semResultado.map((x) => rotuloDoPonto(x.ponto)).join(', ')}.</p>}
+          {pendencias.relatorioAtrasado.length > 0 && <p className="texto-pequeno">Relatório atrasado: {pendencias.relatorioAtrasado.map((x) => rotuloDoPonto(x.ponto)).join(', ')}.</p>}
+          <PontosTravados travados={pendencias.travados} hoje={hoje} agrupar={false} />
           {pendencias.aReprogramar.length > 0 && (
             <ul className="lista-limpa" aria-label="Pontos a reprogramar">
               {pendencias.aReprogramar.map((x) => <Reprogramar key={x.ponto.id} operacoes={todas} item={x} />)}
@@ -1169,6 +1254,32 @@ function NovaOperacao({ operacoes, agora, aoCriar }: { operacoes: readonly Opera
   );
 }
 
+// ---------- Prazo padrão do relatório ----------
+
+function PrazoDoRelatorio({ aoMudar }: { aoMudar: () => void }) {
+  const [valor, setValor] = useState(() => String(lerDiasPadraoElaboracao() ?? ''));
+  const [msg, setMsg] = useState<string | null>(null);
+  const salvar = (e: FormEvent) => {
+    e.preventDefault();
+    const t = valor.trim();
+    const erro = definirDiasPadraoElaboracao(t === '' ? null : /^\d+$/.test(t) ? Number(t) : -1);
+    setMsg(erro ?? (t === '' ? 'Sem prazo padrão: relatório sem demanda com prazo não vence.' : 'Prazo padrão salvo.'));
+    if (!erro) aoMudar();
+  };
+  return (
+    <details className="cartao">
+      <summary>Prazo do relatório (SIGA-MT)</summary>
+      <form onSubmit={salvar} className="formulario" noValidate aria-label="Prazo padrão do relatório">
+        <label className="campo-grupo"><span>Prazo padrão, em dias depois do retorno (vazio = sem prazo)</span>
+          <input className="campo campo--curto" inputMode="numeric" value={valor} onChange={(e) => setValor(e.target.value)} /></label>
+        <p className="texto-pequeno texto-suave">Vale só para ponto sem demanda ligada com prazo; havendo demandas, vale o prazo mais cedo entre elas.</p>
+        {msg && <p role="status" className="texto-pequeno">{msg}</p>}
+        <div className="acoes"><button type="submit" className="botao botao--pequeno">Salvar prazo</button></div>
+      </form>
+    </details>
+  );
+}
+
 // ---------- Lista ----------
 
 const ROTULO_SELO = { planejada: 'planejada', 'em-andamento': 'em andamento', pendente: 'pendente', 'campo-encerrado': 'campo encerrado', encerrada: 'encerrada' } as const;
@@ -1176,9 +1287,9 @@ const CLASSE_SELO = { planejada: '', 'em-andamento': '', pendente: ' selo-situac
 const ORDEM_SELO = ['pendente', 'campo-encerrado', 'em-andamento', 'planejada', 'encerrada'] as const;
 
 /** Pendente, em andamento, planejada, encerrada; dentro de cada uma, pelo início (sem início por último). */
-function ordenarOperacoes(operacoes: readonly Operacao[], hoje: string) {
+function ordenarOperacoes(operacoes: readonly Operacao[], hoje: string, prazos: PrazosDeElaboracao) {
   return operacoes
-    .map((o) => ({ o, progresso: progressoDaOperacao(o, hoje) }))
+    .map((o) => ({ o, progresso: progressoDaOperacao(o, hoje, prazos) }))
     .sort((a, b) => ORDEM_SELO.indexOf(a.progresso.selo) - ORDEM_SELO.indexOf(b.progresso.selo) || (a.o.inicio ?? '9999').localeCompare(b.o.inicio ?? '9999'));
 }
 
@@ -1188,11 +1299,14 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
   const [aberta, setAberta] = useState<string | null>(null);
   const emDetalhe = operacoes.find((o) => o.id === aberta);
   const hoje = dataLocal(agora());
-  const pendencias = pendenciasDeCampo(operacoes, hoje);
+  const { demandas } = useEstadoDemandas();
+  const [, setVersaoPrazo] = useState(0);
+  const prazos = prazosDeElaboracao(demandas);
+  const pendencias = pendenciasDeCampo(operacoes, hoje, prazos);
   const porOperacao = operacoes
-    .map((operacao) => ({ operacao, n: [...pendencias.semResultado, ...pendencias.aReprogramar].filter((x) => x.operacao.id === operacao.id).length }))
+    .map((operacao) => ({ operacao, n: [...pendencias.semResultado, ...pendencias.relatorioAtrasado, ...pendencias.aReprogramar].filter((x) => x.operacao.id === operacao.id).length }))
     .filter((x) => x.n > 0);
-  const ordenadas = ordenarOperacoes(operacoes, hoje);
+  const ordenadas = ordenarOperacoes(operacoes, hoje, prazos);
 
   return (
     <section aria-labelledby="titulo-operacoes" className="pagina">
@@ -1210,9 +1324,9 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
             Fiscalizações encaminhadas por terceiros, com lista de pontos para vistoria. Os dados ficam só neste navegador:
             use dados reais apenas depois de classificação e autorização institucional.
           </p>
-          {(pendencias.semResultado.length > 0 || pendencias.aReprogramar.length > 0) && (
+          {temPendencia(pendencias) && (
             <FalaMascote id="pendencias-campo">
-              <p id="pendencias-campo-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length)}</p>
+              <p id="pendencias-campo-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length, pendencias.relatorioAtrasado.length, pendencias.travados.length)}</p>
               <ul className="lista-limpa" aria-label="Operações com pendências">
                 {porOperacao.map(({ operacao, n }) => (
                   <li key={operacao.id} className="texto-pequeno" data-testid={`pendencia-${operacao.id}`}>
@@ -1221,8 +1335,10 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
                   </li>
                 ))}
               </ul>
+              <PontosTravados travados={pendencias.travados} hoje={hoje} agrupar />
             </FalaMascote>
           )}
+          <PrazoDoRelatorio aoMudar={() => setVersaoPrazo((v) => v + 1)} />
           <NovaOperacao operacoes={operacoes} agora={agora} aoCriar={setAberta} />
 
           {operacoes.length === 0 ? (
@@ -1233,14 +1349,14 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
                 <li key={o.id} className="cartao" data-testid={`operacao-${o.id}`}>
                   <p className="acoes acoes--entre">
                     <strong>{o.nome}</strong>
-                    <span className={`selo-situacao${CLASSE_SELO[pr.selo]}`} data-testid={`selo-${o.id}`}>{ROTULO_SELO[pr.selo]}</span>
+                    <span className={`selo-situacao${CLASSE_SELO[pr.selo]}`} data-testid={`selo-${o.id}`}>{textoSelo(pr)}</span>
                   </p>
                   <p className="texto-pequeno texto-suave">{textoPeriodo(o)}</p>
                   <p className="texto-pequeno">{o.viagens.length} viagem(ns) · {pontosSemViagem(o).length} sem viagem</p>
                   {pr.total > 0 && (
                     <div data-testid={`progresso-${o.id}`}>
                       <progress max={pr.total} value={pr.encerrados} aria-label={`Progresso de ${o.nome}`} />
-                      <p className="texto-pequeno">{pr.encerrados} de {pr.total} encerrados · {pr.aFinalizar} a finalizar{pr.travados > 0 && <span className="texto--atencao"> · {pr.travados} travado(s)</span>}</p>
+                      <p className="texto-pequeno">{pr.encerrados} de {pr.total} encerrados · {pr.aFinalizar} a finalizar{pr.emElaboracao > 0 && ` · ${pr.emElaboracao} em elaboração`}{pr.travados > 0 && <span className="texto--atencao"> · {pr.travados} travado(s)</span>}</p>
                       <p className="texto-pequeno">
                         {(Object.keys(SITUACOES_ACOMPANHAMENTO) as SituacaoAcompanhamento[]).filter((s) => pr.porSituacao[s] > 0).map((s, i) => (
                           <span key={s} className={s === 'a-reprogramar' ? 'texto--atencao' : ''}>{i > 0 && ' · '}{pr.porSituacao[s]} {SITUACOES_ACOMPANHAMENTO[s]}</span>

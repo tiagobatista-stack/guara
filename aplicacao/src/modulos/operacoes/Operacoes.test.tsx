@@ -3,7 +3,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Operacoes } from './Operacoes.tsx';
-import { criarOperacao, incluirPontos, obterOperacoes, registrarResultado } from './armazem.ts';
+import { criarOperacao, incluirPontos, obterOperacoes, registrarRelatorio, registrarResultado } from './armazem.ts';
 import { Painel } from '../painel/Painel.tsx';
 
 function montar() {
@@ -602,7 +602,7 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     expect(screen.getByTestId('resumo-operacao')).toHaveTextContent('1 a reprogramar');
   });
 
-  it('finaliza com "Sim" e protocolo; cancelando o outro ponto, a operação fica encerrada', () => {
+  it('finaliza com "Sim" e protocolo; cancelando o outro ponto, o campo encerra; a operação só encerra com o relatório enviado', () => {
     const [p1] = importar();
     fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado do Ponto 1' }));
     const form = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
@@ -612,11 +612,33 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar resultado' }));
     expect(screen.getByTestId(`situacao-${p1.id}`)).toHaveTextContent('finalizado');
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
+    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Em elaboração');
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar Ponto 2' }));
-    expect(screen.getByTestId('operacao-encerrada')).toBeInTheDocument();
+    expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
+    expect(screen.getByTestId('campo-encerrado')).toHaveTextContent('Campo encerrado · 1 em elaboração');
     expect(screen.queryByTestId('pendencias-operacao')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar envio do relatório do Ponto 1' }));
+    const envio = screen.getByRole('form', { name: 'Envio do relatório do Ponto 1' });
+    fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-14' } });
+    fireEvent.change(within(envio).getByLabelText('Número no SIGA-MT (opcional)'), { target: { value: 'FIC-SIGA-1' } });
+    fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Concluído em 14/11/2026 · nº FIC-SIGA-1');
+    expect(screen.getByTestId('operacao-encerrada')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reativar Ponto 2' }));
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
+  });
+
+  it('relatório: data futura é recusada e data em branco desfaz o envio', () => {
+    const [p1] = importar();
+    act(() => { registrarResultado(obterOperacoes()[0].id, p1.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar envio do relatório do Ponto 1' }));
+    const envio = screen.getByRole('form', { name: 'Envio do relatório do Ponto 1' });
+    fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-16' } });
+    fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    expect(within(envio).getByRole('alert')).toHaveTextContent('não pode ser futura');
+    fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '' } });
+    fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Em elaboração');
   });
 
   it('data da vistoria: botões com os dias da viagem, destaque do escolhido e aviso fora do período (sem bloquear)', () => {
@@ -668,7 +690,7 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
         { coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Juína', notas: '', demandas: [], situacao: 'planejado', equipe: 'A', saida, retorno },
         { coordenada: { lat: -11.6, lon: -58.5 }, municipio: 'Juína', notas: '', demandas: [], situacao: 'planejado', equipe: 'A', saida, retorno },
       ]);
-      if (resultado) for (const p of obterOperacoes().find((o) => o.id === r.id)!.pontos) registrarResultado(r.id, p.id, { resultado, motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15');
+      if (resultado) for (const p of obterOperacoes().find((o) => o.id === r.id)!.pontos) { registrarResultado(r.id, p.id, { resultado, motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); registrarRelatorio(r.id, p.id, { enviadoEm: '2026-11-15', protocoloSiga: '', notas: '' }, '2026-11-15'); }
       return r.id;
     };
     const futura = mk('Futura', '2026-12-01', '2026-12-01', '2026-12-05');

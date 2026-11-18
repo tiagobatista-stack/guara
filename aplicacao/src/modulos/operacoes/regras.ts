@@ -112,6 +112,12 @@ function eventoValido(x: unknown): boolean {
   );
 }
 
+function relatorioValido(x: unknown): boolean {
+  if (typeof x !== 'object' || x === null) return false;
+  const r = x as Record<string, unknown>;
+  return dataOpcional(r.enviadoEm) && (r.protocoloSiga === undefined || texto(r.protocoloSiga, LIMITES_OPERACAO.protocolo)) && (r.notas === undefined || texto(r.notas, LIMITES_OPERACAO.observacao));
+}
+
 /** Ponto gravado; aceita o formato antigo (equipe e datas no ponto), que a migração converte. */
 function pontoValido(x: unknown): boolean {
   if (typeof x !== 'object' || x === null) return false;
@@ -134,6 +140,7 @@ function pontoValido(x: unknown): boolean {
     (p.observacao === undefined || texto(p.observacao, LIMITES_OPERACAO.observacao)) &&
     dataOpcional(p.dataVistoria) &&
     (p.bloqueio === undefined || bloqueioValido(p.bloqueio)) &&
+    (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
     (p.reprogramado === undefined || (typeof p.reprogramado === 'object' && p.reprogramado !== null &&
       typeof (p.reprogramado as Record<string, unknown>).operacao === 'string' && typeof (p.reprogramado as Record<string, unknown>).ponto === 'string')) &&
     Array.isArray(p.demandas) && p.demandas.length <= LIMITES_OPERACAO.demandasPorPonto && p.demandas.every((d) => typeof d === 'string') &&
@@ -415,30 +422,81 @@ export function textoPeriodoViagem(v: Pick<Viagem, 'saida' | 'retorno'>): string
   return v.saida.slice(0, 4) === v.retorno.slice(0, 4) ? `${br(v.saida).slice(0, 5)} a ${br(v.retorno)}` : `${br(v.saida)} a ${br(v.retorno)}`;
 }
 
-/** "Vencido" não é situação: ponto ainda em aberto (planejado ou sem resultado) cuja viagem terminou antes de `hoje` (retorno, ou a saída se não há retorno). Sem viagem ou datas: não vence. Ponto com bloqueio ativo não vence: conta como travado (regra única do progresso, do aviso e do mapa). */
-export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'viagem' | 'bloqueio'>, hoje: string): boolean {
-  if (p.bloqueio) return false;
+// ---------- Fase pós-campo, vencimento e progresso ----------
+
+export type FaseDoPonto = 'campo' | 'elaboracao' | 'concluido';
+export const ROTULO_FASE: Record<FaseDoPonto, string> = { campo: 'em campo', elaboracao: 'em elaboração', concluido: 'concluído' };
+
+/**
+ * Onde o ponto está: em campo (sem resultado), em elaboração (com resultado, relatório ainda não enviado no SIGA-MT) ou
+ * concluído (relatório enviado). "Não" (a reprogramar), cancelado e reprogramado seguem a situação e ficam sem fase.
+ */
+export function faseDoPonto(p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'relatorio'>): FaseDoPonto | null {
   const s = situacaoDoPonto(p);
-  const v = viagemDoPonto(o, p);
-  const fim = v?.retorno ?? v?.saida;
-  return (s === 'planejado' || s === 'resultado-pendente') && !!fim && fim < hoje;
+  if (s === 'cancelado' || s === 'reprogramado' || s === 'a-reprogramar') return null;
+  if (!p.resultado) return 'campo';
+  return p.relatorio?.enviadoEm ? 'concluido' : 'elaboracao';
 }
 
-/** Situações que encerram o ponto (não acumulam). */
-const ENCERRADAS: readonly SituacaoAcompanhamento[] = ['finalizado', 'cancelado', 'reprogramado'];
-export const pontoEncerrado = (p: Ponto) => ENCERRADAS.includes(situacaoDoPonto(p));
+/** Prazo da elaboração: demandas ligadas (o prazo mais cedo) e, se não houver, o padrão em dias. Ambos vazios = sem prazo (não vence). */
+export interface PrazosDeElaboracao {
+  prazosDemandas?: ReadonlyMap<string, string>;
+  /** Dias depois do retorno da viagem (ou da saída, se não há retorno). */
+  diasPadrao?: number;
+}
+
+const somarDias = (iso: string, n: number) => new Date(Date.parse(`${iso}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
+export function prazoDaElaboracao(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'demandas' | 'viagem'>, ctx: PrazosDeElaboracao = {}): string | null {
+  const dasDemandas = p.demandas.map((id) => ctx.prazosDemandas?.get(id)).filter((x): x is string => !!x).sort();
+  if (dasDemandas.length > 0) return dasDemandas[0];
+  const v = viagemDoPonto(o, p);
+  const fim = v?.retorno ?? v?.saida;
+  return ctx.diasPadrao !== undefined && fim ? somarDias(fim, ctx.diasPadrao) : null;
+}
+
+/**
+ * "Vencido" não é situação. Em campo: ponto ainda sem resultado cuja viagem terminou antes de `hoje` (retorno, ou a saída se não há retorno).
+ * Em elaboração: o prazo da elaboração passou. Concluído, a reprogramar, cancelado e reprogramado nunca vencem.
+ * O bloqueio não suspende o prazo: ponto travado vence como qualquer outro (regra única do progresso, do aviso e do mapa).
+ */
+export function pontoVencido(
+  o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'viagem' | 'demandas' | 'relatorio'>, hoje: string, ctx: PrazosDeElaboracao = {},
+): boolean {
+  const fase = faseDoPonto(p);
+  if (fase === 'campo') {
+    const v = viagemDoPonto(o, p);
+    const fim = v?.retorno ?? v?.saida;
+    return !!fim && fim < hoje;
+  }
+  if (fase === 'elaboracao') {
+    const prazo = prazoDaElaboracao(o, p, ctx);
+    return !!prazo && prazo < hoje;
+  }
+  return false;
+}
+
+/** Ponto que não precisa mais de trabalho: relatório enviado, cancelado ou reprogramado. */
+export const pontoEncerrado = (p: Ponto) => faseDoPonto(p) === 'concluido' || ['cancelado', 'reprogramado'].includes(situacaoDoPonto(p));
 
 export type SeloDaOperacao = 'planejada' | 'em-andamento' | 'pendente' | 'campo-encerrado' | 'encerrada';
 
 /** Ponto com bloqueio ativo que ainda não saiu do jogo (cancelado e reprogramado não contam). */
 export const pontoTravado = (p: Ponto) => !!p.bloqueio && situacaoDoPonto(p) !== 'cancelado' && situacaoDoPonto(p) !== 'reprogramado';
+
+/** Campo encerrado: há pontos e nenhum está em campo nem a reprogramar (sobra elaboração, relatório enviado, cancelado ou reprogramado). */
+export const campoEncerrado = (o: Pick<Operacao, 'pontos'>) =>
+  o.pontos.length > 0 && o.pontos.every((p) => situacaoDoPonto(p) !== 'a-reprogramar' && faseDoPonto(p) !== 'campo');
+
 export interface ProgressoDaOperacao {
   total: number;
-  /** finalizado + cancelado + reprogramado. */
+  /** Relatório enviado + cancelado + reprogramado. */
   encerrados: number;
-  /** total − encerrados (o "a reprogramar" conta como a finalizar). */
+  /** total − encerrados (o "a reprogramar" e a elaboração contam como a finalizar). */
   aFinalizar: number;
   porSituacao: Record<SituacaoAcompanhamento, number>;
+  emElaboracao: number;
+  concluidos: number;
   vencidos: number;
   /** Pontos com bloqueio ativo. */
   travados: number;
@@ -446,32 +504,35 @@ export interface ProgressoDaOperacao {
 }
 
 /**
- * Andamento da operação. Selo: encerrada se todos os pontos encerraram; pendente se todas as viagens com datas já terminaram
- * (retorno, ou a saída sem retorno, antes de `hoje`); em andamento se alguma saída é hoje ou antes; senão planejada. Sem pontos: planejada.
+ * Andamento da operação. Selo: encerrada se todos os pontos estão concluídos, cancelados ou reprogramados e nenhum está travado;
+ * campo encerrado se nada mais está em campo nem a reprogramar (sobra elaboração, ou bloqueio); pendente se todas as viagens com datas
+ * já terminaram (retorno, ou a saída sem retorno, antes de `hoje`); em andamento se alguma saída é hoje ou antes; senão planejada. Sem pontos: planejada.
  */
-export function progressoDaOperacao(o: Pick<Operacao, 'pontos' | 'viagens'>, hoje: string): ProgressoDaOperacao {
+export function progressoDaOperacao(o: Pick<Operacao, 'pontos' | 'viagens'>, hoje: string, ctx: PrazosDeElaboracao = {}): ProgressoDaOperacao {
   const porSituacao = Object.fromEntries(Object.keys(SITUACOES_ACOMPANHAMENTO).map((k) => [k, 0])) as Record<SituacaoAcompanhamento, number>;
-  let encerrados = 0;
-  let vencidos = 0;
-  let travados = 0;
+  let encerrados = 0, vencidos = 0, travados = 0, emElaboracao = 0, concluidos = 0;
   for (const p of o.pontos) {
-    if (pontoTravado(p as Ponto)) travados++;
     porSituacao[situacaoDoPonto(p)]++;
+    const fase = faseDoPonto(p);
+    if (fase === 'elaboracao') emElaboracao++;
+    if (fase === 'concluido') concluidos++;
+    if (pontoTravado(p as Ponto)) travados++;
     if (pontoEncerrado(p as Ponto)) encerrados++;
-    if (pontoVencido(o, p, hoje)) vencidos++;
+    if (pontoVencido(o, p, hoje, ctx)) vencidos++;
   }
   const total = o.pontos.length;
   const comDatas = o.viagens.filter((v) => v.saida || v.retorno);
   let selo: SeloDaOperacao = 'planejada';
   if (total > 0) {
-    if (operacaoEncerrada(o)) selo = travados > 0 ? 'campo-encerrado' : 'encerrada';
+    if (encerrados === total && travados === 0) selo = 'encerrada';
+    else if (campoEncerrado(o)) selo = 'campo-encerrado';
     else if (comDatas.length > 0 && comDatas.every((v) => (v.retorno ?? v.saida)! < hoje)) selo = 'pendente';
     else if (comDatas.some((v) => v.saida && v.saida <= hoje)) selo = 'em-andamento';
   }
-  return { total, encerrados, aFinalizar: total - encerrados, porSituacao, vencidos, travados, selo };
+  return { total, encerrados, aFinalizar: total - encerrados, porSituacao, emElaboracao, concluidos, vencidos, travados, selo };
 }
 
-/** Operação encerrada: tem pontos e todos estão finalizados, cancelados ou reprogramados. */
+/** Operação encerrada: tem pontos e todos estão concluídos, cancelados ou reprogramados (o bloqueio é tratado à parte, no selo). */
 export const operacaoEncerrada = (o: Pick<Operacao, 'pontos'>) => o.pontos.length > 0 && o.pontos.every(pontoEncerrado);
 
 export interface PendenciaDeCampo {
@@ -479,21 +540,29 @@ export interface PendenciaDeCampo {
   ponto: Ponto;
 }
 
+/** Dias corridos desde a data do bloqueio (0 = hoje). */
+export const diasParado = (b: { desde: string }, hoje: string) =>
+  Math.max(0, Math.round((Date.parse(`${hoje}T00:00:00Z`) - Date.parse(`${dataLocal(new Date(b.desde))}T00:00:00Z`)) / 86_400_000));
+export const textoParado = (n: number) => (n === 0 ? 'parado desde hoje' : `parado há ${n} dia${n === 1 ? '' : 's'}`);
+
 /**
- * O que acumula depois do campo: pontos sem resultado cuja viagem já voltou (retorno antes de `hoje`)
- * e pontos "Não" ainda não reprogramados.
+ * O que acumula depois do campo: pontos sem resultado cuja viagem já voltou, relatórios com o prazo vencido, pontos "Não" ainda não
+ * reprogramados e os pontos travados (do bloqueio mais antigo ao mais recente). O travado também entra nas listas de vencidos quando vence.
  */
-export function pendenciasDeCampo(operacoes: readonly Operacao[], hoje: string): { semResultado: PendenciaDeCampo[]; aReprogramar: PendenciaDeCampo[] } {
+export function pendenciasDeCampo(operacoes: readonly Operacao[], hoje: string, ctx: PrazosDeElaboracao = {}) {
   const semResultado: PendenciaDeCampo[] = [];
+  const relatorioAtrasado: PendenciaDeCampo[] = [];
   const aReprogramar: PendenciaDeCampo[] = [];
+  const travados: PendenciaDeCampo[] = [];
   for (const operacao of operacoes) {
     for (const ponto of operacao.pontos) {
-      const s = situacaoDoPonto(ponto);
-      if (s === 'a-reprogramar') aReprogramar.push({ operacao, ponto });
-      else if (pontoVencido(operacao, ponto, hoje)) semResultado.push({ operacao, ponto });
+      if (situacaoDoPonto(ponto) === 'a-reprogramar') aReprogramar.push({ operacao, ponto });
+      else if (pontoVencido(operacao, ponto, hoje, ctx)) (faseDoPonto(ponto) === 'campo' ? semResultado : relatorioAtrasado).push({ operacao, ponto });
+      if (pontoTravado(ponto)) travados.push({ operacao, ponto });
     }
   }
-  return { semResultado, aReprogramar };
+  travados.sort((a, b) => a.ponto.bloqueio!.desde.localeCompare(b.ponto.bloqueio!.desde));
+  return { semResultado, relatorioAtrasado, aReprogramar, travados };
 }
 
 /** AAAA-MM-DD no fuso do navegador (não em UTC: à noite em Mato Grosso, o UTC já é o dia seguinte). */
