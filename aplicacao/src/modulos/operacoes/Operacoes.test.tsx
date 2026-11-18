@@ -619,6 +619,25 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
   });
 
+  it('data da vistoria: botões com os dias da viagem, destaque do escolhido e aviso fora do período (sem bloquear)', () => {
+    importar();
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado do Ponto 1' }));
+    const form = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
+    const campo = within(form).getByLabelText('Data da vistoria') as HTMLInputElement;
+    expect(campo.value).toBe(''); // nunca vem preenchido sozinho
+    expect(within(within(form).getByRole('group', { name: 'Dias da viagem' })).getAllByRole('button').map((b) => b.textContent)).toEqual(['sex 18/09', 'sáb 19/09', 'dom 20/09', 'seg 21/09', 'ter 22/09']);
+    fireEvent.click(within(form).getByRole('button', { name: 'sáb 19/09' }));
+    expect(campo.value).toBe('2026-09-19');
+    expect(within(form).getByRole('button', { name: 'sáb 19/09' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(form).getByRole('button', { name: 'dom 20/09' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(form).queryByText(/Fora do período/)).toBeNull();
+    fireEvent.change(campo, { target: { value: '2026-09-25' } });
+    expect(within(form).getByText('Fora do período da viagem (18/09 a 22/09/2026) — confira.')).toBeInTheDocument();
+    fireEvent.change(within(form).getByLabelText('Resultado (fiscalizado/autuado)'), { target: { value: 'sim' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Salvar resultado' })); // não bloqueia
+    expect(obterOperacoes()[0].pontos[0].dataVistoria).toBe('2026-09-25');
+  });
+
   it('na lista de operações, o mascote mostra os pontos a reprogramar e leva o ponto para outra operação', () => {
     const a = criarOperacao({ nome: 'Outubro fictícia', inicio: '2026-10-05', fim: '2026-10-12', origem: '' }, '2026-09-01T00:00:00Z');
     const b = criarOperacao({ nome: 'Novembro fictícia', inicio: '2026-11-20', fim: '2026-11-27', origem: '' }, '2026-09-01T00:00:00Z');

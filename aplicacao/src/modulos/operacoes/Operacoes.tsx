@@ -22,7 +22,7 @@ import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
 import {
   agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, operacaoEncerrada, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
-  sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
+  diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
 } from './regras.ts';
 
 const dataBr = (d?: string) => (d ? d.split('-').reverse().join('/') : '—');
@@ -493,6 +493,8 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
 
 // ---------- Um ponto ----------
 
+const rotuloDoDia = (iso: string) => `${['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${iso.slice(8)}/${iso.slice(5, 7)}`;
+
 /** Resultado e pós-campo do ponto (FISCALIZADO_AUTUADO, motivo, protocolo, data da vistoria, observação). */
 function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugeridos, aoTerminar }: {
   operacao: Operacao; ponto: Ponto; rotulo: string; hoje: string; protocolosSugeridos: string[]; aoTerminar: () => void;
@@ -502,6 +504,8 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   });
   const [erro, setErro] = useState<string | null>(null);
   const id = useId();
+  const viagem = viagemDoPonto(operacao, ponto);
+  const dias = diasDaViagem(viagem);
   const exigeMotivo = !!form.resultado && RESULTADOS_COM_MOTIVO.includes(form.resultado);
   const salvar = (e: FormEvent) => {
     e.preventDefault();
@@ -517,8 +521,21 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
             <option value="">Sem resultado</option>
             {(Object.keys(RESULTADOS) as ResultadoPonto[]).map((r) => <option key={r} value={r}>{RESULTADOS[r]}</option>)}
           </select></label>
-        <label className="campo-grupo"><span>Data da vistoria</span>
-          <input className="campo" type="date" max={hoje} value={form.dataVistoria} onChange={(e) => setForm({ ...form, dataVistoria: e.target.value })} /></label>
+        <div>
+          <label className="campo-grupo"><span>Data da vistoria</span>
+            <input className="campo" type="date" max={hoje} value={form.dataVistoria} onChange={(e) => setForm({ ...form, dataVistoria: e.target.value })} /></label>
+          {dias.length > 0 && dias.length <= 10 && (
+            <span className="acoes" role="group" aria-label="Dias da viagem">
+              <span className="texto-pequeno texto-suave">Dias da viagem:</span>
+              {dias.map((dia) => (
+                <button key={dia} type="button" className={`botao botao--pequeno${form.dataVistoria === dia ? ' botao--primario' : ''}`} aria-pressed={form.dataVistoria === dia}
+                  onClick={() => setForm({ ...form, dataVistoria: dia })}>{rotuloDoDia(dia)}</button>
+              ))}
+            </span>
+          )}
+          {dias.length > 10 && <span className="texto-pequeno texto-suave">Viagem de {textoPeriodoViagem(viagem!)}.</span>}
+          {viagem && dataForaDaViagem(viagem, form.dataVistoria) && <span className="texto-pequeno texto--atencao">Fora do período da viagem ({textoPeriodoViagem(viagem)}) — confira.</span>}
+        </div>
         <label className="campo-grupo"><span>Motivo de não fiscalizar/autuar{exigeMotivo ? ' *' : ''}</span>
           <input className="campo" list={`${id}-motivos`} value={form.motivo} maxLength={LIMITES_OPERACAO.motivo} autoComplete="off" onChange={(e) => setForm({ ...form, motivo: e.target.value })} />
           <datalist id={`${id}-motivos`}>{MOTIVOS_SUGERIDOS.map((m) => <option key={m} value={m} />)}</datalist></label>

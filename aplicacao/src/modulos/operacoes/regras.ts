@@ -356,6 +356,35 @@ export function situacaoDoPonto(p: Pick<Ponto, 'situacao' | 'resultado' | 'repro
   return p.situacao === 'vistoriado' ? 'resultado-pendente' : 'planejado';
 }
 
+/** Dias (AAAA-MM-DD) da saída ao retorno, inclusive; só a saída = um dia; sem saída ou retorno antes da saída = nenhum. Para no limite de 400 dias. */
+export function diasDaViagem(v: Pick<Viagem, 'saida' | 'retorno'> | undefined): string[] {
+  if (!v?.saida) return [];
+  const fim = v.retorno ?? v.saida;
+  const dias: string[] = [];
+  const d = new Date(`${v.saida}T00:00:00Z`);
+  while (dias.length < 400) {
+    const iso = d.toISOString().slice(0, 10);
+    if (iso > fim) break;
+    dias.push(iso);
+    d.setUTCDate(d.getUTCDate() + 1);
+  }
+  return dias;
+}
+
+/** Data fora do período da viagem (saída a retorno; só a saída = aquele dia). Sem viagem, sem saída ou sem data: false. */
+export function dataForaDaViagem(v: Pick<Viagem, 'saida' | 'retorno'> | undefined, data: string): boolean {
+  if (!v?.saida || !data) return false;
+  return data < v.saida || data > (v.retorno ?? v.saida);
+}
+
+/** "vistoria" cai fora? Texto do período da viagem: "06/10 a 09/10/2026" (ou "06/10/2026"). */
+export function textoPeriodoViagem(v: Pick<Viagem, 'saida' | 'retorno'>): string {
+  const br = (d: string) => d.split('-').reverse().join('/');
+  if (!v.saida) return '';
+  if (!v.retorno || v.retorno === v.saida) return br(v.saida);
+  return v.saida.slice(0, 4) === v.retorno.slice(0, 4) ? `${br(v.saida).slice(0, 5)} a ${br(v.retorno)}` : `${br(v.saida)} a ${br(v.retorno)}`;
+}
+
 /** "Vencido" não é situação: ponto ainda em aberto (planejado ou sem resultado) cuja viagem terminou antes de `hoje` (retorno, ou a saída se não há retorno). Sem viagem ou datas: não vence. */
 export function pontoVencido(o: Pick<Operacao, 'viagens'>, p: Pick<Ponto, 'situacao' | 'resultado' | 'reprogramado' | 'viagem'>, hoje: string): boolean {
   const s = situacaoDoPonto(p);

@@ -168,3 +168,21 @@ it('criarOperacaoComPontos: valida tudo antes; ponto recusado ou lista vazia nã
   const nova = A.obterOperacoes()[1];
   assert.deepEqual([nova.inicio, nova.fim, nova.viagens.length, nova.pontos.length], ['2026-12-07', '2026-12-11', 1, 1]);
 });
+
+it('diasDaViagem e dataForaDaViagem: viagem de 4 dias, só saída, sem datas, limites e fora', () => {
+  const v = { saida: '2026-10-06', retorno: '2026-10-09' };
+  assert.deepEqual(R.diasDaViagem(v), ['2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09']);
+  assert.deepEqual(R.diasDaViagem({ saida: '2026-10-31', retorno: '2026-11-02' }), ['2026-10-31', '2026-11-01', '2026-11-02']);
+  assert.deepEqual(R.diasDaViagem({ saida: '2026-10-06' }), ['2026-10-06']);
+  assert.deepEqual(R.diasDaViagem({}), []);
+  assert.deepEqual(R.diasDaViagem(undefined), []);
+  assert.deepEqual(R.diasDaViagem({ saida: '2026-10-09', retorno: '2026-10-06' }), []);
+  assert.equal(R.dataForaDaViagem(v, '2026-10-06'), false); // = saída
+  assert.equal(R.dataForaDaViagem(v, '2026-10-09'), false); // = retorno
+  assert.equal(R.dataForaDaViagem(v, '2026-10-05'), true);
+  assert.equal(R.dataForaDaViagem(v, '2026-10-18'), true);
+  assert.equal(R.dataForaDaViagem({ saida: '2026-10-06' }, '2026-10-07'), true); // só saída: só aquele dia
+  assert.equal(R.dataForaDaViagem({}, '2026-10-18'), false); // sem datas
+  assert.equal(R.dataForaDaViagem(v, ''), false);
+  assert.equal(R.textoPeriodoViagem(v), '06/10 a 09/10/2026');
+});
