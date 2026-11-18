@@ -22,11 +22,12 @@ describe('htmlDoRoteiro', () => {
   it('bloco do POP só nos pontos com o bloco ativo; Formulário A inteiro com caixas e item citado; sem Formulário B', () => {
     const { op, viagem } = operacaoComPontos([{ tipoDano: 'Desmatamento' }, { tipoDano: 'Cerca' }, { tipoDano: 'Queimada', popAtivo: true }]);
     const html = htmlDoRoteiro({ operacao: op, viagem, pontos: op.pontos, demandas: [], geradoEm: '2026-11-18' });
-    const folhas = html.split('<article class="folha">').slice(1); // capa + 3 frentes + 2 versos do POP
-    expect(folhas).toHaveLength(6);
-    expect(html.match(/<h2>[^<]*Caracterização do dano \(POP\)/g)).toHaveLength(2); // pontos 1 e 3
-    const verso = folhas.find((f) => f.includes('Caracterização do dano (POP) ·'))!;
-    for (const it of ITENS_POP.filter((i) => i.formulario === 'A')) expect(verso).toContain(`<b>${it.id}.</b>`);
+    const folhas = html.split(/<article class="folha[^"]*">/).slice(1); // capa + 3 frentes + 2 pontos × 2 páginas do POP
+    expect(folhas).toHaveLength(8);
+    expect(html.match(/Caracterização do dano \(POP\) · 1\/2/g)).toHaveLength(2); // pontos 1 e 3
+    expect(html.match(/Caracterização do dano \(POP\) · 2\/2/g)).toHaveLength(2);
+    const verso = folhas.filter((f) => f.includes('Caracterização do dano (POP) ·')).slice(0, 2).join('');
+    for (const it of ITENS_POP.filter((i) => i.formulario === 'A')) expect(verso.split(`<b>${it.id}.</b>`)).toHaveLength(2); // cada item uma vez só
     expect(verso).not.toContain('<b>B-1.</b>');
     // desvios do POP em texto, só os que pulam itens
     expect(verso).toContain('Se "Não", pule para A-18.');
@@ -35,6 +36,8 @@ describe('htmlDoRoteiro', () => {
     expect(verso).toContain('class="cx"');
     expect(html).toContain('Fotos nº');
     expect(html).toContain('Roteiro de vistoria</h1>');
+    expect(html).toContain('1 de 3 · Brasnorte'); // "N de T · operação"
+    expect(html).toContain('(graus decimais, EPSG:4674)');
     expect(html).toContain('18/11/2026');
   });
 
@@ -46,6 +49,19 @@ describe('htmlDoRoteiro', () => {
     expect(html).toContain('Vistoria &amp; cia');
     expect(html).toContain('FIC-1');
     expect(html.match(/<h2>Ponto /g)).toHaveLength(1);
+  });
+});
+
+describe('constatação de embargo', () => {
+  it('só em ponto com demanda de embargo ligada (sem demanda ou com demanda de outro tipo: sem as opções de embargo)', () => {
+    const { op, viagem } = operacaoComPontos([{}, { demandas: ['d1'] }, { demandas: ['d2'] }]);
+    const demandas = [{ id: 'd1', titulo: 'Vistoria de desmate' }, { id: 'd2', titulo: 'Descumprimento de embargo', processo: 'FIC-2' }];
+    const frentes = htmlDoRoteiro({ operacao: op, viagem, pontos: op.pontos, demandas, geradoEm: '2026-11-18' }).split(/<article class="folha[^"]*">/).slice(2); // sem a capa
+    expect(frentes[0]).not.toContain('embargo descumprido'); // sem demanda
+    expect(frentes[1]).not.toContain('embargo descumprido'); // demanda de outro tipo
+    expect(frentes[1]).toContain('regeneração');
+    expect(frentes[2]).toContain('embargo respeitado');
+    expect(frentes[2]).toContain('embargo descumprido');
   });
 });
 
