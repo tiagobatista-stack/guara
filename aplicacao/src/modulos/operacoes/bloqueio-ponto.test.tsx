@@ -75,13 +75,17 @@ describe('bloqueio do ponto: regra', () => {
     expect(obterOperacoes()[0].pontos[0].bloqueio).toBeUndefined();
   });
 
-  it('ponto cancelado não é travado; bloqueio inválido é recusado na leitura', () => {
+  it('ponto cancelado não é travado; bloqueio inválido vai para a quarentena na leitura', () => {
     const id = operacao();
     const [p] = obterOperacoes()[0].pontos;
     regrava_cancelado();
     expect(travarPonto(id, p.id, 'autuado', '', '2026-11-10T12:00:00Z')).toMatch(/cancelado/);
     const o = obterOperacoes()[0];
-    expect(validarListaOperacoes([{ ...o, pontos: [{ ...o.pontos[0], bloqueio: { motivo: 'inventado', desde: 'x' } }] }])).toEqual([]);
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+    // Bloqueio ilegível não derruba o ponto nem a operação: o conteúdo vai para a quarentena do ponto.
+    const [lida] = validarListaOperacoes([{ ...o, pontos: [{ ...o.pontos[0], bloqueio: { motivo: 'inventado', desde: 'x' } }] }]);
+    expect(lida.pontos[0].bloqueio).toBeUndefined();
+    expect(lida.pontos[0].quarentena?.bloqueio).toEqual({ motivo: 'inventado', desde: 'x' });
   });
 
   it('selo: campo encerrado com elaboração ou com ponto travado; encerrada só com tudo concluído e sem bloqueio', () => {

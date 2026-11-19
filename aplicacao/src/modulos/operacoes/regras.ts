@@ -96,14 +96,36 @@ const consultaValida = (base: string, c: unknown): boolean => (BASES_CONSULTA as
 
 export const consultasValidas = (x: unknown): boolean => registro(x) && Object.entries(x).every(([base, c]) => consultaValida(base, c));
 
+/** Campos digitados: se inválidos, o ponto abre e o valor bruto vai para `quarentena`, nunca é descartado. */
+const VALIDADORES_DIGITADOS: Record<string, (v: unknown) => boolean> = {
+  caracterizacao: (v) => caracterizacaoValida(v),
+  anotacoes: (v) => anotacoesValidas(v),
+  bloqueio: (v) => bloqueioValido(v),
+  relatorio: relatorioValido,
+  resultado: (v) => typeof v === 'string' && v in RESULTADOS,
+  observacao: (v) => texto(v, LIMITES_OPERACAO.observacao),
+  motivo: (v) => texto(v, LIMITES_OPERACAO.motivo),
+  protocolo: (v) => texto(v, LIMITES_OPERACAO.protocolo),
+  notas: (v) => texto(v, LIMITES_OPERACAO.notas),
+};
+
 /**
  * Consultas e `geo` são dados derivados (a tela os refaz): se um registro estiver inválido, só ele é descartado
  * (vira "não consultada"), com aviso no console. Nunca derruba a operação.
  */
-function sanearDerivados(pontos: unknown[]): unknown[] {
+function sanearPontos(pontos: unknown[]): unknown[] {
   return pontos.map((p) => {
     if (!registro(p)) return p;
     const r: Record<string, unknown> = { ...p };
+    const quarentena: Record<string, unknown> = registro(r.quarentena) ? { ...r.quarentena } : {};
+    for (const [campo, valido] of Object.entries(VALIDADORES_DIGITADOS)) {
+      if (r[campo] === undefined || valido(r[campo])) continue;
+      console.warn(`[GUARÁ] Campo "${campo}" do ponto ${String(p.id)} não pôde ser lido: guardado em quarentena.`);
+      quarentena[campo] = r[campo];
+      delete r[campo];
+    }
+    if (r.notas === undefined) r.notas = ''; // obrigatório no formato; vazio quando ausente ou quarentenado
+    if (Object.keys(quarentena).length > 0) r.quarentena = quarentena;
     if (r.geo !== undefined && !geoValido(r.geo)) { console.warn(`[GUARÁ] Consulta de bioma/vegetação do ponto ${String(p.id)} inválida: descartada.`); delete r.geo; }
     if (r.consultas !== undefined) {
       if (!registro(r.consultas)) { console.warn(`[GUARÁ] Consultas do ponto ${String(p.id)} inválidas: descartadas.`); delete r.consultas; }
@@ -198,6 +220,7 @@ function pontoValido(x: unknown): boolean {
     (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
     (p.anotacoes === undefined || anotacoesValidas(p.anotacoes)) &&
     (p.caracterizacao === undefined || caracterizacaoValida(p.caracterizacao)) &&
+    (p.quarentena === undefined || registro(p.quarentena)) &&
     (p.geo === undefined || geoValido(p.geo)) &&
     (p.consultas === undefined || consultasValidas(p.consultas)) &&
     (p.popAtivo === undefined || typeof p.popAtivo === 'boolean') &&
@@ -269,7 +292,7 @@ const idMigracao = (conhecidas: readonly Viagem[]) => {
 export function migrarOperacao(x: unknown): Operacao | null {
   if (typeof x !== 'object' || x === null) return null;
   const bruto = x as Record<string, unknown>;
-  const pontosSaneados = Array.isArray(bruto.pontos) ? sanearDerivados(bruto.pontos) : bruto.pontos;
+  const pontosSaneados = Array.isArray(bruto.pontos) ? sanearPontos(bruto.pontos) : bruto.pontos;
   const o: Record<string, unknown> = { ...bruto, pontos: pontosSaneados };
   const valida =
     typeof o.id === 'string' && o.id.length > 0 &&

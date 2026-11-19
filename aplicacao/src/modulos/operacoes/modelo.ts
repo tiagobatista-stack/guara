@@ -68,6 +68,8 @@ export type SituacaoAcompanhamento = keyof typeof SITUACOES_ACOMPANHAMENTO;
 
 export interface Ponto {
   id: string;
+  /** Conteúdo digitado que não pôde ser lido ao carregar (campo → valor bruto). Nunca é descartado sozinho: a tela oferece ver, baixar e descartar. */
+  quarentena?: Record<string, unknown>;
   /** Número do ponto na lista recebida, quando houver; sem ele, o próximo livre da operação. */
   numero?: number;
   /** Código do ponto (CODIGO_PONTO): o da planilha ou MUNICIPIO+AAAAMM-NN. Fixo depois de criado e único entre as operações. */

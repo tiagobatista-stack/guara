@@ -11,7 +11,8 @@ export interface ListaLocal<T> {
   useSoNaMemoria(): boolean;
 }
 
-export function criarListaLocal<T>(chave: string, padrao: () => T[], validar: (x: unknown) => T[]): ListaLocal<T> {
+/** `aoIlegivel`: recebe o texto bruto quando o JSON gravado não pode ser lido (para guardá-lo antes que a próxima gravação o apague). */
+export function criarListaLocal<T>(chave: string, padrao: () => T[], validar: (x: unknown) => T[], aoIlegivel?: (bruto: string) => void): ListaLocal<T> {
   const ouvintes = new Set<() => void>();
   let brutoLido: string | null | undefined;
   let atual: T[] = padrao();
@@ -31,6 +32,7 @@ export function criarListaLocal<T>(chave: string, padrao: () => T[], validar: (x
       try {
         atual = bruto === null ? padrao() : validar(JSON.parse(bruto));
       } catch {
+        if (bruto !== null) aoIlegivel?.(bruto);
         atual = padrao();
       }
     }

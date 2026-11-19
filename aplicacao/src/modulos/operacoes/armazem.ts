@@ -7,6 +7,7 @@ import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
 import { caracterizacaoValida } from './pop-supressao.ts';
 import { consultarSugestao, lerAuthkey, type SugestaoGeo } from './sugestao-vegetacao.ts';
 import { consultarBases, preservarRegistro } from './consulta-bases.ts';
+import { guardarEmQuarentena } from './quarentena.ts';
 import { CONSULTAS } from './relatorio-frases.ts';
 import { anotacoesValidas, comAnotacoes, type Anotacao } from '../../compartilhado/anotacoes.ts';
 import type { MotivoBloqueio } from '../demandas/modelo.ts';
@@ -14,9 +15,36 @@ import {
   BASES_CONSULTA, CHAVE_OPERACOES, LIMITES_OPERACAO, RESULTADOS_COM_MOTIVO,
   type EventoOperacao, type MotivoPeriodo, type Operacao, type OrigemAlerta, type Ponto, type PontoNovo, type ResultadoPonto, type Viagem,
 } from './modelo.ts';
-import { codigosEmUso, consultasValidas, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, periodoDosPontos, problemasDeDatas, situacaoDoPonto, type PrazosDeElaboracao, validarListaOperacoes, type Periodo } from './regras.ts';
+import { codigosEmUso, consultasValidas, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, migrarOperacao, periodoDosPontos, problemasDeDatas, situacaoDoPonto, type PrazosDeElaboracao, type Periodo } from './regras.ts';
 
-const lista = criarListaLocal<Operacao>(CHAVE_OPERACOES, () => [], validarListaOperacoes);
+/** Lê a lista gravada; operação que não abre (id ou estrutura básica ilegível) vai, bruta, para a quarentena global. */
+export function lerOperacoesPreservando(x: unknown): Operacao[] {
+  if (!Array.isArray(x)) {
+    guardarEmQuarentena(x, 'conteúdo das operações não é uma lista');
+    return [];
+  }
+  const abertas: Operacao[] = [];
+  for (const item of x) {
+    const aberta = migrarOperacao(item);
+    if (aberta) { abertas.push(aberta); continue; }
+    const id = (item as { id?: unknown } | null)?.id;
+    guardarEmQuarentena(item, `operação ${typeof id === 'string' ? `"${id}" ` : ''}com estrutura ilegível`);
+  }
+  return abertas.slice(0, LIMITES_OPERACAO.operacoes);
+}
+
+const lista = criarListaLocal<Operacao>(CHAVE_OPERACOES, () => [], lerOperacoesPreservando, (bruto) => guardarEmQuarentena(bruto, 'JSON das operações ilegível'));
+
+/** Troca a lista inteira sem carimbar (restauração de backup). Quem chama deve ter guardado o conteúdo anterior. */
+export function substituirOperacoes(novas: Operacao[]): void { lista.gravar(novas); }
+
+/** Descarta (depois de a pessoa ter visto e baixado) o conteúdo em quarentena de um ponto. */
+export function descartarQuarentenaDoPonto(operacaoId: string, pontoId: string): void {
+  gravar(obterOperacoes().map((o) => (o.id !== operacaoId ? o : {
+    ...o,
+    pontos: o.pontos.map((p) => { if (p.id !== pontoId) return p; const { quarentena: _q, ...resto } = p; void _q; return resto; }),
+  })));
+}
 
 /**
  * Ponto único de gravação: carimba a operação comparando antes e depois.

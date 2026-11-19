@@ -7,12 +7,14 @@ import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascot
 import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
-import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
+import { avisoDeBackup, avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
+import { useOperacoes } from '../operacoes/armazem.ts';
+import { DIAS_LEMBRETE_BACKUP, useUltimoBackup } from '../../compartilhado/ultimo-backup.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
 import { plural } from '../../compartilhado/plural.ts';
 
-const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
+const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas', backup: 'Backup' };
 
 /** Os mesmos avisos do painel, agrupados por tipo, com o id de cada demanda. */
 function textoDosPrazos(avisos: readonly Aviso[]): string {
@@ -114,7 +116,10 @@ const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[], ocultos: n
 export function useAvisosDoDia(instante: Date): Aviso[] {
   const { demandas, diasInatividade } = useEstadoDemandas();
   const ajuste = useAjusteFeriados(instante);
-  return avisosDoDia(demandas, instante, diasInatividade, ajuste);
+  const ultimoBackup = useUltimoBackup();
+  const operacoes = useOperacoes();
+  const backup = avisoDeBackup(ultimoBackup, operacoes.length > 0 || ultimoBackup !== null, instante, DIAS_LEMBRETE_BACKUP) // demandas de exemplo não contam;
+  return [...avisosDoDia(demandas, instante, diasInatividade, ajuste), ...(backup ? [backup] : [])];
 }
 
 /**

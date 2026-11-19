@@ -13,6 +13,8 @@ import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compart
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
 import { RelatorioDoPonto } from './RelatorioDoPonto.tsx';
+import { QuarentenaDoPonto } from './QuarentenaDoPonto.tsx';
+import { useQuarentena } from './quarentena.ts';
 import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
 import { htmlDoRoteiro, type DemandaDoRoteiro } from './roteiro.ts';
 import { Gaveta } from '../../compartilhado/Gaveta.tsx';
@@ -765,6 +767,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <SeloAnotacoes anotacoes={ponto.anotacoes} testid={`anotacoes-${ponto.id}`} />
           {cancelado && ponto.motivoCancelamento && <span className="texto-pequeno texto-suave" data-testid={`motivo-cancelamento-${ponto.id}`}>· {ponto.motivoCancelamento}</span>}
       </div>
+      <QuarentenaDoPonto operacao={operacao} ponto={ponto} rotulo={rotulo} />
       <div id={`${idCampos}-corpo`} hidden={!aberto} className="ponto-corpo">
       <dl className="dados-definicao">
         <dt>Código</dt><dd className="mono" data-testid={`codigo-${ponto.id}`}>{ponto.codigo ?? <span className="texto--atencao">sem código</span>}</dd>
@@ -1683,6 +1686,7 @@ function GerarRoteiroDoCard({ operacao, pr, demandas, hoje, aoAtualizarCronogram
 export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) {
   const operacoes = useOperacoes();
   const soNaMemoria = useOperacoesSoNaMemoria();
+  const naQuarentena = useQuarentena().length;
   const [aberta, setAberta] = useState<string | null>(null);
   const [alvo, setAlvo] = useState<string | null>(null); // ponto a abrir direto (vindo dos Travados)
   const emDetalhe = operacoes.find((o) => o.id === aberta);
@@ -1699,6 +1703,12 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
       {soNaMemoria && (
         <p role="alert" className="aviso" data-testid="aviso-operacoes-sem-gravacao">
           Este navegador não deixou gravar as operações (armazenamento bloqueado, cheio ou em modo privado). As mudanças valem só até fechar a página.
+        </p>
+      )}
+      {naQuarentena > 0 && (
+        <p role="alert" className="aviso" data-testid="aviso-quarentena-global">
+          {plural(naQuarentena, 'conteúdo de operação não pôde ser lido e está guardado', 'conteúdos de operações não puderam ser lidos e estão guardados')}, sem apagar.{' '}
+          <a href="#/configuracoes">Ver em Configurações</a>
         </p>
       )}
       {emDetalhe ? (

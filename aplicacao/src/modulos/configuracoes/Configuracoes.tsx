@@ -2,6 +2,7 @@
 // A escolha é visual: não muda permissões, dados nem capacidades do sistema.
 
 import { useState } from 'react';
+import { SecaoBackup } from './SecaoBackup.tsx';
 import { definirAuthkey, lerAuthkey } from '../operacoes/sugestao-vegetacao.ts';
 import { Mascote, MASCOTES, type EspecieMascote } from '../../compartilhado/Mascote.tsx';
 import {
@@ -113,6 +114,7 @@ export function Configuracoes() {
       </section>
 
       <CampoChaveGeo />
+      <SecaoBackup />
     </section>
   );
 }

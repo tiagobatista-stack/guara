@@ -167,6 +167,23 @@ describe('camadas _PONTO: proximidade', () => {
     expect(r.consultas.autos.proximidade).toBeUndefined();
   });
 
+  it('embargos: A_INFRAC (nº do auto no legado) nunca é pedido nem serve de chave; só T_EMBARGO/NUMERO_TERMO', async () => {
+    const campos = Object.fromEntries(CAMADAS.embargos.map((c) => [c.nome, ['A_INFRAC', 'NUMERO_TERMO', 'T_EMBARGO']]));
+    const { f, chamadas } = servidor((q) => {
+      if (camada(q) === 'Geoportal:AREA_EMBARGADA_SIGA_POLIGONO') return feicao({ NUMERO_TERMO: 'TE-5', A_INFRAC: 'AI-1' });
+      if (camada(q) === 'Geoportal:AREA_EMBARGADA_SIGA_PONTO') return { json: { features: [
+        { properties: { NUMERO_TERMO: 'TE-5', A_INFRAC: 'AI-2' }, geometry: pontoA(100) }, // mesmo termo: repetido
+        { properties: { NUMERO_TERMO: 'TE-6', A_INFRAC: 'AI-1' }, geometry: pontoA(200) }, // mesmo A_INFRAC, termo outro: não é repetido
+      ] } };
+      return undefined;
+    }, campos);
+    const e = (await consultarBases(COORD, CHAVE, f)).consultas.embargos;
+    expect(e.proximidade).toEqual([{ m: 200, texto: 'TE-6' }]);
+    for (const q of chamadas.filter((x) => CAMADAS.embargos.some((c) => c.nome === camada(x)) && x.get('propertyName'))) {
+      expect(q.get('propertyName')!.split(',')).not.toContain('A_INFRAC');
+    }
+  });
+
   it('feição sem posição não vira "vazio": vira falha', async () => {
     const { f } = servidor(soPonto({ json: { features: [{ properties: { NUMERO_AUTO: 'AI-1' }, geometry: null }] } }));
     expect((await consultarBases(COORD, CHAVE, f)).consultas.autos.estado).toBe('falha');
