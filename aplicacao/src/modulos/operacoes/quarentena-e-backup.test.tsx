@@ -183,3 +183,108 @@ describe('lembrete do mascote', () => {
     expect(avisoDeBackup(diasAtras(30), true, agora, 7)?.tipo).toBe('backup');
   });
 });
+
+describe('backup completo e cópia automática antes de importar', () => {
+  const agora = new Date(2026, 10, 18, 9, 5);
+
+  /** Captura os arquivos "baixados" (nome pelo atributo download, conteúdo pelo Blob) na ordem em que saem. */
+  function capturarDownloads() {
+    const arquivos: { nome: string; conteudo: string; operacoesNoMomento: number }[] = [];
+    let ultimoConteudo = '';
+    const original = Blob;
+    vi.stubGlobal('Blob', class extends original { constructor(partes: BlobPart[], o?: BlobPropertyBag) { super(partes, o); ultimoConteudo = String(partes[0]); } });
+    URL.createObjectURL = vi.fn(() => 'blob:x');
+    URL.revokeObjectURL = vi.fn();
+    vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(function (this: HTMLAnchorElement) {
+      arquivos.push({ nome: this.download, conteudo: ultimoConteudo, operacoesNoMomento: obterOperacoes().length });
+    });
+    return arquivos;
+  }
+
+  const montarArmazem = () => criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [] });
+  const entrar = async (texto: string) => fireEvent.change(screen.getByLabelText('Arquivo de backup'), { target: { files: [new File([texto], 'b.json')] } });
+
+  it('o backup leva contatos, atalhos e feriados locais, e NÃO leva a chave do GeoServer; o aviso diz isso', async () => {
+    localStorage.setItem(CHAVE_AUTHKEY, 'chave-secreta-123');
+    expect(incluirContato({ nome: 'Beto', instituicao: 'MPMT', setor: '', email: '', celular: '', observacoes: '' })).toBeNull();
+    expect(incluirAtalho('Geoportal', 'https://geoportal.exemplo.gov.br')).toBeNull();
+    localStorage.setItem(CHAVE_FERIADOS, JSON.stringify({ extras: [{ data: '2026-12-08', nome: 'Padroeira', anual: true }], remover: [], facultativos: false }));
+    const armazem = montarArmazem();
+    const arquivos = capturarDownloads();
+    render(<ContextoArmazem.Provider value={armazem}><SecaoBackup agora={() => agora} /></ContextoArmazem.Provider>);
+    expect(screen.getByText(/A chave do GeoServer não vai no backup; preencha de novo após importar\./)).toBeInTheDocument();
+    clicar('Exportar backup (.json)');
+    const texto = arquivos[0].conteudo;
+    expect(texto).not.toContain('chave-secreta-123');
+    expect(texto).not.toContain(CHAVE_AUTHKEY);
+    const b = JSON.parse(texto);
+    expect(b.extras.contatos[0].nome).toBe('Beto');
+    expect(b.extras.atalhos.some((a: { nome: string }) => a.nome === 'Geoportal')).toBe(true);
+    expect(b.extras.feriados.extras[0].nome).toBe('Padroeira');
+  });
+
+  it('importar: baixa antes o estado atual (nome com data e hora) e só então substitui; contatos, atalhos e feriados voltam; a chave não é tocada', async () => {
+    // Backup de origem: um estado com 1 operação, 1 contato, 1 atalho e 1 feriado.
+    operacaoComPonto('Do backup');
+    incluirContato({ nome: 'Beto', instituicao: '', setor: '', email: '', celular: '', observacoes: '' });
+    incluirAtalho('Geoportal', 'https://geoportal.exemplo.gov.br');
+    localStorage.setItem(CHAVE_FERIADOS, JSON.stringify({ extras: [{ data: '2026-12-08', nome: 'Padroeira', anual: true }], remover: [], facultativos: false }));
+    const origem = montarArmazem();
+    let arquivos = capturarDownloads();
+    const { unmount } = render(<ContextoArmazem.Provider value={origem}><SecaoBackup agora={() => agora} /></ContextoArmazem.Provider>);
+    clicar('Exportar backup (.json)');
+    const backup = arquivos[0].conteudo;
+    unmount();
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+    vi.spyOn(console, 'warn').mockImplementation(() => {});
+
+    // Estado diferente no navegador: outra operação, outros contatos e atalhos, outra chave.
+    localStorage.clear();
+    localStorage.setItem(CHAVE_AUTHKEY, 'chave-que-fica');
+    operacaoComPonto('Atual 1');
+    operacaoComPonto('Atual 2');
+    incluirContato({ nome: 'Carla', instituicao: '', setor: '', email: '', celular: '', observacoes: '' });
+    const atual = montarArmazem();
+    arquivos = capturarDownloads();
+    render(<ContextoArmazem.Provider value={atual}><SecaoBackup agora={() => new Date(2026, 10, 20, 14, 30)} /></ContextoArmazem.Provider>);
+    await entrar(backup);
+    const previa = await screen.findByTestId('previa-backup');
+    expect(previa).toHaveTextContent('1 contato');
+    expect(previa).toHaveTextContent('guara-antes-da-importacao-AAAA-MM-DD-HHMM.json');
+    clicar('Confirmar importação');
+
+    // A cópia saiu antes da troca, com o estado de antes.
+    expect(arquivos).toHaveLength(1);
+    expect(arquivos[0].nome).toBe('guara-antes-da-importacao-2026-11-20-1430.json');
+    expect(arquivos[0].operacoesNoMomento).toBe(2); // as 2 operações atuais ainda estavam lá
+    const copia = JSON.parse(arquivos[0].conteudo);
+    expect(copia.operacoes.map((o: { nome: string }) => o.nome)).toEqual(['Atual 1', 'Atual 2']);
+    expect(copia.extras.contatos[0].nome).toBe('Carla');
+    expect(arquivos[0].conteudo).not.toContain('chave-que-fica');
+    expect(lerUltimoBackup()).toBeNull(); // a cópia automática não conta como backup feito
+
+    // Depois da troca: tudo do backup, e a chave continua como estava.
+    expect(obterOperacoes().map((o) => o.nome)).toEqual(['Do backup']);
+    expect(obterContatos().map((c) => c.nome)).toEqual(['Beto']);
+    expect(obterAtalhos().some((a) => a.nome === 'Geoportal')).toBe(true);
+    expect(JSON.parse(localStorage.getItem(CHAVE_FERIADOS)!).extras[0].nome).toBe('Padroeira');
+    expect(localStorage.getItem(CHAVE_AUTHKEY)).toBe('chave-que-fica');
+  });
+
+  it('se a cópia automática não puder ser gerada, nada é importado', async () => {
+    operacaoComPonto('Atual');
+    const armazem = montarArmazem();
+    const origem = JSON.stringify({ formato: 'guara-backup', versao: 1, exportadoEm: '2026-11-01T12:00:00Z', operacoes: [], quarentena: [], dados: { formato: 'guara-dados', versao: 1, ficticio: true, exportadoEm: '', configuracao: { diasInatividade: 3 }, demandas: [] } });
+    const { aplicarBackup, analisarBackup } = await import('../configuracoes/backup.ts');
+    const r = analisarBackup(origem);
+    if (!r.ok) throw new Error(r.erro);
+    const resultado = aplicarBackup(r.previa, armazem, agora, () => { throw new Error('sem download'); });
+    expect(resultado).toEqual({ ok: false, mensagem: 'Não foi possível gerar a cópia dos dados atuais; nada foi importado.' });
+    expect(obterOperacoes().map((o) => o.nome)).toEqual(['Atual']);
+  });
+
+  it('nome da cópia: AAAA-MM-DD-HHMM com zeros à esquerda', () => {
+    expect(nomeDaCopia(new Date(2026, 0, 3, 7, 4))).toBe('guara-antes-da-importacao-2026-01-03-0704.json');
+  });
+});
