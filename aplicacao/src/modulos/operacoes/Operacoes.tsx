@@ -15,6 +15,7 @@ import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
 import { InspecaoDoPonto } from './InspecaoDoPonto.tsx';
 import { inspecaoAtiva, TIPOS_DANO_AGROTOXICO } from './inspecao-agrotoxicos.ts';
 import { RelatorioDoPonto } from './RelatorioDoPonto.tsx';
+import { DOCUMENTOS_LAVRADOS, numerosDoTexto, type DocumentoLavrado } from './providencias.ts';
 import { QuarentenaDoPonto } from './QuarentenaDoPonto.tsx';
 import { useQuarentena } from './quarentena.ts';
 import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
@@ -564,6 +565,8 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
 
 // ---------- Um ponto ----------
 
+const ROTULOS_LAVRADOS = [['auto', 'Auto(s) de infração: n.º'], ['notificacao', 'Notificação(ões): n.º'], ['embargo', 'Termo(s) de embargo: n.º']] as const;
+
 const rotuloDoDia = (iso: string) => `${['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${iso.slice(8)}/${iso.slice(5, 7)}`;
 
 /** Resultado e pós-campo do ponto (FISCALIZADO_AUTUADO, motivo, protocolo, data da vistoria, observação). */
@@ -573,8 +576,11 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   const [form, setForm] = useState<DadosResultado>({
     resultado: ponto.resultado ?? '', motivo: ponto.motivo ?? '', protocolo: ponto.protocolo ?? '', observacao: ponto.observacao ?? '', dataVistoria: ponto.dataVistoria ?? '',
   });
-  const original = useRef(JSON.stringify(form));
-  usePendente(JSON.stringify(form) !== original.current);
+  const [lav, setLav] = useState<Record<DocumentoLavrado, string>>({
+    auto: (ponto.lavrados?.auto ?? []).join('; '), notificacao: (ponto.lavrados?.notificacao ?? []).join('; '), embargo: (ponto.lavrados?.embargo ?? []).join('; '),
+  });
+  const original = useRef(JSON.stringify([form, lav]));
+  usePendente(JSON.stringify([form, lav]) !== original.current);
   const [erro, setErro] = useState<string | null>(null);
   const id = useId();
   const viagem = viagemDoPonto(operacao, ponto);
@@ -582,7 +588,7 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   const exigeMotivo = !!form.resultado && RESULTADOS_COM_MOTIVO.includes(form.resultado);
   const salvar = (e: FormEvent) => {
     e.preventDefault();
-    const problema = registrarResultado(operacao.id, ponto.id, form, hoje);
+    const problema = registrarResultado(operacao.id, ponto.id, { ...form, lavrados: Object.fromEntries(DOCUMENTOS_LAVRADOS.map((k) => [k, numerosDoTexto(lav[k])]).filter(([, v]) => v.length > 0)) }, hoje);
     setErro(problema);
     if (!problema) aoTerminar();
   };
@@ -616,6 +622,13 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
           <input className="campo" list={`${id}-protocolos`} value={form.protocolo} maxLength={LIMITES_OPERACAO.protocolo} autoComplete="off" onChange={(e) => setForm({ ...form, protocolo: e.target.value })} />
           <datalist id={`${id}-protocolos`}>{protocolosSugeridos.map((x) => <option key={x} value={x} />)}</datalist></label>
       </div>
+      <fieldset className="grade grade--2">
+        <legend className="texto-pequeno texto-suave">Documentos lavrados no ponto (só o n.º; vários separados por ponto e vírgula)</legend>
+        {ROTULOS_LAVRADOS.map(([k, rotuloDoc]) => (
+          <label key={k} className="campo-grupo"><span>{rotuloDoc}</span>
+            <input className="campo" value={lav[k]} autoComplete="off" onChange={(e) => setLav({ ...lav, [k]: e.target.value })} /></label>
+        ))}
+      </fieldset>
       <label className="campo-grupo"><span>Observação</span>
         <textarea className="campo campo--area" rows={2} value={form.observacao} maxLength={LIMITES_OPERACAO.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></label>
       {form.resultado === 'nao' && <p className="texto-pequeno texto-suave">"Não" = não fiscalizado: o ponto fica a reprogramar até entrar em outra operação.</p>}

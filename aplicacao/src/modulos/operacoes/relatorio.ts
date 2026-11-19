@@ -6,7 +6,7 @@ import { consultaDoGeo, diaLocal } from './consulta-bases.ts';
 import { plural } from '../../compartilhado/plural.ts';
 import { BASES_CONSULTA, type BaseConsulta, type ConsultaBase, type Operacao, type Ponto, type Viagem } from './modelo.ts';
 import { inspecaoAtiva } from './inspecao-agrotoxicos.ts';
-import { frasesDaInspecao } from './relatorio-inspecao.ts';
+import { frasesDaInspecao, frasesDosLavrados } from './relatorio-inspecao.ts';
 import { ITENS_POP, itensAplicaveis, marcadas, respondido, type Caracterizacao } from './pop-supressao.ts';
 import {
   ABERTURA, AVISO_SEM_RESULTADO, CARACTERIZACAO, CONSULTAS, DIVERGENCIA, EROSAO, ESTRUTURA, FECHO_CONSULTAS, FONTES, NAO_REALIZADA, NAO_REALIZADAS, ORIGENS, PONTO, POP_NAO_PREENCHIDO, PROXIMIDADE, TI_UC_AMORTECIMENTO_VAZIOS,
@@ -238,6 +238,7 @@ export function textoDoRelatorio(operacao: Operacao, ponto: Ponto): string {
     [...frasesDoPonto(operacao, ponto), ...frasesDasConsultas(ponto)].join(' '),
     ...(popIniciado ? CARACTERIZACAO.map((g) => frasesDoGrupo(g, ponto, aplicaveis).join(' ')) : [POP_NAO_PREENCHIDO]),
     ...(inspecaoAtiva(ponto) ? frasesDaInspecao(ponto, consultada(consultaDe(ponto, 'car')) ? (consultaDe(ponto, 'car')!.estado as 'encontrado' | 'vazio') : undefined) : []),
+    frasesDosLavrados(ponto),
   ].filter((b) => b.trim() !== '');
   const corpo = [
     ...(ponto.resultado === undefined ? [AVISO_SEM_RESULTADO, ''] : []),

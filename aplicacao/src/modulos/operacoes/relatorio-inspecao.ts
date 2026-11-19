@@ -4,7 +4,7 @@
 import { DIVERGENCIA } from './relatorio-frases.ts';
 import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
 import type { Ponto } from './modelo.ts';
-import { DOCUMENTO_DA_PROVIDENCIA } from './providencias.ts';
+import { DOCUMENTOS_LAVRADOS, EXIGENCIA_DA_PROVIDENCIA } from './providencias.ts';
 import { itensAplicaveis, marcadas, respondido, type Caracterizacao } from './pop-supressao.ts';
 import {
   APLICACAO, APLICACAO_PENDENTE, COMPLEMENTO, DIVERGENCIA_PREVIA, FONTE_PREVIA, LAVRADOS, FONTES_PREVIA, FRAGMENTOS, HIDROMETRO_VOLUME, INSPECAO, INSPECAO_NAO_PREENCHIDA,
@@ -30,21 +30,19 @@ const entradas = (itens: readonly Nao[]): string[] => {
 };
 
 /** Uma entrada por grupo da inspeção (parágrafos do relatório). `car`: resultado da consulta automática do CAR, se feita. */
-/** Notificação e auto lavrados: só o documento e o número. "Feito" sem número vira pendência. */
-function frasesDosLavrados(ponto: Pick<Ponto, 'providencias' | 'lavrados'>): string {
-  const frases = (['notificacao', 'auto'] as const).map((k) => {
-    const numero = ponto.lavrados?.[k]?.trim();
-    if (numero) return preencher(LAVRADOS[k], { numero });
-    const feita = Object.entries(ponto.providencias ?? {}).some(([id, e]) => e === 'feito' && DOCUMENTO_DA_PROVIDENCIA[id] === k);
-    return feita ? LAVRADOS.pendente : '';
+/** Documentos lavrados no ponto (qualquer ponto): só o documento e o(s) número(s). Notificação "feita" ou ponto "autuado" sem número vira pendência. */
+export function frasesDosLavrados(ponto: Pick<Ponto, 'providencias' | 'lavrados'>): string {
+  const exigidos = new Set(Object.entries(ponto.providencias ?? {}).flatMap(([id, e]) => (EXIGENCIA_DA_PROVIDENCIA[id]?.estado === e ? [EXIGENCIA_DA_PROVIDENCIA[id].documento] : [])));
+  const frases = DOCUMENTOS_LAVRADOS.map((k) => {
+    const numeros = ponto.lavrados?.[k] ?? [];
+    if (numeros.length) return preencher(LAVRADOS[k][numeros.length === 1 ? 'um' : 'varios'], { numero: listaComE(numeros) });
+    return exigidos.has(k) ? LAVRADOS.pendente : '';
   }).filter(Boolean);
   return [...new Set(frases)].join(' ');
 }
 
-export function frasesDaInspecao(ponto: Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'tipoDano' | 'providencias' | 'lavrados'>, car?: 'encontrado' | 'vazio'): string[] {
-  const lavrados = frasesDosLavrados(ponto);
-  const grupos = frasesDosGrupos(ponto, car);
-  return lavrados ? [...grupos, lavrados] : grupos;
+export function frasesDaInspecao(ponto: Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'tipoDano'>, car?: 'encontrado' | 'vazio'): string[] {
+  return frasesDosGrupos(ponto, car);
 }
 
 function frasesDosGrupos(ponto: Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'tipoDano'>, car?: 'encontrado' | 'vazio'): string[] {

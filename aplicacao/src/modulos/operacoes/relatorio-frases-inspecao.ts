@@ -340,7 +340,8 @@ export const APLICACAO = {
 
 /** Documentos lavrados no ponto (só o número; sem enquadramento, que fica no SIGA Autuação). {numero} = número registrado. */
 export const LAVRADOS = {
-  notificacao: 'Foi lavrada a Notificação n.º {numero}.',
-  auto: 'Foi lavrado o Auto de Infração n.º {numero}.',
+  notificacao: { um: 'Foi lavrada a Notificação n.º {numero}.', varios: 'Foram lavradas as Notificações n.º {numero}.' },
+  auto: { um: 'Foi lavrado o Auto de Infração n.º {numero}.', varios: 'Foram lavrados os Autos de Infração n.º {numero}.' },
+  embargo: { um: 'Foi lavrado o Termo de Embargo n.º {numero}.', varios: 'Foram lavrados os Termos de Embargo n.º {numero}.' },
   pendente: '[PENDENTE: n.º do documento lavrado]',
 };

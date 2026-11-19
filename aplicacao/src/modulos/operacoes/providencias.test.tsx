@@ -42,12 +42,18 @@ describe('regra do CTF (lembretes de procedimento, sem base legal)', () => {
     }
   });
 
-  it('validação: só ids conhecidos e estados feito / nao-aplicavel; lavrados só notificacao e auto', () => {
-    expect(providenciasValidas({ 'ctf-auto': 'feito', 'ctf-notificacao': 'nao-aplicavel' })).toBe(true);
+  it('validação: estados por providência; lavrados são listas de números de auto, notificacao e embargo', () => {
+    expect(providenciasValidas({ 'ctf-auto': 'autuado', 'ctf-notificacao': 'nao-aplicavel' })).toBe(true);
+    expect(providenciasValidas({ 'ctf-auto': 'nao-autuado' })).toBe(true);
+    expect(providenciasValidas({ 'ctf-auto': 'feito' })).toBe(false);
+    expect(providenciasValidas({ 'ctf-notificacao': 'autuado' })).toBe(false);
     expect(providenciasValidas({ 'ctf-auto': 'talvez' })).toBe(false);
     expect(providenciasValidas({ outra: 'feito' })).toBe(false);
-    expect(lavradosValidos({ notificacao: '1', auto: '2' })).toBe(true);
-    expect(lavradosValidos({ multa: '1' })).toBe(false);
+    expect(lavradosValidos({ notificacao: ['1'], auto: ['2', '3'], embargo: ['4'] })).toBe(true);
+    expect(lavradosValidos({ multa: ['1'] })).toBe(false);
+    expect(lavradosValidos({ auto: '2' })).toBe(false);
+    expect(lavradosValidos({ auto: [] })).toBe(false);
+    expect(lavradosValidos({ auto: [''] })).toBe(false);
   });
 });
 
@@ -61,8 +67,11 @@ describe('tela', () => {
     expect(prov).toHaveTextContent('Enquadramento e multa ficam no SIGA Autuação');
     expect(prov.textContent).not.toMatch(/R\$|art\.|Decreto|Lei n/);
     const auto = within(b).getByTestId('providencia-ctf-auto');
-    fireEvent.click(within(auto).getByRole('button', { name: 'Feito' }));
-    expect(obterOperacoes()[0].pontos[0].providencias).toEqual({ 'ctf-auto': 'feito' });
+    expect(within(auto).queryByRole('button', { name: 'Feito' })).toBeNull();
+    fireEvent.click(within(auto).getByRole('button', { name: 'Autuado' }));
+    expect(obterOperacoes()[0].pontos[0].providencias).toEqual({ 'ctf-auto': 'autuado' });
+    fireEvent.click(within(auto).getByRole('button', { name: 'Não autuado' }));
+    expect(obterOperacoes()[0].pontos[0].providencias).toEqual({ 'ctf-auto': 'nao-autuado' });
     fireEvent.click(within(auto).getByRole('button', { name: 'Não aplicável' }));
     expect(obterOperacoes()[0].pontos[0].providencias).toEqual({ 'ctf-auto': 'nao-aplicavel' });
     fireEvent.click(within(auto).getByRole('button', { name: 'Não aplicável' })); // clicar de novo desmarca
@@ -70,22 +79,23 @@ describe('tela', () => {
     expect(validarListaOperacoes(JSON.parse(JSON.stringify(obterOperacoes())))).toHaveLength(1);
   });
 
-  it('números da notificação e do auto lavrados gravam no ponto; vazio apaga', () => {
-    const { b } = montar();
-    fireEvent.click(within(b).getByRole('button', { name: 'Em campo' }));
-    const notif = within(b).getByLabelText('Notificação lavrada: n.º');
-    fireEvent.change(notif, { target: { value: '123/2026' } });
-    fireEvent.blur(notif);
-    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ notificacao: '123/2026' });
-    const auto = within(b).getByLabelText('Auto de infração lavrado: n.º');
-    fireEvent.change(auto, { target: { value: '77' } });
-    fireEvent.blur(auto);
-    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ notificacao: '123/2026', auto: '77' });
-    const notif2 = within(b).getByLabelText('Notificação lavrada: n.º'); // o campo é recriado após gravar
-    fireEvent.change(notif2, { target: { value: '' } });
-    fireEvent.blur(notif2);
-    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ auto: '77' });
+  it('documentos lavrados são do ponto: editados junto do resultado, vários n.º por tipo; vazio apaga', () => {
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado do Ponto 1' }));
+    const form = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
+    fireEvent.change(within(form).getByLabelText('Resultado (fiscalizado/autuado)'), { target: { value: 'sim' } });
+    fireEvent.change(within(form).getByLabelText('Auto(s) de infração: n.º'), { target: { value: '77; 78/2026' } });
+    fireEvent.change(within(form).getByLabelText('Termo(s) de embargo: n.º'), { target: { value: '5' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Salvar resultado' }));
+    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ auto: ['77', '78/2026'], embargo: ['5'] });
     expect(validarListaOperacoes(JSON.parse(JSON.stringify(obterOperacoes())))).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: 'Editar resultado do Ponto 1' }));
+    const f2 = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
+    expect(within(f2).getByLabelText('Auto(s) de infração: n.º')).toHaveValue('77; 78/2026');
+    fireEvent.change(within(f2).getByLabelText('Auto(s) de infração: n.º'), { target: { value: '' } });
+    fireEvent.change(within(f2).getByLabelText('Termo(s) de embargo: n.º'), { target: { value: '' } });
+    fireEvent.click(within(f2).getByRole('button', { name: 'Salvar resultado' }));
+    expect(obterOperacoes()[0].pontos[0].lavrados).toBeUndefined();
   });
 
   it('sem CTF = Não não há providências', () => {

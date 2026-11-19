@@ -416,7 +416,7 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   if (novo.providencias !== undefined && !providenciasValidas(novo.providencias)) return 'Providência inválida.';
   if (novo.providencias && Object.keys(novo.providencias).length === 0) delete novo.providencias;
   if (novo.lavrados !== undefined && !lavradosValidos(novo.lavrados)) return 'Número de documento lavrado inválido.';
-  if (novo.lavrados) { for (const k of ['notificacao', 'auto'] as const) if (novo.lavrados[k] !== undefined && novo.lavrados[k]!.trim() === '') delete novo.lavrados[k]; if (Object.keys(novo.lavrados).length === 0) delete novo.lavrados; }
+  if (novo.lavrados && Object.keys(novo.lavrados).length === 0) delete novo.lavrados;
   if (novo.consultas !== undefined && !consultasValidas(novo.consultas)) return 'Registro de consulta inválido.';
   if (novo.consultas && Object.keys(novo.consultas).length === 0) delete novo.consultas;
   if (novo.drone && !novo.drone.voou && !novo.drone.arquivo) delete novo.drone;
@@ -594,6 +594,8 @@ export interface DadosResultado {
   observacao: string;
   /** AAAA-MM-DD ou vazio. */
   dataVistoria: string;
+  /** Documentos lavrados (números por tipo). Omitido = não mexe; objeto vazio = apaga. */
+  lavrados?: NonNullable<Ponto['lavrados']>;
 }
 
 /** Registra o resultado do ponto (FISCALIZADO_AUTUADO e o pós-campo). `hoje` (AAAA-MM-DD) impede data de vistoria futura. */
@@ -603,8 +605,15 @@ export function registrarResultado(operacaoId: string, pontoId: string, d: Dados
   const ponto = op?.pontos.find((p) => p.id === pontoId);
   if (!op || !ponto) return 'Ponto não encontrado.';
   if (ponto.reprogramado) return 'Este ponto já foi reprogramado em outra operação: registre o resultado lá.';
-  const { resultado: _r, motivo: _m, protocolo: _p, observacao: _o, dataVistoria: _d, ...base } = ponto;
+  const { resultado: _r, motivo: _m, protocolo: _p, observacao: _o, dataVistoria: _d, lavrados: _l, ...semResultado } = ponto;
   void [_r, _m, _p, _o, _d];
+  let lavrados = _l;
+  if (d.lavrados !== undefined) {
+    const limpo = Object.fromEntries(Object.entries(d.lavrados).map(([k, v]) => [k, v.map((n) => n.trim()).filter(Boolean)]).filter(([, v]) => v.length > 0));
+    if (!lavradosValidos(limpo)) return 'Número de documento lavrado inválido (até 50 caracteres cada).';
+    lavrados = Object.keys(limpo).length ? limpo : undefined;
+  }
+  const base = { ...semResultado, ...(lavrados ? { lavrados } : {}) };
   if (!d.resultado) {
     gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? { ...base, situacao: ponto.situacao === 'cancelado' ? 'cancelado' : 'planejado' } : p)) });
     return null;

@@ -9,7 +9,7 @@ import { ITENS_INSPECAO, MAX_EMBARGOS, inspecaoAtiva, inspecaoVazia, SECOES_INSP
 import { Item } from './CaracterizacaoDoPonto.tsx';
 import { providenciasSugeridas, type EstadoProvidencia } from './providencias.ts';
 
-type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel' | 'providencias' | 'lavrados'>>;
+type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel' | 'providencias'>>;
 const valorTexto = (r: Resposta | undefined) => marcadas(r).join('; ');
 
 export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
@@ -43,7 +43,7 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
 
   const remover = () => {
     if (!inspecaoVazia(ponto) && !confirmaRemocao) return setConfirmaRemocao(true);
-    aoMudar({ inspecaoAtiva: undefined, inspecao: {}, conferenciaPrevia: {}, providencias: undefined, lavrados: undefined });
+    aoMudar({ inspecaoAtiva: undefined, inspecao: {}, conferenciaPrevia: {}, providencias: undefined });
   };
 
   return (
@@ -121,8 +121,7 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
                         <p>{pv.texto}</p>
                         <p className="texto-pequeno texto-suave">{pv.motivo}.</p>
                         <div className="acoes" role="group" aria-label={`Marcar: ${pv.texto}`}>
-                          <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'feito'} onClick={() => marcar(pv.id, 'feito')}>Feito</button>
-                          <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'nao-aplicavel'} onClick={() => marcar(pv.id, 'nao-aplicavel')}>Não aplicável</button>
+                          {pv.estados.map((e) => <button key={e.valor} type="button" className="botao botao--pequeno" aria-pressed={estado === e.valor} onClick={() => marcar(pv.id, e.valor)}>{e.rotulo}</button>)}
                         </div>
                       </li>
                     );
@@ -130,11 +129,7 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
                 </ul>
               </>
             )}
-            {([['notificacao', 'Notificação lavrada: n.º'], ['auto', 'Auto de infração lavrado: n.º']] as const).map(([k, rotulo]) => (
-              <label className="campo-grupo" key={`${k}|${ponto.lavrados?.[k] ?? ''}`}><span>{rotulo}</span>
-                <input className="campo" defaultValue={ponto.lavrados?.[k] ?? ''} maxLength={100} autoComplete="off"
-                  onBlur={(e) => { if (e.target.value.trim() !== (ponto.lavrados?.[k] ?? '')) aoMudar({ lavrados: { ...ponto.lavrados, [k]: e.target.value.trim() } }); }} /></label>
-            ))}
+            <p className="texto-pequeno texto-suave">Números do auto, da notificação e do termo de embargo: em "Registrar/Editar resultado" do ponto.</p>
           </div>
         )}
         {ponto.inspecaoAtiva && !inspecaoAtiva({ tipoDano: ponto.tipoDano }) ? (

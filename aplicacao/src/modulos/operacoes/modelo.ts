@@ -108,9 +108,9 @@ export interface Ponto {
   conferenciaPrevia?: Caracterizacao;
   inspecaoAtiva?: boolean;
   /** Providências sugeridas (providencias.ts) que o fiscal marcou: feito ou não aplicável. */
-  providencias?: Record<string, 'feito' | 'nao-aplicavel'>;
-  /** Números da notificação e do auto de infração lavrados no ponto (só o número; enquadramento e multa ficam no SIGA Autuação). */
-  lavrados?: { notificacao?: string; auto?: string };
+  providencias?: Record<string, 'feito' | 'autuado' | 'nao-autuado' | 'nao-aplicavel'>;
+  /** Documentos lavrados no ponto, cada tipo com um ou mais números (só o número; enquadramento e multa ficam no SIGA Autuação). */
+  lavrados?: { auto?: string[]; notificacao?: string[]; embargo?: string[] };
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
   coordenadaAferida?: string;
   waypoint?: string;
