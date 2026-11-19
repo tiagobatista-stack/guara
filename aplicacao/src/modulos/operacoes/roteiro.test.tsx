@@ -23,11 +23,12 @@ describe('htmlDoRoteiro', () => {
   it('bloco do POP só nos pontos com o bloco ativo; Formulário A inteiro com caixas e item citado; sem Formulário B', () => {
     const { op, viagem } = operacaoComPontos([{ tipoDano: 'Desmatamento' }, { tipoDano: 'Cerca' }, { tipoDano: 'Queimada', popAtivo: true }]);
     const html = htmlDoRoteiro({ operacao: op, viagem, pontos: op.pontos, demandas: [], geradoEm: '2026-11-18' });
-    const folhas = html.split(/<article class="folha[^"]*">/).slice(1); // capa + 3 frentes + 2 pontos × 2 páginas do POP
-    expect(folhas).toHaveLength(8);
-    expect(html.match(/Caracterização do dano \(POP\) · 1\/2/g)).toHaveLength(2); // pontos 1 e 3
-    expect(html.match(/Caracterização do dano \(POP\) · 2\/2/g)).toHaveLength(2);
-    const verso = folhas.filter((f) => f.includes('Caracterização do dano (POP) ·')).slice(0, 2).join('');
+    const folhas = html.split(/<article class="folha[^"]*">/).slice(1); // capa (2 páginas) + 3 fichas + 2 páginas de POP (1 página por ponto)
+    expect(folhas).toHaveLength(7);
+    expect(html.match(/Caracterização do dano \(POP\)/g)).toHaveLength(2); // pontos 1 e 3
+    const verso = folhas.filter((f) => f.includes('Caracterização do dano (POP)')).slice(0, 1).join('');
+    expect(html).toContain('<th>Visitado</th><th>Data</th>');
+    expect(html.match(/class="branca"/g)).toHaveLength(1); // capa = pág. 1-2, ponto 1 (POP) pág. 3-4, ponto 2 sozinho na 5, branca na 6, ponto 3 na 7
     for (const it of ITENS_POP.filter((i) => i.formulario === 'A')) expect(verso.split(`<b>${it.id}.</b>`)).toHaveLength(2); // cada item uma vez só
     expect(verso).not.toContain('<b>B-1.</b>');
     // desvios do POP em texto, só os que pulam itens
@@ -57,7 +58,7 @@ describe('constatação de embargo', () => {
   it('só em ponto com demanda de embargo ligada (sem demanda ou com demanda de outro tipo: sem as opções de embargo)', () => {
     const { op, viagem } = operacaoComPontos([{}, { demandas: ['d1'] }, { demandas: ['d2'] }]);
     const demandas = [{ id: 'd1', titulo: 'Vistoria de desmate' }, { id: 'd2', titulo: 'Descumprimento de embargo', processo: 'FIC-2' }];
-    const frentes = htmlDoRoteiro({ operacao: op, viagem, pontos: op.pontos, demandas, geradoEm: '2026-11-18' }).split(/<article class="folha[^"]*">/).slice(2); // sem a capa
+    const frentes = htmlDoRoteiro({ operacao: op, viagem, pontos: op.pontos, demandas, geradoEm: '2026-11-18' }).split(/<article class="folha[^"]*">/).slice(3); // sem as 2 páginas da capa
     expect(frentes[0]).not.toContain('embargo descumprido'); // sem demanda
     expect(frentes[1]).not.toContain('embargo descumprido'); // demanda de outro tipo
     expect(frentes[1]).toContain('regeneração');
@@ -82,7 +83,7 @@ describe('QR do ponto e sem croqui', () => {
     expect(chamadas).toEqual([urlDoMapa(op.pontos[0].coordenada), urlDoMapa(op.pontos[1].coordenada)]);
     expect(html.match(/<svg id="qr-teste">/g)).toHaveLength(2);
     expect(html.match(/Abrir no Google Maps/g)).toHaveLength(2);
-    expect(html).toContain('.qr svg{display:block;width:28mm;height:28mm}');
+    expect(html).toContain('.qr svg{display:block;width:22mm;height:22mm}');
   });
 
   it('sem coordenada válida ou sem gerador: sem QR; e o croqui não existe mais', () => {

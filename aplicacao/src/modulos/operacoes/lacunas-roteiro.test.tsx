@@ -96,7 +96,7 @@ describe('roteiro com as lacunas', () => {
     alterarViagem(id, vid, { ...dadosViagem(op.viagens[0]), motorista: 'Beto' });
     const o = obterOperacoes()[0];
     const html = htmlDoRoteiro({ operacao: o, viagem: o.viagens[0], pontos: o.pontos, demandas: [], geradoEm: '2026-11-18' });
-    for (const t of ['Fazenda Exemplo', '<dt>Desmate (ha)</dt><dd>70</dd>', 'MT-1/EXEMPLO', '<dt>CAR federal</dt><dd>—</dd>', 'sem CAR', 'perto de TI, hot spot', 'Demanda / etiquetas', '<b>Beto</b>']) expect(html).toContain(t);
+    for (const t of ['Fazenda Exemplo', '<dt>Desmate (ha)</dt><dd>70</dd>', 'MT-1/EXEMPLO', 'sem CAR', 'perto de TI, hot spot', 'Demanda / etiquetas', '<b>Beto</b>']) expect(html).toContain(t);
     expect(html.match(/\(sugerido — conferir\)/g)).toHaveLength(1); // só A-6, uma opção
     expect(html).not.toContain('<b>B-3.</b>'); // Formulário B não vai no roteiro
   });
@@ -104,7 +104,8 @@ describe('roteiro com as lacunas', () => {
   it('ponto sem os dados novos mostra "—" e sem motorista fica a linha', () => {
     const { op } = montar();
     const html = htmlDoRoteiro({ operacao: op, viagem: op.viagens[0], pontos: op.pontos, demandas: [], geradoEm: '2026-11-18' });
-    expect(html).toContain('<dt>Imóvel / local</dt><dd>—</dd>');
+    expect(html).not.toContain('Imóvel / local'); // campo vazio some da ficha
+    expect(html).toContain('<dt>Código</dt>');
     expect(html).not.toContain('<b>Beto</b>');
   });
 });
