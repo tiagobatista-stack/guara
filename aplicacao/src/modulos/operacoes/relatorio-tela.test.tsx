@@ -1,9 +1,9 @@
 // Tela: ficha do integrante (cargo e lotação, com autocomplete do último uso), origem/apoio da operação e "Relatório (texto)".
 
-import { fireEvent, render, screen, within } from '@testing-library/react';
+import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Operacoes } from './Operacoes.tsx';
-import { criarOperacao, criarViagem, incluirPontos, obterOperacoes } from './armazem.ts';
+import { alterarPonto, criarOperacao, criarViagem, incluirPontos, obterOperacoes } from './armazem.ts';
 
 beforeEach(() => { localStorage.clear(); vi.restoreAllMocks(); });
 const clicar = (nome: string | RegExp) => fireEvent.click(screen.getByRole('button', { name: nome }));
@@ -59,7 +59,7 @@ describe('origem do alerta, apoio e relatório', () => {
 
     clicar('Expandir todos');
     const caixa = screen.getByTestId(/^relatorio-texto-/);
-    fireEvent.click(within(caixa).getByText('Consultas às bases e relatório (texto)'));
+    fireEvent.click(within(caixa).getByRole('button', { name: 'Ver' }));
     clicar('+ Registrar consulta manual');
     fireEvent.change(within(caixa).getByLabelText('Base consultada'), { target: { value: 'car' } });
     fireEvent.change(within(caixa).getByLabelText('Resultado'), { target: { value: 'encontrado' } });
@@ -69,7 +69,8 @@ describe('origem do alerta, apoio e relatório', () => {
     clicar('Registrar consulta (Geoportal, QGIS…)');
     expect(obterOperacoes()[0].pontos[0].consultas?.car).toMatchObject({ estado: 'encontrado', fonte: 'manual', detalhe: 'MT-1/2020' });
 
-    fireEvent.click(within(caixa).getByRole('button', { name: 'Relatório (texto)' }));
+    act(() => { alterarPonto(r.id, obterOperacoes()[0].pontos[0].id, { caracterizacao: { 'A-1': 'Cerrado' } }); });
+    fireEvent.click(within(caixa).getByRole('button', { name: 'Gerar texto do relatório' }));
     const texto = (within(caixa).getByLabelText(/^Relatório \(texto\) do/) as HTMLTextAreaElement).value;
     expect(texto).toContain('em atendimento a requisição de Ministério Público, no escopo da Brasnorte');
     expect(texto).toContain('com o apoio da Polícia Militar');

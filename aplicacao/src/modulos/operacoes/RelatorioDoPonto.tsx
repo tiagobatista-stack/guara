@@ -1,39 +1,23 @@
-// Consultas às bases (automática no GeoServer ou registro manual) e "Relatório (texto)" do ponto. O texto vem de relatorio.ts, só com frases fixas.
+// Painel das consultas às bases do ponto (registro manual e lista). O texto do relatório vem de relatorio.ts, só com frases fixas.
 
 import { useState, type FormEvent } from 'react';
-import { BASES_CONSULTA, ESTADOS_CONSULTA, LIMITES_OPERACAO, type BaseConsulta, type EstadoConsulta, type Operacao, type Ponto } from './modelo.ts';
+import { BASES_CONSULTA, ESTADOS_CONSULTA, LIMITES_OPERACAO, type BaseConsulta, type EstadoConsulta, type Ponto } from './modelo.ts';
 import { plural } from '../../compartilhado/plural.ts';
-import { consultaDe, textoDoRelatorio } from './relatorio.ts';
+import { consultaDe } from './relatorio.ts';
 import { CONSULTAS } from './relatorio-frases.ts';
-import { lerAuthkey } from './sugestao-vegetacao.ts';
 
 const dataBr = (iso: string) => new Date(iso).toLocaleDateString('pt-BR');
 const hojeIso = () => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`; };
 const ROTULO_ESTADO: Record<EstadoConsulta | 'nenhuma', string> = { ...ESTADOS_CONSULTA, 'nao-consultado': 'não consultada', falha: 'falha', nenhuma: 'não consultada' };
 
-export function RelatorioDoPonto({ operacao, ponto, rotulo, aoMudar, aoBaixar, aoConsultar }: {
-  operacao: Operacao; ponto: Ponto; rotulo: string;
-  aoMudar: (m: Pick<Ponto, 'consultas'>) => void;
-  aoBaixar: (nome: string, conteudo: string, tipo: string) => void;
-  /** Consulta o GeoServer e grava; devolve um aviso (ou null). */
-  aoConsultar: () => Promise<string | null>;
-}) {
-  const [texto, setTexto] = useState<string | null>(null);
-  const [aviso, setAviso] = useState<string | null>(null);
+/** Painel das consultas às bases (lista e registro manual). A consulta automática e o texto do relatório ficam na seção "Formulários e relatório". */
+export function ConsultasDoPonto({ ponto, rotulo, aberto, aoMudar }: { ponto: Ponto; rotulo: string; aberto: boolean; aoMudar: (m: Pick<Ponto, 'consultas'>) => void }) {
   const [erro, setErro] = useState<string | null>(null);
-  const [consultando, setConsultando] = useState(false);
   const [manual, setManual] = useState(false);
   const [base, setBase] = useState<BaseConsulta>('car');
   const [estado, setEstado] = useState<'encontrado' | 'vazio'>('vazio');
   const [data, setData] = useState(hojeIso);
   const [detalhe, setDetalhe] = useState('');
-  const semChave = !lerAuthkey();
-
-  const consultar = async () => {
-    setConsultando(true);
-    setAviso(null);
-    try { setAviso((await aoConsultar()) ?? 'Consulta feita.'); } finally { setConsultando(false); }
-  };
   const registrar = (e: FormEvent) => {
     e.preventDefault();
     const [a, m, d] = data.split('-').map(Number);
@@ -49,14 +33,8 @@ export function RelatorioDoPonto({ operacao, ponto, rotulo, aoMudar, aoBaixar, a
     void _tirada;
     aoMudar({ consultas: resto });
   };
-  const copiar = async () => {
-    try { await navigator.clipboard.writeText(texto ?? ''); setAviso('Texto copiado.'); } catch { setAviso('Este navegador não deixou copiar; selecione o texto e copie.'); }
-  };
-  const nomeArquivo = `relatorio-${(ponto.codigo ?? rotulo).toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '')}.txt`;
-
   return (
-    <details className="mais-acoes" data-testid={`relatorio-texto-${ponto.id}`}>
-      <summary>Consultas às bases e relatório (texto)</summary>
+    <div className={aberto ? 'painel-form' : 'painel-form recolhido'}>
       <section aria-label={`Consultas e relatório do ${rotulo}`}>
         <h4 className="titulo-secao titulo-secao--bloco">Consultas às bases</h4>
         <p className="texto-pequeno texto-suave">Só entra no relatório como "não identificado" o que foi consultado com sucesso e está registrado aqui. Sem registro: [CONSULTA NÃO REALIZADA].</p>
@@ -74,10 +52,6 @@ export function RelatorioDoPonto({ operacao, ponto, rotulo, aoMudar, aoBaixar, a
           })}
         </ul>
         <div className="acoes acoes--centro">
-          <button type="button" className="botao botao--pequeno" disabled={semChave || consultando} title={semChave ? 'Preencha a chave do GeoServer em Configurações' : undefined} onClick={consultar}>
-            {consultando ? 'Consultando…' : 'Consultar bases (GeoServer)'}
-          </button>
-          {semChave && <span className="texto-pequeno texto-suave">Preencha a chave do GeoServer em Configurações.</span>}
           {!manual && <button type="button" className="botao botao--pequeno botao--sutil" onClick={() => setManual(true)}>+ Registrar consulta manual</button>}
         </div>
         {manual && (
@@ -105,22 +79,7 @@ export function RelatorioDoPonto({ operacao, ponto, rotulo, aoMudar, aoBaixar, a
           </form>
         )}
 
-        <h4 className="titulo-secao titulo-secao--bloco">Relatório</h4>
-        <div className="acoes">
-          <button type="button" className="botao botao--pequeno" onClick={() => { setTexto(textoDoRelatorio(operacao, ponto)); setAviso(null); }}>Relatório (texto)</button>
-        </div>
-        {texto !== null && (
-          <>
-            <textarea className="campo campo--area" readOnly rows={16} aria-label={`Relatório (texto) do ${rotulo}`} value={texto} />
-            <div className="acoes">
-              <button type="button" className="botao botao--pequeno botao--primario" onClick={copiar}>Copiar</button>
-              <button type="button" className="botao botao--pequeno" onClick={() => aoBaixar(nomeArquivo, texto, 'text/plain;charset=utf-8')}>Baixar .txt</button>
-              <button type="button" className="botao botao--pequeno botao--sutil" onClick={() => setTexto(null)}>Fechar</button>
-            </div>
-          </>
-        )}
-        {aviso && <p role="status" className="texto-pequeno">{aviso}</p>}
       </section>
-    </details>
+    </div>
   );
 }

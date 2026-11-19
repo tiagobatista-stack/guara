@@ -433,6 +433,11 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   if ((novo.grupo ?? '').length > LIMITES_OPERACAO.grupo) return `O grupo pode ter no máximo ${LIMITES_OPERACAO.grupo} caracteres.`;
   if (novo.notas.length > LIMITES_OPERACAO.notas) return `As notas podem ter no máximo ${LIMITES_OPERACAO.notas} caracteres.`;
   if (novo.demandas.length > LIMITES_OPERACAO.demandasPorPonto) return `O limite é de ${LIMITES_OPERACAO.demandasPorPonto} demandas por ponto.`;
+  // Data/hora da última alteração de cada formulário: só quando alguma resposta mudou de fato.
+  const mudou = (ks: readonly (keyof Ponto)[]) => ks.some((k) => JSON.stringify(novo[k] ?? null) !== JSON.stringify(ponto[k] ?? null));
+  const agora = new Date().toISOString();
+  const editadoEm = { ...ponto.editadoEm, ...(mudou(['caracterizacao']) ? { pop: agora } : {}), ...(mudou(['inspecao', 'conferenciaPrevia', 'providencias']) ? { inspecao: agora } : {}) };
+  if (Object.keys(editadoEm).length) novo.editadoEm = editadoEm;
   gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? novo : p)) });
   return null;
 }

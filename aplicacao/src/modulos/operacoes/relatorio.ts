@@ -25,7 +25,7 @@ export function consultaDe(p: Ponto, base: BaseConsulta): ConsultaBase | undefin
   return p.geo && (base === 'bioma' || base === 'vegetacao') ? consultaDoGeo(p.geo, base) : undefined;
 }
 
-const consultada = (c?: ConsultaBase): c is ConsultaBase => c?.estado === 'encontrado' || c?.estado === 'vazio';
+export const consultada = (c?: ConsultaBase): c is ConsultaBase => c?.estado === 'encontrado' || c?.estado === 'vazio';
 
 function fraseDaConsulta(p: Ponto, base: BaseConsulta): string {
   const c = consultaDe(p, base);

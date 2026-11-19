@@ -12,7 +12,7 @@ import { providenciasSugeridas, type EstadoProvidencia } from './providencias.ts
 type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel' | 'providencias'>>;
 const valorTexto = (r: Resposta | undefined) => marcadas(r).join('; ');
 
-export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
+export function InspecaoDoPonto({ ponto, rotulo, aberto, aoMudar }: { ponto: Ponto; rotulo: string; aberto: boolean; aoMudar: (m: Mudancas) => void }) {
   const [aba, setAba] = useState<'previa' | 'campo'>('previa');
   const [confirmaRemocao, setConfirmaRemocao] = useState(false);
   const previa: Caracterizacao = ponto.conferenciaPrevia ?? {};
@@ -47,9 +47,9 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
   };
 
   return (
-    <details className="mais-acoes" data-testid={`inspecao-${ponto.id}`}>
-      <summary>Inspeção de agrotóxicos ({semResposta} de campo sem resposta{divergentes.length > 0 ? `; ${divergentes.length} divergência${divergentes.length > 1 ? 's' : ''}` : ''})</summary>
+    <div className={aberto ? 'painel-form' : 'painel-form recolhido'} data-testid={`inspecao-${ponto.id}`}>
       <section aria-label={`Inspeção de agrotóxicos do ${rotulo}`}>
+        <h4 className="titulo-secao titulo-secao--bloco">Inspeção de agrotóxicos · {semResposta} de campo sem resposta{divergentes.length > 0 ? `; ${divergentes.length} divergência${divergentes.length > 1 ? 's' : ''}` : ''}</h4>
         <p className="texto-pequeno texto-suave">
           Fonte: questionário da equipe de fiscalização. Sem campos de dados pessoais: o nome, o documento, o contato e o endereço de pessoas ficam no auto de inspeção; aqui só se confere que foram registrados.
         </p>
@@ -148,6 +148,6 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
           <p className="texto-pequeno texto-suave">Esta inspeção vem do tipo de dano do ponto; para tirá-la, mude o tipo no planejamento.</p>
         )}
       </section>
-    </details>
+    </div>
   );
 }

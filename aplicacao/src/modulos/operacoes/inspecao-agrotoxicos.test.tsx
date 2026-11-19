@@ -182,8 +182,8 @@ describe('tela do ponto', () => {
     expect(screen.getByTestId(`inspecao-${pontos[0].id}`)).toBeInTheDocument();
     expect(screen.getByTestId(`caracterizacao-${pontos[0].id}`)).toBeInTheDocument();
     expect(screen.queryByTestId(`inspecao-${pontos[1].id}`)).toBeNull();
-    expect(screen.getAllByRole('button', { name: 'Adicionar inspeção de agrotóxicos' })).toHaveLength(1);
-    fireEvent.click(screen.getByRole('button', { name: 'Adicionar inspeção de agrotóxicos' }));
+    expect(screen.getAllByRole('button', { name: '+ Adicionar inspeção de agrotóxicos' })).toHaveLength(1);
+    fireEvent.click(screen.getByRole('button', { name: '+ Adicionar inspeção de agrotóxicos' }));
     expect(obterOperacoes()[0].pontos[1].inspecaoAtiva).toBe(true);
     expect(screen.getByTestId(`inspecao-${pontos[1].id}`)).toBeInTheDocument();
   });

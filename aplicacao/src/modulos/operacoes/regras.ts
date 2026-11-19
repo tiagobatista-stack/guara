@@ -230,6 +230,7 @@ function pontoValido(x: unknown): boolean {
     (p.conferenciaPrevia === undefined || caracterizacaoValida(p.conferenciaPrevia, ITENS_INSPECAO)) &&
     (p.providencias === undefined || providenciasValidas(p.providencias)) &&
     (p.lavrados === undefined || lavradosValidos(p.lavrados)) &&
+    (p.editadoEm === undefined || (registro(p.editadoEm) && Object.entries(p.editadoEm).every(([k, v]) => (k === 'pop' || k === 'inspecao') && typeof v === 'string' && !Number.isNaN(Date.parse(v))))) &&
     (p.inspecaoAtiva === undefined || typeof p.inspecaoAtiva === 'boolean') &&
     (p.quarentena === undefined || registro(p.quarentena)) &&
     (p.geo === undefined || geoValido(p.geo)) &&

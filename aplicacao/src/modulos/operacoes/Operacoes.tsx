@@ -11,10 +11,8 @@ import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
-import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
-import { InspecaoDoPonto } from './InspecaoDoPonto.tsx';
+import { FormulariosDoPonto } from './FormulariosDoPonto.tsx';
 import { inspecaoAtiva, TIPOS_DANO_AGROTOXICO } from './inspecao-agrotoxicos.ts';
-import { RelatorioDoPonto } from './RelatorioDoPonto.tsx';
 import { DOCUMENTOS_LAVRADOS, numerosDoTexto, type DocumentoLavrado } from './providencias.ts';
 import { QuarentenaDoPonto } from './QuarentenaDoPonto.tsx';
 import { useQuarentena } from './quarentena.ts';
@@ -852,14 +850,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       {modo === 'ver' && (
         <AnotacoesDoItem item="ponto" anotacoes={ponto.anotacoes} aoMudar={(lista) => setErro(salvarAnotacoesPonto(operacao.id, ponto.id, lista))} />
       )}
-      {modo === 'ver' && supressao && (
-        <CaracterizacaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} aoReconsultar={() => consultarPontos(operacao.id, [ponto.id])} />
-      )}
-      {modo === 'ver' && inspecaoAtiva(ponto) && (
-        <InspecaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} />
-      )}
-      {modo === 'ver' && supressao && (
-        <RelatorioDoPonto operacao={operacao} ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} aoBaixar={baixar} aoConsultar={() => consultarBasesDoPonto(operacao.id, ponto.id)} />
+      {modo === 'ver' && !cancelado && (
+        <FormulariosDoPonto operacao={operacao} ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))}
+          aoReconsultarGeo={() => consultarPontos(operacao.id, [ponto.id])} aoConsultarBases={() => consultarBasesDoPonto(operacao.id, ponto.id)} aoBaixar={baixar} />
       )}
 
       {modo === 'resultado' ? (
@@ -979,9 +972,6 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
               <div className="ponto-barra__grupo" role="group" aria-label={`Ações do ${rotulo}`}>
                 {!supressao && (
                   <button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { popAtivo: true }))}>Caracterizar dano (POP)</button>
-                )}
-                {!inspecaoAtiva(ponto) && (
-                  <button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { inspecaoAtiva: true }))}>Adicionar inspeção de agrotóxicos</button>
                 )}
                 {!ponto.reprogramado && ponto.resultado && (
                   <button type="button" className="botao botao--pequeno" aria-label={`Editar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Editar resultado</button>

@@ -50,7 +50,7 @@ export function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta 
   );
 }
 
-export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar, aoReconsultar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void; aoReconsultar?: () => Promise<string | null> }) {
+export function CaracterizacaoDoPonto({ ponto, rotulo, aberto, aoMudar, aoReconsultar }: { ponto: Ponto; rotulo: string; aberto: boolean; aoMudar: (m: Mudancas) => void; aoReconsultar?: () => Promise<string | null> }) {
   const sugestoes = sugestoesPop(ponto);
   const geo = popGeo(ponto);
   const [aviso, setAviso] = useState<string | null>(null);
@@ -80,9 +80,9 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar, aoReconsultar }:
   );
 
   return (
-    <details className="mais-acoes" data-testid={`caracterizacao-${ponto.id}`}>
-      <summary>Caracterização do dano ({semResposta} de campo sem resposta)</summary>
+    <div className={aberto ? 'painel-form' : 'painel-form recolhido'} data-testid={`caracterizacao-${ponto.id}`}>
       <section aria-label={`Caracterização do dano do ${rotulo}`}>
+        <h4 className="titulo-secao titulo-secao--bloco">Caracterização do dano (POP) · {semResposta} de campo sem resposta</h4>
         <p className="texto-pequeno texto-suave">
           Fonte: {FONTE_POP}. Itens e opções copiados do formulário; a adoção pela SEMA-MT depende de confirmação do responsável. Não registre CPF, endereço ou nome do autuado.
         </p>
@@ -137,6 +137,6 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar, aoReconsultar }:
         </div>
         {aviso && <p role="status" className="texto-pequeno">{aviso}</p>}
       </section>
-    </details>
+    </div>
   );
 }

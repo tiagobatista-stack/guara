@@ -518,3 +518,4 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .mais-acoes > summary::after { content: '▾'; }
 .mais-acoes[open] > summary::after { content: '▴'; }
 .acoes__fim { margin-left: auto; }
+.painel-form.recolhido { display: none; }

@@ -12,3 +12,6 @@
 | Telas no navegador, cliques reais | NÃO TESTADO |
 | Importação de `operacao-alertas-setembro-2026.csv` | NÃO TESTADO (arquivo não enviado) |
 | Nenhum texto gerado (relatório, roteiro, providências) cita lei, artigo, decreto ou valor | PASSOU (teste automatizado) |
+| Seção "Formulários e relatório": N de M com perguntas puladas, selos (inclusive completo com pendências), data de edição só quando muda, botão gerar habilitado/desabilitado | PASSOU (813 testes; `formularios-ponto.test.tsx`) |
+| Seção no navegador, cliques reais e aparência | NÃO TESTADO |
+| Painel "Dados para o SIGA" | NÃO FEITO (não existe no repositório) |
