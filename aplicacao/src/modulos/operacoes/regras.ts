@@ -6,7 +6,7 @@ import { bloqueioValido, dataValida } from '../demandas/regras.ts';
 import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
 import { caracterizacaoValida } from './pop-supressao.ts';
 import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
-import { lavradosValidos, providenciasValidas } from './providencias.ts';
+import { lavradosValidos, migrarLavrados, providenciasValidas } from './providencias.ts';
 import { geoValido } from './sugestao-vegetacao.ts';
 import {
   BASES_CONSULTA, ESTADOS_CONSULTA, LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, ORIGENS_ALERTA, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_CAR, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
@@ -124,6 +124,7 @@ function sanearPontos(pontos: unknown[]): unknown[] {
     if (!registro(p)) return p;
     const r: Record<string, unknown> = { ...p };
     const quarentena: Record<string, unknown> = registro(r.quarentena) ? { ...r.quarentena } : {};
+    if (r.lavrados !== undefined) { const m = migrarLavrados(r.lavrados); if (m === undefined) delete r.lavrados; else r.lavrados = m; } // formato antigo vira lista
     for (const [campo, valido] of Object.entries(VALIDADORES_DIGITADOS)) {
       if (r[campo] === undefined || valido(r[campo])) continue;
       console.warn(`[GUARÁ] Campo "${campo}" do ponto ${String(p.id)} não pôde ser lido: guardado em quarentena.`);

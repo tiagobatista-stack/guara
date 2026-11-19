@@ -3,6 +3,8 @@
 
 import assert from 'node:assert/strict';
 import { htmlDoRoteiro } from './roteiro.ts';
+import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
+import { ROTULO_CAMPO, ROTULO_PREVIA } from './rotulos-impressos.ts';
 
 const viagem = { id: 'v', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-12-07', retorno: '2026-12-11', notas: '' };
 const ponto = (i: number, tipoDano: string) => ({ id: `p${i}`, numero: i, tipoDano, coordenada: { lat: -11.5 - i / 100, lon: -58.5 }, municipio: 'Castanheira', notas: '', demandas: [], situacao: 'planejado' as const, viagem: 'v' });
@@ -55,7 +57,7 @@ it('só os itens de campo vão para o papel; a prévia entra como resumo, sem da
   assert.match(html, /C-2\.2 [^<]*CTF[^<]*: <b>Não<\/b> \(SIGA\)/);
   assert.match(html, /<b>C-4\.1<\/b>/); // campo
   assert.doesNotMatch(html, /<b>C-2\.2<\/b>/); // prévia: só no resumo
-  assert.match(html, /<b>C-6\.1<\/b>[\s\S]*se aplicável: C-5\.2 = Sim/);
+  assert.match(html, /<b>C-6\.1<\/b>[\s\S]*se C-5\.2=Sim/);
   assert.match(html, /EPI da equipe/);
   assert.match(html, /Material de coleta de amostra/);
   assert.match(html, /Lacres/);
@@ -74,4 +76,11 @@ it('inspeção impressa: tabela pergunta | Sim | Não | N.A. | nº/obs., 2 pági
   assert.doesNotMatch(html, /C-2\.13\.4\.1/); // só 3 pares de embargo no papel
   const css = html.match(/\.tab-insp\{.*/)![0];
   for (const m of css.matchAll(/font-size:([\d.]+)pt/g)) assert.ok(Number(m[1]) >= 8, `fonte ${m[1]} pt`);
+});
+
+it('rótulos impressos abreviados: o id existe, o rótulo não é mais longo que o original (campo: mais curto) e nenhum item de campo passa de 125 caracteres', () => {
+  const porId = new Map((ITENS_INSPECAO as readonly { id: string; texto: string; fase: string }[]).map((it) => [it.id, it]));
+  for (const [id, curto] of Object.entries(ROTULO_CAMPO)) { const it = porId.get(id); assert.ok(it && it.fase === 'campo', `${id} não é item de campo`); assert.ok(curto.length < it.texto.length, `${id} não ficou mais curto`); assert.ok(curto.length <= 125, `${id}: ${curto.length}`); }
+  for (const [id, curto] of Object.entries(ROTULO_PREVIA)) { const it = porId.get(id); assert.ok(it && it.fase === 'previa', `${id} não é item da prévia`); assert.ok(curto.length <= it.texto.length, `${id} ficou mais longo`); }
+  assert.match(gerar([ponto(1, 'Aplicação irregular de agrotóxico')]), /<b>C-1\.8<\/b> Responsável\(is\) técnico\(s\) qualificado\(s\) no auto, com registro profissional/);
 });

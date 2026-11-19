@@ -65,6 +65,28 @@ describe('dados digitados inválidos: ponto abre, conteúdo vai para a quarenten
     expect(p.quarentena?.notas).toBe(42);
   });
 
+  it('lavrados no formato antigo viram a lista nova (data vazia), sem quarentena; só valor ilegível vai para a quarentena', () => {
+    operacaoComPonto();
+    adulterar((l) => { l[0].pontos[0].lavrados = { notificacao: ' N-1 ', auto: 'A-9' }; });
+    let p = obterOperacoes()[0].pontos[0];
+    expect(p.lavrados).toEqual([{ tipo: 'Notificação', numero: 'N-1' }, { tipo: 'Auto de infração', numero: 'A-9' }]);
+    expect(p.quarentena).toBeUndefined();
+    // versão intermediária: lista de números por tipo; números vazios somem
+    adulterar((l) => { l[0].pontos[0].lavrados = { auto: ['A-1', ''], embargo: ['E-2'] }; });
+    p = obterOperacoes()[0].pontos[0];
+    expect(p.lavrados).toEqual([{ tipo: 'Auto de infração', numero: 'A-1' }, { tipo: 'Termo de embargo / Interdição', numero: 'E-2' }]);
+    // antigo sem número algum: some, sem quarentena
+    adulterar((l) => { l[0].pontos[0].lavrados = { auto: '' }; });
+    p = obterOperacoes()[0].pontos[0];
+    expect(p.lavrados).toBeUndefined(); expect(p.quarentena).toBeUndefined();
+    // ilegível: quarentena
+    adulterar((l) => { l[0].pontos[0].lavrados = { auto: 123 }; });
+    p = obterOperacoes()[0].pontos[0];
+    expect(p.lavrados).toBeUndefined(); expect(p.quarentena?.lavrados).toEqual({ auto: 123 });
+    adulterar((l) => { l[0].pontos[0].lavrados = 'lixo'; delete l[0].pontos[0].quarentena; });
+    expect(obterOperacoes()[0].pontos[0].quarentena?.lavrados).toBe('lixo');
+  });
+
   it('a tela mostra "Há dados que não puderam ser lidos" e o Ver/recuperar exibe o conteúdo bruto', () => {
     operacaoComPonto();
     adulterar((l) => { l[0].pontos[0].caracterizacao = { 'A-1': { quebrado: true } }; });

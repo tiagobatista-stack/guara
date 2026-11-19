@@ -55,3 +55,24 @@ export const lavradosValidos = (x: unknown): boolean =>
     && NOMES_LAVRADOS.includes((d as Record<string, unknown>).tipo as string)
     && typeof (d as Record<string, unknown>).numero === 'string' && ((d as Record<string, string>).numero.trim() !== '') && (d as Record<string, string>).numero.length <= 50
     && (((d as Record<string, unknown>).data) === undefined || (typeof (d as Record<string, unknown>).data === 'string' && /^\d{4}-\d{2}-\d{2}$/.test((d as Record<string, string>).data) && !Number.isNaN(Date.parse((d as Record<string, string>).data)))));
+
+const TIPOS_DO_FORMATO_ANTIGO: [string, string][] = [['notificacao', 'Notificação'], ['auto', 'Auto de infração'], ['embargo', 'Termo de embargo / Interdição']];
+
+/**
+ * Formato antigo ({notificacao?, auto?, embargo?}: um número ou uma lista de números por tipo) -> lista nova, com data vazia.
+ * Devolve o valor como veio se não for esse formato ou se algo estiver ilegível (aí vai para a quarentena); undefined se não havia número algum.
+ */
+export function migrarLavrados(x: unknown): unknown {
+  if (typeof x !== 'object' || x === null || Array.isArray(x)) return x;
+  const o = x as Record<string, unknown>;
+  if (!Object.keys(o).every((k) => TIPOS_DO_FORMATO_ANTIGO.some(([c]) => c === k))) return x;
+  const lista: { tipo: string; numero: string }[] = [];
+  for (const [chave, tipo] of TIPOS_DO_FORMATO_ANTIGO) {
+    const v = o[chave];
+    if (v === undefined) continue;
+    const numeros = Array.isArray(v) ? v : [v];
+    if (!numeros.every((n) => typeof n === 'string')) return x;
+    for (const n of numeros as string[]) if (n.trim() !== '') lista.push({ tipo, numero: n.trim() });
+  }
+  return lista.length ? lista : undefined;
+}

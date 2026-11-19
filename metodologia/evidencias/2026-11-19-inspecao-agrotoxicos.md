@@ -19,4 +19,6 @@
 | Mesmo roteiro em outros navegadores / sistemas (fonte padrão diferente) | NÃO TESTADO |
 | Importação de `operacao-alertas-setembro-2026.csv`, total de páginas da Equipe B, relatórios dos pontos 03, 05 e 06 com lavrados fictícios | NÃO FEITO (arquivo não existe no repositório) |
 | `npm test` | PASSOU: 822 testes |
-
+| Lavrados no formato antigo migrados para a lista nova (data vazia); ilegível vai para a quarentena | PASSOU: teste em `quarentena-e-backup.test.tsx` |
+| Folga da inspeção impressa no pior caso (Edge, PDF): linhas extras até estourar a página | PASSOU: 12 linhas na página 1 e 16 na página 2 (meta: 8). Medido antes de remover 2 rótulos de mesmo tamanho do original (C-4.4.1, C-7.1.1), sem efeito esperado |
+| `npm test` / `tsc --noEmit` / `npm run build` | PASSOU: 824 testes; sem erros de tipo; build OK |

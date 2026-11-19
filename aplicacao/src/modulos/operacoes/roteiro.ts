@@ -10,6 +10,7 @@ import { blocoPopAtivo, FONTE_GEO, FONTE_POP, ITENS_POP, popGeo, sugestoesPop, t
 import { textoViagem } from './regras.ts';
 import { inspecaoAtiva, ITENS_INSPECAO, SECOES_INSPECAO } from './inspecao-agrotoxicos.ts';
 import { marcadas, respondido } from './pop-supressao.ts';
+import { FONTE_CURTA, ROTULO_CAMPO, ROTULO_PREVIA } from './rotulos-impressos.ts';
 
 /** Link do ponto no Google Maps (6 casas, ponto decimal, lat,lon). */
 export const urlDoMapa = ({ lat, lon }: { lat: number; lon: number }) =>
@@ -54,14 +55,14 @@ function versoPop(p: Ponto, rotuloPonto: string): string {
 // coluna de respostas inteira; as de escolha listam as opções sob a pergunta. A conferência prévia entra como um parágrafo corrido.
 // O bloco do ponto fecha sempre com 4 páginas (ficha + POP + 2, ou ficha + 2 + anotações), então fica par.
 const MAX_EMBARGOS_IMPRESSOS = 3;
-/** Itens de campo na primeira página; o resto vai na segunda. Fixo (medido no PDF do Edge), não estimado: mudou o questionário, confira as 2 páginas. */
-const ITENS_NA_PAGINA_1 = 50;
+/** Itens de campo na primeira página; o resto vai na segunda. Fixo (medido no PDF do Edge, prévia com as 37 respostas e fonte), não estimado. Folga medida em linhas simples de 8 pt: 12 na página 1 e 16 na 2. Mudou o questionário ou os rótulos (rotulos-impressos.ts)? Meça de novo. */
+const ITENS_NA_PAGINA_1 = 52;
 export const PAGINAS_INSPECAO = 2;
 
 function itemInspecao(it: ItemPop): string {
-  const cond = it.se ? ` <i class="sa">(se aplicável: ${esc(it.se.item)} = ${esc(it.se.vale.join(' ou '))})</i>` : '';
+  const cond = it.se ? ` <i class="sa">(se ${esc(it.se.item)}=${esc(it.se.vale.join('/'))})</i>` : '';
   const multi = it.tipo === 'multipla' ? ' <i>(mais de um)</i>' : it.tipo === 'data' ? ' <i>(dd/mm/aaaa)</i>' : '';
-  const pergunta = `<b>${esc(it.id)}</b> ${esc(it.texto)}${multi}${cond}`;
+  const pergunta = `<b>${esc(it.id)}</b> ${esc(ROTULO_CAMPO[it.id] ?? it.texto)}${multi}${cond}`;
   const classe = it.se ? ' class="se"' : '';
   if (it.tipo === 'simnao') return `<tr${classe}><td>${pergunta}</td><td class="c">${CAIXA}</td><td class="c">${CAIXA}</td><td class="c">${CAIXA}</td><td></td></tr>`;
   if (it.opcoes) return `<tr${classe}><td>${pergunta}<br>${it.opcoes.map((o) => `${CAIXA} ${esc(o.texto)}`).join(' &nbsp; ')}</td><td colspan="4"></td></tr>`;
@@ -75,8 +76,8 @@ function resumoDaPrevia(p: Ponto): string {
   const prev = p.conferenciaPrevia ?? {};
   const partes = ITENS_INSPECAO.filter((it) => it.fase === 'previa' && !it.id.includes('@') && respondido(prev[it.id])).map((it) => {
     const f = marcadas(prev[`${it.id}@fonte`])[0];
-    const fonte = f ? ` (${f === 'Outra (especificar)' ? marcadas(prev[`${it.id}@fonte.outra`])[0] ?? f : f})` : '';
-    return `${esc(it.id)} ${esc(it.texto.replace(/\?$/, ''))}: <b>${esc(marcadas(prev[it.id]).join('; '))}</b>${esc(fonte)}`;
+    const fonte = f ? ` (${f === 'Outra (especificar)' ? marcadas(prev[`${it.id}@fonte.outra`])[0] ?? f : FONTE_CURTA[f] ?? f})` : '';
+    return `${esc(it.id)} ${esc(ROTULO_PREVIA[it.id] ?? it.texto.replace(/\?$/, ''))}: <b>${esc(marcadas(prev[it.id]).join('; '))}</b>${esc(fonte)}`;
   });
   return `<p class="resumo"><b>Conferido antes:</b> ${partes.length ? partes.join(' · ') : 'conferência prévia não registrada no GUARÁ.'}</p>`;
 }
@@ -157,7 +158,7 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:2p
 .topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}.topo-texto{flex:1;min-width:0}.topo-texto .cab{margin-bottom:2px}
 .qr{width:22mm;text-align:center;font-size:7pt;line-height:1.1}.qr svg{display:block;width:22mm;height:22mm}.qr p{margin:1px 0 0}
 .ass{display:flex;justify-content:space-between;margin-top:12px}
-.resumo p{margin:0 0 1px}.folha--pop{page:pop;break-after:page;page-break-after:always}.col{column-count:2;column-gap:10px;font-size:8pt;line-height:1.15}@page insp{margin:5mm 7mm}.folha--insp{page:insp}.folha--insp .peq{font-size:8pt;margin:1px 0}.folha--insp .resumo{font-size:8pt;line-height:1.1;margin:1px 0 2px}.folha--insp .cab{margin-bottom:2px}.tab-insp{table-layout:fixed;border-collapse:collapse;width:100%;font-size:8pt;line-height:1}.tab-insp th,.tab-insp td{border:1px solid #000;padding:0 2px;font-size:8pt;vertical-align:top;overflow-wrap:anywhere}.tab-insp col.q{width:66%}.tab-insp col.r{width:5.5%}.tab-insp col.o{width:17.3%}.tab-insp tr{break-inside:avoid}.tab-insp .c{text-align:center}.tab-insp .sec th{background:#ddd;text-align:left}.tab-insp tr.se td:first-child{padding-left:8px}.tab-insp tr.obs td{height:3.4mm}.tab-insp .cx{vertical-align:-1px}.it{break-inside:avoid;margin-bottom:2px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .it{margin-bottom:1px}.sa{font-weight:600}.col h3{font-size:8.5pt;margin:3px 0 1px;break-after:avoid}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
+.resumo p{margin:0 0 1px}.folha--pop{page:pop;break-after:page;page-break-after:always}.col{column-count:2;column-gap:10px;font-size:8pt;line-height:1.15}@page insp{margin:5mm 7mm}.folha--insp{page:insp}.folha--insp .peq{font-size:8pt;margin:1px 0}.folha--insp .resumo{font-size:8pt;line-height:1.1;margin:1px 0 2px}.folha--insp .cab{margin-bottom:2px}.tab-insp{table-layout:fixed;border-collapse:collapse;width:100%;font-size:8pt;line-height:1}.tab-insp th,.tab-insp td{border:1px solid #000;padding:0 2px;font-size:8pt;vertical-align:top;overflow-wrap:anywhere}.tab-insp col.q{width:72%}.tab-insp col.r{width:4.3%}.tab-insp col.o{width:15.1%}.tab-insp tr{break-inside:avoid}.tab-insp .c{text-align:center}.tab-insp .sec th{background:#ddd;text-align:left}.tab-insp tr.se td:first-child{padding-left:8px}.tab-insp tr.obs td{height:3.4mm}.tab-insp .cx{vertical-align:-1px}.it{break-inside:avoid;margin-bottom:2px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .it{margin-bottom:1px}.sa{font-weight:600}.col h3{font-size:8.5pt;margin:3px 0 1px;break-after:avoid}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
 .barra{margin:0 0 8px}@media screen{body{max-width:190mm;margin:0 auto}}@media print{.barra{display:none}body{padding:0}}`;
 
 /** Página completa do roteiro. `geradoEm` é AAAA-MM-DD. */
