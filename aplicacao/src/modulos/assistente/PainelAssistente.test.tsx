@@ -218,9 +218,9 @@ describe('painel do assistente: mascote', () => {
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(screen.getByText('Nenhum aviso novo.')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
-    expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: 1 aviso(s) ciente(s) ou adiado(s)');
+    expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: 1 aviso ciente ou adiado');
 
-    fireEvent.click(screen.getByRole('button', { name: '1 ciente(s) e 0 adiado(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: '1 ciente e 0 adiados' }));
     expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent('(ciente)');
 
     act(() => { armazem.mudarStatus('DEM-1', 'Em Andamento'); });
@@ -237,7 +237,7 @@ describe('painel do assistente: mascote', () => {
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(new Date(obterLembretes()['DEM-1'].adiadoAte!).getTime()).toBeGreaterThan(AGORA().getTime());
 
-    fireEvent.click(screen.getByRole('button', { name: '0 ciente(s) e 1 adiado(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: '0 cientes e 1 adiado' }));
     expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent(/adiado até (hoje|amanhã) às (8|14)h/);
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
@@ -265,7 +265,7 @@ describe('painel do assistente: mascote', () => {
     expect(recolher).toHaveAttribute('aria-expanded', 'true');
     fireEvent.click(recolher);
     expect(screen.getByTestId('aviso-DEM-1')).not.toBeVisible();
-    expect(screen.getByRole('button', { name: /1 novo\(s\), recolhidas; mostrar/ })).toHaveAttribute('aria-expanded', 'false');
+    expect(screen.getByRole('button', { name: /1 novo, recolhidas; mostrar/ })).toHaveAttribute('aria-expanded', 'false');
     expect(screen.getByLabelText('Mensagem ao assistente')).toBeInTheDocument();
     primeira.unmount();
 

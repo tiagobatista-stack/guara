@@ -13,7 +13,7 @@ const EXEMPLOS: Demanda[] = [
   { id: 'k2', titulo: 'Conferir evidências de testes', descricao: '', responsavel: 'Equipe C', prioridade: 'Baixa', status: 'Em Validação', criadaEm: '2026-11-13T09:00:00.000Z', ultimaAcaoRelevante: '2026-11-13T09:00:00.000Z' },
 ];
 
-const contagem = (status: string) => within(screen.getByTestId(`coluna-${status}`)).getByLabelText(/demanda\(s\)/).textContent;
+const contagem = (status: string) => within(screen.getByTestId(`coluna-${status}`)).getByLabelText(/^\d+ demandas?$/).textContent;
 
 beforeEach(() => localStorage.clear());
 

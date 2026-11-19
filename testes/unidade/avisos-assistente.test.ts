@@ -43,7 +43,7 @@ describe('avisosDoDia', () => {
     expect(avisos[0].texto).toBe('Demanda A: vencido há 3 dias úteis.');
     expect(avisos[2].texto).toBe('Demanda C: vence hoje.');
     expect(avisos[3].texto).toBe('Demanda D: faltam 3 dias úteis.');
-    expect(avisos[4].texto).toBe('Demanda E: parada há 10 dia(s) sem ação relevante.');
+    expect(avisos[4].texto).toBe('Demanda E: parada há 10 dias sem ação relevante.');
   });
 
   it('usa os feriados locais e o limiar de inatividade gravado', () => {

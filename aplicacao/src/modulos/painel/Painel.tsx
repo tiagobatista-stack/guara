@@ -11,6 +11,7 @@ import { useOperacoes } from '../operacoes/armazem.ts';
 import { prazosDeElaboracao } from '../operacoes/armazem.ts';
 import { contarPontosPendentes, dataLocal, demandasEncaixadas, diasParado as diasDoBloqueio, pendenciasDeCampo, textoParado } from '../operacoes/regras.ts';
 import { listarSemVistoria } from '../demandas/vistoria.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : '—');
 
@@ -32,7 +33,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
       <div>
         <h1 id="titulo-painel" className="titulo-pagina">Dashboard</h1>
         <p className="texto-suave texto-medio">
-          Calculado agora ({instante.toLocaleString('pt-BR')}) sobre os dados deste navegador. Inatividade: mais de {limiarDias} dia(s) sem ação relevante.
+          Calculado agora ({instante.toLocaleString('pt-BR')}) sobre os dados deste navegador. Inatividade: mais de {plural(limiarDias, 'dia', 'dias')} sem ação relevante.
         </p>
       </div>
 
@@ -62,7 +63,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
           ) : (
             <ul className="lista-limpa lista-divisoria texto-medio">
               {m.vencidas.map((d) => <li key={`v-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--falha">· vencida em {data(d.prazo)} ({situacaoDaDemanda(d, instante, ajuste)?.texto})</span></li>)}
-              {m.inativas.map((d) => <li key={`i-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--atencao">· parada há {diasParado(d, instante)} dia(s)</span></li>)}
+              {m.inativas.map((d) => <li key={`i-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--atencao">· parada há {plural(diasParado(d, instante), 'dia', 'dias')}</span></li>)}
             </ul>
           )}
         </div>

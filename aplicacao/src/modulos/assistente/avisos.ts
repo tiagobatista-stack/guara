@@ -5,6 +5,7 @@
 import type { Demanda } from '../demandas/modelo.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { diasParado, estaInativa } from '../alertas/inatividade.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
 /** Prazo próximo: vence em até tantos dias úteis (inclui "vence hoje"). */
 export const DIAS_PRAZO_PROXIMO = 3;
@@ -34,7 +35,7 @@ export function avisosDoDia(demandas: readonly Demanda[], agora: Date, limiarDia
       novo('prazo-proximo', `${d.titulo}: ${prazo.texto}.`, prazo.diasUteis);
     } else if (estaInativa(d, limiarDias, agora)) {
       const dias = diasParado(d, agora);
-      novo('parada', `${d.titulo}: parada há ${dias} dia(s) sem ação relevante.`, -dias);
+      novo('parada', `${d.titulo}: parada há ${plural(dias, 'dia', 'dias')} sem ação relevante.`, -dias);
     }
   }
   // Mais urgente primeiro: vencidas há mais tempo, prazos mais curtos, paradas há mais tempo.

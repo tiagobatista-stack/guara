@@ -10,6 +10,7 @@ import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
 import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
 
@@ -101,7 +102,7 @@ function humorDoPainel(mensagens: Mensagem[], avisos: readonly Aviso[]): HumorMa
 
 const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[], ocultos: number) => string> = {
   tranquilo: (_avisos, ocultos) => ocultos
-    ? `Tranquilo: ${ocultos} aviso(s) ciente(s) ou adiado(s); nada novo pede atenção.`
+    ? `Tranquilo: ${plural(ocultos, 'aviso ciente ou adiado', 'avisos cientes ou adiados')}; nada novo pede atenção.`
     : 'Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.',
   atento: (avisos) => `Atento: ${resumoDosAvisos(avisos)}.`,
   curioso: () => 'Curioso: não entendi o último comando.',
@@ -207,7 +208,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
           <button type="button" className="botao-titulo" aria-expanded={!recolhidas} aria-controls="notificacoes-do-assistente" onClick={alternarRecolhidas}>
             <strong>Notificações</strong>
             {recolhidas && avisos.length > 0 && <span className="sino-contagem" aria-hidden="true">{avisos.length}</span>}
-            <span className="sr-only">{recolhidas ? ` (${avisos.length} novo(s), recolhidas; mostrar)` : ' (recolher)'}</span>
+            <span className="sr-only">{recolhidas ? ` (${plural(avisos.length, 'novo', 'novos')}, recolhidas; mostrar)` : ' (recolher)'}</span>
           </button>
         </h2>
         <div id="notificacoes-do-assistente" hidden={recolhidas}>
@@ -243,7 +244,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         {ocultos.length > 0 && (
           <div className="avisos-ocultos">
             <button type="button" className="botao botao--pequeno" aria-expanded={mostrandoOcultos} onClick={() => setMostrandoOcultos((v) => !v)}>
-              {ocultos.filter((o) => o.motivo === 'ciente').length} ciente(s) e {ocultos.filter((o) => o.motivo === 'adiado').length} adiado(s)
+              {plural(ocultos.filter((o) => o.motivo === 'ciente').length, 'ciente', 'cientes')} e {plural(ocultos.filter((o) => o.motivo === 'adiado').length, 'adiado', 'adiados')}
             </button>
             {mostrandoOcultos && (
               <ul className="lista-limpa avisos-assistente">

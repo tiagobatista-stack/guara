@@ -114,7 +114,7 @@ describe('tela Alertas', () => {
 
   it('alerta aparece com 5 dias e limiar 3, e some após ação relevante', () => {
     const armazem = montar();
-    expect(screen.getByTestId('inativa-velha')).toHaveTextContent('há 5 dia(s)');
+    expect(screen.getByTestId('inativa-velha')).toHaveTextContent('há 5 dias');
     act(() => { armazem.mudarStatus('velha', 'Em Validação'); });
     expect(screen.queryByTestId('inativa-velha')).toBeNull();
     expect(screen.getByText(/Nenhuma demanda inativa/)).toBeInTheDocument();
@@ -124,7 +124,7 @@ describe('tela Alertas', () => {
     const armazem = montar();
     fireEvent.change(screen.getByLabelText(/quantos dias corridos/), { target: { value: '7' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar limiar' }));
-    expect(screen.getByRole('status')).toHaveTextContent('7 dia(s)');
+    expect(screen.getByRole('status')).toHaveTextContent('7 dias corridos');
     expect(screen.queryByTestId('inativa-velha')).toBeNull();
     expect(armazem.obter().diasInatividade).toBe(7);
   });
@@ -147,7 +147,7 @@ describe('tela Alertas', () => {
 
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 2'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('2 demandas importadas'));
     expect(armazem.obter().demandas.map((d) => d.id)).toEqual(['nova1', 'nova2']);
     expect(screen.getByRole('button', { name: 'Desfazer última importação' })).toBeEnabled();
   });
@@ -164,7 +164,7 @@ describe('tela Alertas', () => {
     const novo = JSON.stringify({ ...JSON.parse(exportarDados([{ ...ANTIGA, id: 'nova1' }], 3, AGORA)), mascote: { principal: 'ariranha', nomes: { ariranha: 'Nina', capivara: 42 } } });
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 demanda importada'));
     expect(obterPreferencias()).toEqual({ principal: 'ariranha', nomes: { ariranha: 'Nina' } });
     expect(armazem.obter().demandas.map((d) => d.id)).toEqual(['nova1']);
   });
@@ -174,7 +174,7 @@ describe('tela Alertas', () => {
     act(() => escolherPrincipal('lobo-guara'));
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(exportarDados([{ ...ANTIGA, id: 'nova1' }], 3, AGORA))] } });
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 demanda importada'));
     expect(obterPreferencias().principal).toBe('lobo-guara');
   });
 
@@ -184,7 +184,7 @@ describe('tela Alertas', () => {
 
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 demanda importada'));
     expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(10);
 
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
@@ -215,7 +215,7 @@ describe('tela Alertas', () => {
 
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
-    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+    await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 demanda importada'));
     expect(screen.getByLabelText(/quantos dias corridos/)).toHaveValue(10);
 
     // Desfazer: demandas e limiar gravam; a remoção do backup e toda a reversão falham.
@@ -258,7 +258,7 @@ describe('tela Alertas', () => {
       montar();
       vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
       importarArquivo();
-      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 demanda importada'));
 
       expect(screen.getByRole('button', { name: 'Desfazer última importação' })).toBeDisabled();
       const baixarBackup = screen.queryByRole('button', { name: 'Baixar conteúdo do backup' });
@@ -288,7 +288,7 @@ describe('tela Alertas', () => {
       montar();
       vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
       importarArquivo();
-      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
+      await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('1 demanda importada'));
       const backup = localStorage.getItem(CHAVE_BACKUP);
 
       const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false);

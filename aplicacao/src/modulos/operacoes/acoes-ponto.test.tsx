@@ -29,7 +29,18 @@ describe('ações do cartão do ponto por fase', () => {
     expect(principais()).toContain('Registrar resultado do Ponto 1');
     for (const n of ['Editar planejamento do Ponto 1', 'Travar Ponto 1', 'Converter Ponto 1 em demanda', 'Cancelar vistoria do Ponto 1', 'Excluir Ponto 1']) expect(acao(n)).toBeInTheDocument();
     expect(acao('Registrar relatório no SIGA do Ponto 1')).toBeNull();
-    expect(screen.getByText('Demanda:')).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Demanda do Ponto 1' })).toBeInTheDocument();
+  });
+
+  it('estrutura: cabeçalho (caixa, seta, título) separado dos selos e do rodapé com a ação principal; sem anotação mostra o texto cinza', () => {
+    const { pid } = montar();
+    const card = screen.getByTestId(`ponto-${pid}`);
+    const [cabecalho, selos] = [card.querySelector('.ponto-linha')!, card.querySelector('.ponto-selos')!];
+    expect(cabecalho).not.toContainElement(selos as HTMLElement);
+    expect(cabecalho.querySelector('.ponto-codigo')).toHaveAttribute('title', obterOperacoes()[0].pontos[0].codigo);
+    expect(card.querySelector('.ponto-rodape')).toContainElement(screen.getByRole('button', { name: 'Registrar resultado do Ponto 1' }));
+    expect(within(card).getByText('Nenhuma anotação.')).toBeInTheDocument();
+    expect(card.querySelector('.ponto-barra')).toContainElement(screen.getByRole('button', { name: 'Excluir Ponto 1' }));
   });
 
   it('elaboração: principal é Registrar relatório no SIGA; Editar resultado; sem Cancelar vistoria', () => {
@@ -61,7 +72,7 @@ describe('ações do cartão do ponto por fase', () => {
     expect(acao('Destravar Ponto 1')).toBeNull();
   });
 
-  it('cancelar vistoria pede o motivo (Voltar não cancela); cancelado só mostra "Mais" (Reativar e Excluir)', () => {
+  it('cancelar vistoria pede o motivo (Voltar não cancela); cancelado só mostra o menu ⋯ (Reativar e Excluir)', () => {
     montar();
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar vistoria do Ponto 1' }));
     fireEvent.click(screen.getByRole('button', { name: 'Confirmar cancelamento' }));
@@ -77,7 +88,7 @@ describe('ações do cartão do ponto por fase', () => {
     expect(itensDoMapa([], obterOperacoes(), '2026-11-18').noMapa[0].motivoCancelamento).toBe('área inacessível');
     for (const n of ['Editar planejamento do Ponto 1', 'Travar Ponto 1', 'Converter Ponto 1 em demanda', 'Cancelar vistoria do Ponto 1']) expect(acao(n)).toBeNull();
     expect(screen.queryByRole('group', { name: 'Ações do Ponto 1' })).toBeNull();
-    const mais = screen.getByText('Mais').closest('details')!;
+    const mais = screen.getByLabelText('Mais ações do Ponto 1').closest('details')!;
     expect(within(mais).getByRole('button', { name: 'Reativar Ponto 1' })).toBeInTheDocument();
     expect(within(mais).getByRole('button', { name: 'Excluir Ponto 1' })).toBeInTheDocument();
     fireEvent.click(within(mais).getByRole('button', { name: 'Reativar Ponto 1' }));

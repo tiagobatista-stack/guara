@@ -23,9 +23,9 @@ async function criarPelaPlanilha(texto: string, nomeEsperado: string, pontos: nu
   importar(texto);
   await screen.findByTestId('previa-nova-operacao');
   expect(screen.getByLabelText('Nome *')).toHaveValue(nomeEsperado);
-  fireEvent.click(screen.getByRole('button', { name: `Criar operação com ${pontos} ponto(s)` }));
+  fireEvent.click(screen.getByRole('button', { name: `Criar operação com ${pontos} pontos` }));
   expect(screen.getByRole('heading', { level: 2, name: nomeEsperado })).toBeInTheDocument();
-  expect(screen.getByTestId('resumo-operacao')).toHaveTextContent(`${pontos} ponto(s)`);
+  expect(screen.getByTestId('resumo-operacao')).toHaveTextContent(`${pontos} pontos`);
 }
 
 describe('importação das planilhas de teste', () => {
