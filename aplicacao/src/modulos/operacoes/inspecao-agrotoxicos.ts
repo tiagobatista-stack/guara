@@ -45,7 +45,7 @@ export const SECOES_INSPECAO: Record<number, string> = {
 
 export const ITENS_INSPECAO: readonly ItemPop[] = [
   // 1. Identificação (só conferências: sem campos de dados pessoais)
-  tx('C-1.1', 'Nome da propriedade rural', 'campo', { opcional: true }),
+  // C-1.1 (nome da propriedade) não existe: vale o "Imóvel / local" do ponto, mostrado e editado também na inspeção (revisão de 19/11/2026).
   sn('C-1.2', 'Possui placa na entrada principal ou nos acessos da propriedade?', 'campo'),
   sn('C-1.3', 'Fotografia georreferenciada com data e hora registrada (usar aplicativos específicos)?', 'campo'),
   tx('C-1.4', 'Localização (zona rural, estrada MT ou BR, km, referências próximas)', 'campo', { opcional: true, nota: 'Município e coordenadas já constam do ponto.' }),
@@ -79,7 +79,8 @@ export const ITENS_INSPECAO: readonly ItemPop[] = [
   tx('C-2.3.2', 'Especifique o outro tipo de licença', 'previa', { se: 'C-2.3.1', vale: ['Outro'] }),
   tx('C-2.3.3', 'Número da licença', 'previa', { se: 'C-2.3' }),
   da('C-2.3.4', 'Validade da licença', 'previa', { se: 'C-2.3' }),
-  sn('C-2.3.5', 'Condicionantes do parecer da licença verificadas, com conformidade em campo na vistoria de constatação?', 'campo', { se: 'C-2.3' }),
+  li('C-2.3.5', 'Condicionantes da licença verificadas em campo', 'campo', o('Conformes', 'Não conformes', 'N.A.'), { se: 'C-2.3', opcional: false }),
+  tx('C-2.3.6', 'Observação sobre as condicionantes da licença', 'campo', { se: 'C-2.3' }),
   ...AUTORIZACOES.flatMap((a, i) => [
     sn(`C-2.4.${i + 1}`, `Possui Autorização Ambiental para ${a}?`, 'previa'),
     tx(`C-2.4.${i + 1}.1`, `Número da Autorização Ambiental para ${a}`, 'previa', { se: `C-2.4.${i + 1}` }),

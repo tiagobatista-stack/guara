@@ -11,7 +11,7 @@ Ids: `C-<seção>.<pergunta>[.<sub>]`. Obrigatoriedade: toda pergunta Sim/Não/N
 ## Dados pessoais (item 3)
 
 Não existem campos para: nome do proprietário/responsável, CPF/CNPJ, telefone/e-mail, endereço, nomes de responsáveis técnicos, de pessoas presentes, do gerente/capataz e do operador aéreo. No lugar, perguntas Sim/Não/N.A.: C-1.5 (documento do responsável), C-1.6 (endereço para correspondência), C-1.7 (atualização no SIGA; C-1.7.1 notificação e prazo), C-1.8 (responsável técnico e CREA no auto), C-1.9 (pessoas presentes qualificadas), C-1.10 (acompanhante da vistoria), C-5.2.1 (operador aéreo identificado no auto).
-"Município" saiu (já está no ponto); "Localização" não pede endereço nem coordenadas. "Nome da propriedade rural" (C-1.1) ficou como texto: é nome de lugar, não de pessoa. Confirmar se o responsável concorda.
+"Município" saiu (já está no ponto); "Localização" não pede endereço nem coordenadas. "Nome da propriedade rural": não há campo novo (revisão de 19/11/2026). A inspeção mostra e edita o "Imóvel / local" do ponto, o mesmo valor do planejamento. O id C-1.1 ficou vago.
 
 ## Lacunas fechadas e ajustes (cada um)
 
@@ -19,7 +19,7 @@ Não existem campos para: nome do proprietário/responsável, CPF/CNPJ, telefone
 2. **Aeródromo (C-4.2, nova):** a condicional "nos aeródromos" não tinha pergunta de origem. Criei "Há aeródromo na propriedade?"; o depósito (C-4.2.1) só aparece se Sim.
 3. **Vencidos (4.3):** quantidade/tipo, lotes e "vencido há menos de 6 meses" só aparecem se houver vencidos. O caso "há vencido, mas não há menos de 6 meses" fica com a resposta N.A.; não criei pergunta extra.
 4. **Aplicação aérea:** COA, aeronavegabilidade/ANAC, SAE, SGSO, operador aéreo, pátio (seção 6 inteira) e lavagem de aeronaves só se C-5.2 = Sim. O detalhe do pátio (C-6.2, 6.2.1, 6.2.2, 6.3) só se existir pátio (C-6.1 = Sim).
-5. **Licença (2.3):** tipo, número e validade só se Sim; tipo é lista (LO, LI, LAS, LAC, APF rural, Outro) e "Outro" abre "Especifique". Validade é data.
+5. **Licença (2.3), separada em duas (revisão de 19/11/2026):** existência, tipo, número e validade na fase prévia (C-2.3 a C-2.3.4); "Condicionantes da licença verificadas em campo" (Conformes / Não conformes / N.A., C-2.3.5) e observação (C-2.3.6) na fase campo. Tipo, número e validade só se Sim; tipo é lista (LO, LI, LAS, LAC, APF rural, Outro) e "Outro" abre "Especifique". Validade é data.
 6. **CAR (1.11/1.12):** o original pergunta "Possui CAR (SIMCAR)" e "Possui CAR Número do recibo Federal" sem separar a existência do número. Cada um virou Sim/Não/N.A. + número se Sim. Fase prévia, com sugestão da consulta automática.
 7. **Embargos (2.13):** Sim/Não/N.A.; números (texto) e órgão (lista: IBAMA, SEMA, ICMBio, decisão judicial) se Sim. Fase prévia, com sugestão da consulta. **Autos:** o questionário não tem pergunta sobre autos; a aba prévia mostra o resultado da consulta de autos só como informação.
 8. **Itens do tipo "Apresentar…" sem Sim/Não** (SAE, SGSO, programa de treinamento, planilha dos relatórios operacionais, mapas): viraram "…apresentado(s)?" / "Possui…?" Sim/Não/N.A.

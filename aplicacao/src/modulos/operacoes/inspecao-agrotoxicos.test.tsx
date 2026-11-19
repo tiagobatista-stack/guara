@@ -89,7 +89,6 @@ describe('dados pessoais', () => {
   const PESSOAL = /\b(cpf|cnpj|telefone|e-?mail|endere[cç]o|nomes?\b.*(propriet|respons|pessoa|gerente|capataz|operador)|nome d[oa])/i;
   it('nenhum campo de texto, número, data ou lista pede nome, CPF/CNPJ, telefone, e-mail ou endereço; só perguntas Sim/Não/N.A. de conferência', () => {
     for (const it of ITENS_INSPECAO) {
-      if (it.id === 'C-1.1') continue; // nome da PROPRIEDADE (lugar), não de pessoa
       if (PESSOAL.test(it.texto)) expect(it.tipo, it.id).toBe('simnao');
     }
     const item = (id: string) => ITENS_INSPECAO.find((i) => i.id === id)!;
@@ -100,8 +99,8 @@ describe('dados pessoais', () => {
       expect(item(id).tipo).toBe('simnao');
       expect(item(id).texto).toContain(trecho);
     }
-    // os únicos textos livres com "nome": a propriedade (lugar) e o nome comercial do produto
-    expect(ITENS_INSPECAO.filter((i) => i.tipo === 'texto' && /nome/i.test(i.texto)).map((i) => i.id)).toEqual(['C-1.1', 'C-5.4.1']);
+    // o único texto livre com "nome": o nome comercial do produto
+    expect(ITENS_INSPECAO.filter((i) => i.tipo === 'texto' && /nome/i.test(i.texto)).map((i) => i.id)).toEqual(['C-5.4.1']);
   });
 
   it('o armazém recusa dado fora do modelo (não há campo para guardar CPF, telefone ou nome)', () => {
@@ -232,6 +231,29 @@ describe('tela do ponto', () => {
     expect(within(b).getByLabelText(/^C-3\.6\./)).toBeInTheDocument();
     fireEvent.change(within(b).getByLabelText(/^C-5\.2\. Há/), { target: { value: 'Não' } });
     expect(within(b).queryByLabelText(/^C-3\.6\./)).toBeNull();
+  });
+
+  it('o imóvel / local do ponto aparece na inspeção e edita o mesmo valor do planejamento', () => {
+    const pontos = montar([{ tipoDano: 'Desmatamento químico' }]);
+    expect(ITENS_INSPECAO.some((i) => i.id === 'C-1.1')).toBe(false);
+    const b = screen.getByTestId(`inspecao-${pontos[0].id}`);
+    const campo = within(b).getByLabelText(/^Imóvel \/ local/);
+    fireEvent.change(campo, { target: { value: 'Fazenda Teste' } });
+    fireEvent.blur(campo);
+    expect(obterOperacoes()[0].pontos[0].imovel).toBe('Fazenda Teste');
+    fireEvent.click(screen.getByRole('button', { name: 'Editar planejamento do Ponto 1' }));
+    expect(screen.getByLabelText('Imóvel / local')).toHaveValue('Fazenda Teste');
+  });
+
+  it('licença: existência, tipo, número e validade na prévia; condicionantes e observação em campo', () => {
+    const f = (id: string) => ITENS_INSPECAO.find((i) => i.id === id)!;
+    for (const id of ['C-2.3', 'C-2.3.1', 'C-2.3.3', 'C-2.3.4']) expect(f(id).fase).toBe('previa');
+    expect(f('C-2.3.5')).toMatchObject({ fase: 'campo', tipo: 'unica', opcional: false });
+    expect(f('C-2.3.5').opcoes!.map((o) => o.texto)).toEqual(['Conformes', 'Não conformes', 'N.A.']);
+    expect(f('C-2.3.6')).toMatchObject({ fase: 'campo', tipo: 'texto' });
+    expect(ids({ 'C-2.3': 'Não' })).not.toContain('C-2.3.5');
+    expect(ids({ 'C-2.3': 'Sim' })).toEqual(expect.arrayContaining(['C-2.3.5', 'C-2.3.6']));
+    expect(itensDeCampoSemResposta({ 'C-2.3': 'Sim' }, ITENS_INSPECAO).map((i) => i.id)).toContain('C-2.3.5');
   });
 
   it('aviso ao salvar o tipo de dano que acrescenta POP e inspeção', () => {

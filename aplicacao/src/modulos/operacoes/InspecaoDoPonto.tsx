@@ -3,12 +3,12 @@
 
 import { Fragment, useState } from 'react';
 import type { Ponto } from './modelo.ts';
-import { ESTADOS_CONSULTA } from './modelo.ts';
+import { ESTADOS_CONSULTA, LIMITES_OPERACAO } from './modelo.ts';
 import { divergencias, itensAplicaveis, itensDeCampoSemResposta, marcadas, respondido, type Caracterizacao, type ItemPop, type Resposta } from './pop-supressao.ts';
 import { ITENS_INSPECAO, inspecaoAtiva, inspecaoVazia, SECOES_INSPECAO, sugestoesInspecao } from './inspecao-agrotoxicos.ts';
 import { Item } from './CaracterizacaoDoPonto.tsx';
 
-type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva'>>;
+type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel'>>;
 const valorTexto = (r: Resposta | undefined) => marcadas(r).join('; ');
 
 export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
@@ -60,6 +60,8 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
             {divergentes.map((it) => <li key={it.id}>[DIVERGÊNCIA] {it.id}: conferido antes: {valorTexto(previa[it.id])}; em campo: {valorTexto(campo[it.id])}.</li>)}
           </ul>
         )}
+        <label className="campo-grupo" key={`imovel|${ponto.imovel}`}><span>Imóvel / local (o mesmo do planejamento do ponto)</span>
+          <input className="campo" defaultValue={ponto.imovel ?? ''} maxLength={LIMITES_OPERACAO.imovel} autoComplete="off" onBlur={(e) => { if (e.target.value.trim() !== (ponto.imovel ?? '')) aoMudar({ imovel: e.target.value.trim() }); }} /></label>
         {Object.entries(SECOES_INSPECAO).map(([n, titulo]) => {
           const doBloco = aplicaveis.filter((it) => it.secao === Number(n));
           if (doBloco.length === 0) return null;
