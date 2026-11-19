@@ -169,13 +169,14 @@ describe('relatório da inspeção', () => {
     expect(textoDoRelatorio(op(ativa), ativa)).toContain('Constatou-se placa de identificação');
   });
 
-  it('documentos lavrados (qualquer ponto): só documento e número, singular/plural; pendência só para notificação "feito" e auto "autuado" sem número', () => {
+  it('documentos lavrados (qualquer ponto): uma frase por documento, com tipo, número e data; pendência só para notificação "feito" e auto "autuado" sem o documento', () => {
     const dizer = (p: object) => frasesDosLavrados(p as never);
-    expect(dizer({ lavrados: { notificacao: ['123/2026'], auto: ['77'], embargo: ['5'] } })).toBe('Foi lavrado o Auto de Infração n.º 77. Foi lavrada a Notificação n.º 123/2026. Foi lavrado o Termo de Embargo n.º 5.');
-    expect(dizer({ lavrados: { embargo: ['5', '6', '7'], auto: ['1', '2'] } })).toBe('Foram lavrados os Autos de Infração n.º 1 e 2. Foram lavrados os Termos de Embargo n.º 5, 6 e 7.');
+    expect(dizer({ lavrados: [{ tipo: 'Auto de infração', numero: '77', data: '2026-09-12' }, { tipo: 'Notificação', numero: '123/2026' }, { tipo: 'Termo de embargo / Interdição', numero: '5' }] }))
+      .toBe('Foi lavrado o Auto de Infração n.º 77, em 12/09/2026. Foi lavrada a Notificação n.º 123/2026. Foi lavrado o Termo de Embargo / Interdição n.º 5.');
     expect(dizer({ providencias: { 'ctf-notificacao': 'feito' } })).toBe('[PENDENTE: n.º do documento lavrado]');
     expect(dizer({ providencias: { 'ctf-auto': 'autuado' } })).toBe('[PENDENTE: n.º do documento lavrado]');
-    expect(dizer({ providencias: { 'ctf-auto': 'autuado' }, lavrados: { auto: ['9'] } })).not.toContain('PENDENTE');
+    expect(dizer({ providencias: { 'ctf-auto': 'autuado' }, lavrados: [{ tipo: 'Notificação', numero: '1' }] })).toContain('PENDENTE'); // notificação não é auto
+    expect(dizer({ providencias: { 'ctf-auto': 'autuado' }, lavrados: [{ tipo: 'Auto de infração', numero: '9' }] })).not.toContain('PENDENTE');
     expect(dizer({ providencias: { 'ctf-auto': 'nao-autuado' } })).toBe('');
     expect(dizer({ providencias: { 'ctf-auto': 'nao-aplicavel', 'ctf-notificacao': 'nao-aplicavel' } })).toBe('');
     expect(dizer({})).toBe('');
@@ -183,9 +184,9 @@ describe('relatório da inspeção', () => {
 
   it('o relatório de ponto SEM inspeção também cita os documentos lavrados', () => {
     const viagem = { id: 'v', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-12-07', retorno: '2026-12-11', notas: '' };
-    const pt = { id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Castanheira', notas: '', demandas: [], situacao: 'vistoriado' as const, viagem: 'v', resultado: 'sim' as const, lavrados: { embargo: ['12/2026'] } };
+    const pt = { id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Castanheira', notas: '', demandas: [], situacao: 'vistoriado' as const, viagem: 'v', resultado: 'sim' as const, lavrados: [{ tipo: 'Termo de embargo / Interdição', numero: '12/2026' }] };
     const t = textoDoRelatorio({ id: 'o', nome: 'Op', viagens: [viagem], pontos: [pt], criadaEm: '2026-11-01T00:00:00Z' } as never, pt as never);
-    expect(t).toContain('Foi lavrado o Termo de Embargo n.º 12/2026.');
+    expect(t).toContain('Foi lavrado o Termo de Embargo / Interdição n.º 12/2026.');
   });
 
   it('nenhum texto gerado (relatório e roteiro) cita lei, artigo, decreto ou valor em reais', () => {
@@ -194,7 +195,7 @@ describe('relatório da inspeção', () => {
       if (it.id.includes('@')) continue;
       todas[it.id] = it.tipo === 'simnao' ? 'Não' : it.tipo === 'texto' ? 'x' : it.tipo === 'numero' ? '1' : it.tipo === 'data' ? '2026-09-12' : it.tipo === 'multipla' ? [it.opcoes![0].texto] : it.opcoes![0].texto;
     }
-    const ponto = { tipoDano: 'Aplicação irregular de agrotóxico', inspecao: todas, conferenciaPrevia: { 'C-2.2': 'Não', 'C-2.2@fonte': 'SIGA' }, providencias: { 'ctf-auto': 'autuado' } as Record<string, 'autuado'>, lavrados: { notificacao: ['1'], auto: ['2'], embargo: ['3'] } };
+    const ponto = { tipoDano: 'Aplicação irregular de agrotóxico', inspecao: todas, conferenciaPrevia: { 'C-2.2': 'Não', 'C-2.2@fonte': 'SIGA' }, providencias: { 'ctf-auto': 'autuado' } as Record<string, 'autuado'>, lavrados: [{ tipo: 'Notificação', numero: '1' }, { tipo: 'Auto de infração', numero: '2' }, { tipo: 'Termo de embargo / Interdição', numero: '3' }] };
     const ilegal = /R\$|\bart\.|Decreto|Lei n/;
     expect(frasesDaInspecao(ponto).join('\n')).not.toMatch(ilegal);
     const viagem = { id: 'v', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-12-07', retorno: '2026-12-11', notas: '' };

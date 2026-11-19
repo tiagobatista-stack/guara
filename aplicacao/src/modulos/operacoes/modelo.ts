@@ -109,10 +109,10 @@ export interface Ponto {
   inspecaoAtiva?: boolean;
   /** Providências sugeridas (providencias.ts) que o fiscal marcou: feito ou não aplicável. */
   providencias?: Record<string, 'feito' | 'autuado' | 'nao-autuado' | 'nao-aplicavel'>;
-  /** Documentos lavrados no ponto, cada tipo com um ou mais números (só o número; enquadramento e multa ficam no SIGA Autuação). */
+  /** Documentos lavrados no ponto: tipo (tipos-lavrados.ts), número e data (só isso; enquadramento e multa ficam no SIGA Autuação). */
   /** Data/hora (ISO) da última alteração de cada formulário; só muda quando uma resposta muda. */
   editadoEm?: { pop?: string; inspecao?: string };
-  lavrados?: { auto?: string[]; notificacao?: string[]; embargo?: string[] };
+  lavrados?: { tipo: string; numero: string; data?: string }[];
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
   coordenadaAferida?: string;
   waypoint?: string;

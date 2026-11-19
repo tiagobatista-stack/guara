@@ -13,7 +13,7 @@ import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compart
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import { FormulariosDoPonto } from './FormulariosDoPonto.tsx';
 import { inspecaoAtiva, TIPOS_DANO_AGROTOXICO } from './inspecao-agrotoxicos.ts';
-import { DOCUMENTOS_LAVRADOS, numerosDoTexto, type DocumentoLavrado } from './providencias.ts';
+import { MAX_LAVRADOS, NOMES_LAVRADOS } from './tipos-lavrados.ts';
 import { QuarentenaDoPonto } from './QuarentenaDoPonto.tsx';
 import { useQuarentena } from './quarentena.ts';
 import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
@@ -563,7 +563,7 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
 
 // ---------- Um ponto ----------
 
-const ROTULOS_LAVRADOS = [['auto', 'Auto(s) de infração: n.º'], ['notificacao', 'Notificação(ões): n.º'], ['embargo', 'Termo(s) de embargo: n.º']] as const;
+const dataCurta = (iso: string) => iso.split('-').reverse().join('/');
 
 const rotuloDoDia = (iso: string) => `${['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${iso.slice(8)}/${iso.slice(5, 7)}`;
 
@@ -574,9 +574,7 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   const [form, setForm] = useState<DadosResultado>({
     resultado: ponto.resultado ?? '', motivo: ponto.motivo ?? '', protocolo: ponto.protocolo ?? '', observacao: ponto.observacao ?? '', dataVistoria: ponto.dataVistoria ?? '',
   });
-  const [lav, setLav] = useState<Record<DocumentoLavrado, string>>({
-    auto: (ponto.lavrados?.auto ?? []).join('; '), notificacao: (ponto.lavrados?.notificacao ?? []).join('; '), embargo: (ponto.lavrados?.embargo ?? []).join('; '),
-  });
+  const [lav, setLav] = useState<{ tipo: string; numero: string; data: string }[]>((ponto.lavrados ?? []).map((d) => ({ tipo: d.tipo, numero: d.numero, data: d.data ?? '' })));
   const original = useRef(JSON.stringify([form, lav]));
   usePendente(JSON.stringify([form, lav]) !== original.current);
   const [erro, setErro] = useState<string | null>(null);
@@ -586,7 +584,7 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   const exigeMotivo = !!form.resultado && RESULTADOS_COM_MOTIVO.includes(form.resultado);
   const salvar = (e: FormEvent) => {
     e.preventDefault();
-    const problema = registrarResultado(operacao.id, ponto.id, { ...form, lavrados: Object.fromEntries(DOCUMENTOS_LAVRADOS.map((k) => [k, numerosDoTexto(lav[k])]).filter(([, v]) => v.length > 0)) }, hoje);
+    const problema = registrarResultado(operacao.id, ponto.id, { ...form, lavrados: lav.map((d) => ({ tipo: d.tipo, numero: d.numero, ...(d.data ? { data: d.data } : {}) })) }, hoje);
     setErro(problema);
     if (!problema) aoTerminar();
   };
@@ -620,12 +618,22 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
           <input className="campo" list={`${id}-protocolos`} value={form.protocolo} maxLength={LIMITES_OPERACAO.protocolo} autoComplete="off" onChange={(e) => setForm({ ...form, protocolo: e.target.value })} />
           <datalist id={`${id}-protocolos`}>{protocolosSugeridos.map((x) => <option key={x} value={x} />)}</datalist></label>
       </div>
-      <fieldset className="grade grade--2">
-        <legend className="texto-pequeno texto-suave">Documentos lavrados no ponto (só o n.º; vários separados por ponto e vírgula)</legend>
-        {ROTULOS_LAVRADOS.map(([k, rotuloDoc]) => (
-          <label key={k} className="campo-grupo"><span>{rotuloDoc}</span>
-            <input className="campo" value={lav[k]} autoComplete="off" onChange={(e) => setLav({ ...lav, [k]: e.target.value })} /></label>
+      <fieldset>
+        <legend className="texto-pequeno texto-suave">Documentos lavrados no ponto (tipo, número e data; sem enquadramento nem valor)</legend>
+        {lav.map((d, i) => (
+          <div key={i} className="grade grade--2 grade--topo">
+            <label className="campo-grupo"><span>Tipo do documento {i + 1}</span>
+              <select className="campo" value={d.tipo} onChange={(e) => setLav(lav.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)))}>
+                {NOMES_LAVRADOS.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select></label>
+            <label className="campo-grupo"><span>Número do documento {i + 1}</span>
+              <input className="campo" value={d.numero} maxLength={50} autoComplete="off" onChange={(e) => setLav(lav.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)))} /></label>
+            <label className="campo-grupo"><span>Data do documento {i + 1}</span>
+              <input className="campo" type="date" max={hoje} value={d.data} onChange={(e) => setLav(lav.map((x, j) => (j === i ? { ...x, data: e.target.value } : x)))} /></label>
+            <div className="acoes"><button type="button" className="botao botao--pequeno botao--sutil" aria-label={`Remover documento ${i + 1}`} onClick={() => setLav(lav.filter((_, j) => j !== i))}>Remover</button></div>
+          </div>
         ))}
+        <button type="button" className="botao botao--pequeno" disabled={lav.length >= MAX_LAVRADOS} onClick={() => setLav([...lav, { tipo: NOMES_LAVRADOS[0], numero: '', data: '' }])}>+ Adicionar documento lavrado</button>
       </fieldset>
       <label className="campo-grupo"><span>Observação</span>
         <textarea className="campo campo--area" rows={2} value={form.observacao} maxLength={LIMITES_OPERACAO.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></label>
@@ -801,7 +809,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           <><dt>Resultado</dt><dd data-testid={`resultado-${ponto.id}`}>{RESULTADOS[ponto.resultado]}{ponto.motivo && <> · {ponto.motivo}</>}</dd></>
         )}
         {ponto.lavrados && (
-          <><dt>Documentos lavrados</dt><dd data-testid={`lavrados-${ponto.id}`}>{ROTULOS_LAVRADOS.filter(([k]) => ponto.lavrados?.[k]).map(([k, r]) => `${r.replace(/\(.*?\)/, '').replace(': n.º', '')}: ${ponto.lavrados![k]!.join(', ')}`).join(' · ')}</dd></>
+          <><dt>Documentos lavrados</dt><dd data-testid={`lavrados-${ponto.id}`}>{ponto.lavrados.map((d) => `${d.tipo} ${d.numero}${d.data ? ` (${dataCurta(d.data)})` : ''}`).join(' · ')}</dd></>
         )}
         {ponto.bloqueio && (
           <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${ponto.id}`}>

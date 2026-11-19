@@ -42,18 +42,20 @@ describe('regra do CTF (lembretes de procedimento, sem base legal)', () => {
     }
   });
 
-  it('validação: estados por providência; lavrados são listas de números de auto, notificacao e embargo', () => {
+  it('validação: estados por providência; lavrados são lista de {tipo da lista fechada, número, data}', () => {
     expect(providenciasValidas({ 'ctf-auto': 'autuado', 'ctf-notificacao': 'nao-aplicavel' })).toBe(true);
     expect(providenciasValidas({ 'ctf-auto': 'nao-autuado' })).toBe(true);
     expect(providenciasValidas({ 'ctf-auto': 'feito' })).toBe(false);
     expect(providenciasValidas({ 'ctf-notificacao': 'autuado' })).toBe(false);
     expect(providenciasValidas({ 'ctf-auto': 'talvez' })).toBe(false);
     expect(providenciasValidas({ outra: 'feito' })).toBe(false);
-    expect(lavradosValidos({ notificacao: ['1'], auto: ['2', '3'], embargo: ['4'] })).toBe(true);
-    expect(lavradosValidos({ multa: ['1'] })).toBe(false);
-    expect(lavradosValidos({ auto: '2' })).toBe(false);
-    expect(lavradosValidos({ auto: [] })).toBe(false);
-    expect(lavradosValidos({ auto: [''] })).toBe(false);
+    expect(lavradosValidos([{ tipo: 'Notificação', numero: '1' }, { tipo: 'Auto de infração', numero: '2', data: '2026-09-12' }])).toBe(true);
+    expect(lavradosValidos([{ tipo: 'Multa', numero: '1' }])).toBe(false); // tipo fora da lista
+    expect(lavradosValidos([{ tipo: 'Auto de infração', numero: '' }])).toBe(false);
+    expect(lavradosValidos([{ tipo: 'Auto de infração', numero: '1', data: '12/09/2026' }])).toBe(false);
+    expect(lavradosValidos([{ tipo: 'Auto de infração', numero: '1', valor: 'R$ 1' }])).toBe(false);
+    expect(lavradosValidos([])).toBe(false);
+    expect(lavradosValidos({ auto: ['2'] })).toBe(false);
   });
 });
 
@@ -79,22 +81,27 @@ describe('tela', () => {
     expect(validarListaOperacoes(JSON.parse(JSON.stringify(obterOperacoes())))).toHaveLength(1);
   });
 
-  it('documentos lavrados são do ponto: editados junto do resultado, vários n.º por tipo; vazio apaga', () => {
+  it('documentos lavrados são do ponto: editados junto do resultado (tipo, número, data); linha sem número é descartada', () => {
     montar();
     fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado do Ponto 1' }));
     const form = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
     fireEvent.change(within(form).getByLabelText('Resultado (fiscalizado/autuado)'), { target: { value: 'sim' } });
-    fireEvent.change(within(form).getByLabelText('Auto(s) de infração: n.º'), { target: { value: '77; 78/2026' } });
-    fireEvent.change(within(form).getByLabelText('Termo(s) de embargo: n.º'), { target: { value: '5' } });
+    fireEvent.click(within(form).getByRole('button', { name: '+ Adicionar documento lavrado' }));
+    fireEvent.change(within(form).getByLabelText('Número do documento 1'), { target: { value: '77' } });
+    fireEvent.change(within(form).getByLabelText('Data do documento 1'), { target: { value: '2026-10-07' } });
+    fireEvent.click(within(form).getByRole('button', { name: '+ Adicionar documento lavrado' }));
+    fireEvent.change(within(form).getByLabelText('Tipo do documento 2'), { target: { value: 'Termo de embargo / Interdição' } });
+    fireEvent.change(within(form).getByLabelText('Número do documento 2'), { target: { value: '5' } });
+    fireEvent.click(within(form).getByRole('button', { name: '+ Adicionar documento lavrado' })); // sem número: descartada
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar resultado' }));
-    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ auto: ['77', '78/2026'], embargo: ['5'] });
-    expect(screen.getByTestId(`lavrados-${obterOperacoes()[0].pontos[0].id}`)).toHaveTextContent('Auto de infração: 77, 78/2026 · Termo de embargo: 5');
+    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual([{ tipo: 'Auto de infração', numero: '77', data: '2026-10-07' }, { tipo: 'Termo de embargo / Interdição', numero: '5' }]);
+    expect(screen.getByTestId(`lavrados-${obterOperacoes()[0].pontos[0].id}`)).toHaveTextContent('Auto de infração 77 (07/10/2026) · Termo de embargo / Interdição 5');
     expect(validarListaOperacoes(JSON.parse(JSON.stringify(obterOperacoes())))).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Editar resultado do Ponto 1' }));
     const f2 = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
-    expect(within(f2).getByLabelText('Auto(s) de infração: n.º')).toHaveValue('77; 78/2026');
-    fireEvent.change(within(f2).getByLabelText('Auto(s) de infração: n.º'), { target: { value: '' } });
-    fireEvent.change(within(f2).getByLabelText('Termo(s) de embargo: n.º'), { target: { value: '' } });
+    expect(within(f2).getByLabelText('Número do documento 1')).toHaveValue('77');
+    fireEvent.click(within(f2).getByRole('button', { name: 'Remover documento 2' }));
+    fireEvent.click(within(f2).getByRole('button', { name: 'Remover documento 1' }));
     fireEvent.click(within(f2).getByRole('button', { name: 'Salvar resultado' }));
     expect(obterOperacoes()[0].pontos[0].lavrados).toBeUndefined();
   });

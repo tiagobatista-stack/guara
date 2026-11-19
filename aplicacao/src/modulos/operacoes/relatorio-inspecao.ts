@@ -4,13 +4,14 @@
 import { DIVERGENCIA } from './relatorio-frases.ts';
 import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
 import type { Ponto } from './modelo.ts';
-import { DOCUMENTOS_LAVRADOS, EXIGENCIA_DA_PROVIDENCIA } from './providencias.ts';
+import { EXIGENCIA_DA_PROVIDENCIA } from './providencias.ts';
+import { TIPOS_LAVRADOS } from './tipos-lavrados.ts';
 import { itensAplicaveis, marcadas, respondido, type Caracterizacao } from './pop-supressao.ts';
 import {
   APLICACAO, APLICACAO_PENDENTE, COMPLEMENTO, DIVERGENCIA_PREVIA, FONTE_PREVIA, LAVRADOS, FONTES_PREVIA, FRAGMENTOS, HIDROMETRO_VOLUME, INSPECAO, INSPECAO_NAO_PREENCHIDA,
   NAO_APRESENTADOS, NAO_IDENTIFICADO_PREVIA, NEGATIVA, ORGAO_EMBARGO, PREVIA, type Agrupada, type QuestaoInspecao,
 } from './relatorio-frases-inspecao.ts';
-import { comPonto, dataPorExtenso, listaComE, norm, pendente, preencher } from './relatorio-util.ts';
+import { comPonto, dataBr, dataPorExtenso, listaComE, norm, pendente, preencher } from './relatorio-util.ts';
 
 const ITEM = new Map(ITENS_INSPECAO.map((i) => [i.id, i]));
 const MARCADOR = /\{(C-[\d.]+)\}/g;
@@ -30,15 +31,13 @@ const entradas = (itens: readonly Nao[]): string[] => {
 };
 
 /** Uma entrada por grupo da inspeção (parágrafos do relatório). `car`: resultado da consulta automática do CAR, se feita. */
-/** Documentos lavrados no ponto (qualquer ponto): só o documento e o(s) número(s). Notificação "feita" ou ponto "autuado" sem número vira pendência. */
+/** Documentos lavrados no ponto (qualquer ponto): uma frase por documento, só tipo, número e data. Notificação "feita" ou ponto "autuado" sem o documento vira pendência. */
 export function frasesDosLavrados(ponto: Pick<Ponto, 'providencias' | 'lavrados'>): string {
-  const exigidos = new Set(Object.entries(ponto.providencias ?? {}).flatMap(([id, e]) => (EXIGENCIA_DA_PROVIDENCIA[id]?.estado === e ? [EXIGENCIA_DA_PROVIDENCIA[id].documento] : [])));
-  const frases = DOCUMENTOS_LAVRADOS.map((k) => {
-    const numeros = ponto.lavrados?.[k] ?? [];
-    if (numeros.length) return preencher(LAVRADOS[k][numeros.length === 1 ? 'um' : 'varios'], { numero: listaComE(numeros) });
-    return exigidos.has(k) ? LAVRADOS.pendente : '';
-  }).filter(Boolean);
-  return [...new Set(frases)].join(' ');
+  const lavrados = ponto.lavrados ?? [];
+  const exigidos = new Set(Object.entries(ponto.providencias ?? {}).flatMap(([id, e]) => (EXIGENCIA_DA_PROVIDENCIA[id]?.estado === e ? [EXIGENCIA_DA_PROVIDENCIA[id].tipo] : [])));
+  const frases = lavrados.map((d) => preencher(TIPOS_LAVRADOS.find((t) => t.nome === d.tipo)?.frase ?? '', { numero: d.numero, data: d.data ? `, em ${dataBr(d.data)}` : '' })).filter(Boolean);
+  const faltam = [...exigidos].filter((t) => !lavrados.some((d) => d.tipo === t));
+  return [...frases, ...(faltam.length ? [LAVRADOS.pendente] : [])].join(' ');
 }
 
 export function frasesDaInspecao(ponto: Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'tipoDano'>, car?: 'encontrado' | 'vazio'): string[] {
