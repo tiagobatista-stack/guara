@@ -7,6 +7,8 @@
 // Leituras minhas, fora do texto do formulário (ver `nota` e `opcional`): A-5 aceita várias marcas; os itens `opcional` não entram na conta
 // de "sem resposta". Onde o PDF traz símbolo, usei o equivalente: "£ 50%" é "≤ 50%"; "At e r r o" é "Aterro".
 
+import type { SugestaoGeo } from './sugestao-vegetacao.ts';
+
 export type TipoItem = 'unica' | 'multipla' | 'texto';
 export type Resposta = string | string[];
 export type Caracterizacao = { [item: string]: Resposta };
@@ -43,7 +45,7 @@ function item(id: string, texto: string, tipo: TipoItem, extra: Partial<ItemPop>
 }
 
 /** Tabela 1 do POP (item 4.2.2): lista de fitofisionomias do formulário. */
-const FITOFISIONOMIAS = o(
+export const FITOFISIONOMIAS = o(
   'Floresta Ombrófila Densa (Floresta Amazônica ou Floresta Atlântica)', 'Floresta Ombrófila Aberta (Floresta-de-palmeiras ou Floresta-de-bambus)',
   'Floresta Ombrófila Mista (Floresta de Araucária)', 'Floresta Estacional Sempre-Verde (Floresta Estacional Perenifólia)',
   'Floresta Estacional Semidecidual (Floresta de Planalto)', 'Floresta Estacional Decidual (Mata Seca)',
@@ -83,6 +85,7 @@ export const ITENS_POP: readonly ItemPop[] = [
   item('A-6', 'Indique a proteção legal da área', 'unica', {
     opcoes: o('Espaços especialmente protegidos (RL, APP, área de uso restrito, UC ou TI)', 'Área passível de conversão para uso alternativo do solo'),
   }),
+  item('A-6.1', 'Especificar a proteção legal da área', 'texto', { opcional: true }),
   item('A-7', 'Há presença de reservatórios artificiais?', 'unica', { opcoes: o('Sim (açude, represa, cacimba, barragem de captação etc.)', 'Não') }),
   item('A-7.1', 'Dimensões estimadas dos reservatórios artificiais', 'texto', { opcional: true }),
   item('A-8', 'Indique o tipo de exploração', 'unica', { opcoes: o('Exploração seletiva', 'Corte raso') }),
@@ -92,6 +95,7 @@ export const ITENS_POP: readonly ItemPop[] = [
   item('A-12', 'Indique o tipo de alteração da camada superficial do solo', 'unica', {
     opcoes: [...o('Preparo do solo com máquinas', 'Aterro', 'Remoção de solo', 'Uso de correntão', 'Outros recursos'), { texto: 'Não houve alteração perceptível da camada superficial do solo', vai: 'A-18' }],
   }),
+  item('A-12.1', 'Especificar os outros recursos de alteração da camada superficial do solo', 'texto', { opcional: true }),
   item('A-13', 'Houve destoca?', 'unica', { opcoes: CONSTATACAO }),
   item('A-14', 'Houve enleiramento?', 'unica', { opcoes: CONSTATACAO }),
   item('A-15', 'Houve limpeza da área?', 'multipla', {
@@ -182,12 +186,58 @@ const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCa
  * Sugestões de resposta tiradas dos dados do ponto, sempre "sugerido — conferir", nunca resposta final:
  * sem CAR (situação ou etiqueta "fora de CAR") sugere "Não" em B-3; etiqueta "perto de TI" sugere a proteção legal de A-6.
  */
-export function sugestoesPop(p: { situacaoCar?: string; etiquetas?: readonly string[] }): Record<string, string> {
+export function sugestoesPop(p: { situacaoCar?: string; etiquetas?: readonly string[]; geo?: SugestaoGeo }): Record<string, string> {
   const etiquetas = (p.etiquetas ?? []).map(norm);
   const s: Record<string, string> = {};
+  const { bioma, fitos } = popGeo(p);
+  if (bioma) s['A-1'] = bioma;
+  if (fitos.length === 1) s['A-2'] = fitos[0];
   if (p.situacaoCar === 'sem-car' || etiquetas.includes('fora de car')) s['B-3'] = 'Não';
   if (etiquetas.includes('perto de ti')) s['A-6'] = ITENS_POP.find((i) => i.id === 'A-6')!.opcoes![0].texto;
   return s;
+}
+
+export const FONTE_GEO = 'Sugestão: Vegetação IBGE, escala 1:250.000 (via Geoportal SEMA-MT). Confirmar em campo.';
+
+// Texto da vegetação (LEGENDA ou NM_PRETET do IBGE) → opções da Tabela 1. Só família ("Floresta Ombrófila") destaca todas as dela;
+// o que não é vegetação nativa (agricultura, água) não destaca nada. "Contato A/B" destaca A e B.
+const FAMILIAS: { fam: RegExp; todas: string; esp: [RegExp, string][] }[] = [
+  { fam: /ombrofila/, todas: 'floresta ombrofila', esp: [[/densa/, 'floresta ombrofila densa'], [/aberta/, 'floresta ombrofila aberta'], [/mista/, 'floresta ombrofila mista']] },
+  { fam: /estacional/, todas: 'floresta estacional', esp: [[/sempre-?verde|perenifolia/, 'floresta estacional sempre'], [/semidecidual/, 'floresta estacional semidecidual'], [/decidual/, 'floresta estacional decidual']] },
+  { fam: /campinarana/, todas: 'campinarana (', esp: [[/florestada/, 'campinarana florestada'], [/arborizada/, 'campinarana arborizada'], [/arbustiva/, 'campinarana arbustiva'], [/gramineo/, 'campinarana gramineo']] },
+  { fam: /savana/, todas: '', esp: [[/florestada/, 'cerradao'], [/arborizada/, 'campo cerrado,'], [/parque/, 'campo-sujo-de-cerrado'], [/gramineo/, 'campo-limpo-de-cerrado']] },
+  { fam: /cerradao/, todas: 'cerradao', esp: [] },
+  { fam: /formacao pioneira|influencia fluvial/, todas: 'vegetacao com influencia fluvial', esp: [] },
+];
+
+export function fitosDoTexto(texto: string): string[] {
+  const achadas = new Set<string>();
+  for (const parte of norm(texto).replace(/^contato\s+/, '').split('/')) {
+    for (const { fam, todas, esp } of FAMILIAS) {
+      if (!fam.test(parte)) continue;
+      const prefixos = esp.filter(([r]) => r.test(parte)).map(([, pre]) => pre);
+      if (!prefixos.length && todas) prefixos.push(todas);
+      for (const op of FITOFISIONOMIAS) if (prefixos.some((pre) => norm(op.texto).startsWith(pre))) achadas.add(op.texto);
+    }
+  }
+  return [...achadas];
+}
+
+// shortcut: leitura minha, que o POP não traz (a Tabela 1 não separa por bioma): A-2 tira as fitofisionomias de outros biomas
+// (Araucária, Caatinga, Roraima, Chaco, Espinilho, campos do sul, restinga, mangue, dunas) e, no Cerrado e no Pantanal, as florestas
+// ombrófilas e as campinaranas. Confirmar com o responsável; a sugestão do IBGE nunca sai da lista.
+const FORA_DE_MT = /^(floresta ombrofila mista|caatinga do sertao|campos de roraima|chaco|parque de espinilho|campos do sul|campo sujo ou parkland|vegetacao com influencia (marinha|fluviomarinha)|sistema das areas sem vegetacao \(dunas)/;
+const SO_AMAZONIA = /^(floresta ombrofila|campinarana)/;
+const BIOMAS_MT = ['Amazônia', 'Cerrado', 'Pantanal'];
+
+/** Bioma (opção de A-1), fitofisionomias sugeridas (A-2) e as opções de A-2 a mostrar (lista completa se o bioma for desconhecido). */
+export function popGeo(p: { geo?: SugestaoGeo }): { bioma?: string; fitos: string[]; opcoes: OpcaoPop[] } {
+  const bioma = ITENS_POP[0].opcoes!.find((op) => norm(op.texto) === norm(p.geo?.bioma ?? ''))?.texto;
+  const todas = p.geo ? fitosDoTexto(p.geo.pretetita ?? p.geo.legenda ?? '') : [];
+  if (!bioma || !BIOMAS_MT.includes(bioma)) return { ...(bioma ? { bioma } : {}), fitos: todas, opcoes: FITOFISIONOMIAS };
+  const fitos = todas.filter((t) => !FORA_DE_MT.test(norm(t))); // "Floresta Ombrófila" sem qualificação não inclui a de Araucária em MT
+  const fora = (t: string) => FORA_DE_MT.test(norm(t)) || (bioma !== 'Amazônia' && SO_AMAZONIA.test(norm(t)));
+  return { bioma, fitos, opcoes: FITOFISIONOMIAS.filter((op) => !fora(op.texto) || fitos.includes(op.texto)) };
 }
 
 /** O bloco da caracterização é automático para desmatamento e exploração seletiva; nos demais tipos, só se o ponto o ativar (`popAtivo`). */
