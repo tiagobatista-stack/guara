@@ -55,6 +55,11 @@ describe('relatório da inspeção', () => {
     expect(t).toContain('Na conferência prévia (consulta ao sistema de outorga), constatou-se a existência de outorga de uso da água');
   });
 
+  it('prévia com frase que abre por palavra de uma letra: "o empreendimento", não "O empreendimento"', () => {
+    const t = gerar({}, { 'C-2.2': 'Sim', 'C-2.2@fonte': 'Consulta pública CTF/IBAMA', 'C-2.2.1': '1234567', 'C-2.2.2': '21-47' });
+    expect(t).toContain('Na conferência prévia (consulta pública ao CTF/IBAMA), o empreendimento está registrado no Cadastro Técnico Federal (CTF), inscrição n.º 1234567, atividade(s) de código 21-47.');
+  });
+
   it('campo prevalece; se diferir da prévia, [DIVERGÊNCIA] e nenhuma das duas frases', () => {
     const t = gerar({ 'C-2.6': 'Não' }, { 'C-2.6': 'Sim' });
     expect(t).toContain('[DIVERGÊNCIA: outorga de uso da água ou declaração de uso insignificante — em campo: Não; conferido antes: Sim]');
@@ -69,7 +74,7 @@ describe('relatório da inspeção', () => {
 
   it('licença: tipo, número e validade por extenso; faltando, [PENDENTE]; "Outro" usa o texto', () => {
     const ok = gerar({}, { 'C-2.3': 'Sim', 'C-2.3.1': 'Outro', 'C-2.3.2': 'LP', 'C-2.3.3': '123/2026', 'C-2.3.4': '2027-03-05' });
-    expect(ok).toContain('O empreendimento possui Licença Ambiental (LP), n.º 123/2026, válida até 5 de março de 2027.');
+    expect(ok).toContain('o empreendimento possui Licença Ambiental (LP), n.º 123/2026, válida até 5 de março de 2027.');
     expect(gerar({}, { 'C-2.3': 'Sim', 'C-2.3.1': 'LO' })).toContain('[PENDENTE: tipo, número e validade da licença ambiental (C-2.3.1, C-2.3.3 e C-2.3.4)]');
   });
 

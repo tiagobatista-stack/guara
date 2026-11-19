@@ -9,10 +9,12 @@ import {
   APLICACAO, APLICACAO_PENDENTE, COMPLEMENTO, DIVERGENCIA_PREVIA, FONTE_PREVIA, FONTES_PREVIA, FRAGMENTOS, HIDROMETRO_VOLUME, INSPECAO, INSPECAO_NAO_PREENCHIDA,
   NAO_APRESENTADOS, NAO_IDENTIFICADO_PREVIA, NEGATIVA, ORGAO_EMBARGO, PREVIA, type Agrupada, type QuestaoInspecao,
 } from './relatorio-frases-inspecao.ts';
-import { comPonto, dataPorExtenso, listaComE, minuscula1, norm, pendente, preencher } from './relatorio-util.ts';
+import { comPonto, dataPorExtenso, listaComE, norm, pendente, preencher } from './relatorio-util.ts';
 
 const ITEM = new Map(ITENS_INSPECAO.map((i) => [i.id, i]));
 const MARCADOR = /\{(C-[\d.]+)\}/g;
+/** Primeira letra minúscula, inclusive em palavra de uma letra ("O empreendimento" → "o empreendimento"); siglas ("CTF") ficam. */
+const minuscula1 = (t: string) => (/^[A-ZÀ-Ý](?:[a-zà-ÿ]|\s[a-zà-ÿ])/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
 const semInterrogacao = (t: string) => t.replace(/\?$/, '').trim();
 const TITULO_DOCUMENTOS = 'Documentação técnica e registros';
 const TITULO_CADASTROS = 'Cadastros, licenciamento e autorizações';
