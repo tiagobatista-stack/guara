@@ -5,7 +5,7 @@ import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Operacoes } from './Operacoes.tsx';
 import { criarOperacao, incluirPontos, obterOperacoes } from './armazem.ts';
 import { validarListaOperacoes } from './regras.ts';
-import { caracterizacaoValida, divergencias, type Caracterizacao, itensAplicaveis, itensDeCampoSemResposta, ITENS_POP } from './pop-supressao.ts';
+import { caracterizacaoValida, divergencias, type Caracterizacao, type ItemPop, itensAplicaveis, itensDeCampoSemResposta, ITENS_POP } from './pop-supressao.ts';
 import { inspecaoAtiva, ITENS_INSPECAO, SECOES_INSPECAO, sugestoesInspecao } from './inspecao-agrotoxicos.ts';
 
 beforeEach(() => localStorage.clear());
@@ -130,17 +130,26 @@ describe('divergência prévia × campo', () => {
     expect(d({ 'C-2.5': 'Sim' }, { 'C-2.5': 'Sim' })).toEqual([]);
     expect(d({ 'C-2.5': 'Sim' }, {})).toEqual([]);
     expect(d({}, { 'C-2.5': 'Sim' })).toEqual([]);
-    expect(d({ 'C-2.13.2': ['IBAMA', 'SEMA'] }, { 'C-2.13.2': ['SEMA', 'IBAMA'] })).toEqual([]); // ordem não importa
+    expect(d({ 'C-2.3.1': 'LO' }, { 'C-2.3.1': 'LI' })).toEqual(['C-2.3.1']);
+    const lista: ItemPop[] = [{ id: 'X-1', formulario: 'C', texto: 't', tipo: 'multipla', onde: 'escritorio', fase: 'previa', opcoes: [{ texto: 'a' }, { texto: 'b' }] }];
+    expect(divergencias({ 'X-1': ['a', 'b'] }, { 'X-1': ['b', 'a'] }, lista)).toEqual([]); // ordem não importa
     expect(d({ 'C-1.2': 'Sim' }, { 'C-1.2': 'Não' })).toEqual([]); // item de campo não tem "conferido antes"
   });
 });
 
 describe('sugestões da consulta automática', () => {
   const consulta = (estado: 'encontrado' | 'vazio', detalhe?: string) => ({ estado, quando: '2026-11-19T10:00:00Z', fonte: 'automatica' as const, ...(detalhe ? { detalhe } : {}) });
-  it('CAR e embargos', () => {
-    expect(sugestoesInspecao({ consultas: { car: consulta('encontrado', 'MT123'), embargos: consulta('encontrado', 'Embargo 77') } })).toEqual({ 'C-1.11': 'Sim', 'C-1.11.1': 'MT123', 'C-2.13': 'Sim', 'C-2.13.1': 'Embargo 77' });
-    expect(sugestoesInspecao({ situacaoCar: 'sem-car', consultas: { embargos: consulta('vazio') } })).toEqual({ 'C-1.11': 'Não', 'C-2.13': 'Não' });
+  it('CAR (os embargos da SEMA ficam só na consulta às bases)', () => {
+    expect(sugestoesInspecao({ consultas: { car: consulta('encontrado', 'MT123'), embargos: consulta('encontrado', 'Embargo 77') } })).toEqual({ 'C-1.11': 'Sim', 'C-1.11.1': 'MT123' });
+    expect(sugestoesInspecao({ situacaoCar: 'sem-car', consultas: { embargos: consulta('vazio') } })).toEqual({ 'C-1.11': 'Não' });
     expect(sugestoesInspecao({})).toEqual({});
+  });
+
+  it('embargos: só os de outros órgãos, em campo; SISDEV não é item (é fonte da conferência do INDEA)', () => {
+    const f = (id: string) => ITENS_INSPECAO.find((i) => i.id === id);
+    expect(f('C-2.13')).toMatchObject({ tipo: 'simnao', fase: 'campo', texto: 'Embargos de outros órgãos (IBAMA, ICMBio, decisão judicial)?' });
+    expect(f('C-2.13.2')!.opcoes!.map((o) => o.texto)).toEqual(['IBAMA', 'ICMBio', 'Decisão judicial']);
+    expect(f('C-2.11')).toBeUndefined();
   });
 });
 

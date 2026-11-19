@@ -21,9 +21,9 @@ Não existem campos para: nome do proprietário/responsável, CPF/CNPJ, telefone
 4. **Aplicação aérea:** COA, aeronavegabilidade/ANAC, SAE, SGSO, operador aéreo, pátio (seção 6 inteira) e lavagem de aeronaves só se C-5.2 = Sim. O detalhe do pátio (C-6.2, 6.2.1, 6.2.2, 6.3) só se existir pátio (C-6.1 = Sim).
 5. **Licença (2.3), separada em duas (revisão de 19/11/2026):** existência, tipo, número e validade na fase prévia (C-2.3 a C-2.3.4); "Condicionantes da licença verificadas em campo" (Conformes / Não conformes / N.A., C-2.3.5) e observação (C-2.3.6) na fase campo. Tipo, número e validade só se Sim; tipo é lista (LO, LI, LAS, LAC, APF rural, Outro) e "Outro" abre "Especifique". Validade é data.
 6. **CAR (1.11/1.12):** o original pergunta "Possui CAR (SIMCAR)" e "Possui CAR Número do recibo Federal" sem separar a existência do número. Cada um virou Sim/Não/N.A. + número se Sim. Fase prévia, com sugestão da consulta automática.
-7. **Embargos (2.13):** Sim/Não/N.A.; números (texto) e órgão (lista: IBAMA, SEMA, ICMBio, decisão judicial) se Sim. Fase prévia, com sugestão da consulta. **Autos:** o questionário não tem pergunta sobre autos; a aba prévia mostra o resultado da consulta de autos só como informação.
+7. **Embargos (2.13), revisão de 19/11/2026:** a parte SEMA vem só da consulta às bases (não se repete na inspeção). A pergunta de campo é "Embargos de outros órgãos (IBAMA, ICMBio, decisão judicial)?", com número e órgão (IBAMA, ICMBio, decisão judicial) se Sim; fase campo, sem sugestão da consulta. **Autos:** o questionário não tem pergunta sobre autos; a aba prévia mostra o resultado da consulta de autos só como informação.
 8. **Itens do tipo "Apresentar…" sem Sim/Não** (SAE, SGSO, programa de treinamento, planilha dos relatórios operacionais, mapas): viraram "…apresentado(s)?" / "Possui…?" Sim/Não/N.A.
-9. **SISDEV (2.11):** o texto é um fragmento. Virou "O estabelecimento registra no SISDEV as informações de prescrição, comercialização e aplicação de produtos?".
+9. **SISDEV (removido, revisão de 19/11/2026):** no original é nota explicativa do registro no INDEA (C-2.10), não pergunta. O item C-2.11 foi retirado; SISDEV/INDEA é uma das fontes da conferência prévia do item INDEA.
 10. **Observar no armazenamento (4.1.1):** a lista corrida virou lista de marcação (piso, ventilação, sinalização, EPIs, contenção, banheiro, lavagem de EPI).
 11. **Poço (2.7):** hidrômetro (existe?), volume em litros (número) e foto só se houver poço registrado.
 12. **Receituário (3.4):** "Nº e data" virou número (texto) e data; "informações detalhadas" virou Sim/Não, só se houver receituário.
@@ -33,7 +33,7 @@ Não existem campos para: nome do proprietário/responsável, CPF/CNPJ, telefone
 16. **Volume de embalagens vazias (7.1.1):** ficou texto ("quantidade e unidade"): o original não diz a unidade.
 17. **Rotulagem em língua estrangeira (4.4.2)**, subitem do original, é perguntada sempre, não só se houver contrabando.
 18. **Fora das perguntas:** notificação e auto por falta de CTF, enquadramento legal, art. 76 do Decreto 6.514/2008, art. 17 da Lei 6.938/1981 e valores de multa. Vão para o arquivo de referência legal da entrega (b).
-19. **Fase prévia (leitura minha):** o que se confere em base ou cadastro (CAR, CTE, CTF, licença, autorizações, DLA, outorga, TCRA, MAPA, INDEA, embargos). O resto é de campo. Ajustar se a equipe preferir outra divisão.
+19. **Fase prévia (leitura minha):** o que se confere em base ou cadastro (CAR, CTE, CTF, licença, autorizações, DLA, outorga, TCRA, MAPA, INDEA, autorização do MAPA em outra UF). O resto é de campo. Ajustar se a equipe preferir outra divisão.
 
 ## Tipo de dano e ponto (itens 1 e 4)
 

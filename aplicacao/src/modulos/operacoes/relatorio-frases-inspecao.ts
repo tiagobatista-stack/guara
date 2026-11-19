@@ -1,4 +1,4 @@
-// Frases do relatório da Inspeção de agrotóxicos (RASCUNHO PARA REVISÃO, rev. 2: ainda não ligado a relatorio.ts).
+// Frases do relatório da Inspeção de agrotóxicos (RASCUNHO PARA REVISÃO, rev. 3: ainda não ligado a relatorio.ts).
 // Mesmo formato e mesmas convenções de relatorio-frases.ts: dados puros, frases-modelo fixas, sem IA, sem inferência.
 // Só entra o que está registrado no ponto. Marcadores: {x} = valor do ponto; [PENDENTE: ...] e [DIVERGÊNCIA: ...] vão literais.
 // SEM DADO PESSOAL: as frases só dizem que a conferência foi feita e registrada no auto de inspeção; nenhum nome, CPF/CNPJ,
@@ -13,6 +13,7 @@
 //     D = documento ou registro. Sim → frase afirmativa (nº e validade quando houver).
 //         Não, resposta de campo → entra em NAO_APRESENTADOS.  Não, só a resposta prévia → entra em NAO_IDENTIFICADO_PREVIA.
 //     I = irregularidade. Sim → "Constatou-se..."; Não → "Não houve constatação de {lista}." Ex.: produtos vencidos, embalagens enterradas.
+//     X = tipo próprio (embargos de outros órgãos, C-2.13): frases próprias, fora de todas as listas agrupadas.
 //     C = conformidade. Sim → "...está em conformidade"; Não → frase própria "...não está em conformidade" (nunca agrupada,
 //         porque é achado de irregularidade). Ex.: NBR 9843, EPI, bula.
 //     P = procedimento do fiscal (foto, notificação, apreensão, qualificação no auto). Sim → frase; Não → [PENDENTE: ...]
@@ -22,11 +23,12 @@
 // - Resposta de campo x conferido antes (fase prévia): vale a de campo; se as duas existem e diferem → DIVERGENCIA_PREVIA
 //   (não escolher um lado). Resposta só prévia entra com o prefixo PREVIA: a primeira letra da frase passa a minúscula
 //   ("Na conferência prévia (consulta ao SIGA), verificou-se que ...").
-// - Fonte da conferência prévia: lista fechada em FONTES_PREVIA, registrada junto com a resposta prévia; sem fonte, a frase sai sem
+// - Fonte da conferência prévia: lista fechada em FONTES_PREVIA (mais "Outra (especificar)"), registrada junto com a resposta prévia; sem fonte, a frase sai sem
 //   o parêntese ("Na conferência prévia, ..."). Na lista NAO_IDENTIFICADO_PREVIA, itens com a mesma fonte ficam na mesma frase;
 //   fontes diferentes, uma frase por fonte; sem fonte, uma frase sem parêntese.
-// - CAR e embargos: se a consulta automática foi feita e coincide com a resposta, sai só a frase da consulta (regra 7 do POP);
-//   se diverge, DIVERGENCIA (campo × base), igual a B-3.
+// - CAR: se a consulta automática foi feita e coincide com a resposta, sai só a frase da consulta (regra 7 do POP);
+//   se diverge, DIVERGENCIA (campo × base), igual a B-3. Embargos da SEMA: só a consulta às bases (não se repete aqui);
+//   a pergunta de campo (C-2.13) trata só de embargos de outros órgãos.
 // - Datas por extenso ("10 de novembro de 2026"); números como digitados (vírgula decimal); texto livre como digitado.
 // - Nenhum comentário ou instrução dentro das strings.
 
@@ -39,11 +41,20 @@ export const NEGATIVA = 'Não houve constatação de {lista}.';
 /** Prefixo das frases de resposta só prévia. {fonte} = FONTE_PREVIA ou vazio. */
 export const PREVIA = 'Na conferência prévia{fonte}, ';
 export const FONTE_PREVIA = ' ({fonte})';
-export const FONTES_PREVIA = ['consulta ao SIGA', 'consulta pública ao CTF/IBAMA', 'consulta ao SISDEV'] as const;
+/** Fonte da conferência prévia: rótulo da lista fechada → texto que entra em {fonte}. "Outra (especificar)": entra o texto digitado, como digitado. */
+export const FONTES_PREVIA: Record<string, string> = {
+  SIGA: 'consulta ao SIGA',
+  SIMCAR: 'consulta ao SIMCAR',
+  'Geoportal SEMA-MT': 'consulta ao Geoportal da SEMA-MT',
+  'Consulta pública CTF/IBAMA': 'consulta pública ao CTF/IBAMA',
+  'SISDEV/INDEA': 'consulta ao SISDEV/INDEA',
+  'Sistema de outorga': 'consulta ao sistema de outorga',
+  'Outra (especificar)': '{texto digitado}',
+};
 
 /** Documento (tipo D) com resposta de campo "Não": uma frase só para toda a inspeção, no fim do grupo "Documentação técnica e registros". Cada item entra pelo `nome`. */
 export const NAO_APRESENTADOS = 'Não foram apresentados os seguintes documentos: {lista}.';
-/** Registro (tipo D ou I) com resposta prévia "Não" e sem resposta de campo: uma frase por fonte, no fim do grupo "Cadastros, licenciamento e autorizações". */
+/** Registro (tipo D) com resposta prévia "Não" e sem resposta de campo: uma frase por fonte, no fim do grupo "Cadastros, licenciamento e autorizações". */
 export const NAO_IDENTIFICADO_PREVIA = 'Na conferência prévia{fonte}, não foi identificado registro de {lista}.';
 
 /**
@@ -75,7 +86,7 @@ export interface Agrupada {
   conjunto?: string;
 }
 export interface QuestaoInspecao extends Questao {
-  tipo: 'E' | 'D' | 'I' | 'C' | 'P';
+  tipo: 'E' | 'D' | 'I' | 'C' | 'P' | 'X';
   /** Tipo D e questões da fase prévia: como o item aparece nas listas NAO_APRESENTADOS e NAO_IDENTIFICADO_PREVIA. */
   nome?: string;
 }
@@ -165,11 +176,16 @@ export const INSPECAO: GrupoInspecao[] = [
       q('D', 'C-2.8', doc('Constatou-se a existência de termo de compromisso de recuperação de área degradada.', 'termo de compromisso de recuperação de área degradada')),
       q('D', 'C-2.9', doc('Constatou-se o registro do estabelecimento no MAPA{C-2.9.1}.', 'estabelecimento no MAPA')),
       q('D', 'C-2.10', doc('Constatou-se o registro do estabelecimento no INDEA{C-2.10.1}.', 'estabelecimento no INDEA')),
-      q('D', 'C-2.11', doc('Constatou-se que o estabelecimento registra no SISDEV as informações de prescrição, comercialização e aplicação de produtos.', 'registro, no SISDEV, das informações de prescrição, comercialização e aplicação de produtos')),
       q('D', 'C-2.12', doc('Constatou-se autorização do MAPA para operar em Unidade da Federação diferente daquela em que a empresa está registrada.', 'autorização do MAPA para operar em outra Unidade da Federação')),
-      // {C-2.13.1} = ", n.º <números>"; {C-2.13.2} = ", emitido(s) por <órgãos, com "e">".
-      // Resposta de campo "Não": "Não houve constatação de embargos na propriedade rural." Só prévia "Não": lista NAO_IDENTIFICADO_PREVIA.
-      q('I', 'C-2.13', { ...sim('Constatou-se a existência de embargo na propriedade rural{C-2.13.1}{C-2.13.2}.', 'embargos na propriedade rural'), nome: 'embargos' }),
+      // Só embargos de outros órgãos (os da SEMA vêm da consulta às bases). Resposta Sim: uma frase por embargo, com o número e o órgão
+      // de cada um ({C-2.13.1} = n.º do embargo; {C-2.13.2} = órgão, com a primeira letra como na lista: "do IBAMA", "do ICMBio", "de decisão judicial").
+      // Sim sem número ou sem órgão: [PENDENTE: número e órgão do embargo (C-2.13.1 e C-2.13.2)].
+      q('X', 'C-2.13', {
+        frases: {
+          Sim: 'Foi identificado embargo n.º {C-2.13.1}, {C-2.13.2}.',
+          Não: 'Em campo, não foram identificados nem relatados embargos de outros órgãos (IBAMA, ICMBio ou decisão judicial) incidentes sobre a propriedade.',
+        },
+      }),
     ],
   },
   {

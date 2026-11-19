@@ -98,11 +98,11 @@ export const ITENS_INSPECAO: readonly ItemPop[] = [
   tx('C-2.9.1', 'Número do registro no MAPA', 'previa', { se: 'C-2.9' }),
   sn('C-2.10', 'Possui registro do estabelecimento no órgão estadual de agricultura (INDEA)?', 'previa'),
   tx('C-2.10.1', 'Número do registro no INDEA', 'previa', { se: 'C-2.10' }),
-  sn('C-2.11', 'O estabelecimento registra no Sistema de Defesa Vegetal (SISDEV) as informações de prescrição, comercialização e aplicação de produtos?', 'campo'),
   sn('C-2.12', 'Possui autorização do MAPA para operar em Unidade da Federação diferente daquela onde a empresa está registrada?', 'previa'),
-  sn('C-2.13', 'Possui embargos na propriedade rural?', 'previa'),
-  tx('C-2.13.1', 'Números dos embargos', 'previa', { se: 'C-2.13' }),
-  ml('C-2.13.2', 'Órgão competente do embargo', 'previa', o('IBAMA', 'SEMA', 'ICMBio', 'Decisão judicial'), { se: 'C-2.13' }),
+  // Embargos da SEMA vêm só da consulta às bases (não se repete aqui); em campo, só os de outros órgãos.
+  sn('C-2.13', 'Embargos de outros órgãos (IBAMA, ICMBio, decisão judicial)?', 'campo'),
+  tx('C-2.13.1', 'Números dos embargos', 'campo', { se: 'C-2.13' }),
+  ml('C-2.13.2', 'Órgão competente do embargo', 'campo', o('IBAMA', 'ICMBio', 'Decisão judicial'), { se: 'C-2.13' }),
 
   // 3. Documentação técnica e registros
   sn('C-3.1', 'Existem contratos de prestação de serviços para pulverização de agrotóxicos?', 'campo'),
@@ -206,7 +206,7 @@ export const inspecaoAtiva = (p: Pick<Ponto, 'tipoDano' | 'inspecaoAtiva'>): boo
 export const inspecaoVazia = (p: Pick<Ponto, 'inspecao' | 'conferenciaPrevia'>): boolean =>
   Object.keys(p.inspecao ?? {}).length === 0 && Object.keys(p.conferenciaPrevia ?? {}).length === 0;
 
-/** Sugestões de resposta prévia tiradas do ponto e da consulta automática (CAR, embargos): "sugerido, conferir", nunca resposta final. */
+/** Sugestões de resposta prévia tiradas do ponto e da consulta automática (CAR): "sugerido, conferir", nunca resposta final. */
 export function sugestoesInspecao(p: Pick<Ponto, 'situacaoCar' | 'car' | 'consultas'>): Record<string, string> {
   const s: Record<string, string> = {};
   const car = p.consultas?.car;
@@ -214,8 +214,5 @@ export function sugestoesInspecao(p: Pick<Ponto, 'situacaoCar' | 'car' | 'consul
   else if (p.situacaoCar === 'sem-car' || car?.estado === 'vazio') s['C-1.11'] = 'Não';
   const numero = p.car?.trim() || (car?.estado === 'encontrado' ? car.detalhe : undefined);
   if (numero && s['C-1.11'] === 'Sim') s['C-1.11.1'] = numero;
-  const emb = p.consultas?.embargos;
-  if (emb?.estado === 'encontrado') { s['C-2.13'] = 'Sim'; if (emb.detalhe) s['C-2.13.1'] = emb.detalhe; }
-  else if (emb?.estado === 'vazio') s['C-2.13'] = 'Não';
   return s;
 }
