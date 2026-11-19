@@ -9,7 +9,7 @@ import {
 
 type Mudancas = Partial<Pick<Ponto, 'caracterizacao' | 'coordenadaAferida' | 'waypoint' | 'fotos' | 'drone' | 'pessoaContatada'>>;
 
-function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undefined; aoMudar: (v: Resposta | undefined) => void }) {
+export function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undefined; aoMudar: (v: Resposta | undefined) => void }) {
   const id = useId();
   const nome = `${item.id}. ${item.texto}`;
   if (item.tipo === 'texto') {
@@ -18,7 +18,14 @@ function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undef
         <input className="campo" value={typeof valor === 'string' ? valor : ''} maxLength={LIMITE_TEXTO_POP} autoComplete="off" onChange={(e) => aoMudar(e.target.value || undefined)} /></label>
     );
   }
-  if (item.tipo === 'unica') {
+  if (item.tipo === 'numero' || item.tipo === 'data') {
+    return (
+      <label className="campo-grupo" data-testid={`pop-${item.id}`}><span>{nome}</span>
+        <input className="campo" type={item.tipo === 'data' ? 'date' : 'text'} inputMode={item.tipo === 'numero' ? 'decimal' : undefined} value={typeof valor === 'string' ? valor : ''} autoComplete="off"
+          onChange={(e) => aoMudar(item.tipo === 'numero' ? (/^\d{0,9}([.,]\d{0,4})?$/.test(e.target.value) ? e.target.value || undefined : valor) : e.target.value || undefined)} /></label>
+    );
+  }
+  if (item.tipo === 'unica' || item.tipo === 'simnao') {
     return (
       <label className="campo-grupo" data-testid={`pop-${item.id}`}><span>{nome}</span>
         <select className="campo" value={typeof valor === 'string' ? valor : ''} onChange={(e) => aoMudar(e.target.value || undefined)}>

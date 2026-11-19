@@ -103,6 +103,10 @@ export interface Ponto {
   consultas?: Partial<Record<BaseConsulta, ConsultaBase>>;
   /** Ativa o bloco da caracterização (POP) num ponto cujo tipo de dano não o traz sozinho. */
   popAtivo?: boolean;
+  /** Inspeção de agrotóxicos (inspecao-agrotoxicos.ts): respostas de campo, conferência prévia (escritório) e ativação manual. Sem dado pessoal. */
+  inspecao?: Caracterizacao;
+  conferenciaPrevia?: Caracterizacao;
+  inspecaoAtiva?: boolean;
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
   coordenadaAferida?: string;
   waypoint?: string;

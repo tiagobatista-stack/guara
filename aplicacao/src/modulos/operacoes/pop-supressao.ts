@@ -9,7 +9,9 @@
 
 import type { SugestaoGeo } from './sugestao-vegetacao.ts';
 
-export type TipoItem = 'unica' | 'multipla' | 'texto';
+// Tipos novos (Inspeção de agrotóxicos, inspecao-agrotoxicos.ts; mesmo motor): 'simnao' (Sim/Não/N.A.), 'numero' e 'data' (AAAA-MM-DD).
+// Todas as respostas continuam texto ou lista de textos.
+export type TipoItem = 'unica' | 'multipla' | 'texto' | 'simnao' | 'numero' | 'data';
 export type Resposta = string | string[];
 export type Caracterizacao = { [item: string]: Resposta };
 
@@ -22,7 +24,8 @@ export interface OpcaoPop {
 export interface ItemPop {
   /** "A-10": formulário e número do item no POP. */
   id: string;
-  formulario: 'A' | 'B';
+  /** A e B: POP. C: Inspeção de agrotóxicos. */
+  formulario: 'A' | 'B' | 'C';
   texto: string;
   tipo: TipoItem;
   opcoes?: OpcaoPop[];
@@ -31,6 +34,12 @@ export interface ItemPop {
   nota?: string;
   /** Fora da conta de "sem resposta": o POP diz "desejável" ou "se for o caso", ou é sub-item/complemento que depende de outro. */
   opcional?: boolean;
+  /** Pergunta condicional: só se aplica quando o item `item` (ele próprio aplicável) tem uma destas respostas. */
+  se?: { item: string; vale: readonly string[] };
+  /** Inspeção: 'previa' (conferir no escritório) ou 'campo'. No POP, vale `onde`. */
+  fase?: 'previa' | 'campo';
+  /** Inspeção: número da seção do questionário (1 a 7). */
+  secao?: number;
 }
 
 const o = (...textos: string[]): OpcaoPop[] => textos.map((texto) => ({ texto }));
@@ -158,22 +167,33 @@ const POSICAO = new Map(ITENS_POP.map((it, i) => [it.id, i]));
 export const marcadas = (r: Resposta | undefined): string[] => (Array.isArray(r) ? r : r ? [r] : []);
 export const respondido = (r: Resposta | undefined) => marcadas(r).some((t) => t.trim() !== '');
 
-/** Itens a perguntar, em ordem, já com os desvios aplicados ("siga para a pergunta N" pula o que fica no meio). */
-export function itensAplicaveis(resp: Caracterizacao | undefined = {}): ItemPop[] {
+/** Itens a perguntar, em ordem, já com os desvios aplicados ("siga para a pergunta N" pula o que fica no meio) e as condicionais (`se`). */
+export function itensAplicaveis(resp: Caracterizacao | undefined = {}, itens: readonly ItemPop[] = ITENS_POP): ItemPop[] {
+  const posicao = itens === ITENS_POP ? POSICAO : new Map(itens.map((it, i) => [it.id, i]));
+  const condicaoOk = (it: ItemPop): boolean => {
+    if (!it.se) return true;
+    const pai = itens.find((x) => x.id === it.se!.item);
+    return !!pai && condicaoOk(pai) && marcadas(resp[pai.id]).some((m) => it.se!.vale.includes(m));
+  };
   const lista: ItemPop[] = [];
   let i = 0;
-  while (i < ITENS_POP.length) {
-    const it = ITENS_POP[i];
-    lista.push(it);
-    const destinos = marcadas(resp[it.id]).map((m) => it.opcoes?.find((op) => op.texto === m)?.vai).filter((v): v is string => !!v).map((v) => POSICAO.get(v)!);
+  while (i < itens.length) {
+    const it = itens[i];
+    if (condicaoOk(it)) lista.push(it);
+    const destinos = marcadas(resp[it.id]).map((m) => it.opcoes?.find((op) => op.texto === m)?.vai).filter((v): v is string => !!v).map((v) => posicao.get(v)!);
     i = Math.max(i + 1, ...destinos);
   }
   return lista;
 }
 
-/** Itens de campo (Formulário A) aplicáveis, obrigatórios e ainda sem resposta. */
-export const itensDeCampoSemResposta = (resp: Caracterizacao | undefined): ItemPop[] =>
-  itensAplicaveis(resp).filter((it) => it.onde === 'campo' && !it.opcional && !respondido(resp?.[it.id]));
+/** Itens de campo aplicáveis, obrigatórios e ainda sem resposta (Formulário A do POP; na inspeção, os de fase 'campo'). */
+export const itensDeCampoSemResposta = (resp: Caracterizacao | undefined, itens: readonly ItemPop[] = ITENS_POP): ItemPop[] =>
+  itensAplicaveis(resp, itens).filter((it) => it.onde === 'campo' && !it.opcional && !respondido(resp?.[it.id]));
+
+const chaveResposta = (r: Resposta | undefined) => marcadas(r).map((t) => t.trim()).sort().join('|');
+/** Itens de fase prévia respondidos nos dois lados com respostas diferentes: [DIVERGÊNCIA] entre o conferido antes e o visto em campo. */
+export const divergencias = (previa: Caracterizacao | undefined, campo: Caracterizacao | undefined, itens: readonly ItemPop[]): ItemPop[] =>
+  itens.filter((it) => it.fase === 'previa' && respondido(previa?.[it.id]) && respondido(campo?.[it.id]) && chaveResposta(previa![it.id]) !== chaveResposta(campo![it.id]));
 
 /** Só o que foi respondido (e ainda se aplica), na ordem do POP, para colar no relatório. */
 export function textoCaracterizacao(resp: Caracterizacao | undefined): string {
@@ -181,7 +201,7 @@ export function textoCaracterizacao(resp: Caracterizacao | undefined): string {
   return linhas.length ? [`Caracterização do dano (${FONTE_POP}):`, ...linhas].join('\n') : '';
 }
 
-const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+export const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 /**
  * Sugestões de resposta tiradas dos dados do ponto, sempre "sugerido — conferir", nunca resposta final:
  * sem CAR (situação ou etiqueta "fora de CAR") sugere "Não" em B-3; etiqueta "perto de TI" sugere a proteção legal de A-6.
@@ -240,19 +260,21 @@ export function popGeo(p: { geo?: SugestaoGeo }): { bioma?: string; fitos: strin
   return { bioma, fitos, opcoes: FITOFISIONOMIAS.filter((op) => !fora(op.texto) || fitos.includes(op.texto)) };
 }
 
-/** O bloco da caracterização é automático para desmatamento e exploração seletiva; nos demais tipos, só se o ponto o ativar (`popAtivo`). */
+/** O bloco da caracterização é automático para desmatamento (inclui o químico), aplicação irregular de agrotóxico e exploração seletiva; nos demais tipos, só se o ponto o ativar (`popAtivo`). */
 export const blocoPopAtivo = (p: { tipoDano?: string; popAtivo?: boolean }): boolean =>
-  /desmat|exploracao seletiva/.test(norm(p.tipoDano ?? '')) || p.popAtivo === true;
+  /desmat|exploracao seletiva|aplicacao irregular de agrotoxico/.test(norm(p.tipoDano ?? '')) || p.popAtivo === true;
 
-/** Valida o que vem do armazenamento: só ids do POP, só opções do POP, texto até 500 caracteres. */
-export function caracterizacaoValida(x: unknown): x is Caracterizacao {
+/** Valida o que vem do armazenamento: só ids da lista, só opções da lista, texto até 500 caracteres, número e data bem formados. */
+export function caracterizacaoValida(x: unknown, itens: readonly ItemPop[] = ITENS_POP): x is Caracterizacao {
   if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
   return Object.entries(x).every(([id, r]) => {
-    const it = ITENS_POP.find((i) => i.id === id);
+    const it = itens.find((i) => i.id === id);
     if (!it) return false;
     if (it.tipo === 'texto') return typeof r === 'string' && r.length <= LIMITE_TEXTO_POP;
+    if (it.tipo === 'numero') return typeof r === 'string' && /^\d{1,9}([.,]\d{0,4})?$/.test(r);
+    if (it.tipo === 'data') return typeof r === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(r) && !Number.isNaN(Date.parse(r));
     const textos = it.opcoes!.map((op) => op.texto);
-    if (it.tipo === 'unica') return typeof r === 'string' && textos.includes(r);
+    if (it.tipo === 'unica' || it.tipo === 'simnao') return typeof r === 'string' && textos.includes(r);
     return Array.isArray(r) && r.length <= textos.length && r.every((t) => typeof t === 'string' && textos.includes(t)) && new Set(r).size === r.length;
   });
 }

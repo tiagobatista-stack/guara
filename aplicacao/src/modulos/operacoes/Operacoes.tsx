@@ -12,6 +12,8 @@ import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
+import { InspecaoDoPonto } from './InspecaoDoPonto.tsx';
+import { inspecaoAtiva, TIPOS_DANO_AGROTOXICO } from './inspecao-agrotoxicos.ts';
 import { RelatorioDoPonto } from './RelatorioDoPonto.tsx';
 import { QuarentenaDoPonto } from './QuarentenaDoPonto.tsx';
 import { useQuarentena } from './quarentena.ts';
@@ -642,6 +644,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   const [relatorio, setRelatorio] = useState({ enviadoEm: '', protocoloSiga: '', notas: '' });
   const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '', imovel: '', areaHa: '', car: '', situacaoCar: '' as SituacaoCar | '', etiquetas: [] as string[] });
   const [erro, setErro] = useState<string | null>(null);
+  const [avisoTipo, setAvisoTipo] = useState<string | null>(null);
   const inicialPlanejamento = useRef('');
   usePendente(modo === 'editar' && JSON.stringify(form) !== inicialPlanejamento.current);
   const [ligar, setLigar] = useState('');
@@ -682,7 +685,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       ...(numero ? { numero: Number(numero) } : {}),
     });
     setErro(problema);
-    if (!problema) setModo('ver');
+    if (!problema) {
+      setModo('ver');
+      setAvisoTipo(!inspecaoAtiva(ponto) && inspecaoAtiva({ tipoDano: form.tipoDano.trim() }) ? 'Este tipo de dano acrescenta ao ponto o POP e a Inspeção de agrotóxicos.' : null);
+    }
   };
   const reativar = () => setErro(alterarPonto(operacao.id, ponto.id, { situacao: 'planejado', motivoCancelamento: '' }));
   // Cancelar a vistoria pede o motivo (campo próprio do ponto).
@@ -825,12 +831,16 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 
       {conflito && <p className="texto-pequeno texto--atencao" data-testid={`conflito-codigo-${ponto.id}`}>{conflito}</p>}
       {erro && <p role="alert" className="erro-campo">{erro}</p>}
+      {avisoTipo && modo === 'ver' && <p role="status" className="texto-pequeno" data-testid={`aviso-tipo-${ponto.id}`}>{avisoTipo}</p>}
 
       {modo === 'ver' && (
         <AnotacoesDoItem item="ponto" anotacoes={ponto.anotacoes} aoMudar={(lista) => setErro(salvarAnotacoesPonto(operacao.id, ponto.id, lista))} />
       )}
       {modo === 'ver' && supressao && (
         <CaracterizacaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} aoReconsultar={() => consultarPontos(operacao.id, [ponto.id])} />
+      )}
+      {modo === 'ver' && inspecaoAtiva(ponto) && (
+        <InspecaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} />
       )}
       {modo === 'ver' && supressao && (
         <RelatorioDoPonto operacao={operacao} ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} aoBaixar={baixar} aoConsultar={() => consultarBasesDoPonto(operacao.id, ponto.id)} />
@@ -953,6 +963,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
               <div className="ponto-barra__grupo" role="group" aria-label={`Ações do ${rotulo}`}>
                 {!supressao && (
                   <button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { popAtivo: true }))}>Caracterizar dano (POP)</button>
+                )}
+                {!inspecaoAtiva(ponto) && (
+                  <button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { inspecaoAtiva: true }))}>Adicionar inspeção de agrotóxicos</button>
                 )}
                 {!ponto.reprogramado && ponto.resultado && (
                   <button type="button" className="botao botao--pequeno" aria-label={`Editar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Editar resultado</button>
@@ -1244,7 +1257,7 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora, pontoAlvo }: { oper
   // Sem pontos, a importação já vem aberta (valor fixo: o React não fecha o bloco depois de importar).
   const [importacaoAberta] = useState(operacao.pontos.length === 0);
   const hoje = dataLocal(agora());
-  const tiposDeDano = useMemo(() => limparNomes(todas.flatMap((o) => o.pontos.map((p) => p.tipoDano ?? '')), LIMITES_OPERACAO.tipoDano).sort((a, b) => a.localeCompare(b, 'pt-BR')), [todas]);
+  const tiposDeDano = useMemo(() => limparNomes([...TIPOS_DANO_AGROTOXICO, ...todas.flatMap((o) => o.pontos.map((p) => p.tipoDano ?? ''))], LIMITES_OPERACAO.tipoDano).sort((a, b) => a.localeCompare(b, 'pt-BR')), [todas]);
   const { demandas: todasDemandas } = useEstadoDemandas();
   const prazos = prazosDeElaboracao(todasDemandas);
   const pendencias = pendenciasDeCampo([operacao], hoje, prazos);
