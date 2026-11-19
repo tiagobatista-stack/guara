@@ -1,4 +1,5 @@
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { confirmarSaida, usePendente } from '../../compartilhado/alteracoes-pendentes.ts';
 import { LIMITES, PRIORIDADES, STATUS, type EntradaDemanda } from './modelo.ts';
 import { validarEntrada, type ErrosValidacao } from './regras.ts';
 import { textoMotivo, type Parecida } from './parecida.ts';
@@ -48,6 +49,9 @@ function deducoes(e: EntradaDemanda): { tipo: Deducao<Tipo>; natureza: Deducao<N
 
 export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verificarParecida, aoVerExistente, deduzirAoDigitar }: Props) {
   const [entrada, setEntrada] = useState<EntradaDemanda>(inicial);
+  const original = useRef(JSON.stringify(inicial));
+  const alterado = JSON.stringify(entrada) !== original.current;
+  usePendente(alterado);
   const [erros, setErros] = useState<ErrosValidacao>({});
   const [parecida, setParecida] = useState<Parecida | null>(null);
   // Escolha da pessoa vale mais que a dedução: depois de mexer no campo, o título não o muda mais.
@@ -93,6 +97,13 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
       return <span className="texto-pequeno texto-suave" data-testid={`dica-${c}`}>Não deu para deduzir pelo título: escolha, se souber.</span>;
     }
     return null;
+  };
+
+  const cancelar = () => { if (confirmarSaida()) aoCancelar(); };
+  // Ctrl+Enter salva (pelo mesmo caminho do botão); Esc cancela, perguntando se há alteração.
+  const atalhos = (ev: KeyboardEvent<HTMLFormElement>) => {
+    if (ev.key === 'Enter' && (ev.ctrlKey || ev.metaKey)) { ev.preventDefault(); ev.currentTarget.requestSubmit(); }
+    else if (ev.key === 'Escape') { ev.preventDefault(); cancelar(); }
   };
 
   const salvar = () => {
@@ -143,7 +154,7 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
     erros[k] ? <span id={`erro-${k}`} className="erro-campo">{erros[k]}</span> : null;
 
   return (
-    <form className="cartao formulario" onSubmit={enviar} noValidate aria-labelledby="titulo-formulario">
+    <form className="cartao formulario" onSubmit={enviar} onKeyDown={atalhos} noValidate aria-labelledby="titulo-formulario">
       <h2 id="titulo-formulario" className="titulo-secao">{titulo}</h2>
 
       <label className="campo-grupo">
@@ -278,9 +289,9 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
         </div>
       )}
 
-      <div className="acoes">
+      <div className="acoes acoes--fim">
+        <button type="button" className="botao" onClick={cancelar}>Cancelar</button>
         <button type="submit" className="botao botao--primario">Salvar</button>
-        <button type="button" className="botao" onClick={aoCancelar}>Cancelar</button>
       </div>
     </form>
   );

@@ -7,8 +7,10 @@ import {
   adicionarAnotacao, alternarAnotacao, anotacoesAbertas, contarAbertas, editarAnotacao, excluirAnotacao, LIMITES_ANOTACAO, ordenarAnotacoes,
   textoAnotacoesAbertas, type Anotacao,
 } from './anotacoes.ts';
+import { usePendente } from './alteracoes-pendentes.ts';
+import { plural } from './plural.ts';
 
-/** Selo "N anotação(ões) aberta(s)"; nada quando não há aberta. */
+/** Selo "N anotações abertas"; nada quando não há aberta. */
 export function SeloAnotacoes({ anotacoes, testid }: { anotacoes?: readonly Anotacao[]; testid?: string }) {
   const n = contarAbertas(anotacoes);
   return n > 0 ? <span className="selo-situacao selo-situacao--atencao" data-testid={testid}>{textoAnotacoesAbertas(n)}</span> : null;
@@ -19,7 +21,7 @@ export function ConfirmaConclusao({ anotacoes, itensPopSemResposta = 0, aoConclu
   anotacoes?: readonly Anotacao[]; itensPopSemResposta?: number; aoConcluir: () => void; aoVoltar: () => void;
 }) {
   const abertas = contarAbertas(anotacoes);
-  const partes = [abertas > 0 ? textoAnotacoesAbertas(abertas) : '', itensPopSemResposta > 0 ? `${itensPopSemResposta} item(ns) de campo do POP sem resposta` : ''].filter(Boolean);
+  const partes = [abertas > 0 ? textoAnotacoesAbertas(abertas) : '', itensPopSemResposta > 0 ? plural(itensPopSemResposta, 'item de campo do POP sem resposta', 'itens de campo do POP sem resposta') : ''].filter(Boolean);
   return (
     <div role="alert" className="aviso" data-testid="confirma-conclusao">
       <p>Há {partes.join(' e ')}. Concluir mesmo assim?</p>
@@ -52,8 +54,7 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
     e.preventDefault();
     const r = adicionarAnotacao(anotacoes, texto, agora().toISOString(), novoId('an', lista));
     if (!r.ok) return setErro(r.mensagem);
-    setErro(null);
-    setTexto('');
+    fechar();
     aoMudar(r.lista);
   };
   const salvarEdicao = (e: FormEvent) => {
@@ -71,18 +72,25 @@ export function AnotacoesDoItem({ item, anotacoes, aoMudar, agora = () => new Da
     aoMudar(excluirAnotacao(anotacoes, a.id));
   };
 
+  const fechar = () => { setTexto(''); setErro(null); setCampoAberto(false); };
+  const textoOriginal = editando ? lista.find((a) => a.id === editando.id)?.texto : undefined;
+  usePendente(texto.trim() !== '' || (editando !== null && editando.texto !== textoOriginal));
+
   return (
     <section className="bloco-detalhe" aria-labelledby={`${id}-titulo`}>
-      <h3 id={`${id}-titulo`} className="titulo-secao titulo-secao--bloco">Anotações <SeloAnotacoes anotacoes={anotacoes} /></h3>
-      {!campoAberto && lista.length === 0 ? (
-        <button type="button" className="botao botao--pequeno botao--sutil" onClick={() => setCampoAberto(true)}>+ Anotação</button>
-      ) : (
+      <div className="bloco-cabecalho">
+        <h3 id={`${id}-titulo`} className="titulo-secao titulo-secao--bloco">Anotações <SeloAnotacoes anotacoes={anotacoes} /></h3>
+        {!campoAberto && <button type="button" className="botao botao--pequeno botao--sutil" onClick={() => setCampoAberto(true)}>+ Anotação</button>}
+      </div>
+      {lista.length === 0 && !campoAberto && <p className="texto-pequeno texto-suave">Nenhuma anotação.</p>}
+      {campoAberto && (
         <form className="formulario" aria-label={`Nova anotação ${item === 'demanda' ? 'da demanda' : 'do ponto'}`} onSubmit={anotar}>
           <div className="campo-grupo">
             <div className="acoes acoes--sem-margem acoes--centro">
               <label htmlFor={`${id}-nova`}>Nova anotação</label>
-              <input id={`${id}-nova`} className="campo" value={texto} maxLength={LIMITES_ANOTACAO.texto} autoComplete="off" autoFocus={campoAberto && lista.length === 0} aria-describedby={`${id}-dica`} onChange={(e) => setTexto(e.target.value)} />
-              <button type="submit" className="botao botao--primario">Anotar</button>
+              <input id={`${id}-nova`} className="campo" value={texto} maxLength={LIMITES_ANOTACAO.texto} autoComplete="off" autoFocus aria-describedby={`${id}-dica`} onChange={(e) => setTexto(e.target.value)} />
+              <button type="submit" className="botao botao--primario">Salvar</button>
+              <button type="button" className="botao" onClick={fechar}>Cancelar</button>
             </div>
             <span id={`${id}-dica`} className="texto-pequeno texto-suave">
               Para lembrar e resolver ao longo da análise. Até {LIMITES_ANOTACAO.texto} caracteres. Não registre CPF, endereço ou nome do autuado aqui.

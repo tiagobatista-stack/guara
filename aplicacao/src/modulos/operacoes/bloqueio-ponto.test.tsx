@@ -37,22 +37,25 @@ describe('BloqueioDoItem (comum a demanda e ponto)', () => {
     const aoTravar = vi.fn();
     const aoDestravar = vi.fn();
     const { rerender } = render(<BloqueioDoItem item={item} aoTravar={aoTravar} aoDestravar={aoDestravar} />);
+    expect(screen.queryByLabelText('Motivo do bloqueio')).toBeNull(); // só abre ao clicar em Travar
+    fireEvent.click(screen.getByRole('button', { name: 'Travar' }));
     expect(screen.getByText(/Não registre CPF, endereço ou nome do autuado aqui\./)).toBeInTheDocument();
     expect(within(screen.getByLabelText('Motivo do bloqueio')).getByRole('option', { name: MOTIVOS_BLOQUEIO.autuado })).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'autuado' } });
     fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: '  aguardando   a polícia ' } });
-    fireEvent.click(screen.getByRole('button', { name: item === 'demanda' ? 'Marcar como travada' : 'Marcar como travado' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(aoTravar).toHaveBeenCalledWith('autuado', 'aguardando a polícia', 'marcar');
     rerender(<BloqueioDoItem item={item} bloqueio={{ motivo: 'autuado', desde: '2026-11-01T00:00:00Z' }} aoTravar={aoTravar} aoDestravar={aoDestravar} />);
-    fireEvent.click(screen.getByRole('button', { name: 'Destravou' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Destravar' }));
     expect(aoDestravar).toHaveBeenCalled();
   });
 
   it('detalhe acima de 300 caracteres: mostra o erro e não grava', () => {
     const aoTravar = vi.fn();
     render(<BloqueioDoItem item="ponto" aoTravar={aoTravar} aoDestravar={() => {}} />);
+    fireEvent.click(screen.getByRole('button', { name: 'Travar' }));
     fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: 'x'.repeat(301) } });
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travado' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByRole('alert')).toHaveTextContent('no máximo 300');
     expect(aoTravar).not.toHaveBeenCalled();
   });
@@ -143,17 +146,19 @@ describe('uma regra só para vencido e travado', () => {
     const { noMapa } = itensDoMapa([], obterOperacoes(), HOJE);
     expect([noMapa.filter((i) => i.vencido).length, noMapa.filter((i) => i.travado).length]).toEqual([3, 2]);
     montarTela();
-    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('2 travado(s)');
-    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('3 vencido(s)');
-    expect(screen.getByTestId('pendencias-campo')).toHaveTextContent('3 ponto(s) sem resultado');
-    const grupo = screen.getByTestId(`travados-${id}`);
+    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('2 travados');
+    expect(screen.getByTestId(`progresso-${id}`)).toHaveTextContent('3 vencidos');
+    expect(screen.getByTestId('pendencias-campo')).toHaveTextContent('Brasnorte3 sem resultado');
+    const grupo = screen.getByTestId('pontos-travados');
     expect(within(grupo).getAllByRole('listitem').map((li) => li.getAttribute('data-testid'))).toEqual([`travado-${p3.id}`, `travado-${p2.id}`]);
-    expect(screen.getByTestId(`travado-${p3.id}`)).toHaveTextContent('depende de campo · parado há 48 dias');
-    expect(screen.getByTestId(`travado-${p2.id}`)).toHaveTextContent('aguardando dados do autuado · parado há 8 dias');
+    expect(screen.getByTestId(`travado-${p3.id}`)).toHaveTextContent('Brasnorte · depende de campo');
+    expect(screen.getByTestId(`travado-${p3.id}`)).toHaveTextContent('há 48 dias');
+    expect(screen.getByTestId(`travado-${p2.id}`)).toHaveTextContent('aguardando dados do autuado');
+    expect(screen.getByTestId(`travado-${p2.id}`)).toHaveTextContent('há 8 dias');
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
     fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
-    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('3 ponto(s) sem resultado');
-    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('2 ponto(s) travado(s)');
+    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('3 pontos sem resultado');
+    expect(screen.getByTestId('pendencias-operacao')).toHaveTextContent('2 pontos travados');
   });
 });
 
@@ -186,7 +191,7 @@ describe('Gerar códigos', () => {
     montarTela();
     fireEvent.click(screen.getByRole('button', { name: 'Abrir Brasnorte' }));
     fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
-    expect(screen.getByTestId('sem-codigo')).toHaveTextContent('2 ponto(s) sem código');
+    expect(screen.getByTestId('sem-codigo')).toHaveTextContent('2 pontos sem código');
     fireEvent.click(screen.getByRole('button', { name: 'Gerar códigos' }));
     const previa = screen.getByRole('list', { name: 'Códigos a gerar' });
     expect(previa).toHaveTextContent('Ponto 1 → BRASNORTE202610-01');
@@ -194,7 +199,7 @@ describe('Gerar códigos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
     expect(obterOperacoes().find((o) => o.id === id)!.pontos.every((p) => !p.codigo)).toBe(true);
     fireEvent.click(screen.getByRole('button', { name: 'Gerar códigos' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Confirmar 2 código(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar 2 códigos' }));
     expect(obterOperacoes().find((o) => o.id === id)!.pontos.map((p) => p.codigo)).toEqual(['BRASNORTE202610-01', 'BRASNORTE202610-02']);
     expect(screen.queryByTestId('sem-codigo')).toBeNull();
   });
@@ -207,7 +212,7 @@ describe('Gerar códigos', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Travar Ponto 1' }));
     expect(screen.getByText(/O bloqueio não suspende o prazo\./)).toBeInTheDocument();
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'autuado' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travado' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     const p = obterOperacoes().find((o) => o.id === id)!.pontos[0];
     expect(screen.getByTestId(`bloqueio-${p.id}`)).toHaveTextContent('travado hoje: aguardando dados do autuado');
     expect(screen.getByTestId(`travado-${p.id}`)).toHaveTextContent('aguardando dados do autuado · parado desde hoje');
