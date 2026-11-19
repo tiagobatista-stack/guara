@@ -35,6 +35,15 @@ const ml = (id: string, t: string, f: Fase, opcoes: OpcaoPop[], e?: Extra) => c(
 
 const AEREA = { se: 'C-5.2' };
 
+/** Embargos de outros órgãos: pares {número, órgão} repetíveis (máx. 10); a tela mostra um par e o botão "+ Adicionar embargo" revela o seguinte. */
+export const MAX_EMBARGOS = 10;
+const EMBARGOS = Array.from({ length: MAX_EMBARGOS }, (_, i) => i + 1);
+export const ORGAOS_EMBARGO = ['IBAMA', 'ICMBio', 'Decisão judicial', 'Outro'] as const;
+
+/** Fonte da conferência prévia (lista fechada); "Outra (especificar)" abre um texto. O texto que vai ao relatório está em relatorio-frases-inspecao.ts. */
+export const FONTES_CONFERENCIA = ['SIGA', 'SIMCAR', 'Geoportal SEMA-MT', 'Consulta pública CTF/IBAMA', 'SISDEV/INDEA', 'Sistema de outorga', 'Outra (especificar)'] as const;
+export const OUTRA_FONTE = 'Outra (especificar)';
+
 /** "Possui Autorização Ambiental para..." (o texto original termina sem a lista): uma pergunta Sim/Não/N.A. e o número por autorização. */
 const AUTORIZACOES = ['desmatamento', 'supressão da vegetação nativa', 'exploração florestal', 'manejo florestal', 'intervenção em área de preservação permanente', 'abertura de estradas'];
 
@@ -43,7 +52,7 @@ export const SECOES_INSPECAO: Record<number, string> = {
   4: 'Armazenamento de agrotóxicos', 5: 'Uso e aplicação', 6: 'Pátio de descontaminação', 7: 'Embalagens vazias e destinação final',
 };
 
-export const ITENS_INSPECAO: readonly ItemPop[] = [
+const BASE: readonly ItemPop[] = [
   // 1. Identificação (só conferências: sem campos de dados pessoais)
   // C-1.1 (nome da propriedade) não existe: vale o "Imóvel / local" do ponto, mostrado e editado também na inspeção (revisão de 19/11/2026).
   sn('C-1.2', 'Possui placa na entrada principal ou nos acessos da propriedade?', 'campo'),
@@ -101,8 +110,11 @@ export const ITENS_INSPECAO: readonly ItemPop[] = [
   sn('C-2.12', 'Possui autorização do MAPA para operar em Unidade da Federação diferente daquela onde a empresa está registrada?', 'previa'),
   // Embargos da SEMA vêm só da consulta às bases (não se repete aqui); em campo, só os de outros órgãos.
   sn('C-2.13', 'Embargos de outros órgãos (IBAMA, ICMBio, decisão judicial)?', 'campo'),
-  tx('C-2.13.1', 'Números dos embargos', 'campo', { se: 'C-2.13' }),
-  ml('C-2.13.2', 'Órgão competente do embargo', 'campo', o('IBAMA', 'ICMBio', 'Decisão judicial'), { se: 'C-2.13' }),
+  ...EMBARGOS.flatMap((k) => [
+    tx(`C-2.13.${k}.1`, `Embargo ${k}: número`, 'campo', { se: 'C-2.13' }),
+    li(`C-2.13.${k}.2`, `Embargo ${k}: órgão`, 'campo', o(...ORGAOS_EMBARGO), { se: 'C-2.13' }),
+    tx(`C-2.13.${k}.3`, `Embargo ${k}: especifique o outro órgão`, 'campo', { se: `C-2.13.${k}.2`, vale: ['Outro'] }),
+  ]),
 
   // 3. Documentação técnica e registros
   sn('C-3.1', 'Existem contratos de prestação de serviços para pulverização de agrotóxicos?', 'campo'),
@@ -194,6 +206,13 @@ export const ITENS_INSPECAO: readonly ItemPop[] = [
   sn('C-7.8', 'O autuado designado como fiel depositário foi orientado a manter o material em depósito adequado (NBR 9843/2013)?', 'campo'),
   sn('C-7.8.1', 'Na ausência de depósito adequado, foram determinadas condições mínimas de armazenamento (local coberto, ventilado, impermeável, acesso restrito, separado de alimentos etc.)?', 'campo'),
 ];
+
+/** Toda pergunta Sim/Não/N.A. da fase prévia ganha, logo depois, "fonte da conferência" (ids `<id>@fonte` e `<id>@fonte.outra`), opcional e só se já respondida. */
+export const ITENS_INSPECAO: readonly ItemPop[] = BASE.flatMap((it) => it.fase === 'previa' && it.tipo === 'simnao' ? [
+  it,
+  li(`${it.id}@fonte`, 'Fonte da conferência', 'previa', o(...FONTES_CONFERENCIA), { se: it.id, vale: ['Sim', 'Não'] }),
+  tx(`${it.id}@fonte.outra`, 'Fonte da conferência (especifique)', 'previa', { se: `${it.id}@fonte`, vale: [OUTRA_FONTE] }),
+] : [it]);
 
 /** Tipos de dano que trazem POP e Inspeção de agrotóxicos juntos (sugeridos no planejamento do ponto). */
 export const TIPOS_DANO_AGROTOXICO = ['Desmatamento químico', 'Aplicação irregular de agrotóxico'] as const;

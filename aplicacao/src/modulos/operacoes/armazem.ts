@@ -6,6 +6,7 @@ import { dataValida } from '../demandas/regras.ts';
 import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
 import { caracterizacaoValida } from './pop-supressao.ts';
 import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
+import { providenciasValidas } from './providencias.ts';
 import { consultarSugestao, lerAuthkey, type SugestaoGeo } from './sugestao-vegetacao.ts';
 import { consultarBases, preservarRegistro } from './consulta-bases.ts';
 import { guardarEmQuarentena } from './quarentena.ts';
@@ -412,6 +413,8 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
     if (novo[k] !== undefined && !caracterizacaoValida(novo[k], ITENS_INSPECAO)) return 'Resposta fora das opções da inspeção de agrotóxicos.';
     if (novo[k] && Object.keys(novo[k]).length === 0) delete novo[k];
   }
+  if (novo.providencias !== undefined && !providenciasValidas(novo.providencias)) return 'Providência inválida.';
+  if (novo.providencias && Object.keys(novo.providencias).length === 0) delete novo.providencias;
   if (novo.consultas !== undefined && !consultasValidas(novo.consultas)) return 'Registro de consulta inválido.';
   if (novo.consultas && Object.keys(novo.consultas).length === 0) delete novo.consultas;
   if (novo.drone && !novo.drone.voou && !novo.drone.arquivo) delete novo.drone;

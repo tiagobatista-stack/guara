@@ -5,32 +5,16 @@ import { formatarGms } from '../demandas/coordenadas.ts';
 import { consultaDoGeo, diaLocal } from './consulta-bases.ts';
 import { plural } from '../../compartilhado/plural.ts';
 import { BASES_CONSULTA, type BaseConsulta, type ConsultaBase, type Operacao, type Ponto, type Viagem } from './modelo.ts';
+import { inspecaoAtiva } from './inspecao-agrotoxicos.ts';
+import { frasesDaInspecao } from './relatorio-inspecao.ts';
 import { ITENS_POP, itensAplicaveis, marcadas, respondido, type Caracterizacao } from './pop-supressao.ts';
 import {
   ABERTURA, AVISO_SEM_RESULTADO, CARACTERIZACAO, CONSULTAS, DIVERGENCIA, EROSAO, ESTRUTURA, FECHO_CONSULTAS, FONTES, NAO_REALIZADA, NAO_REALIZADAS, ORIGENS, PONTO, POP_NAO_PREENCHIDO, PROXIMIDADE, TI_UC_AMORTECIMENTO_VAZIOS,
   type Grupo, type Questao,
 } from './relatorio-frases.ts';
 
-const MESES = ['janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho', 'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro'];
-
-/** AAAA-MM-DD → "21 de outubro de 2026". */
-export function dataPorExtenso(iso: string): string {
-  const [a, m, d] = iso.split('-').map(Number);
-  return `${d} de ${MESES[m - 1]} de ${a}`;
-}
-
-const dataBr = (iso: string) => iso.split('-').reverse().join('/');
-
-/** "a, b e c". */
-export const listaComE = (itens: readonly string[]): string => (itens.length < 2 ? itens.join('') : `${itens.slice(0, -1).join(', ')} e ${itens[itens.length - 1]}`);
-
-const preencher = (modelo: string, valores: Record<string, string>): string => modelo.replace(/\{([^{}]+)\}/g, (inteiro, k: string) => (k in valores ? valores[k] : inteiro));
-const semParenteses = (t: string) => t.replace(/\s*\([^)]*\)/g, '').trim();
-const minuscula1 = (t: string) => (/^[A-ZÀ-Ý][a-zà-ÿ]/.test(t) ? t[0].toLowerCase() + t.slice(1) : t);
-const comPonto = (t: string) => (/[.!?\]]$/.test(t.trim()) ? t.trim() : `${t.trim()}.`);
-const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase().trim();
-const pendente = (t: string) => `[PENDENTE: ${t}]`;
-const limparLegenda = (t: string) => t.replace(/^\S{1,6}\s-\s/, '').trim();
+import { comPonto, dataBr, dataPorExtenso, limparLegenda, listaComE, minuscula1, norm, pendente, preencher, semParenteses } from './relatorio-util.ts';
+export { dataPorExtenso, listaComE };
 
 // ---------- Consultas ----------
 
@@ -253,6 +237,7 @@ export function textoDoRelatorio(operacao: Operacao, ponto: Ponto): string {
     abertura(operacao, ponto),
     [...frasesDoPonto(operacao, ponto), ...frasesDasConsultas(ponto)].join(' '),
     ...(popIniciado ? CARACTERIZACAO.map((g) => frasesDoGrupo(g, ponto, aplicaveis).join(' ')) : [POP_NAO_PREENCHIDO]),
+    ...(inspecaoAtiva(ponto) ? frasesDaInspecao(ponto, consultada(consultaDe(ponto, 'car')) ? (consultaDe(ponto, 'car')!.estado as 'encontrado' | 'vazio') : undefined) : []),
   ].filter((b) => b.trim() !== '');
   const corpo = [
     ...(ponto.resultado === undefined ? [AVISO_SEM_RESULTADO, ''] : []),

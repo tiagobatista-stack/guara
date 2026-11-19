@@ -19,7 +19,7 @@ describe('itens da inspeção', () => {
     expect(Object.keys(SECOES_INSPECAO)).toHaveLength(7);
     for (const it of ITENS_INSPECAO) {
       expect(it.formulario).toBe('C');
-      expect(it.id).toMatch(/^C-[1-7](\.\d+)+$/);
+      expect(it.id).toMatch(/^C-[1-7](\.\d+)+(@fonte(\.outra)?)?$/);
       if (it.se) expect(todos).toContain(it.se.item);
       if (it.tipo === 'simnao') expect(it.opcoes!.map((o) => o.texto)).toEqual(['Sim', 'Não', 'N.A.']);
     }
@@ -148,7 +148,9 @@ describe('sugestões da consulta automática', () => {
   it('embargos: só os de outros órgãos, em campo; SISDEV não é item (é fonte da conferência do INDEA)', () => {
     const f = (id: string) => ITENS_INSPECAO.find((i) => i.id === id);
     expect(f('C-2.13')).toMatchObject({ tipo: 'simnao', fase: 'campo', texto: 'Embargos de outros órgãos (IBAMA, ICMBio, decisão judicial)?' });
-    expect(f('C-2.13.2')!.opcoes!.map((o) => o.texto)).toEqual(['IBAMA', 'ICMBio', 'Decisão judicial']);
+    expect(f('C-2.13.1.2')!.opcoes!.map((o) => o.texto)).toEqual(['IBAMA', 'ICMBio', 'Decisão judicial', 'Outro']);
+    expect(f('C-2.13.10.2')).toBeDefined();
+    expect(f('C-2.13.11.2')).toBeUndefined();
     expect(f('C-2.11')).toBeUndefined();
   });
 });

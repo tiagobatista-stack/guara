@@ -107,6 +107,8 @@ export interface Ponto {
   inspecao?: Caracterizacao;
   conferenciaPrevia?: Caracterizacao;
   inspecaoAtiva?: boolean;
+  /** Providências sugeridas (providencias.ts) que o fiscal marcou: feito ou não aplicável. */
+  providencias?: Record<string, 'feito' | 'nao-aplicavel'>;
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
   coordenadaAferida?: string;
   waypoint?: string;

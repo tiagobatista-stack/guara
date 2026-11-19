@@ -28,3 +28,41 @@ it('capa: o total de páginas é sempre par, de 0 a 100 pontos', () => {
     assert.ok(capa >= 2);
   }
 });
+
+// ---- Inspeção de agrotóxicos: ficha + POP + páginas da inspeção fecham sempre em número par de páginas ----
+const sequenciaComInspecao = (html: string) =>
+  [...html.matchAll(/class="(folha capa|branca|folha ficha ficha--pop|folha folha--pop folha--insp|folha folha--pop|folha ficha)"/g)]
+    .map((m) => ({ 'folha capa': 'C', branca: 'B', 'folha ficha ficha--pop': 'F', 'folha folha--pop folha--insp': 'I', 'folha folha--pop': 'P', 'folha ficha': 'f' })[m[1]]).join('');
+
+it('ponto com POP e inspeção: ficha, POP, páginas da inspeção; bloco par e ficha seguinte em página ímpar', () => {
+  const s = sequenciaComInspecao(gerar([ponto(1, 'Desmatamento químico'), ponto(2, 'Cerca'), ponto(3, 'Aplicação irregular de agrotóxico')]));
+  const bloco = (x: string) => x.length;
+  assert.match(s, /^CCFPI+f/);
+  const primeiro = s.match(/^CC(FPI+)/)![1];
+  assert.equal(bloco(primeiro) % 2, 0, `bloco do ponto 1 com ${bloco(primeiro)} páginas`);
+  // após o bloco par (capa 2 + bloco par), a ficha sem bloco ocupa uma página ímpar; o ponto 3 precisa de ímpar: branca antes
+  assert.match(s, /f(B)?FPI+$/);
+});
+
+it('inspeção ativada à mão em ponto sem POP: ficha + páginas da inspeção, bloco par', () => {
+  const p = { ...ponto(1, 'Cerca'), inspecaoAtiva: true };
+  const s = sequenciaComInspecao(gerar([p as never]));
+  const bloco = s.replace(/^C+/, '');
+  assert.match(bloco, /^FI+$/);
+  assert.equal(bloco.length % 2, 0);
+});
+
+it('só os itens de campo vão para o papel; a prévia entra como resumo, sem dado pessoal; checklist na capa', () => {
+  const p = { ...ponto(1, 'Desmatamento químico'), conferenciaPrevia: { 'C-2.2': 'Não', 'C-2.2@fonte': 'SIGA', 'C-2.5': 'Sim', 'C-2.5.1': '321' } };
+  const html = gerar([p as never]);
+  assert.match(html, /Conferido antes \(resumo da conferência prévia\)/);
+  assert.match(html, /C-2\.2 [^<]*CTF[^<]*: <b>Não<\/b> \(SIGA\)/);
+  assert.match(html, /<b>C-4\.1\.<\/b>/); // campo
+  assert.doesNotMatch(html, /<b>C-2\.2\.<\/b>/); // prévia: só no resumo
+  assert.match(html, /<b>C-6\.1\.<\/b>[\s\S]*Se C-5\.2 = Sim/);
+  assert.match(html, /EPI da equipe/);
+  assert.match(html, /Material de coleta de amostra/);
+  assert.match(html, /Lacres/);
+  assert.match(html, /Termo de apreensão\/depósito/);
+  assert.doesNotMatch(gerar([ponto(1, 'Cerca')]), /EPI da equipe/);
+});

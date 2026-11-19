@@ -5,10 +5,12 @@ import { Fragment, useState } from 'react';
 import type { Ponto } from './modelo.ts';
 import { ESTADOS_CONSULTA, LIMITES_OPERACAO } from './modelo.ts';
 import { divergencias, itensAplicaveis, itensDeCampoSemResposta, marcadas, respondido, type Caracterizacao, type ItemPop, type Resposta } from './pop-supressao.ts';
-import { ITENS_INSPECAO, inspecaoAtiva, inspecaoVazia, SECOES_INSPECAO, sugestoesInspecao } from './inspecao-agrotoxicos.ts';
+import { ITENS_INSPECAO, MAX_EMBARGOS, inspecaoAtiva, inspecaoVazia, SECOES_INSPECAO, sugestoesInspecao } from './inspecao-agrotoxicos.ts';
 import { Item } from './CaracterizacaoDoPonto.tsx';
+import { providenciasSugeridas, type EstadoProvidencia } from './providencias.ts';
+import { REFERENCIA_LEGAL } from './referencia-legal.ts';
 
-type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel'>>;
+type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel' | 'providencias'>>;
 const valorTexto = (r: Resposta | undefined) => marcadas(r).join('; ');
 
 export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
@@ -18,6 +20,10 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
   const campo: Caracterizacao = ponto.inspecao ?? {};
   const juntas = { ...previa, ...campo }; // condicionais de campo olham a resposta de campo e, na falta dela, a conferida antes
   const sugestoes = sugestoesInspecao(ponto);
+  const doEmbargo = (id: string) => Number(/^C-2\.13\.(\d+)\./.exec(id)?.[1] ?? 0);
+  const ultimoRespondido = Math.max(0, ...Object.keys(campo).filter((id) => respondido(campo[id])).map(doEmbargo));
+  const [pares, setPares] = useState(Math.max(1, ultimoRespondido));
+  const paresVisiveis = Math.max(pares, ultimoRespondido);
   const divergentes = divergencias(previa, campo, ITENS_INSPECAO);
   const semResposta = itensDeCampoSemResposta(juntas, ITENS_INSPECAO).length;
 
@@ -26,11 +32,19 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
     void _antiga;
     aoMudar({ [k]: v === undefined ? resto : { ...resto, [item.id]: v } });
   };
-  const aplicaveis = itensAplicaveis(aba === 'previa' ? previa : juntas, ITENS_INSPECAO).filter((it) => aba === 'campo' || it.fase === 'previa');
+  // Na aba de campo não entram os "@fonte" (só se registram na prévia); embargos além do último par aberto ficam escondidos.
+  const aplicaveis = itensAplicaveis(aba === 'previa' ? previa : juntas, ITENS_INSPECAO)
+    .filter((it) => (aba === 'campo' ? !it.id.includes('@') : it.fase === 'previa') && doEmbargo(it.id) <= paresVisiveis);
+
+  const sugeridas = providenciasSugeridas(ponto);
+  const marcar = (id: string, estado: EstadoProvidencia) => {
+    const { [id]: atual, ...resto } = ponto.providencias ?? {};
+    aoMudar({ providencias: atual === estado ? resto : { ...resto, [id]: estado } });
+  };
 
   const remover = () => {
     if (!inspecaoVazia(ponto) && !confirmaRemocao) return setConfirmaRemocao(true);
-    aoMudar({ inspecaoAtiva: undefined, inspecao: {}, conferenciaPrevia: {} });
+    aoMudar({ inspecaoAtiva: undefined, inspecao: {}, conferenciaPrevia: {}, providencias: undefined });
   };
 
   return (
@@ -88,9 +102,34 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
                   );
                 })}
               </div>
+              {aba === 'campo' && n === '2' && marcadas(juntas['C-2.13']).includes('Sim') && (
+                <button type="button" className="botao botao--pequeno" disabled={paresVisiveis >= MAX_EMBARGOS} onClick={() => setPares(paresVisiveis + 1)}>+ Adicionar embargo</button>
+              )}
             </div>
           );
         })}
+        {aba === 'campo' && sugeridas.length > 0 && (
+          <div data-testid="providencias">
+            <h4 className="titulo-secao titulo-secao--bloco">Providências sugeridas</h4>
+            <p className="texto-pequeno texto-suave">Sugestão a partir das respostas. O sistema não lavra nada nem calcula multa; a decisão é sua.</p>
+            <ul className="lista-limpa">
+              {sugeridas.map((pv) => {
+                const norma = REFERENCIA_LEGAL.find((n) => n.id === pv.norma);
+                const estado = ponto.providencias?.[pv.id];
+                return (
+                  <li key={pv.id} data-testid={`providencia-${pv.id}`}>
+                    <p><strong>{pv.tipo}{pv.prazo ? ` (prazo de ${pv.prazo})` : ''}:</strong> “{pv.descricao}”</p>
+                    <p className="texto-pequeno texto-suave">{pv.motivo}.{norma ? ` Referência: ${norma.norma}, ${norma.artigo}.` : ''}{norma?.multa ? ` Multa prevista, só como referência: ${norma.multa.map((m) => `${m.valor} (${m.quando})`).join('; ')}.` : ''}</p>
+                    <div className="acoes" role="group" aria-label={`Marcar ${pv.tipo.toLowerCase()}`}>
+                      <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'feito'} onClick={() => marcar(pv.id, 'feito')}>Feito</button>
+                      <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'nao-aplicavel'} onClick={() => marcar(pv.id, 'nao-aplicavel')}>Não aplicável</button>
+                    </div>
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+        )}
         {ponto.inspecaoAtiva && !inspecaoAtiva({ tipoDano: ponto.tipoDano }) ? (
           <div className="acoes">
             {confirmaRemocao ? (

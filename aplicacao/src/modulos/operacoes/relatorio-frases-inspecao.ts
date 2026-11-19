@@ -1,4 +1,4 @@
-// Frases do relatório da Inspeção de agrotóxicos (RASCUNHO PARA REVISÃO, rev. 3: ainda não ligado a relatorio.ts).
+// Frases do relatório da Inspeção de agrotóxicos (rev. 4, ligado por relatorio-inspecao.ts).
 // Mesmo formato e mesmas convenções de relatorio-frases.ts: dados puros, frases-modelo fixas, sem IA, sem inferência.
 // Só entra o que está registrado no ponto. Marcadores: {x} = valor do ponto; [PENDENTE: ...] e [DIVERGÊNCIA: ...] vão literais.
 // SEM DADO PESSOAL: as frases só dizem que a conferência foi feita e registrada no auto de inspeção; nenhum nome, CPF/CNPJ,
@@ -37,11 +37,13 @@ import type { Questao } from './relatorio-frases.ts';
 export const INSPECAO_NAO_PREENCHIDA = '[PENDENTE: inspeção de agrotóxicos não preenchida]';
 export const DIVERGENCIA_PREVIA = '[DIVERGÊNCIA: {tema} — em campo: {campo}; conferido antes: {previa}]';
 export const NEGATIVA = 'Não houve constatação de {lista}.';
+/** Órgão do embargo, já com a preposição ("Outro": "de {texto especificado}"). */
+export const ORGAO_EMBARGO: Record<string, string> = { IBAMA: 'do IBAMA', ICMBio: 'do ICMBio', 'Decisão judicial': 'de decisão judicial', Outro: 'de {texto}' };
 
 /** Prefixo das frases de resposta só prévia. {fonte} = FONTE_PREVIA ou vazio. */
 export const PREVIA = 'Na conferência prévia{fonte}, ';
 export const FONTE_PREVIA = ' ({fonte})';
-/** Fonte da conferência prévia: rótulo da lista fechada → texto que entra em {fonte}. "Outra (especificar)": entra o texto digitado, como digitado. */
+/** Fonte da conferência prévia: rótulo da lista fechada → texto que entra em {fonte}. "Outra (especificar)": "fonte: {texto digitado}", sem exigir "consulta a". */
 export const FONTES_PREVIA: Record<string, string> = {
   SIGA: 'consulta ao SIGA',
   SIMCAR: 'consulta ao SIMCAR',
@@ -49,7 +51,7 @@ export const FONTES_PREVIA: Record<string, string> = {
   'Consulta pública CTF/IBAMA': 'consulta pública ao CTF/IBAMA',
   'SISDEV/INDEA': 'consulta ao SISDEV/INDEA',
   'Sistema de outorga': 'consulta ao sistema de outorga',
-  'Outra (especificar)': '{texto digitado}',
+  'Outra (especificar)': 'fonte: {texto}',
 };
 
 /** Documento (tipo D) com resposta de campo "Não": uma frase só para toda a inspeção, no fim do grupo "Documentação técnica e registros". Cada item entra pelo `nome`. */
@@ -177,12 +179,11 @@ export const INSPECAO: GrupoInspecao[] = [
       q('D', 'C-2.9', doc('Constatou-se o registro do estabelecimento no MAPA{C-2.9.1}.', 'estabelecimento no MAPA')),
       q('D', 'C-2.10', doc('Constatou-se o registro do estabelecimento no INDEA{C-2.10.1}.', 'estabelecimento no INDEA')),
       q('D', 'C-2.12', doc('Constatou-se autorização do MAPA para operar em Unidade da Federação diferente daquela em que a empresa está registrada.', 'autorização do MAPA para operar em outra Unidade da Federação')),
-      // Só embargos de outros órgãos (os da SEMA vêm da consulta às bases). Resposta Sim: uma frase por embargo, com o número e o órgão
-      // de cada um ({C-2.13.1} = n.º do embargo; {C-2.13.2} = órgão, com a primeira letra como na lista: "do IBAMA", "do ICMBio", "de decisão judicial").
-      // Sim sem número ou sem órgão: [PENDENTE: número e órgão do embargo (C-2.13.1 e C-2.13.2)].
+      // Só embargos de outros órgãos (os da SEMA vêm da consulta às bases). Resposta Sim: uma frase por par {número, órgão} (até 10;
+      // {numero} = n.º do embargo; {orgao} = ORGAO_EMBARGO). Par sem número ou sem órgão, ou Sim sem nenhum par: [PENDENTE].
       q('X', 'C-2.13', {
         frases: {
-          Sim: 'Foi identificado embargo n.º {C-2.13.1}, {C-2.13.2}.',
+          Sim: 'Foi identificado embargo n.º {numero}, {orgao}.',
           Não: 'Em campo, não foram identificados nem relatados embargos de outros órgãos (IBAMA, ICMBio ou decisão judicial) incidentes sobre a propriedade.',
         },
       }),
@@ -307,3 +308,32 @@ export const INSPECAO: GrupoInspecao[] = [
     ],
   },
 ];
+
+/** Complemento de uma frase ({C-x.y}): modelo com {v} = a resposta (data por extenso). Sem entrada: a resposta entra como digitada. */
+export const COMPLEMENTO: Record<string, string> = {
+  'C-1.11.1': ', n.º {v}', 'C-1.12.1': ', n.º {v}', 'C-2.9.1': ', n.º {v}', 'C-2.10.1': ', n.º {v}', 'C-3.3.1': ', n.º {v}',
+  'C-2.4.1.1': ' (n.º {v})', 'C-2.4.2.1': ' (n.º {v})', 'C-2.4.3.1': ' (n.º {v})', 'C-2.4.4.1': ' (n.º {v})', 'C-2.4.5.1': ' (n.º {v})', 'C-2.4.6.1': ' (n.º {v})',
+  'C-3.4.1': ' n.º {v}', 'C-3.4.2': ', de {v}', 'C-2.3.6': ' (observação: {v})',
+  'C-4.3.1': ', a saber: {v}', 'C-4.3.2': ' (lotes: {v})', 'C-4.4.1': ', a saber: {v}', 'C-7.1.1': ' (volume: {v})', 'C-7.2.1': ', no local: {v}',
+};
+/** Subperguntas Sim/Não que entram como trecho da frase principal (as que são questões do grupo usam o próprio `frases`). */
+export const FRAGMENTOS: Record<string, Record<string, string>> = {
+  'C-3.4.3': { Sim: ', com as informações detalhadas exigidas', Não: ', sem as informações detalhadas exigidas' },
+  'C-5.2.1': { Sim: ', com o operador aéreo identificado no auto de inspeção' },
+  'C-2.7.1': { Sim: ', com hidrômetro{volume}', Não: ', sem hidrômetro' },
+};
+export const HIDROMETRO_VOLUME = ', cujo volume registrado era de {v} litros';
+
+/** Aplicação, montada com o que houver (cada parte só entra se respondida). */
+export const APLICACAO = {
+  produtos: 'Os produtos aplicados, ou em aplicação, eram: {produtos}.',
+  principioAtivo: ' (princípio ativo: {v})',
+  soPrincipioAtivo: 'princípio ativo {v}',
+  comDose: 'Registrou-se a aplicação com dosagem de {dose}{area}{data}.',
+  semDose: 'Registrou-se a aplicação{area}{data}.',
+  area: ', em área de {v} ha',
+  data: ', em {v}',
+  horario: ', às {v}',
+  meteorologia: 'No momento da aplicação, as condições meteorológicas eram: {lista}.',
+  vento: 'vento {v}', temperatura: 'temperatura de {v} °C', umidade: 'umidade de {v}%',
+};

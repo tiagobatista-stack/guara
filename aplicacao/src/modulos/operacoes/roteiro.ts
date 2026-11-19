@@ -8,6 +8,8 @@ import { coordenadaValida, formatarDecimal, formatarGms } from '../demandas/coor
 import { SITUACOES_CAR, type Operacao, type Ponto, type Viagem } from './modelo.ts';
 import { blocoPopAtivo, FONTE_GEO, FONTE_POP, ITENS_POP, popGeo, sugestoesPop, type ItemPop } from './pop-supressao.ts';
 import { textoViagem } from './regras.ts';
+import { inspecaoAtiva, ITENS_INSPECAO, SECOES_INSPECAO } from './inspecao-agrotoxicos.ts';
+import { marcadas, respondido } from './pop-supressao.ts';
 
 /** Link do ponto no Google Maps (6 casas, ponto decimal, lat,lon). */
 export const urlDoMapa = ({ lat, lon }: { lat: number; lon: number }) =>
@@ -45,10 +47,68 @@ function versoPop(p: Ponto, rotuloPonto: string): string {
 <div class="col">${itens.map((it) => itemPop(it, sugeridas(it.id))).join('')}</div></article>`;
 }
 
+
+// ---------- Inspeção de agrotóxicos (depois do POP) ----------
+// Só os itens da fase 'campo'; a conferência prévia entra como resumo do que já foi conferido. Todas as perguntas condicionais
+// são impressas, com a indicação "Se C-x = Sim" (em papel não há como esconder). Páginas em A4, 2 colunas, 8 pt, como o POP.
+// shortcut: o tamanho de cada página é ESTIMADO por linhas (custo), não medido; o bloco do ponto fecha sempre em número par de páginas.
+const ORCAMENTO_PAGINA = 150; // linhas de coluna por página (duas colunas); conferido no PDF do Edge: 190 já estoura a página
+const MAX_EMBARGOS_IMPRESSOS = 3;
+const largura = 52; // caracteres por linha de coluna a 8 pt
+
+const custoItem = (it: ItemPop): number => {
+  const titulo = Math.ceil((it.id.length + it.texto.length + 3) / largura);
+  const ops = it.opcoes ? Math.ceil(it.opcoes.reduce((t, o) => t + o.texto.length + 4, 0) / largura) : 1;
+  return titulo + ops + (it.se ? 1 : 0);
+};
+
+function itemInspecao(it: ItemPop): string {
+  const condicao = it.se ? `<p class="desvio">Se ${esc(it.se.item)} = ${esc(it.se.vale.join(' ou '))}.</p>` : '';
+  if (!it.opcoes) return `<div class="it"><p><b>${esc(it.id)}.</b> ${esc(it.texto)}${it.tipo === 'data' ? ' <i>(dia/mês/ano)</i>' : ''}</p><p>${linha(it.tipo === 'texto' ? 60 : 28)}</p>${condicao}</div>`;
+  return itemPop(it).replace(/<\/div>$/, `${condicao}</div>`);
+}
+
+const camposDaInspecao = () => ITENS_INSPECAO.filter((it) => it.fase === 'campo' && !(/^C-2\.13\.(\d+)\./.test(it.id) && Number(/^C-2\.13\.(\d+)\./.exec(it.id)![1]) > MAX_EMBARGOS_IMPRESSOS));
+
+/** Resumo do que foi conferido antes (fase prévia): só o respondido, com a fonte; vazio, uma linha dizendo isso. */
+function resumoDaPrevia(p: Ponto): string {
+  const prev = p.conferenciaPrevia ?? {};
+  const linhas = ITENS_INSPECAO.filter((it) => it.fase === 'previa' && !it.id.includes('@') && respondido(prev[it.id])).map((it) => {
+    const f = marcadas(prev[`${it.id}@fonte`])[0];
+    const fonte = f ? ` (${f === 'Outra (especificar)' ? marcadas(prev[`${it.id}@fonte.outra`])[0] ?? f : f})` : '';
+    return `<p>${esc(it.id)} ${esc(it.texto.replace(/\?$/, ''))}: <b>${esc(marcadas(prev[it.id]).join('; '))}</b>${esc(fonte)}</p>`;
+  });
+  return `<h3>Conferido antes (resumo da conferência prévia)</h3>${linhas.length ? linhas.join('') : '<p>Conferência prévia não registrada no GUARÁ.</p>'}`;
+}
+
+/** Páginas da inspeção; `ate` é o total de páginas que o bloco do ponto já tem antes dela (ficha e POP). Devolve páginas em número tal que o bloco fecha par. */
+function paginasInspecao(p: Ponto, rotuloPonto: string, antes: number): string[] {
+  const blocos: { custo: number; html: string }[] = [{ custo: Math.ceil(resumoDaPrevia(p).length / 90) + 2, html: `<div class="it resumo">${resumoDaPrevia(p)}</div>` }];
+  let secao = 0;
+  for (const it of camposDaInspecao()) {
+    if (it.secao !== secao) { secao = it.secao!; blocos.push({ custo: 3, html: `<h3>${secao}. ${esc(SECOES_INSPECAO[secao])}${secao === 6 || it.se?.item === 'C-5.2' ? ' <i>(aplicação aérea)</i>' : ''}</h3>` }); }
+    blocos.push({ custo: custoItem(it), html: itemInspecao(it) });
+  }
+  const paginas: string[][] = [[]];
+  let usado = 0;
+  for (const b of blocos) {
+    if (usado + b.custo > ORCAMENTO_PAGINA && paginas[paginas.length - 1].length) { paginas.push([]); usado = 0; }
+    paginas[paginas.length - 1].push(b.html); usado += b.custo;
+  }
+  const total = (antes + paginas.length) % 2 === 0 ? paginas.length : paginas.length + 1;
+  const html = paginas.map((itens, i) => `<article class="folha folha--pop folha--insp"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Inspeção de agrotóxicos, em campo (${i + 1}/${total})</p></header>
+${i === 0 ? '<p class="peq">Marque em campo e transcreva depois no ponto do GUARÁ. Não anote nome, CPF/CNPJ, telefone, e-mail nem endereço de pessoas: isso fica no auto de inspeção.</p>' : ''}<div class="col">${itens.join('')}</div></article>`);
+  if (total > paginas.length) html.push(`<article class="folha folha--pop folha--insp"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Inspeção de agrotóxicos, anotações (${total}/${total})</p></header>${'<p class="obs"><span class="ln"></span></p>'.repeat(30)}</article>`);
+  return html;
+}
+
+/** O ponto tem bloco após a ficha (POP e/ou inspeção)? Então ele começa em página ímpar e fecha par. */
+export const temBlocoApos = (p: Ponto) => blocoPopAtivo(p) || inspecaoAtiva(p);
+
 /** Constatação de embargo só em ponto com demanda de embargo ligada. */
 export const temDemandaDeEmbargo = (ligadas: readonly { titulo: string }[]) => ligadas.some((d) => /embargo/.test(d.titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()));
 
-function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly DemandaDoRoteiro[], nomeOperacao: string, rotuloViagem: string, qrSvg?: (texto: string) => string): string {
+function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly DemandaDoRoteiro[], nomeOperacao: string, rotuloViagem: string, qrSvg?: (texto: string) => string): { html: string; paginas: number } {
   const rotuloPonto = `Ponto ${String(p.numero ?? n).padStart(2, '0')}`;
   const ligadas = p.demandas.map((id) => demandas.find((d) => d.id === id)).filter((d): d is DemandaDoRoteiro => !!d);
   // Vazio some (demanda, processo, imóvel, desmate, CAR, etiquetas); código, tipo de dano, coordenadas e observações sempre aparecem.
@@ -67,7 +127,8 @@ function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly Deman
   ];
   const qr = qrSvg && coordenadaValida(p.coordenada) ? `<div class="qr" data-testid="qr">${qrSvg(urlDoMapa(p.coordenada))}<p>Abrir no Google Maps</p></div>` : '';
   const comPop = blocoPopAtivo(p);
-  const frente = `<article class="folha ficha${comPop ? ' ficha--pop' : ''}"><header class="topo"><div class="topo-texto"><div class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>${n} de ${total} · ${esc(nomeOperacao)}</p></div>
+  const comBloco = temBlocoApos(p);
+  const frente = `<article class="folha ficha${comBloco ? ' ficha--pop' : ''}"><header class="topo"><div class="topo-texto"><div class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>${n} de ${total} · ${esc(nomeOperacao)}</p></div>
 <p class="sub">${esc(rotuloViagem)}</p></div>${qr}</header>
 <dl>${dados.filter(([, v]) => v).map(([k, v, larga]) => `<div class="par${larga ? ' larga' : ''}"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
 <h3>Campo · preencher à mão</h3>
@@ -79,7 +140,8 @@ function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly Deman
 <p>Pessoa contatada (nome e função, sem CPF): ${linha(80)}</p>
 <p>Observações de campo:</p>${'<p class="obs"><span class="ln"></span></p>'.repeat(5)}
 <p class="ass"><span>Fiscal ${linha(60)}</span><span>Acompanhante ${linha(60)}</span></p></article>`;
-  return frente + (comPop ? versoPop(p, rotuloPonto) : '');
+  const inspecao = inspecaoAtiva(p) ? paginasInspecao(p, rotuloPonto, comPop ? 2 : 1) : [];
+  return { html: frente + (comPop ? versoPop(p, rotuloPonto) : '') + inspecao.join(''), paginas: 1 + (comPop ? 1 : 0) + inspecao.length };
 }
 
 const ESTILO = `@page{size:A4;margin:12mm;@bottom-right{content:"pág. " counter(page);font:10.5pt system-ui,sans-serif}}@page pop{margin:8mm 10mm}*{box-sizing:border-box}
@@ -95,7 +157,7 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:2p
 .topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}.topo-texto{flex:1;min-width:0}.topo-texto .cab{margin-bottom:2px}
 .qr{width:22mm;text-align:center;font-size:7pt;line-height:1.1}.qr svg{display:block;width:22mm;height:22mm}.qr p{margin:1px 0 0}
 .ass{display:flex;justify-content:space-between;margin-top:12px}
-.folha--pop{page:pop;break-after:page;page-break-after:always}.col{column-count:2;column-gap:10px;font-size:8pt;line-height:1.15}.it{break-inside:avoid;margin-bottom:2px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
+.resumo p{margin:0 0 1px}.folha--pop{page:pop;break-after:page;page-break-after:always}.col{column-count:2;column-gap:10px;font-size:8pt;line-height:1.15}.it{break-inside:avoid;margin-bottom:2px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
 .barra{margin:0 0 8px}@media screen{body{max-width:190mm;margin:0 auto}}@media print{.barra{display:none}body{padding:0}}`;
 
 /** Página completa do roteiro. `geradoEm` é AAAA-MM-DD. */
@@ -130,6 +192,7 @@ export function htmlDoRoteiro(o: { operacao: Operacao; viagem: Viagem; pontos: r
 ${municipios.length ? `<p>Municípios: ${esc(municipios.join(', '))}</p>` : ''}
 <p>Equipe: ${esc(viagem.equipe || '—')}${viagem.integrantes.length ? ` · Integrantes: ${esc(viagem.integrantes.join(', '))}` : ''}${viagem.veiculos.length ? ` · Veículos: ${esc(viagem.veiculos.join(', '))}` : ''}</p>
 <p>Checklist: ${caixas('Pontos e coordenadas', 'Mapa', 'Documentos', 'GPS', 'Drone', 'Câmera')}</p>
+${pontos.some(inspecaoAtiva) ? `<p>Inspeção de agrotóxicos, levar: ${caixas('EPI da equipe', 'Material de coleta de amostra', 'Lacres', 'Termo de apreensão/depósito')}</p>` : ''}
 <!-- TODO: mapa estático dos pontos na capa; o app só tem mapa interativo (Leaflet com WMS), sem imagem estática. -->
 <h3>Pontos na ordem</h3>${pontos.length ? tabela(frente) : '<p>Nenhum ponto nesta viagem.</p>'}</article>`,
     ...meio.map((rows) => `<article class="folha capa"><h3>Pontos na ordem (continuação)</h3>${tabela(rows)}</article>`),
@@ -145,11 +208,11 @@ ${municipios.length ? `<p>Municípios: ${esc(municipios.join(', '))}</p>` : ''}
   let paginas = paginasCapa.length;
   let metade = false; // há uma ficha sem POP esperando a segunda da folha
   const folhas = pontos.map((p, i) => {
-    const html = folhaPonto(p, i + 1, pontos.length, demandas, operacao.nome, rotuloViagem, o.qrSvg);
-    if (blocoPopAtivo(p)) {
+    const { html, paginas: doPonto } = folhaPonto(p, i + 1, pontos.length, demandas, operacao.nome, rotuloViagem, o.qrSvg);
+    if (temBlocoApos(p)) {
       const branca = paginas % 2 === 1; // a próxima página seria par
       metade = false;
-      paginas += (branca ? 1 : 0) + 2;
+      paginas += (branca ? 1 : 0) + doPonto;
       return (branca ? '<div class="branca"></div>' : '') + html;
     }
     if (metade) metade = false; else { metade = true; paginas++; }
