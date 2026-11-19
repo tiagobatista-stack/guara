@@ -7,7 +7,7 @@ import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
 import { InspecaoDoPonto } from './InspecaoDoPonto.tsx';
 import { ConsultasDoPonto } from './RelatorioDoPonto.tsx';
 import { ROTULO_SELO, estadoInspecao, estadoPop, resumoConsultas, resumoDoRelatorio, textoInspecao, textoPop, type EstadoFormulario } from './estado-formularios.ts';
-import { textoDoRelatorio } from './relatorio.ts';
+import { DadosParaSiga } from './DadosParaSiga.tsx';
 import { lerAuthkey } from './sugestao-vegetacao.ts';
 import { inspecaoAtiva } from './inspecao-agrotoxicos.ts';
 import { blocoPopAtivo } from './pop-supressao.ts';
@@ -30,7 +30,7 @@ export function FormulariosDoPonto({ operacao, ponto, rotulo, aoMudar, aoReconsu
   aoBaixar: (nome: string, conteudo: string, tipo: string) => void;
 }) {
   const [aberto, setAberto] = useState<Painel | null>(null);
-  const [texto, setTexto] = useState<string | null>(null);
+  const [painelSiga, setPainelSiga] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
   const [consultando, setConsultando] = useState(false);
   const semChave = !lerAuthkey();
@@ -80,23 +80,14 @@ export function FormulariosDoPonto({ operacao, ponto, rotulo, aoMudar, aoReconsu
 
       <div className="acoes acoes--centro">
         <button type="button" className="botao botao--primario" disabled={!podeGerar} title={podeGerar ? undefined : DICA_DESABILITADO}
-          onClick={() => { setTexto(textoDoRelatorio(operacao, ponto)); setAviso(null); }}>Gerar texto do relatório</button>
+          onClick={() => { setPainelSiga(true); setAviso(null); }}>Gerar texto do relatório</button>
         {marcador ? (
           marcador.pendencias === 0 && marcador.naoConsultadas === 0
             ? <span className="texto-pequeno selo-situacao" data-testid="resumo-relatorio">sem pendências</span>
             : <span className="texto-pequeno texto--atencao" data-testid="resumo-relatorio">{plural(marcador.pendencias, 'pendência', 'pendências')} · {plural(marcador.naoConsultadas, 'consulta não realizada', 'consultas não realizadas')}</span>
         ) : <span className="texto-pequeno texto-suave" data-testid="dica-relatorio">{DICA_DESABILITADO}</span>}
       </div>
-      {texto !== null && (
-        <>
-          <textarea className="campo campo--area" readOnly rows={16} aria-label={`Relatório (texto) do ${rotulo}`} value={texto} />
-          <div className="acoes">
-            <button type="button" className="botao botao--pequeno botao--primario" onClick={async () => { try { await navigator.clipboard.writeText(texto); setAviso('Texto copiado.'); } catch { setAviso('Este navegador não deixou copiar; selecione o texto e copie.'); } }}>Copiar</button>
-            <button type="button" className="botao botao--pequeno" onClick={() => aoBaixar(`relatorio-${base}.txt`, texto, 'text/plain;charset=utf-8')}>Baixar .txt</button>
-            <button type="button" className="botao botao--pequeno botao--sutil" onClick={() => setTexto(null)}>Fechar</button>
-          </div>
-        </>
-      )}
+      {painelSiga && <DadosParaSiga operacao={operacao} ponto={ponto} rotulo={rotulo} nomeArquivo={`relatorio-${base}.txt`} aoMudar={aoMudar} aoBaixar={aoBaixar} aoFechar={() => setPainelSiga(false)} />}
       {aviso && <p role="status" className="texto-pequeno">{aviso}</p>}
 
       {comPop && <CaracterizacaoDoPonto ponto={ponto} rotulo={rotulo} aberto={aberto === 'pop'} aoMudar={aoMudar} aoReconsultar={aoReconsultarGeo} />}

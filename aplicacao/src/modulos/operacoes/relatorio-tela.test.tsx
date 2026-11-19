@@ -76,7 +76,10 @@ describe('origem do alerta, apoio e relatório', () => {
     expect(texto).toContain('com o apoio da Polícia Militar');
     expect(texto).toContain('Cadastro Ambiental Rural (CAR) n.º MT-1/2020');
     expect(texto).toContain('[CONSULTAS NÃO REALIZADAS: bioma, vegetação IBGE, embargos SEMA-MT');
-    expect(texto).toContain('[PENDENTE: equipe técnica da viagem]');
+    expect(texto).not.toContain('EQUIPE TÉCNICA'); // padrão: começa em CONSTATAÇÕES, sem equipe nem lavrados
+    expect(texto.indexOf('CONSTATAÇÕES')).toBeGreaterThanOrEqual(0); expect(texto.split('CONSTATAÇÕES')[0]).not.toMatch(/EQUIPE/);
+    fireEvent.click(within(caixa).getByLabelText('Incluir equipe e lavrados no texto'));
+    expect((within(caixa).getByLabelText(/^Relatório \(texto\) do/) as HTMLTextAreaElement).value).toContain('[PENDENTE: equipe técnica da viagem]');
     expect(within(caixa).getByRole('button', { name: 'Baixar .txt' })).toBeInTheDocument();
   });
 });

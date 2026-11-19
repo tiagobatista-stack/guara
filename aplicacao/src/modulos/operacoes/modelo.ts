@@ -112,6 +112,8 @@ export interface Ponto {
   /** Documentos lavrados no ponto: tipo (tipos-lavrados.ts), número e data (só isso; enquadramento e multa ficam no SIGA Autuação). */
   /** Data/hora (ISO) da última alteração de cada formulário; só muda quando uma resposta muda. */
   editadoEm?: { pop?: string; inspecao?: string };
+  /** Capa do relatório do SIGA: atividade e objetivo, gravados só quando o usuário edita (senão vale a sugestão). */
+  siga?: { atividade?: string; objetivo?: string };
   lavrados?: { tipo: string; numero: string; data?: string }[];
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
   coordenadaAferida?: string;

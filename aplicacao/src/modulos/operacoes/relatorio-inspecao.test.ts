@@ -185,7 +185,7 @@ describe('relatório da inspeção', () => {
   it('o relatório de ponto SEM inspeção também cita os documentos lavrados', () => {
     const viagem = { id: 'v', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-12-07', retorno: '2026-12-11', notas: '' };
     const pt = { id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Castanheira', notas: '', demandas: [], situacao: 'vistoriado' as const, viagem: 'v', resultado: 'sim' as const, lavrados: [{ tipo: 'Termo de embargo / Interdição', numero: '12/2026' }] };
-    const t = textoDoRelatorio({ id: 'o', nome: 'Op', viagens: [viagem], pontos: [pt], criadaEm: '2026-11-01T00:00:00Z' } as never, pt as never);
+    const t = textoDoRelatorio({ id: 'o', nome: 'Op', viagens: [viagem], pontos: [pt], criadaEm: '2026-11-01T00:00:00Z' } as never, pt as never, { completo: true });
     expect(t).toContain('Foi lavrado o Termo de Embargo / Interdição n.º 12/2026.');
   });
 

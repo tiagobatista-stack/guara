@@ -111,4 +111,30 @@ describe('seção na tela', () => {
     act(() => { alterarPonto(op, p.id, { inspecao: { 'C-2.13': 'Sim' } }); });
     expect(obterOperacoes()[0].pontos[0].editadoEm?.inspecao).toBeDefined();
   });
+
+  it('"Gerar texto do relatório" abre "Dados para o SIGA": coordenada no formato do SIGA, atividade sugerida editável e gravada só quando editada, copiar', () => {
+    const { op, p, s } = montar({ tipoDano: 'Desmatamento químico' });
+    act(() => { alterarPonto(op, p.id, { caracterizacao: { 'A-1': 'Cerrado' } }); });
+    fireEvent.click(within(s).getByRole('button', { name: 'Gerar texto do relatório' }));
+    const painel = within(s).getByTestId(`dados-siga-${p.id}`);
+    expect(within(painel).getByTestId('siga-Latitude (S)')).toHaveTextContent('-12:06:00,00');
+    expect(within(painel).getByTestId('siga-Longitude (W)')).toHaveTextContent('-58:12:00,00');
+    expect(within(painel).getByTestId('siga-Município / UF')).toHaveTextContent('Castanheira / MT');
+    const atividade = within(painel).getByRole('textbox', { name: /Atividade/ });
+    expect(atividade).toHaveValue('Supressão por desmatamento químico');
+    expect(within(painel).getByRole('textbox', { name: /Objetivo/ })).toHaveValue('FISCALIZAÇÃO DE ALERTAS DE DESMATAMENTO QUÍMICO BRASNORTE');
+    fireEvent.change(atividade, { target: { value: 'Supressão com uso de herbicida' } });
+    fireEvent.blur(atividade);
+    expect(obterOperacoes()[0].pontos[0].siga).toEqual({ atividade: 'Supressão com uso de herbicida' });
+    const de_novo = within(painel).getByRole('textbox', { name: /Atividade/ });
+    fireEvent.change(de_novo, { target: { value: 'Supressão por desmatamento químico' } }); // volta à sugestão: nada gravado
+    fireEvent.blur(de_novo);
+    expect(obterOperacoes()[0].pontos[0].siga).toBeUndefined();
+    const escrever = vi.fn().mockResolvedValue(undefined);
+    Object.assign(navigator, { clipboard: { writeText: escrever } });
+    fireEvent.click(within(painel).getByRole('button', { name: 'Copiar Latitude (S)' }));
+    expect(escrever).toHaveBeenCalledWith('-12:06:00,00');
+    expect(within(painel).getByRole('textbox', { name: /^Relatório \(texto\)/ })).toBeInTheDocument();
+    expect(within(painel).getByLabelText('Incluir equipe e lavrados no texto')).not.toBeChecked();
+  });
 });

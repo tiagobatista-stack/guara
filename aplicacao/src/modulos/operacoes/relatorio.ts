@@ -229,7 +229,12 @@ export function revisar(t: string): string {
 /** Marcadores de modelo que ficaram sem valor (deve ser vazio). */
 export const chavesSobrando = (t: string): string[] => t.match(/\{[^{}]*\}/g) ?? [];
 
-export function textoDoRelatorio(operacao: Operacao, ponto: Ponto): string {
+/**
+ * Texto das constatações. Padrão: começa em CONSTATAÇÕES, sem equipe e sem as frases dos documentos lavrados (eles vão nos campos da capa do SIGA).
+ * `completo`: inclui a equipe técnica e os lavrados (antigo formato).
+ */
+export function textoDoRelatorio(operacao: Operacao, ponto: Ponto, opcoes: { completo?: boolean } = {}): string {
+  const completo = !!opcoes.completo;
   const viagem = operacao.viagens.find((v) => v.id === ponto.viagem);
   const aplicaveis = new Set(itensAplicaveis(ponto.caracterizacao).map((i) => i.id));
   const popIniciado = Object.values(ponto.caracterizacao ?? {}).some(respondido);
@@ -238,11 +243,11 @@ export function textoDoRelatorio(operacao: Operacao, ponto: Ponto): string {
     [...frasesDoPonto(operacao, ponto), ...frasesDasConsultas(ponto)].join(' '),
     ...(popIniciado ? CARACTERIZACAO.map((g) => frasesDoGrupo(g, ponto, aplicaveis).join(' ')) : [POP_NAO_PREENCHIDO]),
     ...(inspecaoAtiva(ponto) ? frasesDaInspecao(ponto, consultada(consultaDe(ponto, 'car')) ? (consultaDe(ponto, 'car')!.estado as 'encontrado' | 'vazio') : undefined) : []),
-    frasesDosLavrados(ponto),
+    ...(completo ? [frasesDosLavrados(ponto)] : []),
   ].filter((b) => b.trim() !== '');
   const corpo = [
     ...(ponto.resultado === undefined ? [AVISO_SEM_RESULTADO, ''] : []),
-    ESTRUTURA.equipe, ...linhasDaEquipe(operacao, viagem), '',
+    ...(completo ? [ESTRUTURA.equipe, ...linhasDaEquipe(operacao, viagem), ''] : []),
     ESTRUTURA.constatacoes, ...blocos.map((b) => `${ESTRUTURA.marcador}${b}`), '',
     ESTRUTURA.rodape,
   ].join('\n');

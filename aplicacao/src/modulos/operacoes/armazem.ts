@@ -415,6 +415,11 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   }
   if (novo.providencias !== undefined && !providenciasValidas(novo.providencias)) return 'Providência inválida.';
   if (novo.providencias && Object.keys(novo.providencias).length === 0) delete novo.providencias;
+  if (novo.siga) {
+    const siga = Object.fromEntries(Object.entries(novo.siga).map(([k, v]) => [k, String(v).replace(/\s+/g, ' ').trim()]).filter(([, v]) => v !== ''));
+    if (Object.values(siga as Record<string, string>).some((v) => v.length > 200)) return 'Atividade e objetivo aceitam até 200 caracteres.';
+    if (Object.keys(siga).length) novo.siga = siga; else delete novo.siga;
+  }
   if (novo.lavrados !== undefined && !lavradosValidos(novo.lavrados)) return 'Documento lavrado inválido.';
   if (novo.lavrados && novo.lavrados.length === 0) delete novo.lavrados;
   if (novo.consultas !== undefined && !consultasValidas(novo.consultas)) return 'Registro de consulta inválido.';

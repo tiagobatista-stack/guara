@@ -81,7 +81,7 @@ const semRepeticao = (t: string) => expect(t.match(/(?<!\p{L})(\p{L}+)[ \t]+\1(?
 describe('relatório (texto)', () => {
   it('POP completo: 5 grupos, pendências condicionais, equipe sem o motorista, sem {...} e sem palavra repetida', () => {
     const { op, p } = montar({ caracterizacao: CARACTERIZACAO, car: 'MT123' });
-    const t = textoDoRelatorio(op, p);
+    const t = textoDoRelatorio(op, p, { completo: true });
     expect(t.startsWith('EQUIPE TÉCNICA\n')).toBe(true);
     expect(t).toContain('Ana Souza – Analista Ambiental – DUDJUÍNA/SEMA-MT');
     expect(t).toContain('Bruno Lima – [PENDENTE: cargo de Bruno Lima] – DUDJUÍNA/SEMA-MT'); // lotação = unidade da operação
@@ -103,7 +103,7 @@ describe('relatório (texto)', () => {
 
   it('ponto sem consultas: [CONSULTA NÃO REALIZADA] em todas as bases e nenhum "não identificado" inventado', () => {
     const { op, p } = montar({ caracterizacao: CARACTERIZACAO });
-    const t = textoDoRelatorio(op, p);
+    const t = textoDoRelatorio(op, p, { completo: true });
     expect(t).toContain('[CONSULTAS NÃO REALIZADAS: bioma, vegetação IBGE, CAR/SIMCAR, embargos SEMA-MT, autos de infração SEMA-MT, terras indígenas, unidades de conservação e zonas de amortecimento (TI/UC)]');
     expect(t).not.toContain('[CONSULTA NÃO REALIZADA:'); // 2 ou mais ausentes: um marcador só
     expect(t).not.toContain('Não foi identificad');
@@ -121,7 +121,7 @@ describe('relatório (texto)', () => {
         ti: { ...base, estado: 'vazio' }, uc: { ...base, estado: 'vazio' }, amortecimento: { ...base, estado: 'vazio' },
       },
     });
-    const t = textoDoRelatorio(op, p);
+    const t = textoDoRelatorio(op, p, { completo: true });
     expect(t).toContain('A área está inserida no bioma Amazônia.');
     expect(t).toContain('vegetação do tipo "Floresta Estacional Semidecidual"');
     expect(t).toContain('Cadastro Ambiental Rural (CAR) n.º MT-123456/2020');
@@ -137,7 +137,7 @@ describe('relatório (texto)', () => {
 
   it('origem do alerta, apoio e requisição; sem equipe, data ou unidade vira pendência', () => {
     const { op, p } = montar({ dataVistoria: undefined }, { origemAlerta: { tipo: 'requisicao', detalhe: 'Ministério Público' }, apoio: 'Polícia Militar', setor: undefined, viagens: [] });
-    const t = textoDoRelatorio(op, p);
+    const t = textoDoRelatorio(op, p, { completo: true });
     expect(t).toContain('[PENDENTE: equipe técnica da viagem]');
     expect(t).toContain('No dia [PENDENTE: data da vistoria]');
     expect(t).toContain('em atendimento a requisição de Ministério Público');
@@ -149,18 +149,18 @@ describe('relatório (texto)', () => {
     const base = { fonte: 'manual' as const, quando: '2026-10-20T12:00:00.000Z', estado: 'vazio' as const };
     const consultas = { ti: base, uc: base, amortecimento: base };
     const { op, p } = montar({ caracterizacao: { ...CARACTERIZACAO, 'A-6.1': 'APP do córrego' }, consultas, resultado: undefined, numero: 6 });
-    const t = textoDoRelatorio(op, p);
+    const t = textoDoRelatorio(op, p, { completo: true });
     expect(t).not.toContain('[DIVERGÊNCIA: proteção legal');
     expect(t).toContain('(APP do córrego).');
     expect(t.startsWith('[ATENÇÃO: o ponto ainda não tem resultado registrado.]\n\nEQUIPE TÉCNICA')).toBe(true);
     expect(t).toContain('Ponto de Vistoria n.º 06,');
     const sem = montar({ caracterizacao: CARACTERIZACAO, consultas });
-    expect(textoDoRelatorio(sem.op, sem.p)).not.toContain('[DIVERGÊNCIA: proteção legal');
+    expect(textoDoRelatorio(sem.op, sem.p, { completo: true })).not.toContain('[DIVERGÊNCIA: proteção legal');
   });
 
   it('POP não iniciado: um marcador único, sem pendentes item a item', () => {
     const { op, p } = montar({ caracterizacao: undefined });
-    const t = textoDoRelatorio(op, p);
+    const t = textoDoRelatorio(op, p, { completo: true });
     expect(t).toContain('[PENDENTE: caracterização do dano (POP) não preenchida]');
     expect(t.match(/\[PENDENTE: /g)?.length).toBe(1 + (t.match(/\[PENDENTE: (cargo|lotação)/g)?.length ?? 0));
     expect(t.split('\n').filter((l) => l.startsWith('· '))).toHaveLength(3);
@@ -169,7 +169,7 @@ describe('relatório (texto)', () => {
   it('fixture real (TXT exportado do POP): pendentes A-5.1, A-7.1 e A-12, A-13/A-14 fundidas, negativa do solo e sem divergência de A-6', () => {
     const resp = lerTxtDoPop(TXT_DO_POP);
     const { op, p } = montar({ caracterizacao: resp, numero: 6 });
-    const t = textoDoRelatorio(op, p);
+    const t = textoDoRelatorio(op, p, { completo: true });
     expect(t).toContain('[PENDENTE: dimensões estimadas dos corpos hídricos (A-5.1)]');
     expect(t).toContain('[PENDENTE: dimensões estimadas dos reservatórios artificiais (A-7.1)]');
     expect(t).toContain('[PENDENTE: especificar outros recursos (A-12)]');

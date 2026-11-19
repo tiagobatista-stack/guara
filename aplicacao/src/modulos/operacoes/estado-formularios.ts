@@ -52,5 +52,5 @@ export function resumoConsultas(p: Ponto): { feitas: number; total: number; ulti
 /** O que sairá como marcador no relatório: [PENDENTE…] e [DIVERGÊNCIA…] do texto e as consultas não realizadas. */
 export function resumoDoRelatorio(o: Operacao, p: Ponto): { pendencias: number; naoConsultadas: number } {
   const c = resumoConsultas(p);
-  return { pendencias: (textoDoRelatorio(o, p).match(/\[(PENDENTE|DIVERGÊNCIA)/g) ?? []).length, naoConsultadas: c.total - c.feitas };
+  return { pendencias: (textoDoRelatorio(o, p, { completo: true }).match(/\[(PENDENTE|DIVERGÊNCIA)/g) ?? []).length, naoConsultadas: c.total - c.feitas };
 }
