@@ -6,6 +6,7 @@ import { caracterizacaoValida } from './pop-supressao.ts';
 import { FONTES_PREVIA } from './relatorio-frases-inspecao.ts';
 import { frasesDaInspecao } from './relatorio-inspecao.ts';
 import { chavesSobrando, textoDoRelatorio } from './relatorio.ts';
+import { htmlDoRoteiro } from './roteiro.ts';
 import type { Operacao, Ponto } from './modelo.ts';
 
 type R = Record<string, string | string[]>;
@@ -166,5 +167,31 @@ describe('relatório da inspeção', () => {
     expect(textoDoRelatorio(op(base), base)).not.toContain('inspeção de agrotóxicos');
     const ativa = { ...base, tipoDano: 'Cerca', inspecaoAtiva: true, inspecao: { 'C-1.2': 'Sim' } };
     expect(textoDoRelatorio(op(ativa), ativa)).toContain('Constatou-se placa de identificação');
+  });
+
+  it('notificação e auto lavrados: só o documento e o número, sem enquadramento; "feito" sem número vira pendência', () => {
+    const dizer = (p: object) => frasesDaInspecao({ tipoDano: 'Desmatamento químico', inspecao: { 'C-1.2': 'Sim' }, ...p }).join('\n');
+    const t = dizer({ lavrados: { notificacao: '123/2026', auto: '77' } });
+    expect(t).toContain('Foi lavrada a Notificação n.º 123/2026.');
+    expect(t).toContain('Foi lavrado o Auto de Infração n.º 77.');
+    expect(dizer({ providencias: { 'ctf-notificacao': 'feito' } })).toContain('[PENDENTE: n.º do documento lavrado]');
+    expect(dizer({ providencias: { 'ctf-auto': 'feito' }, lavrados: { auto: '9' } })).not.toContain('PENDENTE: n.º do documento');
+    expect(dizer({ providencias: { 'ctf-auto': 'nao-aplicavel' } })).not.toContain('lavrad');
+    expect(dizer({})).not.toContain('lavrad');
+  });
+
+  it('nenhum texto gerado (relatório e roteiro) cita lei, artigo, decreto ou valor em reais', () => {
+    const todas: R = {};
+    for (const it of ITENS_INSPECAO) {
+      if (it.id.includes('@')) continue;
+      todas[it.id] = it.tipo === 'simnao' ? 'Não' : it.tipo === 'texto' ? 'x' : it.tipo === 'numero' ? '1' : it.tipo === 'data' ? '2026-09-12' : it.tipo === 'multipla' ? [it.opcoes![0].texto] : it.opcoes![0].texto;
+    }
+    const ponto = { tipoDano: 'Aplicação irregular de agrotóxico', inspecao: todas, conferenciaPrevia: { 'C-2.2': 'Não', 'C-2.2@fonte': 'SIGA' }, providencias: { 'ctf-auto': 'feito' } as Record<string, 'feito'>, lavrados: { notificacao: '1', auto: '2' } };
+    const ilegal = /R\$|\bart\.|Decreto|Lei n/;
+    expect(frasesDaInspecao(ponto).join('\n')).not.toMatch(ilegal);
+    const viagem = { id: 'v', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-12-07', retorno: '2026-12-11', notas: '' };
+    const pt = { ...ponto, id: 'p1', numero: 1, coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Castanheira', notas: '', demandas: [], situacao: 'planejado' as const, viagem: 'v' };
+    const html = htmlDoRoteiro({ operacao: { id: 'o', nome: 'Op', viagens: [viagem], pontos: [pt], criadaEm: '2026-11-01T00:00:00Z' } as never, viagem, pontos: [pt] as never, demandas: [], geradoEm: '2026-11-19' });
+    expect(html).not.toMatch(ilegal);
   });
 });

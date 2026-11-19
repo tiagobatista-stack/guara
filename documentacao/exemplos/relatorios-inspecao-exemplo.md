@@ -1,6 +1,6 @@
 # Relatórios de exemplo da inspeção de agrotóxicos (dados fictícios, para revisar a redação)
 
-Pontos fictícios (`FIC-`), montados à mão: **o CSV `operacao-alertas-setembro-2026.csv` ainda não foi enviado e não foi importado**. Ponto 03: aplicação irregular; pontos 05 e 06: desmatamento químico, mesma propriedade (divergência prévia × campo no 05: DLA; embargo do IBAMA no 05). Texto gerado por `textoDoRelatorio`, sem edição.
+Pontos fictícios (`FIC-`), montados à mão: **o CSV `operacao-alertas-setembro-2026.csv` ainda não foi enviado e não foi importado**. Ponto 03: aplicação irregular; pontos 05 e 06: desmatamento químico, mesma propriedade (divergência prévia × campo no 05: DLA; embargo do IBAMA no 05). Gerado antes do ajuste dos documentos lavrados (sem notificação/auto nos exemplos). Texto gerado por `textoDoRelatorio`, sem edição.
 
 ## Ponto 03
 

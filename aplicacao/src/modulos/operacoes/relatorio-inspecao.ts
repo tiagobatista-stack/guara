@@ -4,9 +4,10 @@
 import { DIVERGENCIA } from './relatorio-frases.ts';
 import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
 import type { Ponto } from './modelo.ts';
+import { DOCUMENTO_DA_PROVIDENCIA } from './providencias.ts';
 import { itensAplicaveis, marcadas, respondido, type Caracterizacao } from './pop-supressao.ts';
 import {
-  APLICACAO, APLICACAO_PENDENTE, COMPLEMENTO, DIVERGENCIA_PREVIA, FONTE_PREVIA, FONTES_PREVIA, FRAGMENTOS, HIDROMETRO_VOLUME, INSPECAO, INSPECAO_NAO_PREENCHIDA,
+  APLICACAO, APLICACAO_PENDENTE, COMPLEMENTO, DIVERGENCIA_PREVIA, FONTE_PREVIA, LAVRADOS, FONTES_PREVIA, FRAGMENTOS, HIDROMETRO_VOLUME, INSPECAO, INSPECAO_NAO_PREENCHIDA,
   NAO_APRESENTADOS, NAO_IDENTIFICADO_PREVIA, NEGATIVA, ORGAO_EMBARGO, PREVIA, type Agrupada, type QuestaoInspecao,
 } from './relatorio-frases-inspecao.ts';
 import { comPonto, dataPorExtenso, listaComE, norm, pendente, preencher } from './relatorio-util.ts';
@@ -29,7 +30,24 @@ const entradas = (itens: readonly Nao[]): string[] => {
 };
 
 /** Uma entrada por grupo da inspeção (parágrafos do relatório). `car`: resultado da consulta automática do CAR, se feita. */
-export function frasesDaInspecao(ponto: Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'tipoDano'>, car?: 'encontrado' | 'vazio'): string[] {
+/** Notificação e auto lavrados: só o documento e o número. "Feito" sem número vira pendência. */
+function frasesDosLavrados(ponto: Pick<Ponto, 'providencias' | 'lavrados'>): string {
+  const frases = (['notificacao', 'auto'] as const).map((k) => {
+    const numero = ponto.lavrados?.[k]?.trim();
+    if (numero) return preencher(LAVRADOS[k], { numero });
+    const feita = Object.entries(ponto.providencias ?? {}).some(([id, e]) => e === 'feito' && DOCUMENTO_DA_PROVIDENCIA[id] === k);
+    return feita ? LAVRADOS.pendente : '';
+  }).filter(Boolean);
+  return [...new Set(frases)].join(' ');
+}
+
+export function frasesDaInspecao(ponto: Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'tipoDano' | 'providencias' | 'lavrados'>, car?: 'encontrado' | 'vazio'): string[] {
+  const lavrados = frasesDosLavrados(ponto);
+  const grupos = frasesDosGrupos(ponto, car);
+  return lavrados ? [...grupos, lavrados] : grupos;
+}
+
+function frasesDosGrupos(ponto: Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'tipoDano'>, car?: 'encontrado' | 'vazio'): string[] {
   const previa: Caracterizacao = ponto.conferenciaPrevia ?? {};
   const campo: Caracterizacao = ponto.inspecao ?? {};
   if (![...Object.values(previa), ...Object.values(campo)].some(respondido)) return [INSPECAO_NAO_PREENCHIDA];

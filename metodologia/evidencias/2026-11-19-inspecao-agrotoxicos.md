@@ -2,7 +2,7 @@
 
 | Item | Resultado |
 |---|---|
-| `npm test` (Vitest) | PASSOU: 805 testes |
+| `npm test` (Vitest) | PASSOU: 807 testes |
 | `tsc --noEmit` | PASSOU |
 | `npm run build` | PASSOU |
 | POP existente após a extensão do motor | PASSOU (745 testes antigos sem alteração) |
@@ -10,4 +10,4 @@
 | Texto do relatório de 3 pontos fictícios | GERADO; redação em revisão (`documentacao/exemplos/relatorios-inspecao-exemplo.md`) |
 | Telas no navegador, cliques reais | NÃO TESTADO |
 | Importação de `operacao-alertas-setembro-2026.csv` | NÃO TESTADO (arquivo não enviado) |
-| Referência legal conferida na fonte oficial | NÃO TESTADO |
+| Nenhum texto gerado (relatório, roteiro, providências) cita lei, artigo, decreto ou valor | PASSOU (teste automatizado) |

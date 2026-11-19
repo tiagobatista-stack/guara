@@ -8,9 +8,8 @@ import { divergencias, itensAplicaveis, itensDeCampoSemResposta, marcadas, respo
 import { ITENS_INSPECAO, MAX_EMBARGOS, inspecaoAtiva, inspecaoVazia, SECOES_INSPECAO, sugestoesInspecao } from './inspecao-agrotoxicos.ts';
 import { Item } from './CaracterizacaoDoPonto.tsx';
 import { providenciasSugeridas, type EstadoProvidencia } from './providencias.ts';
-import { REFERENCIA_LEGAL } from './referencia-legal.ts';
 
-type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel' | 'providencias'>>;
+type Mudancas = Partial<Pick<Ponto, 'inspecao' | 'conferenciaPrevia' | 'inspecaoAtiva' | 'imovel' | 'providencias' | 'lavrados'>>;
 const valorTexto = (r: Resposta | undefined) => marcadas(r).join('; ');
 
 export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
@@ -44,7 +43,7 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
 
   const remover = () => {
     if (!inspecaoVazia(ponto) && !confirmaRemocao) return setConfirmaRemocao(true);
-    aoMudar({ inspecaoAtiva: undefined, inspecao: {}, conferenciaPrevia: {}, providencias: undefined });
+    aoMudar({ inspecaoAtiva: undefined, inspecao: {}, conferenciaPrevia: {}, providencias: undefined, lavrados: undefined });
   };
 
   return (
@@ -108,26 +107,34 @@ export function InspecaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotu
             </div>
           );
         })}
-        {aba === 'campo' && sugeridas.length > 0 && (
+        {aba === 'campo' && (
           <div data-testid="providencias">
-            <h4 className="titulo-secao titulo-secao--bloco">Providências sugeridas</h4>
-            <p className="texto-pequeno texto-suave">Sugestão a partir das respostas. O sistema não lavra nada nem calcula multa; a decisão é sua.</p>
-            <ul className="lista-limpa">
-              {sugeridas.map((pv) => {
-                const norma = REFERENCIA_LEGAL.find((n) => n.id === pv.norma);
-                const estado = ponto.providencias?.[pv.id];
-                return (
-                  <li key={pv.id} data-testid={`providencia-${pv.id}`}>
-                    <p><strong>{pv.tipo}{pv.prazo ? ` (prazo de ${pv.prazo})` : ''}:</strong> “{pv.descricao}”</p>
-                    <p className="texto-pequeno texto-suave">{pv.motivo}.{norma ? ` Referência: ${norma.norma}, ${norma.artigo}.` : ''}{norma?.multa ? ` Multa prevista, só como referência: ${norma.multa.map((m) => `${m.valor} (${m.quando})`).join('; ')}.` : ''}</p>
-                    <div className="acoes" role="group" aria-label={`Marcar ${pv.tipo.toLowerCase()}`}>
-                      <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'feito'} onClick={() => marcar(pv.id, 'feito')}>Feito</button>
-                      <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'nao-aplicavel'} onClick={() => marcar(pv.id, 'nao-aplicavel')}>Não aplicável</button>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
+            <h4 className="titulo-secao titulo-secao--bloco">Providências e documentos lavrados</h4>
+            {sugeridas.length > 0 && (
+              <>
+                <p className="texto-pequeno texto-suave">Lembretes de procedimento a partir das respostas; a decisão é sua. Enquadramento e multa ficam no SIGA Autuação.</p>
+                <ul className="lista-limpa">
+                  {sugeridas.map((pv) => {
+                    const estado = ponto.providencias?.[pv.id];
+                    return (
+                      <li key={pv.id} data-testid={`providencia-${pv.id}`}>
+                        <p>{pv.texto}</p>
+                        <p className="texto-pequeno texto-suave">{pv.motivo}.</p>
+                        <div className="acoes" role="group" aria-label={`Marcar: ${pv.texto}`}>
+                          <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'feito'} onClick={() => marcar(pv.id, 'feito')}>Feito</button>
+                          <button type="button" className="botao botao--pequeno" aria-pressed={estado === 'nao-aplicavel'} onClick={() => marcar(pv.id, 'nao-aplicavel')}>Não aplicável</button>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </>
+            )}
+            {([['notificacao', 'Notificação lavrada: n.º'], ['auto', 'Auto de infração lavrado: n.º']] as const).map(([k, rotulo]) => (
+              <label className="campo-grupo" key={`${k}|${ponto.lavrados?.[k] ?? ''}`}><span>{rotulo}</span>
+                <input className="campo" defaultValue={ponto.lavrados?.[k] ?? ''} maxLength={100} autoComplete="off"
+                  onBlur={(e) => { if (e.target.value.trim() !== (ponto.lavrados?.[k] ?? '')) aoMudar({ lavrados: { ...ponto.lavrados, [k]: e.target.value.trim() } }); }} /></label>
+            ))}
           </div>
         )}
         {ponto.inspecaoAtiva && !inspecaoAtiva({ tipoDano: ponto.tipoDano }) ? (

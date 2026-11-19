@@ -6,7 +6,7 @@ import { bloqueioValido, dataValida } from '../demandas/regras.ts';
 import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
 import { caracterizacaoValida } from './pop-supressao.ts';
 import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
-import { providenciasValidas } from './providencias.ts';
+import { lavradosValidos, providenciasValidas } from './providencias.ts';
 import { geoValido } from './sugestao-vegetacao.ts';
 import {
   BASES_CONSULTA, ESTADOS_CONSULTA, LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, ORIGENS_ALERTA, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_CAR, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
@@ -104,6 +104,7 @@ const VALIDADORES_DIGITADOS: Record<string, (v: unknown) => boolean> = {
   inspecao: (v) => caracterizacaoValida(v, ITENS_INSPECAO),
   conferenciaPrevia: (v) => caracterizacaoValida(v, ITENS_INSPECAO),
   providencias: (v) => providenciasValidas(v),
+  lavrados: (v) => lavradosValidos(v),
   anotacoes: (v) => anotacoesValidas(v),
   bloqueio: (v) => bloqueioValido(v),
   relatorio: relatorioValido,
@@ -228,6 +229,7 @@ function pontoValido(x: unknown): boolean {
     (p.inspecao === undefined || caracterizacaoValida(p.inspecao, ITENS_INSPECAO)) &&
     (p.conferenciaPrevia === undefined || caracterizacaoValida(p.conferenciaPrevia, ITENS_INSPECAO)) &&
     (p.providencias === undefined || providenciasValidas(p.providencias)) &&
+    (p.lavrados === undefined || lavradosValidos(p.lavrados)) &&
     (p.inspecaoAtiva === undefined || typeof p.inspecaoAtiva === 'boolean') &&
     (p.quarentena === undefined || registro(p.quarentena)) &&
     (p.geo === undefined || geoValido(p.geo)) &&

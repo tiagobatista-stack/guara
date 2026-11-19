@@ -337,3 +337,10 @@ export const APLICACAO = {
   meteorologia: 'No momento da aplicação, as condições meteorológicas eram: {lista}.',
   vento: 'vento {v}', temperatura: 'temperatura de {v} °C', umidade: 'umidade de {v}%',
 };
+
+/** Documentos lavrados no ponto (só o número; sem enquadramento, que fica no SIGA Autuação). {numero} = número registrado. */
+export const LAVRADOS = {
+  notificacao: 'Foi lavrada a Notificação n.º {numero}.',
+  auto: 'Foi lavrado o Auto de Infração n.º {numero}.',
+  pendente: '[PENDENTE: n.º do documento lavrado]',
+};

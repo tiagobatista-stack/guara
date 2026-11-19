@@ -4,8 +4,7 @@ import { fireEvent, render, screen, within } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Operacoes } from './Operacoes.tsx';
 import { alterarPonto, criarOperacao, incluirPontos, obterOperacoes } from './armazem.ts';
-import { providenciasSugeridas, providenciasValidas } from './providencias.ts';
-import { REFERENCIA_LEGAL } from './referencia-legal.ts';
+import { lavradosValidos, providenciasSugeridas, providenciasValidas } from './providencias.ts';
 import { validarListaOperacoes } from './regras.ts';
 
 beforeEach(() => localStorage.clear());
@@ -23,32 +22,32 @@ function montar(extra: object = {}) {
   return { op: r.id, p, b: screen.getByTestId(`inspecao-${p.id}`) };
 }
 
-describe('regra do CTF', () => {
-  it('CTF = Não: notificação de 24 h e auto de infração, com o texto do questionário', () => {
-    const s = providenciasSugeridas({ conferenciaPrevia: { 'C-2.2': 'Não' } });
-    expect(s.map((x) => x.id)).toEqual(['ctf-notificacao', 'ctf-auto']);
-    expect(s[0]).toMatchObject({ tipo: 'Notificação', prazo: '24 horas', descricao: 'Apresentar Certificado de Regularidade do Cadastro Técnico Federal, de que trata o art. 17 da Lei nº 6.938/1981.' });
-    expect(s[1]).toMatchObject({ tipo: 'Auto de infração', norma: 'decreto-6514-art-76', descricao: 'Deixar de se inscrever no Cadastro Técnico Federal de que trata o art. 17 da Lei nº 6.938/1981 – atividade código ___.' });
+describe('regra do CTF (lembretes de procedimento, sem base legal)', () => {
+  it('inscrito sem certificado atualizado: notificar (24 h), antes da autuação', () => {
+    const s = providenciasSugeridas({ conferenciaPrevia: { 'C-2.2': 'Sim', 'C-2.2.3': 'Não' } });
+    expect(s.map((x) => x.id)).toEqual(['ctf-notificacao']);
+    expect(s[0].texto).toBe('Notificar para apresentação do certificado de regularidade do CTF (prazo 24 h), antes da autuação.');
   });
 
-  it('inscrito mas sem certificado atualizado: só a notificação; inscrito e regular: nada; campo prevalece sobre a prévia', () => {
-    expect(providenciasSugeridas({ conferenciaPrevia: { 'C-2.2': 'Sim', 'C-2.2.3': 'Não' } }).map((x) => x.id)).toEqual(['ctf-notificacao']);
+  it('sem inscrição no CTF: avaliar autuação no SIGA Autuação; inscrito e regular ou sem resposta: nada; campo prevalece sobre a prévia', () => {
+    expect(providenciasSugeridas({ conferenciaPrevia: { 'C-2.2': 'Não' } }).map((x) => x.texto)).toEqual(['Avaliar autuação no SIGA Autuação.']);
     expect(providenciasSugeridas({ conferenciaPrevia: { 'C-2.2': 'Sim', 'C-2.2.3': 'Sim' } })).toEqual([]);
     expect(providenciasSugeridas({})).toEqual([]);
     expect(providenciasSugeridas({ conferenciaPrevia: { 'C-2.2': 'Não' }, inspecao: { 'C-2.2': 'Sim' } })).toEqual([]);
   });
 
-  it('a referência legal traz norma, artigo, texto, link e faixa de multa; sem data de conferência, a conferência não foi feita', () => {
-    const art76 = REFERENCIA_LEGAL.find((n) => n.id === 'decreto-6514-art-76')!;
-    expect(art76).toMatchObject({ norma: 'Decreto nº 6.514/2008', artigo: 'art. 76' });
-    expect(art76.multa!.map((m) => m.valor)).toEqual(['R$ 50,00', 'R$ 150,00', 'R$ 900,00', 'R$ 1.800,00', 'R$ 9.000,00']);
-    for (const n of REFERENCIA_LEGAL) { expect(n.link).toMatch(/^https:\/\//); expect(n.conferidaEm).toBeUndefined(); }
+  it('nenhuma providência cita norma, artigo ou valor', () => {
+    for (const c of [{ 'C-2.2': 'Não' }, { 'C-2.2': 'Sim', 'C-2.2.3': 'Não' }] as Record<string, string>[]) {
+      for (const pv of providenciasSugeridas({ conferenciaPrevia: c })) expect(JSON.stringify(pv)).not.toMatch(/R\$|art\.|Decreto|Lei n/);
+    }
   });
 
-  it('validação: só ids conhecidos e estados feito / nao-aplicavel', () => {
+  it('validação: só ids conhecidos e estados feito / nao-aplicavel; lavrados só notificacao e auto', () => {
     expect(providenciasValidas({ 'ctf-auto': 'feito', 'ctf-notificacao': 'nao-aplicavel' })).toBe(true);
     expect(providenciasValidas({ 'ctf-auto': 'talvez' })).toBe(false);
     expect(providenciasValidas({ outra: 'feito' })).toBe(false);
+    expect(lavradosValidos({ notificacao: '1', auto: '2' })).toBe(true);
+    expect(lavradosValidos({ multa: '1' })).toBe(false);
   });
 });
 
@@ -58,9 +57,9 @@ describe('tela', () => {
     alterarPonto(op, p.id, { conferenciaPrevia: { 'C-2.2': 'Não' } });
     fireEvent.click(within(b).getByRole('button', { name: 'Em campo' }));
     const prov = within(b).getByTestId('providencias');
-    expect(prov).toHaveTextContent('Notificação (prazo de 24 horas)');
-    expect(prov).toHaveTextContent('Multa prevista, só como referência: R$ 50,00 (pessoa física)');
-    expect(prov).toHaveTextContent('O sistema não lavra nada nem calcula multa');
+    expect(prov).toHaveTextContent('Avaliar autuação no SIGA Autuação.');
+    expect(prov).toHaveTextContent('Enquadramento e multa ficam no SIGA Autuação');
+    expect(prov.textContent).not.toMatch(/R\$|art\.|Decreto|Lei n/);
     const auto = within(b).getByTestId('providencia-ctf-auto');
     fireEvent.click(within(auto).getByRole('button', { name: 'Feito' }));
     expect(obterOperacoes()[0].pontos[0].providencias).toEqual({ 'ctf-auto': 'feito' });
@@ -71,10 +70,29 @@ describe('tela', () => {
     expect(validarListaOperacoes(JSON.parse(JSON.stringify(obterOperacoes())))).toHaveLength(1);
   });
 
+  it('números da notificação e do auto lavrados gravam no ponto; vazio apaga', () => {
+    const { b } = montar();
+    fireEvent.click(within(b).getByRole('button', { name: 'Em campo' }));
+    const notif = within(b).getByLabelText('Notificação lavrada: n.º');
+    fireEvent.change(notif, { target: { value: '123/2026' } });
+    fireEvent.blur(notif);
+    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ notificacao: '123/2026' });
+    const auto = within(b).getByLabelText('Auto de infração lavrado: n.º');
+    fireEvent.change(auto, { target: { value: '77' } });
+    fireEvent.blur(auto);
+    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ notificacao: '123/2026', auto: '77' });
+    const notif2 = within(b).getByLabelText('Notificação lavrada: n.º'); // o campo é recriado após gravar
+    fireEvent.change(notif2, { target: { value: '' } });
+    fireEvent.blur(notif2);
+    expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ auto: '77' });
+    expect(validarListaOperacoes(JSON.parse(JSON.stringify(obterOperacoes())))).toHaveLength(1);
+  });
+
   it('sem CTF = Não não há providências', () => {
     const { b } = montar();
     fireEvent.click(within(b).getByRole('button', { name: 'Em campo' }));
-    expect(within(b).queryByTestId('providencias')).toBeNull();
+    expect(within(b).queryByTestId('providencia-ctf-auto')).toBeNull();
+    expect(within(b).queryByTestId('providencia-ctf-notificacao')).toBeNull();
   });
 
   it('fonte da conferência: lista fechada, "Outra" abre o texto; só na fase prévia e só depois de responder', () => {

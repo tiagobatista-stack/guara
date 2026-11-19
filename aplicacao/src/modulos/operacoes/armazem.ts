@@ -6,7 +6,7 @@ import { dataValida } from '../demandas/regras.ts';
 import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
 import { caracterizacaoValida } from './pop-supressao.ts';
 import { ITENS_INSPECAO } from './inspecao-agrotoxicos.ts';
-import { providenciasValidas } from './providencias.ts';
+import { lavradosValidos, providenciasValidas } from './providencias.ts';
 import { consultarSugestao, lerAuthkey, type SugestaoGeo } from './sugestao-vegetacao.ts';
 import { consultarBases, preservarRegistro } from './consulta-bases.ts';
 import { guardarEmQuarentena } from './quarentena.ts';
@@ -415,6 +415,8 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   }
   if (novo.providencias !== undefined && !providenciasValidas(novo.providencias)) return 'Providência inválida.';
   if (novo.providencias && Object.keys(novo.providencias).length === 0) delete novo.providencias;
+  if (novo.lavrados !== undefined && !lavradosValidos(novo.lavrados)) return 'Número de documento lavrado inválido.';
+  if (novo.lavrados) { for (const k of ['notificacao', 'auto'] as const) if (novo.lavrados[k] !== undefined && novo.lavrados[k]!.trim() === '') delete novo.lavrados[k]; if (Object.keys(novo.lavrados).length === 0) delete novo.lavrados; }
   if (novo.consultas !== undefined && !consultasValidas(novo.consultas)) return 'Registro de consulta inválido.';
   if (novo.consultas && Object.keys(novo.consultas).length === 0) delete novo.consultas;
   if (novo.drone && !novo.drone.voou && !novo.drone.arquivo) delete novo.drone;

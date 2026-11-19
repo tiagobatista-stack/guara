@@ -80,7 +80,7 @@ const BASE: readonly ItemPop[] = [
   sn('C-2.2', 'A propriedade/empreendimento está registrada(o) no Cadastro Técnico Federal (CTF)?', 'previa'),
   tx('C-2.2.1', 'Número de inscrição no CTF', 'previa', { se: 'C-2.2' }),
   tx('C-2.2.2', 'Código(s) da(s) atividade(s) registrada(s) no CTF', 'previa', {
-    se: 'C-2.2', nota: 'Exemplos: 21-32 operação de aeródromo; 21-47 aplicação de agrotóxicos; 7-1 serraria e desdobramento de madeira; 1-1 pesquisa mineral com guia de utilização; 1-4 lavra garimpeira; 20-60 silvicultura (Lei 12.651/2012, art. 35, §§ 1º e 3º, espécies nativas); 20-61 silvicultura (art. 35, § 1º, espécies exóticas).',
+    se: 'C-2.2', nota: 'Exemplos: 21-32 operação de aeródromo; 21-47 aplicação de agrotóxicos; 7-1 serraria e desdobramento de madeira; 1-1 pesquisa mineral com guia de utilização; 1-4 lavra garimpeira; 20-60 silvicultura, espécies nativas; 20-61 silvicultura, espécies exóticas.',
   }),
   sn('C-2.2.3', 'Possui Certificado de Regularidade do CTF atualizado?', 'previa', { se: 'C-2.2' }),
   sn('C-2.3', 'Possui Licença Ambiental para operação da atividade (agropecuária, mineral, incluindo atividade aeroagrícola e aeródromo, pulverização de agrotóxicos, se aplicável)?', 'previa'),
