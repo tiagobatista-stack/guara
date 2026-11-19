@@ -88,6 +88,7 @@ describe('tela', () => {
     fireEvent.change(within(form).getByLabelText('Termo(s) de embargo: n.º'), { target: { value: '5' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar resultado' }));
     expect(obterOperacoes()[0].pontos[0].lavrados).toEqual({ auto: ['77', '78/2026'], embargo: ['5'] });
+    expect(screen.getByTestId(`lavrados-${obterOperacoes()[0].pontos[0].id}`)).toHaveTextContent('Auto de infração: 77, 78/2026 · Termo de embargo: 5');
     expect(validarListaOperacoes(JSON.parse(JSON.stringify(obterOperacoes())))).toHaveLength(1);
     fireEvent.click(screen.getByRole('button', { name: 'Editar resultado do Ponto 1' }));
     const f2 = screen.getByRole('form', { name: 'Resultado do Ponto 1' });

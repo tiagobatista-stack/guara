@@ -802,6 +802,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         {ponto.resultado && (
           <><dt>Resultado</dt><dd data-testid={`resultado-${ponto.id}`}>{RESULTADOS[ponto.resultado]}{ponto.motivo && <> · {ponto.motivo}</>}</dd></>
         )}
+        {ponto.lavrados && (
+          <><dt>Documentos lavrados</dt><dd data-testid={`lavrados-${ponto.id}`}>{ROTULOS_LAVRADOS.filter(([k]) => ponto.lavrados?.[k]).map(([k, r]) => `${r.replace(/\(.*?\)/, '').replace(': n.º', '')}: ${ponto.lavrados![k]!.join(', ')}`).join(' · ')}</dd></>
+        )}
         {ponto.bloqueio && (
           <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${ponto.id}`}>
             {(textoBloqueio(ponto, new Date(`${hoje}T12:00:00`), {}, 'travado') ?? '').replace('⛔ ', '')}
