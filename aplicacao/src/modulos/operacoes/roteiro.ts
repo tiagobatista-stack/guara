@@ -49,18 +49,23 @@ function versoPop(p: Ponto, rotuloPonto: string): string {
 
 
 // ---------- Inspeção de agrotóxicos (depois do POP) ----------
-// Formato FIXO de 2 páginas (A4, 2 colunas, 7,5 pt), sem estimar tamanho: seções 1 a 3 na primeira página e 4 a 7 na segunda. Cada item é uma linha
-// compacta ("id texto ☐ opção ☐ opção"); a pergunta condicional vem como linha própria marcada "se aplicável: se C-x = Sim". A conferência prévia
-// entra como um parágrafo corrido. O bloco do ponto fecha sempre com 4 páginas (ficha + POP + 2, ou ficha + 2 + anotações), então fica par.
+// Formato FIXO de 2 páginas (A4), sem estimar tamanho: seções 1 a 3 na primeira e 4 a 7 na segunda. Tabela compacta (fonte mínima de 8 pt):
+// pergunta | Sim | Não | N.A. | nº / obs. Pergunta condicional = linha marcada "(se aplicável: C-x = Sim)". Perguntas de texto, número e data usam a
+// coluna de respostas inteira; as de escolha listam as opções sob a pergunta. A conferência prévia entra como um parágrafo corrido.
+// O bloco do ponto fecha sempre com 4 páginas (ficha + POP + 2, ou ficha + 2 + anotações), então fica par.
 const MAX_EMBARGOS_IMPRESSOS = 3;
-const SECOES_PAGINA_1 = 3;
+/** Itens de campo na primeira página; o resto vai na segunda. Fixo (medido no PDF do Edge), não estimado: mudou o questionário, confira as 2 páginas. */
+const ITENS_NA_PAGINA_1 = 50;
 export const PAGINAS_INSPECAO = 2;
 
 function itemInspecao(it: ItemPop): string {
-  const cond = it.se ? ` <i class="sa">(se aplicável: se ${esc(it.se.item)} = ${esc(it.se.vale.join(' ou '))})</i>` : '';
-  const resposta = !it.opcoes ? linha(it.tipo === 'texto' ? 40 : 18) : caixas(...it.opcoes.map((o) => o.texto));
+  const cond = it.se ? ` <i class="sa">(se aplicável: ${esc(it.se.item)} = ${esc(it.se.vale.join(' ou '))})</i>` : '';
   const multi = it.tipo === 'multipla' ? ' <i>(mais de um)</i>' : it.tipo === 'data' ? ' <i>(dd/mm/aaaa)</i>' : '';
-  return `<div class="it${it.se ? ' it--se' : ''}"><b>${esc(it.id)}</b> ${esc(it.texto)}${multi}${cond} ${resposta}</div>`;
+  const pergunta = `<b>${esc(it.id)}</b> ${esc(it.texto)}${multi}${cond}`;
+  const classe = it.se ? ' class="se"' : '';
+  if (it.tipo === 'simnao') return `<tr${classe}><td>${pergunta}</td><td class="c">${CAIXA}</td><td class="c">${CAIXA}</td><td class="c">${CAIXA}</td><td></td></tr>`;
+  if (it.opcoes) return `<tr${classe}><td>${pergunta}<br>${it.opcoes.map((o) => `${CAIXA} ${esc(o.texto)}`).join(' &nbsp; ')}</td><td colspan="4"></td></tr>`;
+  return `<tr${classe}><td>${pergunta}</td><td colspan="4"></td></tr>`;
 }
 
 const camposDaInspecao = () => ITENS_INSPECAO.filter((it) => it.fase === 'campo' && !(/^C-2\.13\.(\d+)\./.test(it.id) && Number(/^C-2\.13\.(\d+)\./.exec(it.id)![1]) > MAX_EMBARGOS_IMPRESSOS));
@@ -80,14 +85,19 @@ function resumoDaPrevia(p: Ponto): string {
 function paginasInspecao(p: Ponto, rotuloPonto: string): string[] {
   const paginas: string[][] = [[], []];
   let secao = 0;
-  for (const it of camposDaInspecao()) {
-    const pg = it.secao! <= SECOES_PAGINA_1 ? 0 : 1;
-    if (it.secao !== secao) { secao = it.secao!; paginas[pg].push(`<h3>${secao}. ${esc(SECOES_INSPECAO[secao])}${secao === 6 || it.se?.item === 'C-5.2' ? ' <i>(aplicação aérea)</i>' : ''}</h3>`); }
+  camposDaInspecao().forEach((it, i) => {
+    const pg = i < ITENS_NA_PAGINA_1 ? 0 : 1;
+    if (it.secao !== secao || i === ITENS_NA_PAGINA_1) {
+      const continua = it.secao === secao;
+      secao = it.secao!;
+      paginas[pg].push(`<tr class="sec"><th colspan="5">${secao}. ${esc(SECOES_INSPECAO[secao])}${continua ? ' (continuação)' : ''}${secao === 6 || it.se?.item === 'C-5.2' ? ' (aplicação aérea)' : ''}</th></tr>`);
+    }
     paginas[pg].push(itemInspecao(it));
-  }
-  paginas[1].push(`<h3>Observações da inspeção</h3>${'<p class="obs"><span class="ln"></span></p>'.repeat(4)}`);
-  return paginas.map((itens, i) => `<article class="folha folha--pop folha--insp"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Inspeção de agrotóxicos, em campo (${i + 1}/${PAGINAS_INSPECAO})</p></header>
-${i === 0 ? `<p class="peq">Marque em campo e transcreva depois no ponto do GUARÁ. Não anote nome, CPF/CNPJ, telefone, e-mail nem endereço de pessoas. Linhas "se aplicável": só se a condição indicada valer.</p>${resumoDaPrevia(p)}` : ''}<div class="col">${itens.join('')}</div></article>`);
+  });
+  paginas[1].push(`<tr class="sec"><th colspan="5">Observações da inspeção</th></tr>${'<tr class="obs"><td colspan="5"></td></tr>'.repeat(3)}`);
+  const cabecalho = '<thead><tr><th>Pergunta</th><th class="c">Sim</th><th class="c">Não</th><th class="c">N.A.</th><th>nº / obs.</th></tr></thead>';
+  return paginas.map((linhas, i) => `<article class="folha folha--pop folha--insp"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Inspeção de agrotóxicos, em campo (${i + 1}/${PAGINAS_INSPECAO})</p></header>
+${i === 0 ? `<p class="peq">Marque em campo e transcreva depois no ponto do GUARÁ. Não anote nome, CPF/CNPJ, telefone, e-mail nem endereço de pessoas.</p>${resumoDaPrevia(p)}` : ''}<table class="tab-insp"><colgroup><col class="q"><col class="r"><col class="r"><col class="r"><col class="o"></colgroup>${cabecalho}<tbody>${linhas.join('')}</tbody></table></article>`);
 }
 
 /** O ponto tem bloco após a ficha (POP e/ou inspeção)? Então ele começa em página ímpar e fecha par. */
@@ -147,7 +157,7 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:2p
 .topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}.topo-texto{flex:1;min-width:0}.topo-texto .cab{margin-bottom:2px}
 .qr{width:22mm;text-align:center;font-size:7pt;line-height:1.1}.qr svg{display:block;width:22mm;height:22mm}.qr p{margin:1px 0 0}
 .ass{display:flex;justify-content:space-between;margin-top:12px}
-.resumo p{margin:0 0 1px}.folha--pop{page:pop;break-after:page;page-break-after:always}.col{column-count:2;column-gap:10px;font-size:8pt;line-height:1.15}.folha--insp .col{font-size:7.5pt;line-height:1.12}.folha--insp .resumo{font-size:7.5pt;margin:0 0 3px}.it{break-inside:avoid;margin-bottom:2px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .it{margin-bottom:1px}.col .it--se{padding-left:6px;border-left:2px solid #000}.sa{font-weight:600}.col h3{font-size:8.5pt;margin:3px 0 1px;break-after:avoid}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
+.resumo p{margin:0 0 1px}.folha--pop{page:pop;break-after:page;page-break-after:always}.col{column-count:2;column-gap:10px;font-size:8pt;line-height:1.15}@page insp{margin:5mm 7mm}.folha--insp{page:insp}.folha--insp .peq{font-size:8pt;margin:1px 0}.folha--insp .resumo{font-size:8pt;line-height:1.1;margin:1px 0 2px}.folha--insp .cab{margin-bottom:2px}.tab-insp{table-layout:fixed;border-collapse:collapse;width:100%;font-size:8pt;line-height:1}.tab-insp th,.tab-insp td{border:1px solid #000;padding:0 2px;font-size:8pt;vertical-align:top;overflow-wrap:anywhere}.tab-insp col.q{width:66%}.tab-insp col.r{width:5.5%}.tab-insp col.o{width:17.3%}.tab-insp tr{break-inside:avoid}.tab-insp .c{text-align:center}.tab-insp .sec th{background:#ddd;text-align:left}.tab-insp tr.se td:first-child{padding-left:8px}.tab-insp tr.obs td{height:3.4mm}.tab-insp .cx{vertical-align:-1px}.it{break-inside:avoid;margin-bottom:2px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .it{margin-bottom:1px}.sa{font-weight:600}.col h3{font-size:8.5pt;margin:3px 0 1px;break-after:avoid}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
 .barra{margin:0 0 8px}@media screen{body{max-width:190mm;margin:0 auto}}@media print{.barra{display:none}body{padding:0}}`;
 
 /** Página completa do roteiro. `geradoEm` é AAAA-MM-DD. */

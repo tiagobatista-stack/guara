@@ -55,10 +55,23 @@ it('só os itens de campo vão para o papel; a prévia entra como resumo, sem da
   assert.match(html, /C-2\.2 [^<]*CTF[^<]*: <b>Não<\/b> \(SIGA\)/);
   assert.match(html, /<b>C-4\.1<\/b>/); // campo
   assert.doesNotMatch(html, /<b>C-2\.2<\/b>/); // prévia: só no resumo
-  assert.match(html, /<b>C-6\.1<\/b>[\s\S]*se aplicável: se C-5\.2 = Sim/);
+  assert.match(html, /<b>C-6\.1<\/b>[\s\S]*se aplicável: C-5\.2 = Sim/);
   assert.match(html, /EPI da equipe/);
   assert.match(html, /Material de coleta de amostra/);
   assert.match(html, /Lacres/);
   assert.match(html, /Termo de apreensão\/depósito/);
   assert.doesNotMatch(gerar([ponto(1, 'Cerca')]), /EPI da equipe/);
+});
+
+it('inspeção impressa: tabela pergunta | Sim | Não | N.A. | nº/obs., 2 páginas fixas, todos os itens de campo uma vez, fonte mínima de 8 pt', () => {
+  const html = gerar([ponto(1, 'Aplicação irregular de agrotóxico')]);
+  const paginas = html.split('class="folha folha--pop folha--insp"').slice(1);
+  assert.equal(paginas.length, 2);
+  for (const pg of paginas) assert.match(pg, /<th>Pergunta<\/th><th class="c">Sim<\/th><th class="c">Não<\/th><th class="c">N\.A\.<\/th><th>nº \/ obs\.<\/th>/);
+  const ids = [...html.matchAll(/<tr(?: class="se")?><td><b>(C-[\d.]+)<\/b>/g)].map((m) => m[1]);
+  assert.equal(new Set(ids).size, ids.length); // nenhum item repetido
+  assert.ok(ids.includes('C-4.1') && ids.includes('C-7.5') && ids.length === 107, `${ids.length} itens`);
+  assert.doesNotMatch(html, /C-2\.13\.4\.1/); // só 3 pares de embargo no papel
+  const css = html.match(/\.tab-insp\{.*/)![0];
+  for (const m of css.matchAll(/font-size:([\d.]+)pt/g)) assert.ok(Number(m[1]) >= 8, `fonte ${m[1]} pt`);
 });
