@@ -2,6 +2,7 @@
 // A escolha é visual: não muda permissões, dados nem capacidades do sistema.
 
 import { useState } from 'react';
+import { definirAuthkey, lerAuthkey } from '../operacoes/sugestao-vegetacao.ts';
 import { Mascote, MASCOTES, type EspecieMascote } from '../../compartilhado/Mascote.tsx';
 import {
   escolherPrincipal,
@@ -32,6 +33,26 @@ function CampoNome({ especie, inicial }: { especie: EspecieMascote; inicial: str
         autoComplete="off"
       />
     </label>
+  );
+}
+
+// Chave do GeoServer da SEMA-MT: só neste navegador, mascarada na tela, nunca em log nem em backup.
+function CampoChaveGeo() {
+  const [chave, setChave] = useState(lerAuthkey() ?? '');
+  const [erro, setErro] = useState<string | null>(null);
+  return (
+    <section aria-labelledby="titulo-geo" className="cartao">
+      <h2 id="titulo-geo"><strong>Bioma e vegetação (SEMA-MT)</strong></h2>
+      <p className="texto-suave texto-medio">
+        Com a chave do GeoServer da SEMA-MT, o GUARÁ sugere bioma e vegetação de cada ponto novo (a coordenada do ponto é enviada à SEMA-MT).
+        A chave fica só neste navegador. Sem ela, nada é consultado.
+      </p>
+      <label className="campo-grupo">
+        <span>Chave de acesso (authkey)</span>
+        <input className="campo" type="password" value={chave} autoComplete="off" onChange={(e) => { setChave(e.target.value); setErro(definirAuthkey(e.target.value)); }} />
+      </label>
+      {erro && <p role="alert" className="aviso">{erro}</p>}
+    </section>
   );
 }
 
@@ -90,6 +111,8 @@ export function Configuracoes() {
           Sem nome, o mascote usa o nome da espécie. As mudanças são gravadas na hora (até {TAMANHO_MAXIMO_NOME} caracteres por nome).
         </p>
       </section>
+
+      <CampoChaveGeo />
     </section>
   );
 }

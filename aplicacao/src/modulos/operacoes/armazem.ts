@@ -5,15 +5,94 @@ import { criarListaLocal, novoId } from '../atalhos/lista-local.ts';
 import { dataValida } from '../demandas/regras.ts';
 import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
 import { caracterizacaoValida } from './pop-supressao.ts';
+import { consultarSugestao, lerAuthkey, type SugestaoGeo } from './sugestao-vegetacao.ts';
+import { consultarBases, preservarRegistro } from './consulta-bases.ts';
+import { CONSULTAS } from './relatorio-frases.ts';
 import { anotacoesValidas, comAnotacoes, type Anotacao } from '../../compartilhado/anotacoes.ts';
 import type { MotivoBloqueio } from '../demandas/modelo.ts';
 import {
-  CHAVE_OPERACOES, LIMITES_OPERACAO, RESULTADOS_COM_MOTIVO,
-  type EventoOperacao, type MotivoPeriodo, type Operacao, type Ponto, type PontoNovo, type ResultadoPonto, type Viagem,
+  BASES_CONSULTA, CHAVE_OPERACOES, LIMITES_OPERACAO, RESULTADOS_COM_MOTIVO,
+  type EventoOperacao, type MotivoPeriodo, type Operacao, type OrigemAlerta, type Ponto, type PontoNovo, type ResultadoPonto, type Viagem,
 } from './modelo.ts';
-import { codigosEmUso, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, periodoDosPontos, problemasDeDatas, situacaoDoPonto, type PrazosDeElaboracao, validarListaOperacoes, type Periodo } from './regras.ts';
+import { codigosEmUso, consultasValidas, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, periodoDosPontos, problemasDeDatas, situacaoDoPonto, type PrazosDeElaboracao, validarListaOperacoes, type Periodo } from './regras.ts';
 
 const lista = criarListaLocal<Operacao>(CHAVE_OPERACOES, () => [], validarListaOperacoes);
+
+/**
+ * Ponto único de gravação: carimba a operação comparando antes e depois.
+ * Viagens mudaram → cronogramaAtualizadoEm (vale também se os pontos mudaram junto); só a estrutura dos pontos
+ * (criar, excluir, trocar de viagem, reprogramar) → operacaoAlteradaEm. Status e resultado do ponto não carimbam.
+ */
+function carimbar(antes: Operacao | undefined, o: Operacao): Operacao {
+  if (!antes || antes === o) return o; // mesma referência: nada mudou nesta operação
+  const agora = new Date().toISOString();
+  if (JSON.stringify(antes.viagens) !== JSON.stringify(o.viagens)) return { ...o, cronogramaAtualizadoEm: agora };
+  const estrutura = (x: Operacao) => JSON.stringify(x.pontos.map((p) => [p.id, p.viagem ?? null, p.reprogramado ?? null]));
+  return estrutura(antes) !== estrutura(o) ? { ...o, operacaoAlteradaEm: agora } : o;
+}
+
+function gravar(novas: Operacao[]) {
+  const antes = new Map(lista.obter().map((o) => [o.id, o]));
+  lista.gravar(novas.map((o) => carimbar(antes.get(o.id), o)));
+}
+
+/** Grava a sugestão no ponto lendo o estado atual (a consulta é assíncrona: a operação pode ter mudado). */
+function gravarGeo(operacaoId: string, pontoId: string, geo: SugestaoGeo): void {
+  gravar(obterOperacoes().map((o) => (o.id === operacaoId ? { ...o, pontos: o.pontos.map((p) => (p.id === pontoId ? { ...p, geo } : p)) } : o)));
+}
+
+/**
+ * Consulta bioma e vegetação dos pontos indicados (sem `pontoIds`: os que nunca foram consultados) e grava em cada um.
+ * Sem chave nada acontece (devolve o motivo); falha de rede vira `erro` no ponto e não bloqueia nada. Em lotes de 4.
+ */
+export async function consultarPontos(operacaoId: string, pontoIds?: readonly string[]): Promise<string | null> {
+  const chave = lerAuthkey();
+  if (!chave) return 'Informe a chave do GeoServer da SEMA-MT em Configurações.';
+  const alvo = (obterOperacoes().find((o) => o.id === operacaoId)?.pontos ?? []).filter((p) => (pontoIds ? pontoIds.includes(p.id) : p.geo === undefined));
+  for (let i = 0; i < alvo.length; i += 4) {
+    await Promise.all(alvo.slice(i, i + 4).map(async (p) => gravarGeo(operacaoId, p.id, await consultarSugestao(p.coordenada, chave))));
+  }
+  return null;
+}
+
+/**
+ * Consulta as bases do GeoServer para o ponto e grava cada resultado. Não apaga registro manual do mesmo dia ou mais novo,
+ * nem registro bom quando a consulta nova falhou; nesses casos devolve o aviso. Sem chave, devolve o motivo e não consulta.
+ */
+export async function consultarBasesDoPonto(operacaoId: string, pontoId: string, f: typeof fetch = fetch): Promise<string | null> {
+  const chave = lerAuthkey();
+  if (!chave) return 'Preencha a chave do GeoServer em Configurações.';
+  const ponto = obterOperacoes().find((o) => o.id === operacaoId)?.pontos.find((p) => p.id === pontoId);
+  if (!ponto) return 'Ponto não encontrado.';
+  const r = await consultarBases(ponto.coordenada, chave, f);
+  const manuais: string[] = [];
+  const falhas: string[] = [];
+  // A consulta é assíncrona: lê o estado atual ao gravar.
+  gravar(obterOperacoes().map((o) => (o.id !== operacaoId ? o : {
+    ...o,
+    pontos: o.pontos.map((p) => {
+      if (p.id !== pontoId) return p;
+      const consultas = { ...p.consultas };
+      for (const b of BASES_CONSULTA) {
+        const motivo = preservarRegistro(consultas[b], r.consultas[b]);
+        if (motivo) { (motivo === 'manual' ? manuais : falhas).push(CONSULTAS[b].base); continue; }
+        consultas[b] = r.consultas[b];
+      }
+      return { ...p, geo: r.geo, consultas };
+    }),
+  })));
+  const avisos = [
+    manuais.length ? `Mantive o registro manual mais recente de: ${manuais.join(', ')}. Remova o registro para consultar de novo.` : '',
+    falhas.length ? `A consulta falhou e mantive o registro anterior de: ${falhas.join(', ')}.` : '',
+  ].filter(Boolean);
+  return avisos.length ? avisos.join(' ') : null;
+}
+
+/** "O cronograma está certo": a pessoa conferiu as viagens, então o aviso de cronograma antigo some. */
+export function conferirCronograma(operacaoId: string): void {
+  const atuais = lista.obter();
+  lista.gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, cronogramaAtualizadoEm: new Date().toISOString() } : o)));
+}
 
 export const obterOperacoes = lista.obter;
 export const useOperacoes = lista.useLista;
@@ -54,7 +133,7 @@ export function criarOperacao(d: DadosOperacao, agoraIso: string): { ok: true; i
   const id = novoId('op', atuais);
   const origem = d.origem.trim();
   const setor = (d.setor ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
-  lista.gravar([...atuais, { id, nome: d.nome.trim(), ...(d.inicio ? { inicio: d.inicio } : {}), ...(d.fim ? { fim: d.fim } : {}), ...(origem ? { origem } : {}), ...(setor ? { setor } : {}), viagens: [], pontos: [], criadaEm: agoraIso, historico: [{ quando: agoraIso, acao: 'criada' }] }]);
+  gravar([...atuais, { id, nome: d.nome.trim(), ...(d.inicio ? { inicio: d.inicio } : {}), ...(d.fim ? { fim: d.fim } : {}), ...(origem ? { origem } : {}), ...(setor ? { setor } : {}), viagens: [], pontos: [], criadaEm: agoraIso, historico: [{ quando: agoraIso, acao: 'criada' }] }]);
   return { ok: true, id };
 }
 
@@ -71,12 +150,13 @@ export function criarOperacaoComPontos(d: DadosOperacao, agoraIso: string, novos
   const vazia: Operacao = { id, nome: d.nome.trim(), ...(d.inicio ? { inicio: d.inicio } : {}), ...(d.fim ? { fim: d.fim } : {}), ...(origem ? { origem } : {}), ...(setor ? { setor } : {}), viagens: [], pontos: [], criadaEm: agoraIso, historico: [{ quando: agoraIso, acao: 'criada' }] };
   const r = acrescentarPontos(atuais, vazia, novos);
   if (!r.ok) return r;
-  lista.gravar([...atuais, completarCodigos(r.op, atuais)]);
+  gravar([...atuais, completarCodigos(r.op, atuais)]);
+  void consultarPontos(id);
   return { ok: true, id };
 }
 
 export function excluirOperacao(id: string): void {
-  lista.gravar(obterOperacoes().filter((o) => o.id !== id));
+  gravar(obterOperacoes().filter((o) => o.id !== id));
 }
 
 /**
@@ -181,7 +261,7 @@ export function destravarPonto(operacaoId: string, pontoId: string): string | nu
 /** Grava a operação alterada, já com os códigos que faltavam. */
 function gravarOperacao(atuais: readonly Operacao[], nova: Operacao) {
   const completa = completarCodigos(nova, atuais);
-  lista.gravar(atuais.map((o) => (o.id === nova.id ? completa : o)));
+  gravar(atuais.map((o) => (o.id === nova.id ? completa : o)));
 }
 
 /** Código que o ponto teria e por que ainda não tem (para a tela); null quando já tem ou não há como gerar. */
@@ -204,6 +284,7 @@ export function incluirPontos(operacaoId: string, novos: readonly PontoNovo[]): 
   const r = acrescentarPontos(atuais, op, novos);
   if (!r.ok) return r.erro;
   gravarOperacao(atuais, r.op);
+  void consultarPontos(operacaoId);
   return null;
 }
 
@@ -298,6 +379,8 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   }
   if (novo.caracterizacao !== undefined && !caracterizacaoValida(novo.caracterizacao)) return 'Resposta fora das opções do POP.';
   if (novo.caracterizacao && Object.keys(novo.caracterizacao).length === 0) delete novo.caracterizacao;
+  if (novo.consultas !== undefined && !consultasValidas(novo.consultas)) return 'Registro de consulta inválido.';
+  if (novo.consultas && Object.keys(novo.consultas).length === 0) delete novo.consultas;
   if (novo.drone && !novo.drone.voou && !novo.drone.arquivo) delete novo.drone;
   for (const k of ['coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const) if ((novo[k] ?? '').length > 100) return 'Os dados de campo aceitam até 100 caracteres cada.';
   if ((novo.drone?.arquivo ?? '').length > 100) return 'Os dados de campo aceitam até 100 caracteres cada.';
@@ -317,7 +400,7 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
 }
 
 export function excluirPonto(operacaoId: string, pontoId: string): void {
-  lista.gravar(obterOperacoes().map((o) => (o.id === operacaoId ? { ...o, pontos: o.pontos.filter((p) => p.id !== pontoId) } : o)));
+  gravar(obterOperacoes().map((o) => (o.id === operacaoId ? { ...o, pontos: o.pontos.filter((p) => p.id !== pontoId) } : o)));
 }
 
 export interface DadosDemandaComoPonto {
@@ -365,7 +448,7 @@ export function definirGrupo(operacaoId: string, pontoIds: readonly string[], gr
     void _antigo;
     return nome ? { ...resto, grupo: nome } : resto;
   });
-  lista.gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, pontos } : o)));
+  gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, pontos } : o)));
   return null;
 }
 
@@ -381,6 +464,8 @@ export interface DadosViagem {
   notas: string;
   /** Um dos integrantes; vazio ou ausente = sem motorista. */
   motorista?: string;
+  /** Cargo e lotação por integrante (chave = nome). */
+  pessoas?: Viagem['pessoas'];
 }
 
 /** Viagem limpa a partir do formulário, ou o problema. */
@@ -396,7 +481,15 @@ function montarViagem(op: Operacao, id: string, d: DadosViagem): Viagem | string
   const erros = problemasDeDatas({ saida: d.saida || undefined, retorno: d.retorno || undefined }, { inicio: op.inicio, fim: op.fim });
   if (erros.length) return erros[0];
   const motorista = d.motorista && integrantes.includes(d.motorista) ? d.motorista : undefined;
-  return { id, equipe, integrantes, veiculos, notas, ...(motorista ? { motorista } : {}), ...(d.saida ? { saida: d.saida } : {}), ...(d.retorno ? { retorno: d.retorno } : {}) };
+  const pessoas: NonNullable<Viagem['pessoas']> = {};
+  for (const nome of integrantes) {
+    const cargo = (d.pessoas?.[nome]?.cargo ?? '').replace(/\s+/g, ' ').trim();
+    const lotacao = (d.pessoas?.[nome]?.lotacao ?? '').replace(/\s+/g, ' ').trim();
+    if (cargo.length > LIMITES_OPERACAO.cargo) return `O cargo de ${nome} pode ter no máximo ${LIMITES_OPERACAO.cargo} caracteres.`;
+    if (lotacao.length > LIMITES_OPERACAO.lotacao) return `A lotação de ${nome} pode ter no máximo ${LIMITES_OPERACAO.lotacao} caracteres.`;
+    if (cargo || lotacao) pessoas[nome] = { ...(cargo ? { cargo } : {}), ...(lotacao ? { lotacao } : {}) };
+  }
+  return { id, equipe, integrantes, veiculos, notas, ...(motorista ? { motorista } : {}), ...(Object.keys(pessoas).length ? { pessoas } : {}), ...(d.saida ? { saida: d.saida } : {}), ...(d.retorno ? { retorno: d.retorno } : {}) };
 }
 
 export function criarViagem(operacaoId: string, d: DadosViagem): { ok: true; id: string } | { ok: false; erro: string } {
@@ -406,7 +499,7 @@ export function criarViagem(operacaoId: string, d: DadosViagem): { ok: true; id:
   if (op.viagens.length >= LIMITES_OPERACAO.viagens) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.viagens} viagens por operação.` };
   const viagem = montarViagem(op, novoId('vg', op.viagens), d);
   if (typeof viagem === 'string') return { ok: false, erro: viagem };
-  lista.gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, viagens: [...o.viagens, viagem] } : o)));
+  gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, viagens: [...o.viagens, viagem] } : o)));
   return { ok: true, id: viagem.id };
 }
 
@@ -417,13 +510,13 @@ export function alterarViagem(operacaoId: string, viagemId: string, d: DadosViag
   if (!op || !op.viagens.some((v) => v.id === viagemId)) return 'Viagem não encontrada.';
   const viagem = montarViagem(op, viagemId, d);
   if (typeof viagem === 'string') return viagem;
-  lista.gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, viagens: o.viagens.map((v) => (v.id === viagemId ? viagem : v)) } : o)));
+  gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, viagens: o.viagens.map((v) => (v.id === viagemId ? viagem : v)) } : o)));
   return null;
 }
 
 /** Exclui a viagem; os pontos dela continuam na operação, sem viagem. */
 export function excluirViagem(operacaoId: string, viagemId: string): void {
-  lista.gravar(obterOperacoes().map((o) => {
+  gravar(obterOperacoes().map((o) => {
     if (o.id !== operacaoId) return o;
     const pontos = o.pontos.map((p) => {
       if (p.viagem !== viagemId) return p;
@@ -449,7 +542,7 @@ export function definirViagem(operacaoId: string, pontoIds: readonly string[], v
     void _antiga;
     return viagemId ? { ...resto, viagem: viagemId } : resto;
   });
-  lista.gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, pontos } : o)));
+  gravar(atuais.map((o) => (o.id === operacaoId ? { ...o, pontos } : o)));
   return null;
 }
 
@@ -520,9 +613,25 @@ export function reprogramarPonto(origemId: string, pontoId: string, destinoId: s
   if (erro) return erro;
   const novo = obterOperacoes().find((o) => o.id === destinoId)!.pontos.at(-1)!;
   const depois = obterOperacoes();
-  lista.gravar(depois.map((o) => (o.id === origemId
+  gravar(depois.map((o) => (o.id === origemId
     ? { ...o, pontos: o.pontos.map((p) => (p.id === pontoId ? { ...p, reprogramado: { operacao: destinoId, ponto: novo.id } } : p)) }
     : o)));
+  return null;
+}
+
+// ---------- Origem do alerta e apoio (texto do relatório) ----------
+
+/** Define ou limpa a origem do alerta e o apoio da operação. Devolve o problema ou null. */
+export function definirOrigemEApoio(operacaoId: string, origemAlerta: OrigemAlerta | undefined, apoio: string): string | null {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op) return 'Operação não encontrada.';
+  const detalhe = (origemAlerta?.detalhe ?? '').replace(/\s+/g, ' ').trim();
+  const valorApoio = apoio.replace(/\s+/g, ' ').trim();
+  if (detalhe.length > LIMITES_OPERACAO.apoio || valorApoio.length > LIMITES_OPERACAO.apoio) return `O texto aceita até ${LIMITES_OPERACAO.apoio} caracteres.`;
+  const { origemAlerta: _o, apoio: _a, ...resto } = op;
+  void [_o, _a];
+  gravar(atuais.map((o) => (o.id === operacaoId ? { ...resto, ...(origemAlerta ? { origemAlerta: { tipo: origemAlerta.tipo, ...(detalhe ? { detalhe } : {}) } } : {}), ...(valorApoio ? { apoio: valorApoio } : {}) } : o)));
   return null;
 }
 
@@ -537,7 +646,7 @@ export function definirSetor(operacaoId: string, setor: string): string | null {
   if (valor.length > LIMITES_OPERACAO.setor) return `O setor pode ter no máximo ${LIMITES_OPERACAO.setor} caracteres.`;
   const { setor: _s, ...resto } = op;
   void _s;
-  lista.gravar(atuais.map((o) => (o.id === operacaoId ? { ...resto, ...(valor ? { setor: valor } : {}) } : o)));
+  gravar(atuais.map((o) => (o.id === operacaoId ? { ...resto, ...(valor ? { setor: valor } : {}) } : o)));
   return null;
 }
 

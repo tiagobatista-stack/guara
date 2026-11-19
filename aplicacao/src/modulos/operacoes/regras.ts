@@ -5,8 +5,9 @@ import { coordenadaValida, type Coordenada } from '../demandas/coordenadas.ts';
 import { bloqueioValido, dataValida } from '../demandas/regras.ts';
 import { anotacoesValidas } from '../../compartilhado/anotacoes.ts';
 import { caracterizacaoValida } from './pop-supressao.ts';
+import { geoValido } from './sugestao-vegetacao.ts';
 import {
-  LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_CAR, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
+  BASES_CONSULTA, ESTADOS_CONSULTA, LIMITES_OPERACAO, MINIMOS_VIAGEM, MOTIVOS_PERIODO, ORIGENS_ALERTA, RESULTADOS, SITUACOES_ACOMPANHAMENTO, SITUACOES_CAR, SITUACOES_PONTO, type Operacao, type Ponto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
 
 // ---------- Datas ----------
@@ -83,6 +84,51 @@ export function limparNomes(nomes: readonly string[], max: number): string[] {
 // ---------- Validação e migração ----------
 
 const texto = (x: unknown, max: number) => typeof x === 'string' && x.length <= max;
+
+const registro = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x);
+
+const consultaValida = (base: string, c: unknown): boolean => (BASES_CONSULTA as readonly string[]).includes(base) && registro(c) &&
+    typeof c.estado === 'string' && c.estado in ESTADOS_CONSULTA && typeof c.quando === 'string' && !Number.isNaN(Date.parse(c.quando)) &&
+    (c.fonte === 'automatica' || c.fonte === 'manual') && (c.detalhe === undefined || texto(c.detalhe, LIMITES_OPERACAO.detalheConsulta)) &&
+    (c.proximidade === undefined || (Array.isArray(c.proximidade) && c.proximidade.length <= 3 &&
+      c.proximidade.every((p) => registro(p) && Number.isInteger(p.m) && (p.m as number) >= 0 && texto(p.texto, LIMITES_OPERACAO.detalheConsulta)))) &&
+    (c.maisProximos === undefined || (Number.isInteger(c.maisProximos) && (c.maisProximos as number) > 0));
+
+export const consultasValidas = (x: unknown): boolean => registro(x) && Object.entries(x).every(([base, c]) => consultaValida(base, c));
+
+/**
+ * Consultas e `geo` são dados derivados (a tela os refaz): se um registro estiver inválido, só ele é descartado
+ * (vira "não consultada"), com aviso no console. Nunca derruba a operação.
+ */
+function sanearDerivados(pontos: unknown[]): unknown[] {
+  return pontos.map((p) => {
+    if (!registro(p)) return p;
+    const r: Record<string, unknown> = { ...p };
+    if (r.geo !== undefined && !geoValido(r.geo)) { console.warn(`[GUARÁ] Consulta de bioma/vegetação do ponto ${String(p.id)} inválida: descartada.`); delete r.geo; }
+    if (r.consultas !== undefined) {
+      if (!registro(r.consultas)) { console.warn(`[GUARÁ] Consultas do ponto ${String(p.id)} inválidas: descartadas.`); delete r.consultas; }
+      else {
+        const boas = Object.entries(r.consultas).filter(([base, c]) => {
+          const ok = consultaValida(base, c);
+          if (!ok) console.warn(`[GUARÁ] Consulta "${base}" do ponto ${String(p.id)} inválida: descartada.`);
+          return ok;
+        });
+        r.consultas = Object.fromEntries(boas);
+      }
+    }
+    return r;
+  });
+}
+
+function pessoasValidas(x: unknown): boolean {
+  if (!registro(x)) return false;
+  const nomes = Object.keys(x);
+  return nomes.length <= LIMITES_OPERACAO.integrantes && nomes.every((n) => n.length <= LIMITES_OPERACAO.integrante && registro(x[n]) &&
+    (x[n].cargo === undefined || texto(x[n].cargo, LIMITES_OPERACAO.cargo)) && (x[n].lotacao === undefined || texto(x[n].lotacao, LIMITES_OPERACAO.lotacao)));
+}
+
+const origemAlertaValida = (x: unknown): boolean => registro(x) && typeof x.tipo === 'string' && x.tipo in ORIGENS_ALERTA &&
+  (x.detalhe === undefined || texto(x.detalhe, LIMITES_OPERACAO.apoio));
 const dataOpcional = (x: unknown) => x === undefined || (typeof x === 'string' && dataValida(x));
 const listaDeTextos = (x: unknown, maxItens: number, maxTexto: number) =>
   Array.isArray(x) && x.length <= maxItens && x.every((t) => texto(t, maxTexto));
@@ -96,6 +142,7 @@ function viagemValida(x: unknown): x is Viagem {
     listaDeTextos(v.integrantes, LIMITES_OPERACAO.integrantes, LIMITES_OPERACAO.integrante) &&
     listaDeTextos(v.veiculos, LIMITES_OPERACAO.veiculos, LIMITES_OPERACAO.veiculo) &&
     (v.motorista === undefined || (typeof v.motorista === 'string' && (v.integrantes as string[]).includes(v.motorista))) &&
+    (v.pessoas === undefined || pessoasValidas(v.pessoas)) &&
     dataOpcional(v.saida) && dataOpcional(v.retorno) &&
     !(typeof v.saida === 'string' && typeof v.retorno === 'string' && v.retorno < v.saida) &&
     texto(v.notas, LIMITES_OPERACAO.notas)
@@ -151,6 +198,8 @@ function pontoValido(x: unknown): boolean {
     (p.relatorio === undefined || relatorioValido(p.relatorio)) &&
     (p.anotacoes === undefined || anotacoesValidas(p.anotacoes)) &&
     (p.caracterizacao === undefined || caracterizacaoValida(p.caracterizacao)) &&
+    (p.geo === undefined || geoValido(p.geo)) &&
+    (p.consultas === undefined || consultasValidas(p.consultas)) &&
     (p.popAtivo === undefined || typeof p.popAtivo === 'boolean') &&
     (p.imovel === undefined || texto(p.imovel, LIMITES_OPERACAO.imovel)) &&
     (p.car === undefined || texto(p.car, LIMITES_OPERACAO.car)) &&
@@ -219,7 +268,9 @@ const idMigracao = (conhecidas: readonly Viagem[]) => {
 /** Operação gravada (formato atual ou antigo) para o formato atual; null se for inválida. */
 export function migrarOperacao(x: unknown): Operacao | null {
   if (typeof x !== 'object' || x === null) return null;
-  const o = x as Record<string, unknown>;
+  const bruto = x as Record<string, unknown>;
+  const pontosSaneados = Array.isArray(bruto.pontos) ? sanearDerivados(bruto.pontos) : bruto.pontos;
+  const o: Record<string, unknown> = { ...bruto, pontos: pontosSaneados };
   const valida =
     typeof o.id === 'string' && o.id.length > 0 &&
     typeof o.nome === 'string' && o.nome.trim().length > 0 && o.nome.length <= LIMITES_OPERACAO.nome &&
@@ -227,9 +278,11 @@ export function migrarOperacao(x: unknown): Operacao | null {
     (o.inicio === undefined || o.fim === undefined || (o.fim as string) >= (o.inicio as string)) &&
     (o.origem === undefined || texto(o.origem, LIMITES_OPERACAO.origem)) &&
     (o.setor === undefined || texto(o.setor, LIMITES_OPERACAO.setor)) &&
+    (o.origemAlerta === undefined || origemAlertaValida(o.origemAlerta)) &&
+    (o.apoio === undefined || texto(o.apoio, LIMITES_OPERACAO.apoio)) &&
     typeof o.criadaEm === 'string' && !Number.isNaN(Date.parse(o.criadaEm)) &&
     (o.viagens === undefined || (Array.isArray(o.viagens) && o.viagens.length <= LIMITES_OPERACAO.viagens && o.viagens.every(viagemValida))) &&
-    Array.isArray(o.pontos) && o.pontos.length <= LIMITES_OPERACAO.pontos && o.pontos.every(pontoValido) &&
+    Array.isArray(pontosSaneados) && pontosSaneados.length <= LIMITES_OPERACAO.pontos && pontosSaneados.every(pontoValido) &&
     (o.historico === undefined || (Array.isArray(o.historico) && o.historico.length <= LIMITES_OPERACAO.historico && o.historico.every(eventoValido)));
   if (!valida) return null;
   const operacao = o as unknown as Omit<Operacao, 'viagens' | 'pontos'> & { viagens?: Viagem[]; pontos: (Ponto & { equipe?: string; saida?: string; retorno?: string })[] };
@@ -324,13 +377,17 @@ export function conflitosDeAgenda(operacoes: readonly Operacao[]): Map<string, C
 }
 
 /** Nomes já usados em todas as operações, para sugerir ao digitar (sem repetir; ordem alfabética). */
-export function sugestoesDeViagem(operacoes: readonly Operacao[]): { equipes: string[]; integrantes: string[]; veiculos: string[] } {
+export function sugestoesDeViagem(operacoes: readonly Operacao[]): { equipes: string[]; integrantes: string[]; veiculos: string[]; pessoas: Record<string, { cargo?: string; lotacao?: string }> } {
   const viagens = operacoes.flatMap((o) => o.viagens);
+  // Último uso: viagens mais novas (fim da lista) sobrescrevem as antigas; cargo e lotação vazios não apagam o que já se sabe.
+  const pessoas: Record<string, { cargo?: string; lotacao?: string }> = {};
+  for (const v of viagens) for (const [nome, d] of Object.entries(v.pessoas ?? {})) pessoas[nome] = { ...pessoas[nome], ...(d.cargo ? { cargo: d.cargo } : {}), ...(d.lotacao ? { lotacao: d.lotacao } : {}) };
   const ordenar = (nomes: string[], max: number) => limparNomes(nomes, max).sort((a, b) => a.localeCompare(b, 'pt-BR'));
   return {
     equipes: ordenar(viagens.map((v) => v.equipe), LIMITES_OPERACAO.equipe),
     integrantes: ordenar(viagens.flatMap((v) => v.integrantes), LIMITES_OPERACAO.integrante),
     veiculos: ordenar(viagens.flatMap((v) => v.veiculos), LIMITES_OPERACAO.veiculo),
+    pessoas,
   };
 }
 
@@ -549,6 +606,45 @@ export function progressoDaOperacao(o: Pick<Operacao, 'pontos' | 'viagens'>, hoj
     else if (comDatas.some((v) => v.saida && v.saida <= hoje)) selo = 'em-andamento';
   }
   return { total, encerrados, aFinalizar: total - encerrados, porSituacao, emElaboracao, concluidos, vencidos, travados, selo };
+}
+
+export type FaseDaOperacao = 'planejada' | 'em-campo' | 'pos-campo' | 'concluida';
+
+/**
+ * Fase para o selo do card, só das datas e das contagens: concluída (tudo encerrado, nada travado), planejada (antes do início),
+ * em campo (do início ao fim) e pós-campo (depois do fim, ainda com o que fazer). Sem `fim`, vale a última data das viagens (ou o início);
+ * sem nenhuma data, valem os pontos: algum com resultado e tudo encerrado é concluída, algum com resultado é pós-campo, senão planejada. Não substitui o selo de `progressoDaOperacao` (ordem da lista, "Gerar roteiro").
+ */
+export function faseDaOperacao(o: Pick<Operacao, 'inicio' | 'fim' | 'pontos' | 'viagens'>, hoje: string): FaseDaOperacao {
+  const encerrada = progressoDaOperacao(o, hoje).selo === 'encerrada';
+  const datas = [o.inicio, ...o.viagens.flatMap((v) => [v.saida, v.retorno])].filter((d): d is string => !!d).sort();
+  const inicio = o.inicio ?? datas[0];
+  if (!inicio) return !o.pontos.some((p) => p.resultado) ? 'planejada' : encerrada ? 'concluida' : 'pos-campo'; // sem datas, os pontos fazem as vezes
+  if (encerrada) return 'concluida';
+  if (inicio > hoje) return 'planejada';
+  return (o.fim ?? datas[datas.length - 1]) >= hoje ? 'em-campo' : 'pos-campo';
+}
+
+/** Linha "Campo" do card: resolvidos (com resultado, cancelados ou já movidos para outra operação) de todos os pontos; "a reprogramar" ainda não movido é pendente e vira alerta. */
+export function progressoDeCampo(o: Pick<Operacao, 'pontos' | 'viagens'>, hoje: string) {
+  const emCampo = o.pontos.filter((p) => faseDoPonto(p) === 'campo');
+  const aReprogramar = o.pontos.filter((p) => situacaoDoPonto(p) === 'a-reprogramar').length;
+  return {
+    total: o.pontos.length,
+    feitos: o.pontos.length - emCampo.length - aReprogramar,
+    vencidos: emCampo.filter((p) => pontoVencido(o, p, hoje)).length,
+    aReprogramar,
+  };
+}
+
+/** Botão "Gerar roteiro" só em operação a realizar: início hoje ou depois (comparação de datas AAAA-MM-DD) e sem o selo "encerrada". */
+export const podeGerarRoteiro = (o: Pick<Operacao, 'inicio' | 'pontos' | 'viagens'>, hoje: string) =>
+  o.inicio !== undefined && o.inicio >= hoje && progressoDaOperacao(o, hoje).selo !== 'encerrada';
+
+/** Sem viagens: ainda não preenchido. Senão, pontos mudaram de estrutura depois do último cronograma (sem carimbo, vale a criação). */
+export function cronogramaDesatualizado(o: Pick<Operacao, 'viagens' | 'criadaEm' | 'cronogramaAtualizadoEm' | 'operacaoAlteradaEm'>): boolean {
+  if (o.viagens.length === 0) return true;
+  return (o.operacaoAlteradaEm ?? '') > (o.cronogramaAtualizadoEm ?? o.criadaEm);
 }
 
 /** Operação encerrada: tem pontos e todos estão concluídos, cancelados ou reprogramados (o bloqueio é tratado à parte, no selo). */
