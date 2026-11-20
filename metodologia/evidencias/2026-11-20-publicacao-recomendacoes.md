@@ -21,9 +21,28 @@ Antes desta rodada a URL servia `index-BFAzjbW4.js` (`b800374`, registro do R2 e
 
 ## Limitações e pendências
 
-- Roteiro de uso na URL pública **NÃO REPETIDO** nesta rodada, por pedido do responsável. **Pendente:** roteiro manual (teclado, celular, falha de armazenamento), com cliques físicos.
-- Telas e celular: **NÃO CONFERIDO VISUALMENTE**.
+- O roteiro manual está na seção abaixo. **Pendentes:** teclado, celular, falha de armazenamento, DEM-FIC-0101 no seletor e o caso válido do assistente (sem resultado informado).
+- Celular: **NÃO TESTADO**. As telas foram vistas pelo responsável nos passos aprovados, no Firefox.
 - O fluxo de agentes usa demandas fictícias do catálogo, não as do localStorage.
 - **Pendente (decisão do responsável):** dados reais nos testes (`SEMA-PRO…`, `DUDJUINA`, planilha no histórico `80de2b7`). Citados pelo responsável; **não verificados nesta rodada**.
 - Mudança de contrato do MCP (respostas em `{rastreio, resultado}`; `arquivo` saiu do corpo de `resumir_demandas`): quem consome deve ler `resultado`.
 - O estado do Vercel veio do status do commit no GitHub; o painel do Vercel não foi aberto.
+
+## Roteiro manual (20/11/2026)
+
+Feito pelo responsável na URL pública, com o bundle `index-D807sqTy.js` (**antes** do deploy da correção da coluna de desenvolvimento, `8e6d766`). Método: Windows, Firefox, cliques físicos com mouse. Prints em `F:\claude\guara-prints6-11-20\`, fora do repositório (não copiados). O resultado é o relato do responsável; este agente não o reproduziu.
+
+| # | Passo | Resultado |
+|---|---|---|
+| 1 | Cadastro de demanda | **PASSOU** |
+| 2 | Kanban | **PASSOU** |
+| 3 | F5 preserva os dados | **PASSOU** |
+| 4 | Teclado | **NÃO TESTADO** |
+| 5 | Saúde do sistema | **PASSOU** 10/10. Hook e MCP aparecem como NÃO TESTADO na tela por desenho (rodam fora do navegador; verificados no gate: hook 8/8, MCP 4 ferramentas) |
+| 6 | Seletor do fluxo | DEM-FIC-0001: **PASSOU**. Execução `EXE-LOCAL-2026-11-20T17:50:21.833Z`, entrada FIC-2026-0001 / DOC-FIC-0001, modo determinístico, 8 etapas OK, gate liberou. DEM-FIC-0101: **sem resultado informado (NÃO TESTADO)** |
+| 7 | Assistente | Caso negado: **PASSOU** (sem demanda aberta, orienta abrir uma; método determinístico visível). Caso válido com DEM-FIC-0001 aberta: **sem resultado informado (NÃO TESTADO)** |
+| 8 | Exportação em Alertas com bloco `origem` | **PASSOU** (`exportadoEm` 2026-11-20T17:47:36Z). O JSON exportado não vai para o repositório |
+| 9 | Celular | **NÃO TESTADO** |
+| 10 | Falha de armazenamento (Firefox, `dom.storage.enabled=false`) | **sem resultado informado (NÃO TESTADO)** |
+
+**Achado do roteiro:** a coluna de desenvolvimento dos padrões A–F na Saúde do sistema ainda dizia NÃO DEMONSTRADO (sessão de 13/11), contradizendo o STATUS. Corrigida em `8e6d766` (A–F DEMONSTRADO conforme `2026-11-19-orquestracao-a-d-e-f.md`, com C = APROVADO COM RESSALVAS; coluna do produto inalterada, D continua NÃO DEMONSTRADO no modo local). 684/684 e build ok. A correção ainda **não está publicada**: o roteiro acima foi feito sem ela.
