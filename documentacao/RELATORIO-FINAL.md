@@ -27,7 +27,7 @@ Auditoria final feita sem recomeçar o projeto. Regra: **nada marcado como PASSO
 
 **Resumo (19/11/2026):** 13 PASSOU · 0 PARCIAL · 0 FALHOU em aberto. Versão final `3666d55` publicada e roteiro repetido na URL pública (item 12; ações por script, cliques físicos e celular NÃO TESTADO).
 
-**Fora dos 13 itens:** o `/plugin` foi aberto em 19/11/2026, sem instalar nada. O menu mostrou as abas Discover, Installed, Marketplaces, Errors e Stats (`2026-11-19-inspecao-plugins.md` e `2026-11-19-tela-plugin.png`). A captura mostra só a aba Discover. A afirmação "nada instalado" fica **PARCIAL** até haver uma captura da aba Installed.
+**Fora dos 13 itens:** o `/plugin` foi aberto em 19/11/2026 e a inspeção **PASSOU**. O menu mostrou as abas Discover, Installed, Marketplaces, Errors e Stats. Na aba Installed: nenhum plugin instalado nesta atividade; há o plugin de usuário `vercel` (`claude-plugins-official`), anterior à inspeção, não usado e não autenticado (MCP em "Needs attention"), além dos plugins embutidos do Claude Code. O GUARÁ não depende de plugin (`2026-11-19-inspecao-plugins.md`, `2026-11-19-tela-plugin.png` e `2026-11-19-plugin-installed.png`). Isso corrige a frase anterior "nada instalado".
 
 > **Atualização (19/11/2026):** ficaram fechados os três pontos que estavam em aberto: a rodada A–F com os subagentes registrados, a tela `/mcp` e uma correção real feita pelo `implementador`. Antes: 12 PASSOU · 1 PARCIAL.
 
@@ -95,7 +95,7 @@ Os testes no navegador usaram **eventos de DOM disparados por script** na págin
 
    **Falta:**
    - ~~publicar a versão final~~ (feito: PR #3, `3666d55`, bundle conferido); ~~repetir o roteiro funcional na URL pública~~ (feito: `2026-11-19-roteiro-url-publica.md`); clique físico e celular continuam NÃO TESTADO;
-   - capturar a aba Installed do `/plugin`;
+   - ~~capturar a aba Installed do `/plugin`~~ (feito: `2026-11-19-plugin-installed.png`);
    - corrigir o R2, a detecção do separador quando há linhas em branco antes do cabeçalho;
    - decidir sobre os dados de teste sem o prefixo `FIC-` e sobre a planilha no histórico do git (`80de2b7`).
 2. ~~Corrigir os 5 riscos do arquiteto~~: feito (86/86 testes). **Revisado pelo subagente `auditor` registrado** (padrão C):
