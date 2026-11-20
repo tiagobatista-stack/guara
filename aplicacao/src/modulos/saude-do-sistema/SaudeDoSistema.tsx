@@ -25,7 +25,8 @@ const hora = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTi
 
 function SeloPadrao({ situacao }: { situacao: SituacaoPadrao }) {
   const estado: Estado = situacao === 'DEMONSTRADO' ? 'OK' : situacao === 'FALHOU' ? 'FALHA' : 'NÃO TESTADO';
-  const simbolo = situacao === 'DEMONSTRADO' ? '✓ ' : situacao === 'FALHOU' ? '✕ ' : '? ';
+  // "Não exercido" é neutro (mesmo tom de NÃO TESTADO): o fluxo parou antes, sem falha do padrão.
+  const simbolo = situacao === 'DEMONSTRADO' ? '✓ ' : situacao === 'FALHOU' ? '✕ ' : situacao === 'NÃO EXERCIDO NESTA EXECUÇÃO' ? '– ' : '? ';
   return <strong className={`texto-pequeno ${textoDoEstado(estado)}`}>{simbolo}{situacao}</strong>;
 }
 

@@ -18,6 +18,8 @@ export interface EtapaExecucao {
   detalhe: string;
   duracaoMs: number;
   tentativa: number;
+  /** FALHA por condição da entrada (demanda sem documento, não fictícia): bloqueio esperado, sem exceção. */
+  bloqueioEsperado?: true;
 }
 
 /** O modo do fluxo é sempre este: regras fixas, dados fictícios, nenhuma chamada a modelo de IA. */
@@ -96,7 +98,7 @@ export function executarFluxoPadrao(
 
   executar: {
     if (demanda.ficticio !== true) {
-      etapas.push({ ordem: 1, agente: 'orquestrador', habilidade: 'verificar-modo-ficticio', estado: 'FALHA', detalhe: 'demanda não marcada como fictícia: o fluxo só roda em modo fictício', duracaoMs: 0, tentativa });
+      etapas.push({ ordem: 1, agente: 'orquestrador', habilidade: 'verificar-modo-ficticio', estado: 'FALHA', detalhe: 'demanda não marcada como fictícia: o fluxo só roda em modo fictício', duracaoMs: 0, tentativa, bloqueioEsperado: true });
       break executar;
     }
     // 1. Triagem: registro e classificação (roteamento).
@@ -110,7 +112,7 @@ export function executarFluxoPadrao(
     // 2. Documental: extração (delegação simples).
     // Sem documento fictício vinculado à demanda, não há o que extrair: falha explícita, e o gate bloqueia.
     if (!documento) {
-      etapas.push({ ordem: etapas.length + 1, agente: 'documental', habilidade: 'extrair-documento', estado: 'FALHA', detalhe: `demanda ${demanda.id} sem documento fictício vinculado`, duracaoMs: 0, tentativa });
+      etapas.push({ ordem: etapas.length + 1, agente: 'documental', habilidade: 'extrair-documento', estado: 'FALHA', detalhe: `demanda ${demanda.id} sem documento fictício vinculado`, duracaoMs: 0, tentativa, bloqueioEsperado: true });
       break executar;
     }
     const extracao = etapa<{ campos: unknown[] }>('documental', 'extrair-documento', {

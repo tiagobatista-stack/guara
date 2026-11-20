@@ -87,6 +87,14 @@ describe('tela Saúde do sistema', () => {
     expect(verificacao).not.toHaveTextContent('FALHA');
   });
 
+  it('padrões A–F com demanda bloqueada: "não exercido" em tom neutro, sem FALHOU na coluna do produto', () => {
+    render(<SaudeDoSistema />);
+    fireEvent.change(screen.getByLabelText(/Demanda fictícia do fluxo/), { target: { value: 'DEM-FIC-0004' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    expect(screen.getAllByText(/NÃO EXERCIDO NESTA EXECUÇÃO/).length).toBe(4);
+    expect(screen.queryByText(/FALHOU/)).not.toBeInTheDocument();
+  });
+
   it('fluxo liberado aparece com o selo LIBERADO', () => {
     render(<SaudeDoSistema />);
     fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));

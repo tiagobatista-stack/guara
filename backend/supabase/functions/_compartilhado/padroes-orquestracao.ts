@@ -3,7 +3,8 @@
 
 import type { ExecucaoFluxo } from './fluxo-padrao.ts';
 
-export type SituacaoPadrao = 'DEMONSTRADO' | 'NÃO DEMONSTRADO' | 'FALHOU';
+/** NÃO EXERCIDO NESTA EXECUÇÃO: o fluxo parou num bloqueio esperado antes de exercer o padrão (neutro, não é falha). */
+export type SituacaoPadrao = 'DEMONSTRADO' | 'NÃO DEMONSTRADO' | 'FALHOU' | 'NÃO EXERCIDO NESTA EXECUÇÃO';
 
 export interface PadraoOrquestracao {
   letra: string;
@@ -56,16 +57,28 @@ export function avaliarPadroes(ex: ExecucaoFluxo | null): PadraoOrquestracao[] {
   const sequenciaRespeitada = primeiras.every((i) => i >= 0) && primeiras.every((v, i, arr) => i === 0 || v > arr[i - 1]);
   const sequenciaOk = sequenciaRespeitada && ordem.every((a) => ex.etapas.filter((e) => e.agente === a).every((e) => e.estado === 'OK'));
 
+  // Bloqueio esperado: a etapa registrou FALHA por condição da entrada (ex.: demanda sem documento),
+  // sem exceção. Os padrões que o fluxo não chegou a exercer ficam neutros; FALHOU só para exceção
+  // real, ordem incorreta ou etapa que falhou por outro motivo.
+  const bloqueio = ex.etapas.find((e) => e.estado === 'FALHA' && e.bloqueioEsperado);
+  const outraFalha = ex.etapas.some((e) => e.estado === 'FALHA' && !e.bloqueioEsperado);
+  const naoExercido: PadraoOrquestracao['produto'] | null = bloqueio && !outraFalha
+    ? {
+        situacao: 'NÃO EXERCIDO NESTA EXECUÇÃO',
+        justificativa: `fluxo bloqueado pelo gate em ${bloqueio.habilidade}: ${bloqueio.detalhe}; rode com uma demanda que libera (ex.: DEM-FIC-0001) para demonstrar`,
+      }
+    : null;
+
   const produto: Record<string, PadraoOrquestracao['produto']> = {
-    A: situacaoDe(etapaOk(ex, 'documental', 'extrair-documento'), 'Etapa documental/extrair-documento executada e validada.', 'Etapa de extração falhou.', 'Fluxo interrompido antes da extração.'),
-    B: primeiras.some((i) => i < 0)
+    A: naoExercido ?? situacaoDe(etapaOk(ex, 'documental', 'extrair-documento'), 'Etapa documental/extrair-documento executada e validada.', 'Etapa de extração falhou.', 'Fluxo interrompido antes da extração.'),
+    B: naoExercido ?? (primeiras.some((i) => i < 0)
       ? { situacao: 'FALHOU', justificativa: 'Fluxo interrompido antes de completar a sequência.' }
-      : situacaoDe(sequenciaOk, 'Agentes executados na ordem prevista, todos com saída válida.', 'Ordem incorreta ou etapa com falha.', ''),
-    C: situacaoDe(etapaOk(ex, 'revisor', 'validar-evidencias'), 'Revisor (≠ redator) validou as evidências da minuta.', 'Revisão independente falhou.', 'Fluxo interrompido antes da revisão.'),
+      : situacaoDe(sequenciaOk, 'Agentes executados na ordem prevista, todos com saída válida.', 'Ordem incorreta ou etapa com falha.', '')),
+    C: naoExercido ?? situacaoDe(etapaOk(ex, 'revisor', 'validar-evidencias'), 'Revisor (≠ redator) validou as evidências da minuta.', 'Revisão independente falhou.', 'Fluxo interrompido antes da revisão.'),
     D: { situacao: 'NÃO DEMONSTRADO', justificativa: 'No modo local, a execução usa uma única thread: analista e prazos rodam em sequência, sem paralelismo real.' },
-    E: ex.consolidado
+    E: naoExercido ?? (ex.consolidado
       ? { situacao: 'DEMONSTRADO', justificativa: `O orquestrador consolidou minuta, pendências e alertas de prazo da demanda ${ex.demanda}.` }
-      : { situacao: 'FALHOU', justificativa: `Nada consolidado para ${ex.demanda}: o gate não liberou o resultado.` },
+      : { situacao: 'FALHOU', justificativa: `Nada consolidado para ${ex.demanda}: o gate não liberou o resultado.` }),
     F: {
       situacao: 'DEMONSTRADO',
       justificativa: ex.gate.aprovado
