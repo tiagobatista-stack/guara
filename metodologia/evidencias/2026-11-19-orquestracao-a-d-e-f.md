@@ -38,7 +38,7 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
   - **Com o código atual:** `planilha.test.ts` deu `Tests 22 passed (22)`.
   - **Com o `importar-csv.ts` de `bbb4ece~1`** (troca temporária, depois restaurada): `Tests 11 failed | 11 passed (22)`. Os 10 casos novos falham. Também falha o teste do F. Os 2 de fim de arquivo ("sem quebra no fim" e "quebras sobrando no fim") passam antes e depois, porque ali não há linha vazia antes do dado; ficam como proteção contra regressão.
   - **Suíte e build:** `npm test` 44 arquivos, **540/540**. `npm run build` ok (`built in 161ms`). **PASSOU.**
-- **R2** (detecção do separador com linhas em branco antes do cabeçalho, defeito antigo): **continua em aberto**.
+- **R2** (detecção do separador com linhas em branco antes do cabeçalho, defeito antigo): corrigido depois. Ver "R2 corrigido" abaixo.
 
 ## E. Consolidação
 
@@ -90,3 +90,43 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
   - Com autorização do responsável, o dev server foi encerrado (o servidor MCP não foi tocado).
   - O 2º `npm ci` passou, com 0 vulnerabilidades.
 - **Gate:** `npm test` deu **58 arquivos, 672/672** (os 659 da `main` mais os 13 desta branch), e `npm run build` passou (`built in 229ms`). **PASSOU.**
+
+## Publicação (19/11/2026)
+
+- **Push e PR:** o responsável fez o push de `operacoes-campo` (`8df58f2`) e mesclou a PR #3 na `main` (`3666d55`, em 2026-11-20T01:09:09Z). `git merge-base --is-ancestor 8df58f2 origin/main` deu verdadeiro, e `git diff 8df58f2 origin/main` saiu vazio.
+- **Vercel:** o status do commit `3666d55` é `success`.
+- **URL pública:** `curl https://guara-lemon.vercel.app/` deu HTTP 200. O `index.html` público referencia `assets/index-BFR3kueV.js` e `assets/index-B3S3-AIP.css`, os mesmos arquivos do `aplicacao/dist/index.html` gerado localmente na mesma árvore. O JS respondeu HTTP 200, com 562.442 bytes. **PASSOU** (a versão publicada é a final).
+- **Roteiro funcional na URL pública** (cadastro, Kanban, F5 e Saúde do sistema): **PASSOU**, em `2026-11-19-roteiro-url-publica.md`. Feito no navegador integrado do app Claude, com ações por script e janela emulada. Cliques físicos e celular: **NÃO TESTADO**.
+
+## R2 corrigido (19/11/2026, depois do merge com a `main`)
+
+- **Defeito:** `lerRegistros` escolhia o separador pela primeira linha do texto (`texto.split(/\r?\n/, 1)[0]`).
+  - Com linhas em branco antes do cabeçalho, essa linha era vazia e o separador caía no `;`. Um CSV com vírgula dava "Não achei as colunas de coordenada".
+  - Com `\r` sozinho como quebra, a "primeira linha" era o arquivo inteiro, e vírgulas nos dados podiam vencer o `;` do cabeçalho.
+- **Correção** (`importar-csv.ts`, 1 linha e 1 comentário): o separador sai da primeira linha com conteúdo, separando as linhas por `\r\n`, `\r` ou `\n`.
+- **Testes novos** (`planilha.test.ts`):
+  - "separador: linhas em branco antes do cabeçalho…": vírgula com `\n\n` antes, tabulação com CRLF e uma linha só de espaços antes, e `importarPontosCsv` sem `erro` e com linha 4;
+  - "separador: com \r sozinho…".
+- **Antes da correção:** `Tests 2 failed | 22 passed (24)`. Os dois testes novos falharam por `AssertionError` (deep-equal).
+- **Depois:** `planilha.test.ts` 24/24. `npm test` **58 arquivos, 674/674**. `npm run build` ok (`built in 243ms`). **PASSOU.**
+- **Limitações:**
+  - **Linha só de separadores** (por exemplo `,,,`) antes do cabeçalho: ainda conta como linha com conteúdo e decide o separador. Ela só vira registro quando o separador escolhido é outro; quando é o próprio `,`, a linha é descartada (ajuste R-c do auditor).
+  - **Cabeçalho com aspas e quebra de linha dentro** (por exemplo `'"A\nB",C\n1,2'`): o separador sai só do trecho antes da quebra, então pode ser escolhido errado. É um defeito que já existia; o resultado é o mesmo antes e depois de `74a8ef6`. É raro e não foi tratado (R-b do auditor).
+
+### Revisão independente do `74a8ef6` (padrão C, `auditor`)
+
+Chamada `Agent(subagent_type: "auditor")` observada (cerca de 149 s). O auditor não editou arquivos (`git status --short` saiu vazio). A verificação rodou em cópias fora do repositório, no scratchpad da sessão, sem junção nem link para o `node_modules`.
+
+**Resultado geral: APROVADO COM RESSALVAS.**
+
+| Item | Resultado | Evidência |
+|---|---|---|
+| 1. Correção mínima e correta | APROVADO | Script com casos limite nas duas versões. Corrige: BOM seguido de linhas em branco, linhas CRLF em branco com cabeçalho separado por tabulação, e linhas só de espaços, tabulações ou NBSP antes do cabeçalho. Arquivo vazio ou só com linhas em branco dá "O arquivo está vazio.". Ignorar a linha só de tabulações é coerente com o descarte de registros vazios |
+| 2. Os testes novos falham antes e passam depois | APROVADO | Harness do auditor com o node 26.13.1, nas duas árvores (`74a8ef6` e `74a8ef6~1`). A diferença está só nos 2 testes novos, que falham no código anterior por `AssertionError` de deep-equal. Outras 3 falhas aparecem nas duas versões e vêm do harness (sem jsdom nem setup do Vitest); no Vitest, o mesmo arquivo dá 24/24 |
+| 3. Regressão | APROVADO | `npm test`: 58 arquivos, **674/674**. `planilha.test.ts`: 24/24. `npm run build` ok (`built in 229ms`, só o aviso de chunk acima de 500 kB, que já existia) |
+| 4. Evidência e afirmações do commit | APROVADO para a evidência e para o commit; **REPROVADO** em `gestao/STATUS.md:18` | Havia um byte CR (0x0D) literal no lugar do texto `\r`, confirmado com `od -c` |
+
+**Ressalvas e o que foi feito:**
+- **R-a**, CR literal em `gestao/STATUS.md:18`: corrigido. O trecho agora tem o texto `\r`, e o arquivo ficou sem nenhum CR (conferido por script).
+- **R-b**, cabeçalho com aspas e quebra de linha dentro: registrado como limitação acima, sem correção no código.
+- **R-c**, frase da limitação `,,,`: ajustada acima.

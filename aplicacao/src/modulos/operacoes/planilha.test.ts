@@ -84,6 +84,19 @@ for (const [nome, texto, esperado] of casosDeLinha) {
   });
 }
 
+// R2 (auditor, revisão de bbb4ece): o separador sai da primeira linha com conteúdo, não da primeira linha do texto.
+it('separador: linhas em branco antes do cabeçalho não escondem a vírgula nem a tabulação', () => {
+  assert.deepEqual(C.lerCsv('\n\nCOORD_X,COORD_Y\n58 W,abc'), [['COORD_X', 'COORD_Y'], ['58 W', 'abc']]);
+  assert.deepEqual(C.lerCsv('\r\n  \r\nCOORD_X\tCOORD_Y\r\n58 W\tabc'), [['COORD_X', 'COORD_Y'], ['58 W', 'abc']]);
+  const r = C.importarPontosCsv('\n\nCOORD_X,COORD_Y\n58 W,abc');
+  assert.equal(r.erro, undefined);
+  assert.deepEqual(r.linhas.map((l) => l.linha), [4]);
+});
+
+it('separador: com \\r sozinho como quebra, só o cabeçalho conta (vírgulas no dado não mudam o separador)', () => {
+  assert.deepEqual(C.lerCsv('COORD_X;COORD_Y\r1;a,b,c,d'), [['COORD_X', 'COORD_Y'], ['1', 'a,b,c,d']]);
+});
+
 it('servidores da equipe entram nos integrantes da viagem, sem repetir', () => {
   const id = novaOp();
   const r = C.importarPontosCsv(csv(linha({}), linha({ numero: '2', servidores: 'beltrana fictícia, Ciclano Fictício' })));
