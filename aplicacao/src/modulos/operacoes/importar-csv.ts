@@ -52,7 +52,8 @@ export function lerCsv(conteudo: string): string[][] {
  */
 function lerRegistros(conteudo: string): { linha: number; celulas: string[] }[] {
   const texto = conteudo.replace(/^﻿/, '');
-  const primeira = texto.split(/\r?\n/, 1)[0] ?? '';
+  // O separador sai da primeira linha com conteúdo (o cabeçalho), mesmo com linhas em branco antes ou \r sozinho como quebra.
+  const primeira = texto.split(/\r\n|\r|\n/).find((l) => l.trim() !== '') ?? '';
   const conta = (c: string) => primeira.split(c).length - 1;
   const sep = [';', '	', ','].reduce((melhor, c) => (conta(c) > conta(melhor) ? c : melhor));
   const registros: { linha: number; celulas: string[] }[] = [];

@@ -38,7 +38,7 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
   - **Com o código atual:** `planilha.test.ts` deu `Tests 22 passed (22)`.
   - **Com o `importar-csv.ts` de `bbb4ece~1`** (troca temporária, depois restaurada): `Tests 11 failed | 11 passed (22)`. Os 10 casos novos falham. Também falha o teste do F. Os 2 de fim de arquivo ("sem quebra no fim" e "quebras sobrando no fim") passam antes e depois, porque ali não há linha vazia antes do dado; ficam como proteção contra regressão.
   - **Suíte e build:** `npm test` 44 arquivos, **540/540**. `npm run build` ok (`built in 161ms`). **PASSOU.**
-- **R2** (detecção do separador com linhas em branco antes do cabeçalho, defeito antigo): **continua em aberto**.
+- **R2** (detecção do separador com linhas em branco antes do cabeçalho, defeito antigo): corrigido depois. Ver "R2 corrigido" abaixo.
 
 ## E. Consolidação
 
@@ -97,3 +97,16 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
 - **Vercel:** o status do commit `3666d55` é `success`.
 - **URL pública:** `curl https://guara-lemon.vercel.app/` deu HTTP 200. O `index.html` público referencia `assets/index-BFR3kueV.js` e `assets/index-B3S3-AIP.css`, os mesmos arquivos do `aplicacao/dist/index.html` gerado localmente na mesma árvore. O JS respondeu HTTP 200, com 562.442 bytes. **PASSOU** (a versão publicada é a final).
 - **Roteiro funcional na URL pública** (cadastro, Kanban, F5 e Saúde do sistema): **PASSOU**, em `2026-11-19-roteiro-url-publica.md`. Feito no navegador integrado do app Claude, com ações por script e janela emulada. Cliques físicos e celular: **NÃO TESTADO**.
+
+## R2 corrigido (19/11/2026, depois do merge com a `main`)
+
+- **Defeito:** `lerRegistros` escolhia o separador pela primeira linha do texto (`texto.split(/\r?\n/, 1)[0]`).
+  - Com linhas em branco antes do cabeçalho, essa linha era vazia e o separador caía no `;`. Um CSV com vírgula dava "Não achei as colunas de coordenada".
+  - Com `\r` sozinho como quebra, a "primeira linha" era o arquivo inteiro, e vírgulas nos dados podiam vencer o `;` do cabeçalho.
+- **Correção** (`importar-csv.ts`, 1 linha e 1 comentário): o separador sai da primeira linha com conteúdo, separando as linhas por `\r\n`, `\r` ou `\n`.
+- **Testes novos** (`planilha.test.ts`):
+  - "separador: linhas em branco antes do cabeçalho…": vírgula com `\n\n` antes, tabulação com CRLF e uma linha só de espaços antes, e `importarPontosCsv` sem `erro` e com linha 4;
+  - "separador: com \r sozinho…".
+- **Antes da correção:** `Tests 2 failed | 22 passed (24)`. Os dois testes novos falharam por `AssertionError` (deep-equal).
+- **Depois:** `planilha.test.ts` 24/24. `npm test` **58 arquivos, 674/674**. `npm run build` ok (`built in 243ms`). **PASSOU.**
+- **Limitação:** uma linha só de separadores (por exemplo `,,,`) antes do cabeçalho ainda é tratada como linha com conteúdo. Nesse caso, ela decide o separador e pode virar um registro. Isso não foi tratado aqui.
