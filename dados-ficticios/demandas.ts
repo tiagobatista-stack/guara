@@ -76,3 +76,22 @@ export const demandasFicticias: DemandaFicticia[] = [
     documentos: [],
   },
 ];
+
+/** Caso sintético só do fluxo de agentes (não entra nos exemplos do app): renovação com dados próprios. */
+export const demandaSinteticaCerrado: DemandaFicticia = {
+  ficticio: true,
+  id: 'DEM-FIC-0101',
+  processo: 'FIC-2026-0101',
+  titulo: 'Renovação de licença de operação — Fazenda Cerrado Alto (FICTÍCIA)',
+  descricao: 'Pedido de renovação de licença de operação para armazém de grãos.',
+  tipo: 'renovacao-licenca',
+  setor: 'licenciamento',
+  prioridade: 'media',
+  situacao: 'em-analise',
+  prazo: '2026-11-30',
+  ultimaMovimentacao: '2026-11-10',
+  documentos: ['DOC-FIC-0101'],
+};
+
+/** Demandas que o fluxo pode receber no modo fictício. */
+export const demandasDoFluxo: DemandaFicticia[] = [...demandasFicticias, demandaSinteticaCerrado];

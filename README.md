@@ -22,7 +22,7 @@ O GUARÁ é um estagiário digital mobile first que apoia a análise de processo
 
 ## Como iniciar
 
-Requisito: **Node.js 20 LTS ou superior**. Ele ainda não está instalado nesta máquina; ver `gestao/STATUS.md`.
+Requisito: **Node.js 22.12 ou superior** (`engines` de `aplicacao/package.json`); o servidor MCP local exige **Node 23.6 ou superior**, que roda TypeScript nativamente. Testado com Node 26.13.1 e npm 11.20.0 (`npm ci` sem `EBADENGINE`).
 
 ```bash
 cd aplicacao
@@ -30,7 +30,7 @@ npm run instalar-dependencias
 npm run dev
 ```
 
-O `npm run instalar-dependencias` só é necessário na primeira vez: ele resolve as versões e grava `package.json` e `package-lock.json`. Depois, `npm install` basta.
+Com o repositório clonado, `npm ci` (ou `npm install`) instala as versões já gravadas em `package-lock.json`. O `npm run instalar-dependencias` é o roteiro da primeira montagem do projeto e não é necessário num clone.
 
 Abra a URL exibida e acesse **Saúde do sistema** no menu.
 
@@ -41,6 +41,15 @@ npm test
 ```bash
 npm run build
 ```
+
+## O que foi testado, e o que está publicado
+
+Em 20/11/2026, na branch `operacoes-campo`, a partir do commit `758453f` mais as mudanças ainda **não commitadas** descritas em `metodologia/evidencias/2026-11-20-recomendacoes-relatorio.md`:
+
+- **Testado localmente:** `npm test` (684/684 em 59 arquivos), `npm run build` ok, hook 8/8 (`python -m unittest testes/unidade/test_hook_verificar_comando.py`) e cliente MCP (`node servidor-mcp/testar-servidor.ts`).
+- **Commit:** `758453f` (branch `operacoes-campo`, já no GitHub). As mudanças desta rodada não estão em commit.
+- **Versão publicada:** a URL acima serve a `main`. A última conferência do bundle público registrada no STATUS é a da `main` `b800374` (`index-BFAzjbW4.js`, 19/11/2026); o que veio depois não foi conferido na URL.
+- Teste local, commit e versão publicada são três coisas diferentes: só o primeiro foi feito para as mudanças atuais.
 
 ## Situação
 

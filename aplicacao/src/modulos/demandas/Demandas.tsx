@@ -1,7 +1,8 @@
 // Demandas: lista com pesquisa e filtros, cadastro, edição, detalhe e exclusão
 // com confirmação (incremento 1 do PLANO.md). Dados no localStorage deste navegador.
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { definirDemandaEmFoco } from '../assistente/demanda-em-foco.ts';
 import { PRIORIDADES, STATUS, type Demanda } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useAjusteFeriados, useArmazem, useEstadoDemandas } from './armazem.ts';
@@ -97,6 +98,13 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
     const r = armazem.restaurarExemplos();
     setAviso(r.ok ? { tipo: 'sucesso', texto: 'Exemplos restaurados.' } : { tipo: 'erro', texto: r.mensagem });
   };
+
+  // O assistente e a exportação passam a saber qual demanda está aberta; ao sair do detalhe, o foco some.
+  const idEmFoco = modo.tipo === 'detalhe' && buscar(modo.id) ? modo.id : null;
+  useEffect(() => {
+    definirDemandaEmFoco(idEmFoco);
+    return () => definirDemandaEmFoco(null);
+  }, [idEmFoco]);
 
   const emEdicao = modo.tipo === 'editar' ? buscar(modo.id) : undefined;
   const emDetalhe = modo.tipo === 'detalhe' ? buscar(modo.id) : undefined;

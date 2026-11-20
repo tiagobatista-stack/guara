@@ -6,8 +6,8 @@ import type { ContratoAgente, Estado } from './tipos.ts';
 import type { HabilidadeRegistrada } from './catalogo.ts';
 import { validarEsquema } from './validacao.ts';
 import { avaliarGate, type SaidaGate } from './gate-de-qualidade/gate.ts';
-import { DATA_REFERENCIA, demandasFicticias } from '../../../../dados-ficticios/demandas.ts';
-import { documentoRenovacao } from '../../../../dados-ficticios/documentos.ts';
+import { DATA_REFERENCIA, demandasFicticias, type DemandaFicticia } from '../../../../dados-ficticios/demandas.ts';
+import { documentosFicticios } from '../../../../dados-ficticios/documentos.ts';
 import { modeloMinuta } from '../../../../dados-ficticios/checklists.ts';
 
 export interface EtapaExecucao {
@@ -20,9 +20,24 @@ export interface EtapaExecucao {
   tentativa: number;
 }
 
+/** O modo do fluxo é sempre este: regras fixas, dados fictícios, nenhuma chamada a modelo de IA. */
+export const MODO_DO_FLUXO = 'determinístico · dados fictícios · sem modelo de IA';
+
+export interface EntradaDoFluxo {
+  demanda: string;
+  processo: string;
+  titulo: string;
+  tipo: string;
+  prazo: string;
+  documento: string | null;
+}
+
 export interface ExecucaoFluxo {
   id: string;
   demanda: string;
+  /** Entrada com que o fluxo foi executado (a demanda recebida). */
+  entrada: EntradaDoFluxo;
+  modo: typeof MODO_DO_FLUXO;
   iniciadoEm: string;
   concluidoEm: string;
   etapas: EtapaExecucao[];
@@ -38,6 +53,8 @@ export function executarFluxoPadrao(
   catalogo: readonly HabilidadeRegistrada[],
   agentes: readonly ContratoAgente[],
   inativos: ReadonlySet<string> = new Set(),
+  /** Demanda fictícia a processar; sem ela, a primeira (comportamento anterior). */
+  demanda: DemandaFicticia = demandasFicticias[0],
 ): ExecucaoFluxo {
   const iniciadoEm = new Date().toISOString();
   const etapas: EtapaExecucao[] = [];
@@ -71,11 +88,17 @@ export function executarFluxoPadrao(
     }
   }
 
-  const demanda = demandasFicticias[0];
+  // Modo fictício: só entra demanda marcada como tal (a checagem vale também em tempo de execução).
+  const documento = demanda.ficticio === true ? (documentosFicticios.find((d) => demanda.documentos.includes(d.id)) ?? null) : null;
+  const contexto = [demanda, ...demandasFicticias.filter((d) => d.id !== demanda.id)];
   let consolidado: ExecucaoFluxo['consolidado'] = null;
   let gate: SaidaGate = avaliarGate({ etapasOk: false, revisaoAprovada: false, minutaARevisar: false, autorMinuta: 'redator', revisor: 'revisor' });
 
   executar: {
+    if (demanda.ficticio !== true) {
+      etapas.push({ ordem: 1, agente: 'orquestrador', habilidade: 'verificar-modo-ficticio', estado: 'FALHA', detalhe: 'demanda não marcada como fictícia: o fluxo só roda em modo fictício', duracaoMs: 0, tentativa });
+      break executar;
+    }
     // 1. Triagem: registro e classificação (roteamento).
     const registro = etapa<{ valida: boolean }>('triagem', 'registrar-demanda', {
       processo: demanda.processo, titulo: demanda.titulo, tipo: demanda.tipo, prazo: demanda.prazo, descricao: demanda.descricao,
@@ -85,8 +108,13 @@ export function executarFluxoPadrao(
     if (!classe) break executar;
 
     // 2. Documental: extração (delegação simples).
+    // Sem documento fictício vinculado à demanda, não há o que extrair: falha explícita, e o gate bloqueia.
+    if (!documento) {
+      etapas.push({ ordem: etapas.length + 1, agente: 'documental', habilidade: 'extrair-documento', estado: 'FALHA', detalhe: `demanda ${demanda.id} sem documento fictício vinculado`, duracaoMs: 0, tentativa });
+      break executar;
+    }
     const extracao = etapa<{ campos: unknown[] }>('documental', 'extrair-documento', {
-      documentoId: documentoRenovacao.id, paginas: documentoRenovacao.paginas,
+      documentoId: documento.id, paginas: documento.paginas,
     });
     if (!extracao) break executar;
 
@@ -99,7 +127,7 @@ export function executarFluxoPadrao(
       dataReferencia: DATA_REFERENCIA,
       diasInatividade: 5,
       diasPrazoProximo: 3,
-      demandas: demandasFicticias.map(({ id, prazo, ultimaMovimentacao, situacao }) => ({ id, prazo, ultimaMovimentacao, situacao })),
+      demandas: contexto.map(({ id, prazo, ultimaMovimentacao, situacao }) => ({ id, prazo, ultimaMovimentacao, situacao })),
     });
     if (!prazos) break executar;
 
@@ -138,6 +166,8 @@ export function executarFluxoPadrao(
   return {
     id: `EXE-LOCAL-${iniciadoEm}`,
     demanda: demanda.id,
+    entrada: { demanda: demanda.id, processo: demanda.processo, titulo: demanda.titulo, tipo: demanda.tipo, prazo: demanda.prazo, documento: documento?.id ?? null },
+    modo: MODO_DO_FLUXO,
     iniciadoEm,
     concluidoEm: new Date().toISOString(),
     etapas,

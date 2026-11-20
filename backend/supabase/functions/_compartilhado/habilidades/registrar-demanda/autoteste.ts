@@ -2,7 +2,8 @@ import type { CasoAutoteste } from '../../tipos.ts';
 import type { EntradaRegistrarDemanda, SaidaRegistrarDemanda } from './contrato.ts';
 import { demandasFicticias } from '../../../../../../dados-ficticios/demandas.ts';
 
-const d = demandasFicticias[0];
+// Procura pelo id, não pela posição: reordenar a lista de exemplos não muda este caso.
+const d = demandasFicticias.find((x) => x.id === 'DEM-FIC-0001')!;
 
 export const autoteste: CasoAutoteste<EntradaRegistrarDemanda, SaidaRegistrarDemanda> = {
   descricao: 'Registra a demanda fictícia DEM-FIC-0001',

@@ -57,4 +57,17 @@ describe('tela Saúde do sistema', () => {
     expect(within(screen.getByTestId('habilidade-extrair-documento')).getByText('ATENÇÃO')).toBeInTheDocument();
     expect(screen.getByText(/gate:/).textContent).toContain('bloqueou');
   });
+
+  it('o fluxo usa a demanda escolhida: entrada e modo aparecem; sem documento, o gate bloqueia', () => {
+    render(<SaudeDoSistema />);
+    fireEvent.change(screen.getByLabelText(/Demanda fictícia do fluxo/), { target: { value: 'DEM-FIC-0101' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    expect(screen.getByTestId('entrada-do-fluxo')).toHaveTextContent('DEM-FIC-0101');
+    expect(screen.getByTestId('entrada-do-fluxo')).toHaveTextContent('FIC-2026-0101');
+    expect(screen.getByTestId('modo-do-fluxo')).toHaveTextContent('determinístico');
+    fireEvent.change(screen.getByLabelText(/Demanda fictícia do fluxo/), { target: { value: 'DEM-FIC-0002' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    expect(screen.getAllByTestId('entrada-do-fluxo')[0]).toHaveTextContent('documento nenhum');
+    expect(screen.getAllByText('bloqueou').length).toBeGreaterThan(0);
+  });
 });

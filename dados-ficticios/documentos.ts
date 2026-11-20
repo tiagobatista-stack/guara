@@ -30,3 +30,25 @@ export const documentoRenovacao: DocumentoFicticio = {
     },
   ],
 };
+
+/** Segundo caso sintético do fluxo (renovação com dados próprios, para provar que a trilha segue a entrada). */
+export const documentoRenovacaoCerrado: DocumentoFicticio = {
+  ficticio: true,
+  id: 'DOC-FIC-0101',
+  nome: 'requerimento-renovacao-cerrado-FICTICIO.pdf',
+  paginas: [
+    {
+      numero: 1,
+      texto:
+        'REQUERIMENTO DE RENOVAÇÃO (DOCUMENTO FICTÍCIO)\nProcesso: FIC-2026-0101\nInteressado: Fazenda Cerrado Alto (fictícia)\nAtividade: armazenagem de grãos',
+    },
+    {
+      numero: 2,
+      texto:
+        'Licença anterior válida até: 2027-03-31\nÁrea total (ha): 48,0\nResponsável técnico: Eng. Sintética Souza\nOutorga de uso da água: apresentada',
+    },
+  ],
+};
+
+/** Documentos que o fluxo sabe ler; uma demanda só é extraída se um destes estiver em `documentos`. */
+export const documentosFicticios: DocumentoFicticio[] = [documentoRenovacao, documentoRenovacaoCerrado];

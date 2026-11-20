@@ -7,6 +7,7 @@ import type { Estado } from '@catalogo/tipos.ts';
 import { agentes, habilidades } from '@catalogo/catalogo.ts';
 import { ferramentas } from '@catalogo/ferramentas/catalogo-ferramentas.ts';
 import { executarVerificacao, type RelatorioVerificacao } from '@catalogo/verificacao-saude.ts';
+import { demandasDoFluxo } from '@dados/demandas.ts';
 import { executarFluxoPadrao, type ExecucaoFluxo } from '@catalogo/fluxo-padrao.ts';
 import { avaliarPadroes, type SituacaoPadrao } from '@catalogo/padroes-orquestracao.ts';
 import { GATE_DESATIVAVEL } from '@catalogo/gate-de-qualidade/gate.ts';
@@ -42,6 +43,7 @@ export function SaudeDoSistema() {
   const [inativos, setInativos] = useState<Set<string>>(() => new Set());
   const [relatorio, setRelatorio] = useState<RelatorioVerificacao | null>(null);
   const [execucoes, setExecucoes] = useState<ExecucaoFluxo[]>([]);
+  const [idDemanda, setIdDemanda] = useState(demandasDoFluxo[0].id);
   const [auditoria, setAuditoria] = useState<RegistroAuditoria[]>([]);
 
   const ultimaExecucao = execucoes.at(-1) ?? null;
@@ -49,7 +51,7 @@ export function SaudeDoSistema() {
 
   const executar = () => {
     setRelatorio(executarVerificacao(habilidades, agentes, 'local', inativos));
-    setExecucoes((lista) => [...lista, executarFluxoPadrao(habilidades, agentes, inativos)]);
+    setExecucoes((lista) => [...lista, executarFluxoPadrao(habilidades, agentes, inativos, demandasDoFluxo.find((d) => d.id === idDemanda))]);
   };
 
   const alternar = (id: string) => {
@@ -101,6 +103,12 @@ export function SaudeDoSistema() {
             Estado geral: <SeloEstado estado={estadoGeral} />
           </p>
         </div>
+        <label className="campo-grupo">
+          <span className="texto-pequeno">Demanda fictícia do fluxo (modo determinístico)</span>
+          <select className="campo" value={idDemanda} onChange={(e) => setIdDemanda(e.target.value)}>
+            {demandasDoFluxo.map((d) => <option key={d.id} value={d.id}>{d.id} · {d.titulo}</option>)}
+          </select>
+        </label>
         <button type="button" onClick={executar} className="botao botao--primario">
           Executar verificação
         </button>
@@ -328,6 +336,10 @@ export function SaudeDoSistema() {
             {[...execucoes].reverse().map((ex) => (
               <li key={ex.id} className="cartao texto-pequeno">
                 <p className="mono"><strong>{ex.id}</strong></p>
+                <p data-testid="entrada-do-fluxo">
+                  Entrada: <strong>{ex.entrada.demanda}</strong> · processo {ex.entrada.processo} · {ex.entrada.titulo} · documento {ex.entrada.documento ?? 'nenhum'}
+                </p>
+                <p data-testid="modo-do-fluxo">Modo: {ex.modo}</p>
                 <p>
                   Demanda {ex.demanda} · {ex.etapas.length} etapas · tentativas de redação: {ex.tentativasRedacao} · gate:{' '}
                   <strong>{ex.gate.aprovado ? 'liberou' : 'bloqueou'}</strong>

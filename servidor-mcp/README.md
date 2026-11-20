@@ -12,6 +12,22 @@ Servidor MCP **local e didático**, com transporte stdio e **somente leitura**, 
 | `listar_demandas` | `status?`, `prioridade?`, `limite?` (1 a 100) | total e itens |
 | `resumir_demandas` | — | total, contagem por status, contagem por prioridade, data da exportação |
 | `listar_inativas` | `limiar_dias?` (1 a 365), `referencia?` (ISO) | regra, total e itens com os dias parados |
+| `consultar_demanda` | `id?` | uma demanda; sem `id`, a que estava aberta no GUARÁ na exportação (`origem.demandaEmFoco`). Erro se não houver id nem foco, ou se a demanda não existir |
+
+## Formato das respostas: `{rastreio, resultado}`
+
+**Mudança de contrato:** toda resposta de sucesso agora é `{ "rastreio": {...}, "resultado": ... }`. Antes, o resultado vinha solto; quem consome precisa ler o campo `resultado`. Erros continuam como `isError` com a mensagem.
+
+| Campo de `rastreio` | Significado |
+|---|---|
+| `fonte`, `arquivo` | de onde vieram os dados |
+| `sha256`, `bytes` | impressão digital do arquivo lido (prova que não mudou depois da leitura; não prova a integridade desde o navegador) |
+| `exportadoEm`, `idadeHoras`, `limiteHoras` | instante da exportação, idade dela e o limite (24 h) |
+| `aviso` | não nulo quando a exportação passa do limite ou não tem data: **o dado pode não refletir a tela do GUARÁ**; exporte de novo |
+| `origemDaExportacao` | aplicação, tela, método e demanda em foco registrados pelo GUARÁ (`null` em arquivos antigos) |
+| `metodo`, `somenteLeitura`, `ficticio`, `consultadoEm` | determinístico, sem IA; somente leitura; dados fictícios; instante da consulta |
+
+Editar uma demanda no navegador depois de exportar **não** aparece aqui até uma nova exportação: por isso o aviso de idade.
 
 `listar_inativas` usa a mesma função do app (`aplicacao/src/modulos/alertas/inatividade.ts`).
 
@@ -24,14 +40,14 @@ Servidor MCP **local e didático**, com transporte stdio e **somente leitura**, 
 
 ## Uso
 
-Requer Node ≥ 23.6, que executa TypeScript nativamente. Na primeira vez, instale as dependências:
+Requer Node ≥ 23.6, que executa TypeScript nativamente (testado com Node 26.13.1). Na primeira vez, instale as dependências:
 
 ```bash
 cd servidor-mcp
 npm install
 ```
 
-Para testar sem a interface, rode o cliente MCP real que chama as 3 ferramentas e compara o total com o arquivo:
+Para testar sem a interface, rode o cliente MCP real que chama as 4 ferramentas, confere o rastro (caso válido, negado e de falha), a regra de idade da exportação e compara o total com o arquivo:
 
 ```bash
 node servidor-mcp/testar-servidor.ts

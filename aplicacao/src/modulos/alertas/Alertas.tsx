@@ -10,6 +10,7 @@ import { FeriadosLocais } from './FeriadosLocais.tsx';
 import { listarSemPrazo, PRAZO_SUGERIDO_DIAS_UTEIS, sugerirPrazo } from './triagem.ts';
 import { dataValida, paraEntrada } from '../demandas/regras.ts';
 import type { Demanda } from '../demandas/modelo.ts';
+import { obterDemandaEmFoco } from '../assistente/demanda-em-foco.ts';
 import { exportarDados, NOME_ARQUIVO, validarImportacao } from './dados-portaveis.ts';
 import { definirDiasPadraoElaboracao, lerDiasPadraoElaboracao } from '../operacoes/armazem.ts';
 import { definirPreferencias, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
@@ -60,7 +61,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   };
 
   const exportar = () => {
-    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote, lerDiasPadraoElaboracao()));
+    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote, lerDiasPadraoElaboracao(), obterDemandaEmFoco()));
     setAviso({ tipo: 'sucesso', texto: `Arquivo ${NOME_ARQUIVO} gerado com ${demandas.length} demanda(s).` });
   };
 

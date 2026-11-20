@@ -56,8 +56,8 @@ export function avaliarPadroes(ex: ExecucaoFluxo | null): PadraoOrquestracao[] {
     C: situacaoDe(etapaOk(ex, 'revisor', 'validar-evidencias'), 'Revisor (≠ redator) validou as evidências da minuta.', 'Revisão independente falhou.', 'Fluxo interrompido antes da revisão.'),
     D: { situacao: 'NÃO DEMONSTRADO', justificativa: 'No modo local, a execução usa uma única thread: analista e prazos rodam em sequência, sem paralelismo real.' },
     E: ex.consolidado
-      ? { situacao: 'DEMONSTRADO', justificativa: 'O orquestrador consolidou minuta, pendências e alertas de prazo.' }
-      : { situacao: 'FALHOU', justificativa: 'Nada consolidado: o gate não liberou o resultado.' },
+      ? { situacao: 'DEMONSTRADO', justificativa: `O orquestrador consolidou minuta, pendências e alertas de prazo da demanda ${ex.demanda}.` }
+      : { situacao: 'FALHOU', justificativa: `Nada consolidado para ${ex.demanda}: o gate não liberou o resultado.` },
     F: {
       situacao: 'DEMONSTRADO',
       justificativa: ex.gate.aprovado

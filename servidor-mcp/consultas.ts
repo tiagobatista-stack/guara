@@ -2,6 +2,7 @@
 // Reaproveita a validação de importação e a regra de inatividade do próprio app,
 // para que o MCP e a interface apliquem exatamente as mesmas regras.
 
+import { createHash } from 'node:crypto';
 import { readFile, stat } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -22,7 +23,48 @@ export function resolverCaminho(informado: string | undefined): string {
   return absoluto;
 }
 
+/** Idade a partir da qual a exportação deixa de ser tratada como atual. */
+export const LIMITE_IDADE_HORAS = 24;
+
+/** Idade da exportação e aviso explícito quando passa do limite (ou quando a data não existe). */
+export function avaliarIdade(exportadoEm: string, agora: Date, limiteHoras: number = LIMITE_IDADE_HORAS) {
+  const t = Date.parse(exportadoEm);
+  if (Number.isNaN(t)) {
+    return { idadeHoras: null, limiteHoras, aviso: 'A exportação não informa a data: não dá para saber se reflete a tela do GUARÁ. Exporte de novo pela tela Alertas.' };
+  }
+  const idadeHoras = Math.max(0, Math.round(((agora.getTime() - t) / 3_600_000) * 10) / 10);
+  const aviso = idadeHoras > limiteHoras
+    ? `Exportação com ${idadeHoras} h (limite ${limiteHoras} h): estes dados podem NÃO refletir a tela do GUARÁ. Exporte de novo pela tela Alertas e salve em servidor-mcp/dados/.`
+    : null;
+  return { idadeHoras, limiteHoras, aviso };
+}
+
+/** Rastro de cada resposta do MCP: de qual arquivo e de qual exportação ela veio, e por qual método. */
+export interface Rastreio {
+  fonte: 'guara-dados.json exportado pela tela Alertas';
+  arquivo: string;
+  sha256: string;
+  bytes: number;
+  exportadoEm: string;
+  /** Idade da exportação em horas (null se o arquivo não tem data). */
+  idadeHoras: number | null;
+  limiteHoras: number;
+  /** Não nulo quando a exportação passou do limite: o dado pode não refletir a tela. */
+  aviso: string | null;
+  origemDaExportacao: DadosPortaveis['origem'] | null;
+  ficticio: true;
+  metodo: 'determinístico: leitura e contagem sobre o arquivo, sem modelo de IA';
+  somenteLeitura: true;
+  consultadoEm: string;
+}
+
+export interface DadosRastreados { dados: DadosPortaveis; rastreio: Rastreio }
+
 export async function carregarDados(caminho: string): Promise<DadosPortaveis> {
+  return (await carregarRastreado(caminho)).dados;
+}
+
+export async function carregarRastreado(caminho: string, agora: Date = new Date()): Promise<DadosRastreados> {
   let tamanho: number;
   try {
     tamanho = (await stat(caminho)).size;
@@ -30,9 +72,35 @@ export async function carregarDados(caminho: string): Promise<DadosPortaveis> {
     throw new Error(`Arquivo não encontrado: ${caminho}. Exporte os dados pela tela Alertas do GUARÁ e salve-o nesse caminho.`);
   }
   if (tamanho > TAMANHO_MAXIMO) throw new Error('Arquivo maior que o limite de 1 MB.');
-  const r = validarImportacao(await readFile(caminho, 'utf8'));
+  const bruto = await readFile(caminho);
+  const r = validarImportacao(bruto.toString('utf8'));
   if (!r.ok) throw new Error(`JSON inválido: ${r.erro}`);
-  return r.dados;
+  return {
+    dados: r.dados,
+    rastreio: {
+      fonte: 'guara-dados.json exportado pela tela Alertas',
+      arquivo: path.basename(caminho),
+      sha256: createHash('sha256').update(bruto).digest('hex'),
+      bytes: bruto.length,
+      exportadoEm: r.dados.exportadoEm,
+      ...avaliarIdade(r.dados.exportadoEm, agora),
+      origemDaExportacao: r.dados.origem ?? null,
+      ficticio: true,
+      metodo: 'determinístico: leitura e contagem sobre o arquivo, sem modelo de IA',
+      somenteLeitura: true,
+      consultadoEm: agora.toISOString(),
+    },
+  };
+}
+
+/** Uma demanda pelo id; sem id, a que estava aberta na exportação. Erro claro quando não há como escolher. */
+export function consultarDemanda(dados: DadosPortaveis, id: string | undefined) {
+  const alvo = id ?? dados.origem?.demandaEmFoco;
+  if (!alvo) throw new Error('Informe o id da demanda: a exportação não registra uma demanda em foco.');
+  const d = dados.demandas.find((x) => x.id === alvo);
+  if (!d) throw new Error(`Demanda ${alvo} não encontrada no arquivo exportado.`);
+  const { id: _id, titulo, status, prioridade, responsavel, prazo, ultimaAcaoRelevante, processo } = d;
+  return { id: d.id, escolhidaPor: id ? 'id informado' : 'demanda em foco na exportação', titulo, status, prioridade, responsavel, prazo: prazo ?? null, processo: processo ?? null, ultimaAcaoRelevante };
 }
 
 export interface FiltroListagem {

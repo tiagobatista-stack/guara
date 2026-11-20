@@ -10,6 +10,17 @@ export const NOME_ARQUIVO = 'guara-dados.json';
 export const TAMANHO_MAXIMO = 1_000_000; // 1 MB
 export const MAX_DEMANDAS = 5000;
 
+/** Rastro de onde o arquivo veio, para quem o lê depois (MCP, auditoria). Opcional: arquivos antigos não o têm. */
+export interface OrigemDaExportacao {
+  aplicacao: 'GUARÁ';
+  tela: 'Alertas';
+  metodo: string;
+  /** Demanda aberta no detalhe no momento da exportação, se havia. */
+  demandaEmFoco?: string;
+}
+
+export const METODO_EXPORTACAO = 'exportação determinística do localStorage do navegador, sem modelo de IA';
+
 export interface DadosPortaveis {
   formato: typeof FORMATO;
   versao: 1;
@@ -20,9 +31,10 @@ export interface DadosPortaveis {
   demandas: Demanda[];
   /** Mascote principal e nomes (preferência visual). Opcional: arquivos antigos não o têm e o formato continua `versao: 1`. */
   mascote?: PreferenciasMascote;
+  origem?: OrigemDaExportacao;
 }
 
-export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date, mascote?: PreferenciasMascote, diasPadraoElaboracao?: number): string {
+export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date, mascote?: PreferenciasMascote, diasPadraoElaboracao?: number, demandaEmFoco?: string | null): string {
   const dados: DadosPortaveis = {
     formato: FORMATO,
     versao: 1,
@@ -31,6 +43,7 @@ export function exportarDados(demandas: readonly Demanda[], diasInatividade: num
     configuracao: { diasInatividade, ...(diasPadraoElaboracao !== undefined ? { diasPadraoElaboracao } : {}) },
     demandas: [...demandas],
     ...(mascote ? { mascote } : {}),
+    origem: { aplicacao: 'GUARÁ', tela: 'Alertas', metodo: METODO_EXPORTACAO, ...(demandaEmFoco ? { demandaEmFoco } : {}) },
   };
   return JSON.stringify(dados, null, 2);
 }
@@ -65,6 +78,10 @@ export function validarImportacao(texto: string): ResultadoImportacao {
   if (dias !== undefined && !diasValidos(dias)) return { ok: false, erro: 'Configuração de inatividade inválida.' };
   const padrao = d.configuracao?.diasPadraoElaboracao;
   if (padrao !== undefined && !(Number.isInteger(padrao) && padrao >= 0 && padrao <= 365)) return { ok: false, erro: 'Prazo padrão do relatório inválido.' };
+  const o = d.origem as Partial<OrigemDaExportacao> | undefined;
+  const origem: OrigemDaExportacao | undefined = o && typeof o === 'object' && o.aplicacao === 'GUARÁ'
+    ? { aplicacao: 'GUARÁ', tela: 'Alertas', metodo: typeof o.metodo === 'string' ? o.metodo.slice(0, 200) : METODO_EXPORTACAO, ...(typeof o.demandaEmFoco === 'string' ? { demandaEmFoco: o.demandaEmFoco.slice(0, 100) } : {}) }
+    : undefined;
   return {
     ok: true,
     dados: {
@@ -75,6 +92,7 @@ export function validarImportacao(texto: string): ResultadoImportacao {
       configuracao: { diasInatividade: dias ?? 3, ...(padrao !== undefined ? { diasPadraoElaboracao: padrao } : {}) },
       demandas: d.demandas,
       // Parte inválida da preferência volta ao padrão em vez de recusar o arquivo: é só visual.
+      ...(origem ? { origem } : {}),
       ...(d.mascote !== undefined ? { mascote: validarPreferencias(d.mascote) } : {}),
     },
   };
