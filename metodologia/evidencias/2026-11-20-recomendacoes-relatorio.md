@@ -1,6 +1,6 @@
 # Recomendações do relatório (ficha 01 GUARÁ, páginas 7 a 11) — 20/11/2026
 
-Base: branch `operacoes-campo`, commit `758453f`. Mudanças **não commitadas, não publicadas**. Dados fictícios. Fonte das recomendações: `F:\claude\relatorio_projetos_formacao_claude_code_final.pdf` (a análise do relatório foi feita sobre o SHA `8db3d62`, da `main`).
+Base: branch `operacoes-campo`, commit `758453f`. Commit `2fd98ad`, mesclado na `main` pela PR #7 (`b6970c5`) e publicado; ver `2026-11-20-publicacao-recomendacoes.md`. Dados fictícios. Fonte das recomendações: `F:\claude\relatorio_projetos_formacao_claude_code_final.pdf` (a análise do relatório foi feita sobre o SHA `8db3d62`, da `main`).
 
 ## O que mudou
 
