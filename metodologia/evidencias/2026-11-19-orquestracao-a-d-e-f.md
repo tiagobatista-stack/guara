@@ -1,6 +1,6 @@
 # Evidência — P09: padrões A, D, E e F com os subagentes registrados (19/11/2026)
 
-Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arquiteto`, `auditor` e `implementador` aparecem como tipos registrados da ferramenta `Agent` (`.claude/agents/`). **Diferença em relação a 13/11** (`2026-11-13-p09-orquestracao.md`): naquela rodada, o fluxo foi alternativo (`general-purpose` lendo o arquivo do papel). Desta vez, cada chamada usou `subagent_type` com o nome do agente registrado. Os padrões B e C não fizeram parte desta rodada.
+Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arquiteto`, `auditor` e `implementador` aparecem como tipos registrados da ferramenta `Agent` (`.claude/agents/`). **Diferença em relação a 13/11** (`2026-11-13-p09-orquestracao.md`): naquela rodada, o fluxo foi alternativo (`general-purpose` lendo o arquivo do papel). Desta vez, cada chamada usou `subagent_type` com o nome do agente registrado. Os padrões B e C foram registrados depois do commit `bbb4ece` (ver "B e C" abaixo).
 
 ## Registro por padrão
 
@@ -10,6 +10,26 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
 | D. Paralelo | `arquiteto` e `auditor` | arquiteto: importação e exportação da planilha da SEMA. auditor: afirmações do STATUS (49h a 49k) e evidências de 19/11, podendo rodar `npm test` | arquiteto: 1 ALTO, 5 MÉDIO e 6 BAIXO, além de lacunas de teste e 2 candidatos. auditor: tabela com 9 afirmações (4 comprovadas, 4 parciais e 1 reprovada) e `npm test` 527/527 | As duas chamadas saíram na **mesma mensagem**. Os registros de transcrição dos dois foram criados às 19:59:07,869 e 19:59:07,870 (1 ms de diferença). O auditor terminou (cerca de 71 s) enquanto o arquiteto D continuava (cerca de 224 s). A captura `2026-11-19-orquestracao-disparo.png` mostra "2 background agents launched" e "Waiting for 3 background agents to finish" | DEMONSTRADO |
 | E. Supervisor/agregador | Claude principal | Os 3 relatórios | Consolidação, divergências (abaixo) e escolha do risco B1/2.3 | Conferência no código (`importar-csv.ts:62`, `:67` e `:189`) e no git (`git status`, `merge-base`) | DEMONSTRADO |
 | F. Gate de qualidade | Claude principal → `implementador` | Gate antes da correção. Depois, corrigir B1 com teste que falhe antes | Correção em `importar-csv.ts` e teste novo em `planilha.test.ts` | **Gate antes:** `npm test` 44 arquivos, 527/527, e `npm run build` ok (`built in 224ms`). Chamada `Agent(subagent_type: "implementador")` observada (cerca de 73 s). **Falha antes, reproduzida pelo Claude principal** com o `importar-csv.ts` do HEAD e o teste novo: `Tests 1 failed \| 9 passed (10)`. **Depois:** `10 passed (10)`. **Gate depois:** `npm test` 44 arquivos, 528/528, e `npm run build` ok (`built in 160ms`) | DEMONSTRADO |
+
+| B. Sequencial | `arquiteto` → `implementador` | O arquiteto do padrão A recomendou B1 (candidato 1, com o teste sugerido), e o implementador corrigiu no F | Correção de `bbb4ece` | A recomendação está no relatório A e coincide com o 2.3 do arquiteto D. A correção veio da chamada `Agent(subagent_type: "implementador")` do F, que falha antes e passa depois | DEMONSTRADO |
+| C. Revisor independente | `auditor` (não produziu a correção) | Revisar `bbb4ece` (`importar-csv.ts` e `planilha.test.ts`), rodar `npm test` e `npm run build`, sem editar arquivos, e avaliar as linhas em branco antes do cabeçalho | **APROVADO COM RESSALVAS** | Chamada `Agent(subagent_type: "auditor")` observada (cerca de 123 s). O auditor reproduziu a falha numa cópia de `bbb4ece~1` (`git archive`), fora do repositório: `Tests 1 failed \| 9 passed (10)`, `actual [2] expected [3]`. Com o código novo, o teste passou. Uma sonda com 11 casos (`\n`, `\r\n`, `\r`, aspas com cada quebra, `""`, BOM, sem quebra no fim) deu o número esperado em todos. `npm test` 44 arquivos, 528/528. `npm run build` ok (`built in 158ms`). `git status --short` saiu vazio, sem edição no repositório. Já havia uma demonstração anterior do C com o `auditor` registrado em 13/11 (item 4 do STATUS: riscos 3b, 3c, C e D) | DEMONSTRADO |
+
+## C. Resultado da revisão independente (bbb4ece)
+
+**Itens avaliados:**
+
+| Item | Resultado |
+|---|---|
+| 1. Mudança mínima e `lerCsv` com a mesma assinatura e o mesmo resultado | APROVADO. 13 casos iguais à versão antiga. `lerCsv` não tem quem a chame |
+| 2. O teste exercita o defeito (falha antes, passa depois) | APROVADO |
+| 3. Contagem de linhas físicas (`\n`, `\r\n`, `\r`, quebras dentro de aspas, `""`, BOM, fim do arquivo) | APROVADO |
+| 4. Linhas em branco antes do cabeçalho | RESSALVA, não é defeito. `'\n\nCOORD_X;COORD_Y\n58 W;abc'` dá **[4]**, a linha que a pessoa vê no editor. O comentário de `LinhaImportada.linha` ("cabeçalho = 1", `importar-csv.ts:96`) fica inexato nesse caso |
+| 5. `npm test` e `npm run build` | APROVADO (528/528, build ok) |
+
+**Ressalvas em aberto:**
+- **R1 (documentação):** trocar o comentário de `LinhaImportada.linha` por "Linha física no arquivo (a primeira = 1)".
+- **R2 (defeito antigo, fora do `bbb4ece`):** com linhas em branco antes do cabeçalho, a detecção do separador olha uma linha vazia e cai no `;`. Por isso `'\n\nCOORD_X,COORD_Y\n58 W,abc'` dá "Não achei as colunas de coordenada", tanto no código antigo quanto no novo.
+- **R3 (cobertura):** os casos `\r` sozinho, aspas com CRLF, `""` e linhas antes do cabeçalho passaram na sonda do auditor, mas não ficaram como teste no repositório.
 
 ## E. Consolidação
 
@@ -45,7 +65,7 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
 ## Limitações
 
 - **Linhas em branco antes do cabeçalho:** o número continua sendo o da linha física, e o cabeçalho deixa de ser a 1. O comentário de `LinhaImportada.linha` ("cabeçalho = 1") não foi alterado.
-- **Padrões B e C:** não fizeram parte desta rodada (o auditor não revisou a correção).
+- **Ressalvas R1 a R3 do auditor:** ver acima.
 - **Riscos em aberto:**
   - ALTO: A1, A2, A3 e 2.1;
   - MÉDIO: M1 a M5 e 2.2 a 2.6;
