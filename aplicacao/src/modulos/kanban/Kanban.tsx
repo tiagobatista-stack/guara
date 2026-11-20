@@ -11,6 +11,8 @@ import { textoEmAndamento } from '../alertas/inatividade.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { ROTULOS_TIPO } from '../demandas/classificacao.ts';
 import { comemorarMascotes } from '../../compartilhado/Mascote.tsx';
+import { ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
+import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : 'sem prazo');
 
@@ -21,8 +23,13 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
   const ajuste = useAjusteFeriados(instante);
   const [aviso, setAviso] = useState<{ tipo: 'sucesso' | 'erro'; texto: string } | null>(null);
 
-  const mover = (d: Demanda, destino: Status) => {
+  const [confirma, setConfirma] = useState<{ d: Demanda; destino: Status } | null>(null);
+
+  const mover = (d: Demanda, destino: Status, confirmado = false) => {
     if (destino === d.status) return;
+    // Concluir com anotações abertas pergunta antes (não bloqueia).
+    if (destino === 'Concluída' && !confirmado && contarAbertas(d.anotacoes) > 0) return setConfirma({ d, destino });
+    setConfirma(null);
     const r = armazem.mudarStatus(d.id, destino);
     // Concluir uma demanda faz os mascotes comemorarem; se era a última em aberto, a festa é maior.
     if (r.ok && destino === 'Concluída') {
@@ -39,6 +46,12 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
         <p className="texto-suave texto-medio">Use “Mover para” em cada cartão. A mudança é gravada no localStorage antes de aparecer.</p>
       </div>
 
+      {confirma && (
+        <div data-testid="confirma-conclusao-kanban">
+          <p className="texto-pequeno"><strong>{confirma.d.titulo}</strong></p>
+          <ConfirmaConclusao anotacoes={confirma.d.anotacoes} aoConcluir={() => mover(confirma.d, confirma.destino, true)} aoVoltar={() => setConfirma(null)} />
+        </div>
+      )}
       {aviso && <p role={aviso.tipo === 'erro' ? 'alert' : 'status'} className={`feedback feedback--${aviso.tipo}`}>{aviso.texto}</p>}
       {erroArmazenamento && <p role="alert" className="aviso">Armazenamento corrompido: resolva na tela Demandas.</p>}
 
@@ -60,7 +73,7 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
                     const bloqueio = textoBloqueio(d, instante, ajuste);
                     return (
                       <li key={d.id} className="cartao kanban-cartao">
-                        <p className="texto-medio"><strong>{d.titulo}</strong></p>
+                        <p className="texto-medio"><strong>{d.titulo}</strong> <SeloAnotacoes anotacoes={d.anotacoes} testid={`anotacoes-${d.id}`} /></p>
                         <p className="texto-pequeno texto-suave">{d.prioridade} · {d.responsavel || 'sem responsável'} · {data(d.prazo)}{d.tipo && ` · ${ROTULOS_TIPO[d.tipo]}`}{d.natureza === 'comum' && ' · tarefa comum'}</p>
                         {prazo && <p className={`texto-pequeno ${prazo.vencido ? 'texto--falha' : 'texto-suave'}`} data-testid={`prazo-${d.id}`}>{prazo.texto}</p>}
                         {bloqueio && <p className="texto-pequeno texto--atencao" data-testid={`bloqueio-${d.id}`}>{bloqueio}</p>}

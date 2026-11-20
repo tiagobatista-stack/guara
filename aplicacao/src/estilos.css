@@ -183,9 +183,23 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 }
 /* Desktop largo: painel do assistente fixo à direita */
 @media (min-width: 1280px) {
-  .painel-assistente { display: flex; }
+  .painel-assistente { display: flex; flex-direction: column; }
+  .painel-assistente .assistente { flex: 1; height: auto; }
+  .painel-recolher { align-self: flex-end; margin: 8px 8px 0; }
+  .app--painel-recolhido .painel-assistente { width: 56px; align-items: center; }
   .botao-assistente { display: none; }
 }
+
+/* Menu recolhido (só ícones, 64 px) e botão de recolher: só a partir de 1024 px, onde o menu tem rótulos */
+.menu-alternar { display: none; }
+@media (min-width: 1024px) {
+  .menu-alternar { display: flex; }
+  .app--menu-recolhido .menu-lateral { width: 64px; }
+  .app--menu-recolhido .menu-rotulo, .app--menu-recolhido .marca-texto { display: none; }
+  .app--menu-recolhido .menu-item { justify-content: center; padding: 8px; }
+}
+.painel-faixa { position: relative; display: grid; place-items: center; width: 56px; height: 64px; margin-top: 8px; border: 0; background: transparent; cursor: pointer; }
+.painel-faixa-contagem { top: 0; right: 4px; }
 
 /* ---------- Componentes de conteúdo ---------- */
 .pagina { max-width: 1152px; margin: 0 auto; display: flex; flex-direction: column; gap: 24px; }
@@ -421,3 +435,48 @@ details.cartao[open] > summary { margin-bottom: 12px; }
   .campo-grupo--largo { grid-column: 1 / -1; }
   .item-contato { grid-template-columns: 1fr auto; align-items: start; }
 }
+
+/* Agenda: calendário mensal */
+.agenda-barra { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 12px; }
+.agenda-barra h2 { flex: 1; min-width: 140px; margin: 0; text-transform: capitalize; text-align: center; }
+.agenda-grade { display: grid; gap: 2px; }
+.agenda-linha { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px; }
+.agenda-cabecalho { text-align: center; font-size: 12px; text-transform: uppercase; opacity: .7; }
+.agenda-dia { display: flex; flex-direction: column; align-items: stretch; gap: 2px; min-height: 64px; padding: 4px; text-align: left; font: inherit; color: inherit; background: transparent; border: 1px solid rgba(128, 128, 128, .3); border-radius: 6px; cursor: pointer; overflow: hidden; }
+.agenda-dia--fora { opacity: .45; }
+.agenda-dia--hoje .agenda-numero { background: var(--guara-500); color: #fff; border-radius: 999px; padding: 0 6px; align-self: flex-start; }
+.agenda-dia--escolhido { outline: 2px solid var(--guara-500); }
+.agenda-numero { font-size: 13px; }
+.agenda-evento { font-size: 11px; line-height: 1.2; padding: 1px 4px; border-radius: 4px; background: rgba(128, 128, 128, .2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agenda-evento--vistoria { border-left: 3px solid var(--guara-500); }
+@media (max-width: 600px) { .agenda-dia { min-height: 48px; } .agenda-evento { display: none; } }
+
+.agenda-dia--operacao { background: rgba(220, 38, 38, .16); border-color: #dc2626; }
+
+/* Mapa */
+/* Isolado: os controles e balões do Leaflet (z-index alto) não passam por cima da barra superior. */
+.mapa-area { position: relative; z-index: 0; isolation: isolate; height: 60vh; min-height: 320px; border-radius: 8px; }
+.mapa-cartao:fullscreen { overflow: auto; padding: 12px; background: var(--fundo, var(--superficie)); }
+.mapa-cartao:fullscreen .mapa-area { height: calc(100dvh - 190px); }
+.mapa-quadrado { display: block; width: 14px; height: 14px; border: 2px solid #fff; box-sizing: border-box; }
+
+.acoes--entre { justify-content: space-between; align-items: center; margin: 0; }
+.grade--topo { align-items: start; }
+
+.anotacao--feita { text-decoration: line-through; opacity: 0.7; }
+
+/* Cartão do ponto recolhível (Operações). */
+.ponto-linha { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; }
+.ponto-gatilho { background: none; border: 0; padding: 6px 4px; min-height: 44px; font: inherit; color: inherit; text-align: left; cursor: pointer; flex: 1 1 12rem; }
+.ponto-selos { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ponto-principal { display: inline-flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+.ponto-corpo { margin-top: 8px; }
+.botao--icone { min-width: 36px; padding: 0 8px; }
+@media (min-width: 1024px) { .ponto-gatilho { flex: 1 1 auto; white-space: nowrap; } .ponto-principal { flex-wrap: nowrap; } }
+.campo-inline { display: inline-flex; align-items: center; gap: 6px; }
+.acoes--centro { align-items: center; }
+.botao--sutil { border-color: transparent; background: transparent; }
+.mais-acoes > summary { display: inline-flex; align-items: center; gap: 6px; list-style: none; cursor: pointer; min-height: 36px; padding: 0 10px; font-size: 12px; font-weight: 500; border: 1px solid var(--borda); border-radius: 6px; }
+.mais-acoes > summary::-webkit-details-marker { display: none; }
+.mais-acoes > summary::after { content: '▾'; }
+.mais-acoes[open] > summary::after { content: '▴'; }

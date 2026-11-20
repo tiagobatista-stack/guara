@@ -15,6 +15,8 @@ const COLUNAS = {
   numero: ['NPONTO', 'NUMERODOPONTO', 'NUMERO', 'PONTO', 'N'],
   codigo: ['CODIGOPONTO', 'CODIGO'],
   tipoDano: ['TIPODANO', 'TIPODEDANO'],
+  etiquetas: ['ETIQUETAS'], // só lê desta coluna; nunca das notas
+
   equipe: ['EQUIPE'],
   x: ['COORDX', 'X'],
   y: ['COORDY', 'Y'],
@@ -26,6 +28,7 @@ const COLUNAS = {
   retorno: ['DATRETOR', 'RETORNO', 'DATARETORNO', 'DATRETORNO'],
   notas: ['NOTPLANEJ', 'NOTAPLANEJAMENTO', 'NOTAS', 'OBSERVACOES', 'OBS'],
   integrantes: ['SERVIDOREQUIPE', 'SERVIDORES', 'INTEGRANTES'],
+  mes: ['MESPPROG'], // só serve para sugerir o nome da operação
   resultado: ['FISCALIZADOAUTUADO', 'RESULTADO'],
   motivo: ['MOTIVODENAOFISCALIZARAUTUAR', 'MOTIVO'],
   protocolo: ['NUMPROTOCOLO', 'PROTOCOLO'],
@@ -98,6 +101,9 @@ export interface LinhaImportada {
   /** Ponto com equipe e datas da linha: ao importar, elas viram (ou encontram) a viagem. */
   ponto?: PontoNovo;
   erros: string[];
+  /** FISCALIZADO_AUTUADO e MES_PPROG como vieram, para sugerir o nome da operação. */
+  resultado: string;
+  mes: string;
   /** Não impedem a importação, mas pedem conferência (coordenadas divergentes, resultado sem motivo). */
   avisos: string[];
 }
@@ -172,10 +178,11 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
     const equipe = limpar(campo('equipe'), LIMITES_OPERACAO.equipe);
     const codigo = limpar(campo('codigo'), LIMITES_OPERACAO.codigo);
     const tipoDano = limpar(campo('tipoDano'), LIMITES_OPERACAO.tipoDano);
+    const etiquetas = limparNomes((campo('etiquetas') ?? '').split(/\s*[;,|]\s*/), LIMITES_OPERACAO.etiqueta).slice(0, LIMITES_OPERACAO.etiquetas);
     const integrantes = limparNomes((campo('integrantes') ?? '').split(/\s*[,;/|]\s*|\s+e\s+/), LIMITES_OPERACAO.integrante);
     const resultadoBruto = limpar(campo('resultado'), 60);
     const resultado = resultadoBruto ? resultadoDaPlanilha(resultadoBruto) : null;
-    if (resultadoBruto && !resultado) erros.push(`FISCALIZADO_AUTUADO "${resultadoBruto}" não reconhecido (use ${Object.values(RESULTADOS).join(', ')}).`);
+    if (resultadoBruto && !resultado) avisos.push(`Resultado não reconhecido: '${resultadoBruto}'. Corrija na planilha ou registre no ponto.`);
     const motivo = limpar(campo('motivo'), LIMITES_OPERACAO.motivo);
     const protocolo = limpar(campo('protocolo'), LIMITES_OPERACAO.protocolo);
     const observacao = limpar(campo('observacao'), LIMITES_OPERACAO.observacao);
@@ -186,6 +193,7 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
           ...(numero !== undefined ? { numero } : {}),
           ...(codigo ? { codigo } : {}),
           ...(tipoDano ? { tipoDano } : {}),
+          ...(etiquetas.length ? { etiquetas } : {}),
           coordenada: coord.valor,
           municipio: limpar(campo('municipio'), LIMITES_OPERACAO.municipio),
           ...(equipe ? { equipe } : {}),
@@ -202,7 +210,7 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
           situacao: resultado && resultado !== 'nao' ? 'vistoriado' : 'planejado',
         }
       : undefined;
-    return { linha: registros[i + 1].linha, ...(ponto ? { ponto } : {}), erros, avisos };
+    return { linha: registros[i + 1].linha, ...(ponto ? { ponto } : {}), erros, avisos, resultado: limpar(campo('resultado'), 80), mes: limpar(campo('mes'), 10) };
   });
   const periodo = periodoDosPontos(linhas.flatMap((l) => (l.ponto ? [l.ponto] : [])));
   const setor = tabela.slice(1).map((c) => limpar(indice.setor >= 0 ? c[indice.setor] : '', LIMITES_OPERACAO.setor)).find(Boolean);

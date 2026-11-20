@@ -80,3 +80,13 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
   - MÉDIO: M1 a M5 e 2.2 a 2.6;
   - dados fictícios nos testes (M2).
 - **Tela:** a correção não foi conferida no navegador (NÃO TESTADO).
+
+## Integração com a `origin/main` (19/11/2026)
+
+- **Merge:** `git fetch origin` e `git merge origin/main` em `operacoes-campo`. A `main` estava 26 commits à frente da base da branch: PR #2, Roteiro, mapa, agenda e POP.
+- **Conflito:** só em `importar-csv.ts`, na linha `return` de `importarPontosCsv`. Ficaram as duas mudanças: o número da linha física (`registros[i + 1].linha`), desta branch, e os campos `resultado` e `mes`, da `main`.
+- **Dependências:**
+  - O 1º `npm ci` falhou com `EPERM` no `rolldown-binding.win32-x64-msvc.node`. O arquivo estava preso pelo `npm run dev` aberto desde as 19:25.
+  - Com autorização do responsável, o dev server foi encerrado (o servidor MCP não foi tocado).
+  - O 2º `npm ci` passou, com 0 vulnerabilidades.
+- **Gate:** `npm test` deu **58 arquivos, 672/672** (os 659 da `main` mais os 13 desta branch), e `npm run build` passou (`built in 229ms`). **PASSOU.**

@@ -3,11 +3,15 @@
 
 import { criarListaLocal, novoId } from '../atalhos/lista-local.ts';
 import { dataValida } from '../demandas/regras.ts';
+import { novoBloqueio } from '../../compartilhado/bloqueio.ts';
+import { caracterizacaoValida } from './pop-supressao.ts';
+import { anotacoesValidas, comAnotacoes, type Anotacao } from '../../compartilhado/anotacoes.ts';
+import type { MotivoBloqueio } from '../demandas/modelo.ts';
 import {
   CHAVE_OPERACOES, LIMITES_OPERACAO, RESULTADOS_COM_MOTIVO,
   type EventoOperacao, type MotivoPeriodo, type Operacao, type Ponto, type PontoNovo, type ResultadoPonto, type Viagem,
 } from './modelo.ts';
-import { codigosEmUso, encaixarEmViagens, gerarCodigo, limparNomes, periodoDosPontos, problemasDeDatas, situacaoDoPonto, validarListaOperacoes, type Periodo } from './regras.ts';
+import { codigosEmUso, encaixarEmViagens, gerarCodigo, limparNomes, planejarCodigos, periodoDosPontos, problemasDeDatas, situacaoDoPonto, type PrazosDeElaboracao, validarListaOperacoes, type Periodo } from './regras.ts';
 
 const lista = criarListaLocal<Operacao>(CHAVE_OPERACOES, () => [], validarListaOperacoes);
 
@@ -54,6 +58,23 @@ export function criarOperacao(d: DadosOperacao, agoraIso: string): { ok: true; i
   return { ok: true, id };
 }
 
+/** Cria a operação já com os pontos (viagens e códigos como em `incluirPontos`). Valida tudo antes e grava uma vez; exige ao menos um ponto. */
+export function criarOperacaoComPontos(d: DadosOperacao, agoraIso: string, novos: readonly PontoNovo[]): { ok: true; id: string } | { ok: false; erro: string } {
+  if (novos.length === 0) return { ok: false, erro: 'Nenhuma linha válida para criar a operação.' };
+  const atuais = obterOperacoes();
+  if (atuais.length >= LIMITES_OPERACAO.operacoes) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.operacoes} operações.` };
+  const erro = problemaDaOperacao(d);
+  if (erro) return { ok: false, erro };
+  const id = novoId('op', atuais);
+  const origem = d.origem.trim();
+  const setor = (d.setor ?? '').replace(/\s+/g, ' ').trim().toUpperCase();
+  const vazia: Operacao = { id, nome: d.nome.trim(), ...(d.inicio ? { inicio: d.inicio } : {}), ...(d.fim ? { fim: d.fim } : {}), ...(origem ? { origem } : {}), ...(setor ? { setor } : {}), viagens: [], pontos: [], criadaEm: agoraIso, historico: [{ quando: agoraIso, acao: 'criada' }] };
+  const r = acrescentarPontos(atuais, vazia, novos);
+  if (!r.ok) return r;
+  lista.gravar([...atuais, completarCodigos(r.op, atuais)]);
+  return { ok: true, id };
+}
+
 export function excluirOperacao(id: string): void {
   lista.gravar(obterOperacoes().filter((o) => o.id !== id));
 }
@@ -63,18 +84,98 @@ export function excluirOperacao(id: string): void {
  * Se o gerado já existir em outra operação, o ponto fica sem código (a tela mostra o conflito).
  */
 function completarCodigos(op: Operacao, todas: readonly Operacao[]): Operacao {
-  const emUso = codigosEmUso(todas.filter((o) => o.id !== op.id));
-  for (const p of op.pontos) if (p.codigo) emUso.set(p.codigo.toUpperCase(), { operacao: op.nome, ponto: p.id });
-  let mudou = false;
-  const pontos = op.pontos.map((p) => {
-    if (p.codigo) return p;
-    const codigo = gerarCodigo(p.municipio, op.inicio, p.numero);
-    if (!codigo || emUso.has(codigo)) return p;
-    emUso.set(codigo, { operacao: op.nome, ponto: p.id });
-    mudou = true;
-    return { ...p, codigo };
-  });
-  return mudou ? { ...op, pontos } : op;
+  const { gerar } = planejarCodigos(op, todas);
+  if (gerar.length === 0) return op;
+  const novos = new Map(gerar.map((g) => [g.pontoId, g.codigo]));
+  return { ...op, pontos: op.pontos.map((p) => (novos.has(p.id) ? { ...p, codigo: novos.get(p.id) } : p)) };
+}
+
+/** Confirma o plano de "Gerar códigos": grava só os pontos sem código (a regra é a de planejarCodigos). Devolve quantos ganharam código. */
+export function gerarCodigos(operacaoId: string): number {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op) return 0;
+  const { gerar } = planejarCodigos(op, atuais);
+  if (gerar.length) gravarOperacao(atuais, op);
+  return gerar.length;
+}
+
+/** Marca (ou atualiza) o bloqueio do ponto; `detalhe` já conferido. Devolve o problema ou null. */
+export function travarPonto(operacaoId: string, pontoId: string, motivo: MotivoBloqueio, detalhe: string, agoraIso: string): string | null {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  const ponto = op?.pontos.find((p) => p.id === pontoId);
+  if (!op || !ponto) return 'Ponto não encontrado.';
+  if (ponto.reprogramado || ponto.situacao === 'cancelado') return 'Ponto cancelado ou reprogramado não é travado.';
+  const bloqueio = novoBloqueio(ponto.bloqueio, motivo, agoraIso, detalhe);
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? { ...p, bloqueio } : p)) });
+  return null;
+}
+
+/** Grava a lista de anotações do ponto (já conferida pelo componente). Devolve o problema ou null. */
+export function salvarAnotacoesPonto(operacaoId: string, pontoId: string, lista: Anotacao[]): string | null {
+  if (!anotacoesValidas(lista)) return 'As anotações não são válidas.';
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op?.pontos.some((p) => p.id === pontoId)) return 'Ponto não encontrado.';
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => (p.id === pontoId ? comAnotacoes(p, lista) : p)) });
+  return null;
+}
+
+export interface DadosRelatorio { enviadoEm: string; protocoloSiga: string; notas: string }
+
+/** Registra o envio do relatório no SIGA-MT (data vazia desfaz o envio). Só vale para ponto com resultado (não "Não"). `hoje`: a data não pode ser futura. */
+export function registrarRelatorio(operacaoId: string, pontoId: string, d: DadosRelatorio, hoje: string): string | null {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  const ponto = op?.pontos.find((p) => p.id === pontoId);
+  if (!op || !ponto) return 'Ponto não encontrado.';
+  if (!ponto.resultado || ponto.resultado === 'nao' || ponto.reprogramado || ponto.situacao === 'cancelado') return 'O relatório só vale para ponto com resultado registrado.';
+  const protocoloSiga = d.protocoloSiga.replace(/\s+/g, ' ').trim();
+  const notas = d.notas.trim();
+  if (protocoloSiga.length > LIMITES_OPERACAO.protocolo) return `O número no SIGA-MT pode ter no máximo ${LIMITES_OPERACAO.protocolo} caracteres.`;
+  if (notas.length > LIMITES_OPERACAO.observacao) return `A nota pode ter no máximo ${LIMITES_OPERACAO.observacao} caracteres.`;
+  if (d.enviadoEm && !dataValida(d.enviadoEm)) return 'Informe uma data de envio válida.';
+  if (d.enviadoEm > hoje) return 'A data de envio não pode ser futura.';
+  const relatorio = { ...(d.enviadoEm ? { enviadoEm: d.enviadoEm } : {}), ...(protocoloSiga ? { protocoloSiga } : {}), ...(notas ? { notas } : {}) };
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => { if (p.id !== pontoId) return p; const { relatorio: _r, ...resto } = p; void _r; return Object.keys(relatorio).length ? { ...resto, relatorio } : resto; }) });
+  return null;
+}
+
+// ---------- Prazo da elaboração ----------
+
+const CHAVE_PRAZO_ELABORACAO = 'guara:operacoes:prazo-elaboracao:v1';
+
+/** Dias após o retorno para elaborar o relatório quando o ponto não tem demanda com prazo; undefined = não configurado (não vence). */
+export function lerDiasPadraoElaboracao(): number | undefined {
+  try {
+    const n = Number(localStorage.getItem(CHAVE_PRAZO_ELABORACAO));
+    return localStorage.getItem(CHAVE_PRAZO_ELABORACAO) !== null && Number.isInteger(n) && n >= 0 && n <= 365 ? n : undefined;
+  } catch { return undefined; }
+}
+
+/** Grava o prazo padrão (inteiro de 0 a 365) ou, com null, limpa. Devolve o problema ou null. */
+export function definirDiasPadraoElaboracao(dias: number | null): string | null {
+  if (dias !== null && (!Number.isInteger(dias) || dias < 0 || dias > 365)) return 'Informe um número inteiro de dias, de 0 a 365.';
+  try {
+    if (dias === null) localStorage.removeItem(CHAVE_PRAZO_ELABORACAO); else localStorage.setItem(CHAVE_PRAZO_ELABORACAO, String(dias));
+    return null;
+  } catch { return 'Este navegador não deixou gravar o prazo.'; }
+}
+
+/** Contexto de prazo da elaboração: prazos das demandas e o padrão configurado. */
+export function prazosDeElaboracao(demandas: readonly { id: string; prazo?: string }[]): PrazosDeElaboracao {
+  const diasPadrao = lerDiasPadraoElaboracao();
+  return { prazosDemandas: new Map(demandas.filter((d) => d.prazo).map((d) => [d.id, d.prazo!])), ...(diasPadrao !== undefined ? { diasPadrao } : {}) };
+}
+
+/** Tira o bloqueio do ponto (a situação do ponto não muda). */
+export function destravarPonto(operacaoId: string, pontoId: string): string | null {
+  const atuais = obterOperacoes();
+  const op = atuais.find((o) => o.id === operacaoId);
+  if (!op?.pontos.some((p) => p.id === pontoId)) return 'Ponto não encontrado.';
+  gravarOperacao(atuais, { ...op, pontos: op.pontos.map((p) => { if (p.id !== pontoId) return p; const { bloqueio: _b, ...resto } = p; void _b; return resto; }) });
+  return null;
 }
 
 /** Grava a operação alterada, já com os códigos que faltavam. */
@@ -100,23 +201,31 @@ export function incluirPontos(operacaoId: string, novos: readonly PontoNovo[]): 
   const atuais = obterOperacoes();
   const op = atuais.find((o) => o.id === operacaoId);
   if (!op) return 'Operação não encontrada.';
-  if (op.pontos.length + novos.length > LIMITES_OPERACAO.pontos) return `O limite é de ${LIMITES_OPERACAO.pontos} pontos por operação.`;
+  const r = acrescentarPontos(atuais, op, novos);
+  if (!r.ok) return r.erro;
+  gravarOperacao(atuais, r.op);
+  return null;
+}
+
+/** Valida e monta a operação com os pontos acrescentados, sem gravar nada. */
+function acrescentarPontos(atuais: readonly Operacao[], op: Operacao, novos: readonly PontoNovo[]): { ok: true; op: Operacao } | { ok: false; erro: string } {
+  if (op.pontos.length + novos.length > LIMITES_OPERACAO.pontos) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.pontos} pontos por operação.` };
   for (const p of novos) {
     const erros = problemasDeDatas(p, { inicio: op.inicio, fim: op.fim });
-    if (erros.length) return erros[0];
+    if (erros.length) return { ok: false, erro: erros[0] };
   }
   // Código vindo da planilha: não pode repetir outro já usado, nem dentro do próprio arquivo.
   const emUso = codigosEmUso(atuais);
   for (const p of novos) {
     if (!p.codigo) continue;
     const codigo = p.codigo.trim();
-    if (codigo.length > LIMITES_OPERACAO.codigo) return `O código ${codigo.slice(0, 20)}… passa de ${LIMITES_OPERACAO.codigo} caracteres.`;
+    if (codigo.length > LIMITES_OPERACAO.codigo) return { ok: false, erro: `O código ${codigo.slice(0, 20)}… passa de ${LIMITES_OPERACAO.codigo} caracteres.` };
     const onde = emUso.get(codigo.toUpperCase());
-    if (onde) return `O código ${codigo} já existe (${onde.operacao}).`;
+    if (onde) return { ok: false, erro: `O código ${codigo} já existe (${onde.operacao}).` };
     emUso.set(codigo.toUpperCase(), { operacao: op.nome, ponto: '' });
   }
   const { viagens, itens } = encaixarEmViagens(novos, op.viagens, (conhecidas) => novoId('vg', conhecidas));
-  if (viagens.length > LIMITES_OPERACAO.viagens) return `O limite é de ${LIMITES_OPERACAO.viagens} viagens por operação.`;
+  if (viagens.length > LIMITES_OPERACAO.viagens) return { ok: false, erro: `O limite é de ${LIMITES_OPERACAO.viagens} viagens por operação.` };
   const pontos = [...op.pontos];
   // Ponto sem número recebe o próximo livre da operação (o número entra no código).
   let proximo = Math.max(0, ...pontos.map((p) => p.numero ?? 0), ...itens.map((p) => p.numero ?? 0)) + 1;
@@ -128,8 +237,7 @@ export function incluirPontos(operacaoId: string, novos: readonly PontoNovo[]): 
   const doArquivo = periodoDosPontos(novos);
   const inicio = op.inicio ?? doArquivo.inicio;
   const fim = op.fim ?? doArquivo.fim;
-  gravarOperacao(atuais, { ...op, ...(inicio ? { inicio } : {}), ...(fim ? { fim } : {}), viagens, pontos });
-  return null;
+  return { ok: true, op: { ...op, ...(inicio ? { inicio } : {}), ...(fim ? { fim } : {}), viagens, pontos } };
 }
 
 /** Acrescenta um evento ao histórico do pedido (guarda os mais recentes, até o limite). */
@@ -171,15 +279,35 @@ export function alterarPonto(operacaoId: string, pontoId: string, mudancas: Part
   const ponto = op?.pontos.find((p) => p.id === pontoId);
   if (!op || !ponto) return 'Ponto não encontrado.';
   const novo: Ponto = { ...ponto, ...mudancas };
-  for (const k of ['viagem', 'grupo', 'tipoDano'] as const) {
+  for (const k of ['viagem', 'grupo', 'tipoDano', 'motivoCancelamento', 'imovel', 'car', 'coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const) {
     if (novo[k] !== undefined && String(novo[k]).trim() === '') delete novo[k];
   }
+  for (const k of ['imovel', 'car', 'areaHa', 'situacaoCar', 'etiquetas'] as const) if (novo[k] === undefined) delete novo[k];
+  if (novo.imovel) novo.imovel = novo.imovel.trim();
+  if (novo.car) novo.car = novo.car.trim();
+  if (novo.imovel && novo.imovel.length > LIMITES_OPERACAO.imovel) return `O imóvel/local aceita até ${LIMITES_OPERACAO.imovel} caracteres.`;
+  if (novo.car && novo.car.length > LIMITES_OPERACAO.car) return `O CAR aceita até ${LIMITES_OPERACAO.car} caracteres.`;
+  if (novo.areaHa !== undefined) {
+    if (!Number.isFinite(novo.areaHa) || novo.areaHa <= 0) return 'A área deve ser um número maior que zero.';
+    novo.areaHa = Math.round(novo.areaHa * 10) / 10;
+  }
+  if (novo.etiquetas) {
+    if (novo.etiquetas.length > LIMITES_OPERACAO.etiquetas) return `O limite é de ${LIMITES_OPERACAO.etiquetas} etiquetas por ponto.`;
+    novo.etiquetas = limparNomes(novo.etiquetas, LIMITES_OPERACAO.etiqueta);
+    if (novo.etiquetas.length === 0) delete novo.etiquetas;
+  }
+  if (novo.caracterizacao !== undefined && !caracterizacaoValida(novo.caracterizacao)) return 'Resposta fora das opções do POP.';
+  if (novo.caracterizacao && Object.keys(novo.caracterizacao).length === 0) delete novo.caracterizacao;
+  if (novo.drone && !novo.drone.voou && !novo.drone.arquivo) delete novo.drone;
+  for (const k of ['coordenadaAferida', 'waypoint', 'fotos', 'pessoaContatada'] as const) if ((novo[k] ?? '').length > 100) return 'Os dados de campo aceitam até 100 caracteres cada.';
+  if ((novo.drone?.arquivo ?? '').length > 100) return 'Os dados de campo aceitam até 100 caracteres cada.';
   if (novo.numero !== undefined && (!Number.isInteger(novo.numero) || novo.numero < 0)) return 'O número do ponto deve ser um inteiro.';
   if (novo.numero !== undefined && novo.numero !== ponto.numero && op.pontos.some((p) => p.id !== pontoId && p.numero === novo.numero)) {
     return `Já existe o ponto ${novo.numero} nesta operação.`;
   }
   if (novo.municipio.length > LIMITES_OPERACAO.municipio) return `O município pode ter no máximo ${LIMITES_OPERACAO.municipio} caracteres.`;
   if ((novo.tipoDano ?? '').length > LIMITES_OPERACAO.tipoDano) return `O tipo de dano pode ter no máximo ${LIMITES_OPERACAO.tipoDano} caracteres.`;
+  if ((novo.motivoCancelamento ?? '').length > 100) return 'O motivo do cancelamento pode ter no máximo 100 caracteres.';
   if (novo.viagem && !op.viagens.some((v) => v.id === novo.viagem)) return 'Viagem não encontrada.';
   if ((novo.grupo ?? '').length > LIMITES_OPERACAO.grupo) return `O grupo pode ter no máximo ${LIMITES_OPERACAO.grupo} caracteres.`;
   if (novo.notas.length > LIMITES_OPERACAO.notas) return `As notas podem ter no máximo ${LIMITES_OPERACAO.notas} caracteres.`;
@@ -251,6 +379,8 @@ export interface DadosViagem {
   saida: string;
   retorno: string;
   notas: string;
+  /** Um dos integrantes; vazio ou ausente = sem motorista. */
+  motorista?: string;
 }
 
 /** Viagem limpa a partir do formulário, ou o problema. */
@@ -265,7 +395,8 @@ function montarViagem(op: Operacao, id: string, d: DadosViagem): Viagem | string
   if (notas.length > LIMITES_OPERACAO.notas) return `As notas podem ter no máximo ${LIMITES_OPERACAO.notas} caracteres.`;
   const erros = problemasDeDatas({ saida: d.saida || undefined, retorno: d.retorno || undefined }, { inicio: op.inicio, fim: op.fim });
   if (erros.length) return erros[0];
-  return { id, equipe, integrantes, veiculos, notas, ...(d.saida ? { saida: d.saida } : {}), ...(d.retorno ? { retorno: d.retorno } : {}) };
+  const motorista = d.motorista && integrantes.includes(d.motorista) ? d.motorista : undefined;
+  return { id, equipe, integrantes, veiculos, notas, ...(motorista ? { motorista } : {}), ...(d.saida ? { saida: d.saida } : {}), ...(d.retorno ? { retorno: d.retorno } : {}) };
 }
 
 export function criarViagem(operacaoId: string, d: DadosViagem): { ok: true; id: string } | { ok: false; erro: string } {

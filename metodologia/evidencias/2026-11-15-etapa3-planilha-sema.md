@@ -24,6 +24,6 @@
 |---|---|---|---|---|
 | 1 | Lógica (9 novos) e regressão | `node --test` com shim | 84/84 | PASSOU (fora do Vitest) |
 | 2 | Tipos | `tsc` com declarações mínimas de React | sem erros | PASSOU (parcial) |
-| 3 | Suíte completa e build | `npm test`, `npm run build` | — | NÃO TESTADO |
+| 3 | Suíte completa e build | `npm test`, `npm run build` | 558/558 e build ok no branch `integracao-operacoes` (18/11/2026, após o merge com o `main`; inclui importação das planilhas de teste de ponta a ponta) | PASSOU |
 | 4 | Abrir a planilha exportada no Excel | — | — | NÃO TESTADO |
 | 5 | Tela no navegador | — | — | NÃO CONFERIDO VISUALMENTE |

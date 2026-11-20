@@ -3,7 +3,7 @@
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Operacoes } from './Operacoes.tsx';
-import { criarOperacao, incluirPontos, obterOperacoes, registrarResultado } from './armazem.ts';
+import { criarOperacao, incluirPontos, obterOperacoes, registrarRelatorio, registrarResultado } from './armazem.ts';
 import { Painel } from '../painel/Painel.tsx';
 
 function montar() {
@@ -14,6 +14,7 @@ function montar() {
       <Operacoes />
     </ContextoArmazem.Provider>,
   );
+  fireEvent.click(screen.getByRole('button', { name: 'ou criar sem planilha' })); // os testes antigos criam pelo formulário
   return armazem;
 }
 
@@ -56,6 +57,7 @@ describe('tela Operações', () => {
     expect(previa).toHaveTextContent('Linha 4: O retorno é anterior à saída.');
     expect(obterOperacoes()[0].pontos).toHaveLength(0); // nada gravado antes de confirmar
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     expect(screen.getByTestId('mensagem-importacao')).toHaveTextContent('2 ponto(s) importado(s).');
     expect(obterOperacoes()[0].pontos).toHaveLength(2);
     // A linha 2 (Equipe A, 18 a 22/09) vira uma viagem; a linha 3, sem equipe nem datas, fica sem viagem.
@@ -70,13 +72,14 @@ describe('tela Operações', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     const [p1, p2] = obterOperacoes()[0].pontos;
     expect(screen.getByTestId(`proximos-${p2.id}`)).toHaveTextContent('Equipe A, planejado, 22/09/2026');
 
     expect(screen.getByTestId(`viagem-ponto-${p2.id}`)).toHaveTextContent('sem viagem');
 
-    fireEvent.click(screen.getByRole('button', { name: 'Editar Ponto 2' }));
-    const form = screen.getByRole('form', { name: 'Editar Ponto 2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar planejamento do Ponto 2' }));
+    const form = screen.getByRole('form', { name: 'Editar planejamento do Ponto 2' });
     fireEvent.change(within(form).getByLabelText('Viagem'), { target: { value: p1.viagem } });
     fireEvent.change(within(form).getByLabelText('Grupo'), { target: { value: 'Fazenda X' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar ponto' }));
@@ -91,11 +94,12 @@ describe('tela Operações', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     fireEvent.click(screen.getByLabelText('Selecionar Ponto 2'));
     fireEvent.change(screen.getByLabelText('Nome do grupo'), { target: { value: 'Fazenda X' } });
     fireEvent.click(screen.getByRole('button', { name: 'Agrupar selecionados' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Editar Ponto 2' }));
-    const form = screen.getByRole('form', { name: 'Editar Ponto 2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar planejamento do Ponto 2' }));
+    const form = screen.getByRole('form', { name: 'Editar planejamento do Ponto 2' });
     expect(within(form).getByLabelText('Grupo')).toHaveValue('Fazenda X');
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar ponto' }));
     expect(obterOperacoes()[0].pontos[1].grupo).toBe('Fazenda X');
@@ -126,14 +130,15 @@ describe('tela Operações', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Criar demanda a partir do Ponto 1' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Converter Ponto 1 em demanda' }));
     const d = armazem.obter().demandas[0];
     expect(d).toMatchObject({ tipo: 'campo', natureza: 'demanda', coordenada: { lat: -11.5, lon: -58.5 }, vistoria: { data: '2026-09-18' } });
     expect(d.titulo).toBe('Vistoria em Município Fictício (ponto 1 de Operação fictícia)');
     expect(obterOperacoes()[0].pontos[0].demandas).toEqual([d.id]);
     expect(screen.getAllByTestId(/^ligada-/)[0]).toHaveTextContent(d.titulo);
     // Não cria a mesma demanda duas vezes.
-    expect(screen.getByRole('button', { name: 'Criar demanda a partir do Ponto 1' })).toBeDisabled();
+    expect(screen.getByRole('button', { name: 'Converter Ponto 1 em demanda' })).toBeDisabled();
     expect(armazem.obter().demandas).toHaveLength(1);
   });
 
@@ -146,6 +151,7 @@ describe('tela Operações', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     const [p1] = obterOperacoes()[0].pontos;
     expect(screen.getByTestId(`proximos-${p1.id}`)).toHaveTextContent('Demanda Demanda fictícia ao lado');
 
@@ -163,6 +169,7 @@ describe('tela Operações', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValue(true);
     fireEvent.click(screen.getByRole('button', { name: 'Excluir Ponto 1' }));
     expect(obterOperacoes()[0].pontos).toHaveLength(2);
@@ -192,6 +199,7 @@ describe('período opcional e tirado do arquivo', () => {
     expect(screen.getByTestId('periodo-do-arquivo')).toHaveTextContent('Período tirado do arquivo: 18/09/2026 a 22/09/2026.');
     expect(obterOperacoes()[0].inicio).toBeUndefined();
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-18', fim: '2026-09-22' });
     expect(screen.getByTestId('periodo-operacao')).toHaveTextContent('18/09/2026 a 22/09/2026');
   });
@@ -222,6 +230,7 @@ describe('período opcional e tirado do arquivo', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Não, manter 20/09/2026 a 25/09/2026' }));
     expect(screen.getByTestId('aviso-manter-periodo')).toHaveTextContent('entram sem as datas');
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     const o = obterOperacoes()[0];
     expect(o).toMatchObject({ inicio: '2026-09-20', fim: '2026-09-25' });
     expect(o.viagens).toHaveLength(1);
@@ -245,6 +254,7 @@ describe('período opcional e tirado do arquivo', () => {
     expect(screen.getByLabelText('Início do período')).toHaveValue('2026-09-18');
     expect(screen.getByTestId('historico-pedido')).toHaveTextContent('período alterado: 20/09/2026 a 25/09/2026 → 18/09/2026 a 25/09/2026 (prorrogada)');
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     expect(obterOperacoes()[0].viagens[0]).toMatchObject({ equipe: 'Equipe A', saida: '2026-09-18', retorno: '2026-09-22' });
   });
 
@@ -256,6 +266,7 @@ describe('período opcional e tirado do arquivo', () => {
     colar(CSV);
     expect(screen.getByTestId('periodo-do-arquivo')).toHaveTextContent('10/09/2026 a 22/09/2026');
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-09-10', fim: '2026-09-22' });
   });
 
@@ -295,6 +306,7 @@ describe('exportação dos pontos', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     expect(screen.getByTestId('mensagem-importacao')).toHaveTextContent('exporte a lista atualizada');
 
     const blobs: Blob[] = [];
@@ -336,6 +348,7 @@ describe('agrupar pontos', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     return obterOperacoes()[0].pontos;
   };
 
@@ -418,6 +431,58 @@ describe('Painel: demanda encaixada numa operação não conta como "falta encai
   });
 });
 
+describe('nova operação: importar primeiro, nomear depois', () => {
+  const CSV_DEZ = [
+    'N_PONTO;EQUIPE;COORD_X;COORD_Y;MUNICIPIO;DAT_SAIDA;DAT_RETOR;NOT_PLANEJ;MES_PPROG;FISCALIZADO_AUTUADO',
+    '1;Equipe A;58.5 W;11.5 S;Castanheira;2026-12-07;2026-12-11;;202612;',
+    '2;Equipe A;58.6 W;11.6 S;Castanheira;2026-12-07;2026-12-11;;202612;',
+    '3;Equipe B;58.7 W;11.7 S;Castanheira;2026-12-08;2026-12-11;;202612;',
+    '4;Equipe B;58.8 W;11.8 S;Juína;2026-12-08;2026-12-11;;202612;Sim',
+  ].join('\n');
+  // O File do jsdom não tem arrayBuffer(); o navegador tem.
+  const escolher = (texto: string) => {
+    const arquivo = new File([texto], 'pontos.csv', { type: 'text/csv' });
+    Object.defineProperty(arquivo, 'arrayBuffer', { value: async () => new TextEncoder().encode(texto).buffer });
+    fireEvent.change(screen.getByTestId('arquivo-nova-operacao'), { target: { files: [arquivo] } });
+  };
+
+  it('importa, sugere o nome, deixa editar e cria a operação com os pontos de uma vez', async () => {
+    montar();
+    escolher(CSV_DEZ);
+    await screen.findByTestId('previa-nova-operacao');
+    expect(screen.getByLabelText('Nome *')).toHaveValue('Operação Castanheira – dez/2026');
+    expect(screen.getByTestId('previa-nova-operacao')).toHaveTextContent('4 ponto(s) pronto(s)');
+    expect(obterOperacoes()).toHaveLength(0); // nada é gravado antes da confirmação
+    fireEvent.change(screen.getByLabelText('Nome *'), { target: { value: 'Operação de dezembro' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação com 4 ponto(s)' }));
+    expect(screen.getByRole('heading', { level: 2, name: 'Operação de dezembro' })).toBeInTheDocument();
+    expect(screen.getByTestId('resumo-operacao')).toHaveTextContent('4 ponto(s)');
+    fireEvent.click(screen.getByRole('button', { name: 'Voltar às operações' }));
+    expect(screen.getByText('Operação de dezembro')).toBeInTheDocument();
+    expect(obterOperacoes()[0]).toMatchObject({ inicio: '2026-12-07', fim: '2026-12-11' });
+  });
+
+  it('exige o nome e "Cancelar" descarta tudo', async () => {
+    montar();
+    escolher(CSV_DEZ);
+    await screen.findByTestId('previa-nova-operacao');
+    fireEvent.change(screen.getByLabelText('Nome *'), { target: { value: '  ' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Criar operação com 4 ponto(s)' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('Informe o nome da operação.');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(screen.queryByTestId('previa-nova-operacao')).toBeNull();
+    expect(obterOperacoes()).toHaveLength(0);
+  });
+
+  it('sem nenhuma linha válida: mostra os erros e não oferece criar', async () => {
+    montar();
+    escolher('N_PONTO;COORD_X;COORD_Y;MUNICIPIO\n1;abc;def;Lugar');
+    expect(await screen.findByText(/Linha 2:/)).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /Criar operação com/ })).toBeNull();
+    expect(screen.queryByLabelText('Nome *')).toBeNull();
+  });
+});
+
 describe('viagens do cronograma', () => {
   const importar = () => {
     montar();
@@ -425,6 +490,7 @@ describe('viagens do cronograma', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     return obterOperacoes()[0];
   };
   const incluir = (form: HTMLElement, campo: 'integrantes' | 'veículos', nome: string) => {
@@ -502,6 +568,7 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
   const montarEm = () => {
     const armazem = criarArmazem(localStorage, { gerarId: () => 'id-x', exemplos: () => [] });
     render(<ContextoArmazem.Provider value={armazem}><Operacoes agora={AGORA} /></ContextoArmazem.Provider>);
+    fireEvent.click(screen.getByRole('button', { name: 'ou criar sem planilha' }));
     return armazem;
   };
   const importar = () => {
@@ -510,6 +577,7 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     fireEvent.change(screen.getByLabelText('Ou cole o conteúdo'), { target: { value: CSV } });
     fireEvent.click(screen.getByRole('button', { name: 'Conferir' }));
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     return obterOperacoes()[0].pontos;
   };
 
@@ -522,8 +590,8 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
 
   it('o Editar muda número, município e tipo de dano; o código continua o mesmo', () => {
     const [, p2] = importar();
-    fireEvent.click(screen.getByRole('button', { name: 'Editar Ponto 2' }));
-    const form = screen.getByRole('form', { name: 'Editar Ponto 2' });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar planejamento do Ponto 2' }));
+    const form = screen.getByRole('form', { name: 'Editar planejamento do Ponto 2' });
     fireEvent.change(within(form).getByLabelText('Município'), { target: { value: 'Castanheira' } });
     fireEvent.change(within(form).getByLabelText('Tipo de dano'), { target: { value: 'Desmatamento' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar ponto' }));
@@ -548,7 +616,7 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     expect(screen.getByTestId('resumo-operacao')).toHaveTextContent('1 a reprogramar');
   });
 
-  it('finaliza com "Sim" e protocolo; cancelando o outro ponto, a operação fica encerrada', () => {
+  it('finaliza com "Sim" e protocolo; cancelando o outro ponto, o campo encerra; a operação só encerra com o relatório enviado', () => {
     const [p1] = importar();
     fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado do Ponto 1' }));
     const form = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
@@ -556,13 +624,59 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     fireEvent.change(within(form).getByLabelText('Protocolo (demanda e/ou auto)'), { target: { value: 'FIC-AUTO-0001' } });
     fireEvent.change(within(form).getByLabelText('Data da vistoria'), { target: { value: '2026-09-20' } });
     fireEvent.click(within(form).getByRole('button', { name: 'Salvar resultado' }));
-    expect(screen.getByTestId(`situacao-${p1.id}`)).toHaveTextContent('finalizado');
+    expect(screen.getByTestId(`situacao-${p1.id}`)).toHaveTextContent('em elaboração');
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: 'Cancelar Ponto 2' }));
-    expect(screen.getByTestId('operacao-encerrada')).toBeInTheDocument();
+    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Em elaboração');
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar vistoria do Ponto 2' }));
+    fireEvent.change(screen.getByLabelText('Motivo do cancelamento'), { target: { value: 'área inacessível' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar cancelamento' }));
+    expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
+    expect(screen.getByTestId('campo-encerrado')).toHaveTextContent('Campo encerrado · 1 em elaboração');
     expect(screen.queryByTestId('pendencias-operacao')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar relatório no SIGA do Ponto 1' }));
+    const envio = screen.getByRole('form', { name: 'Envio do relatório do Ponto 1' });
+    fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-14' } });
+    fireEvent.change(within(envio).getByLabelText('Número no SIGA-MT (opcional)'), { target: { value: 'FIC-SIGA-1' } });
+    fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    if (screen.queryByTestId('confirma-conclusao')) fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Concluído em 14/11/2026 · SIGA nº FIC-SIGA-1');
+    expect(screen.getByTestId('operacao-encerrada')).toBeInTheDocument();
     fireEvent.click(screen.getByRole('button', { name: 'Reativar Ponto 2' }));
     expect(screen.queryByTestId('operacao-encerrada')).toBeNull();
+  });
+
+  it('relatório: data futura é recusada e data em branco desfaz o envio', () => {
+    const [p1] = importar();
+    act(() => { registrarResultado(obterOperacoes()[0].id, p1.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar relatório no SIGA do Ponto 1' }));
+    const envio = screen.getByRole('form', { name: 'Envio do relatório do Ponto 1' });
+    fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-16' } });
+    fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    if (screen.queryByTestId('confirma-conclusao')) fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+    expect(within(envio).getByRole('alert')).toHaveTextContent('não pode ser futura');
+    fireEvent.change(within(envio).getByLabelText('Data de envio no SIGA-MT'), { target: { value: '' } });
+    fireEvent.click(within(envio).getByRole('button', { name: 'Salvar envio' }));
+    if (screen.queryByTestId('confirma-conclusao')) fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+    expect(screen.getByTestId(`fase-${p1.id}`)).toHaveTextContent('Em elaboração');
+  });
+
+  it('data da vistoria: botões com os dias da viagem, destaque do escolhido e aviso fora do período (sem bloquear)', () => {
+    importar();
+    fireEvent.click(screen.getByRole('button', { name: 'Registrar resultado do Ponto 1' }));
+    const form = screen.getByRole('form', { name: 'Resultado do Ponto 1' });
+    const campo = within(form).getByLabelText('Data da vistoria') as HTMLInputElement;
+    expect(campo.value).toBe(''); // nunca vem preenchido sozinho
+    expect(within(within(form).getByRole('group', { name: 'Dias da viagem' })).getAllByRole('button').map((b) => b.textContent)).toEqual(['sex 18/09', 'sáb 19/09', 'dom 20/09', 'seg 21/09', 'ter 22/09']);
+    fireEvent.click(within(form).getByRole('button', { name: 'sáb 19/09' }));
+    expect(campo.value).toBe('2026-09-19');
+    expect(within(form).getByRole('button', { name: 'sáb 19/09' })).toHaveAttribute('aria-pressed', 'true');
+    expect(within(form).getByRole('button', { name: 'dom 20/09' })).toHaveAttribute('aria-pressed', 'false');
+    expect(within(form).queryByText(/Fora do período/)).toBeNull();
+    fireEvent.change(campo, { target: { value: '2026-09-25' } });
+    expect(within(form).getByText('Fora do período da viagem (18/09 a 22/09/2026) — confira.')).toBeInTheDocument();
+    fireEvent.change(within(form).getByLabelText('Resultado (fiscalizado/autuado)'), { target: { value: 'sim' } });
+    fireEvent.click(within(form).getByRole('button', { name: 'Salvar resultado' })); // não bloqueia
+    expect(obterOperacoes()[0].pontos[0].dataVistoria).toBe('2026-09-25');
   });
 
   it('na lista de operações, o mascote mostra os pontos a reprogramar e leva o ponto para outra operação', () => {
@@ -573,14 +687,45 @@ describe('etapa 2: código, resultado e acompanhamento', () => {
     const p = obterOperacoes()[0].pontos[0];
     registrarResultado(a.id, p.id, { resultado: 'nao', motivo: 'Infrator não localizado', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15');
     montarEm();
-    const item = screen.getByTestId(`a-reprogramar-${p.id}`);
+    // Na lista, o aviso agrupa por operação (sem listar os pontos); o ponto se reprograma no detalhe da operação.
     expect(screen.getByTestId('pendencias-campo')).toHaveTextContent('1 ponto(s) não fiscalizado(s) a reprogramar');
+    expect(screen.getByTestId(`pendencia-${a.id}`)).toHaveTextContent('Operação Outubro fictícia: 1 ponto(s)');
+    expect(screen.queryByTestId(`a-reprogramar-${p.id}`)).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: 'Abrir Outubro fictícia (pendências)' }));
+    const item = screen.getByTestId(`a-reprogramar-${p.id}`);
     expect(item).toHaveTextContent('JUINA202610-01 (Outubro fictícia; Infrator não localizado)');
     fireEvent.change(within(item).getByLabelText('Operação para reprogramar JUINA202610-01'), { target: { value: b.id } });
     fireEvent.click(within(item).getByRole('button', { name: 'Reprogramar JUINA202610-01' }));
-    expect(screen.queryByTestId('pendencias-campo')).toBeNull();
+    expect(screen.queryByTestId('pendencias-operacao')).toBeNull();
     expect(obterOperacoes()[1].pontos[0]).toMatchObject({ codigo: 'JUINA202611-01', situacao: 'planejado' });
     expect(obterOperacoes()[0].pontos[0].reprogramado).toEqual({ operacao: b.id, ponto: obterOperacoes()[1].pontos[0].id });
+  });
+
+  it('lista: selo, progresso e ordem (pendente, em andamento, planejada, encerrada)', () => {
+    const mk = (nome: string, inicio: string, saida: string, retorno: string, resultado?: 'sim') => {
+      const r = criarOperacao({ nome, inicio, fim: retorno, origem: '' }, '2026-09-01T00:00:00Z');
+      if (!r.ok) throw new Error();
+      incluirPontos(r.id, [
+        { coordenada: { lat: -11.5, lon: -58.5 }, municipio: 'Juína', notas: '', demandas: [], situacao: 'planejado', equipe: 'A', saida, retorno },
+        { coordenada: { lat: -11.6, lon: -58.5 }, municipio: 'Juína', notas: '', demandas: [], situacao: 'planejado', equipe: 'A', saida, retorno },
+      ]);
+      if (resultado) for (const p of obterOperacoes().find((o) => o.id === r.id)!.pontos) { registrarResultado(r.id, p.id, { resultado, motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); registrarRelatorio(r.id, p.id, { enviadoEm: '2026-11-15', protocoloSiga: '', notas: '' }, '2026-11-15'); }
+      return r.id;
+    };
+    const futura = mk('Futura', '2026-12-01', '2026-12-01', '2026-12-05');
+    const encerrada = mk('Feita', '2026-09-01', '2026-09-01', '2026-09-05', 'sim');
+    const andando = mk('Andando', '2026-11-14', '2026-11-14', '2026-11-20');
+    const pendente = mk('Vencida', '2026-10-05', '2026-10-05', '2026-10-09');
+    montarEm();
+    const itens = within(screen.getByRole('list', { name: 'Lista de operações' })).getAllByRole('listitem').map((li) => li.getAttribute('data-testid'));
+    expect(itens).toEqual([pendente, andando, futura, encerrada].map((id) => `operacao-${id}`));
+    expect(screen.getByTestId(`selo-${pendente}`)).toHaveTextContent('pendente');
+    expect(screen.getByTestId(`selo-${andando}`)).toHaveTextContent('em andamento');
+    expect(screen.getByTestId(`selo-${encerrada}`)).toHaveTextContent('encerrada');
+    expect(screen.getByTestId(`progresso-${encerrada}`)).toHaveTextContent('2 de 2 encerrados · 0 a finalizar');
+    expect(screen.getByTestId(`progresso-${pendente}`)).toHaveTextContent('0 de 2 encerrados · 2 a finalizar');
+    expect(screen.getByTestId(`progresso-${pendente}`)).toHaveTextContent('2 planejado · 2 vencido(s)');
+    expect(within(screen.getByTestId(`progresso-${pendente}`)).getByRole('progressbar')).toHaveAttribute('max', '2');
   });
 
   it('Painel: avisa ponto sem resultado depois do retorno e ponto a reprogramar', () => {
@@ -606,6 +751,7 @@ describe('etapa 3: planilha da SEMA de volta', () => {
     };
     colar(CSV);
     fireEvent.click(screen.getByRole('button', { name: 'Importar 2 ponto(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Expandir todos' }));
     const [p1] = obterOperacoes()[0].pontos;
     expect(p1.codigo).toBe('MUNICIPIOFICTICIO202609-01');
     colar([
@@ -624,6 +770,6 @@ describe('etapa 3: planilha da SEMA de volta', () => {
     expect(o.pontos[0]).toMatchObject({ resultado: 'fiscalizado-nao-autuado', motivo: 'Infrator não localizado', protocolo: 'FIC-0009', situacao: 'vistoriado' });
     expect(o.viagens.map((v) => v.equipe)).toEqual(['Equipe A']);
     expect(o.setor).toBe('DUDFICTICIA');
-    expect(screen.getByTestId(`situacao-${p1.id}`)).toHaveTextContent('finalizado');
+    expect(screen.getByTestId(`situacao-${p1.id}`)).toHaveTextContent('em elaboração');
   });
 });

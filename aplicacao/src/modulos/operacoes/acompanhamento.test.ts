@@ -137,3 +137,163 @@ it('importação: lê CODIGO_PONTO, NUMERO_DO_PONTO, NOTA_PLANEJAMENTO e TIPO_DA
 it('dataLocal usa o fuso do navegador', () => {
   assert.equal(R.dataLocal(new Date(2026, 10, 15, 23, 30)), '2026-11-15');
 });
+
+it('pontoVencido: retorno (ou saída) antes de hoje, só planejado ou sem resultado; sem viagem ou datas não vence', () => {
+  const viagem = (v: { retorno?: string; saida?: string }) => ({ viagens: [{ id: 'v', equipe: 'A', integrantes: [], veiculos: [], notas: '', ...v }] });
+  const ponto = (extra = {}) => ({ ...base, viagem: 'v', ...extra });
+  assert.equal(R.pontoVencido(viagem({ retorno: HOJE }), ponto(), HOJE), false); // retorno hoje
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto(), HOJE), true); // ontem
+  assert.equal(R.pontoVencido(viagem({ saida: '2026-11-14' }), ponto(), HOJE), true); // sem retorno: vale a saída
+  assert.equal(R.pontoVencido(viagem({ saida: HOJE }), ponto(), HOJE), false);
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ situacao: 'vistoriado' }), HOJE), true); // resultado pendente
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ resultado: 'sim' }), HOJE), false); // finalizado
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ resultado: 'nao' }), HOJE), false); // a reprogramar
+  assert.equal(R.pontoVencido(viagem({ retorno: '2026-11-14' }), ponto({ situacao: 'cancelado' }), HOJE), false);
+  assert.equal(R.pontoVencido({ viagens: [] }, { ...base }, HOJE), false); // sem viagem
+  assert.equal(R.pontoVencido(viagem({}), ponto(), HOJE), false); // viagem sem datas
+});
+
+it('criarOperacaoComPontos: valida tudo antes; ponto recusado ou lista vazia não cria nada', () => {
+  const d = { nome: 'Nova', inicio: '', fim: '', origem: '' };
+  const ok = { ...base, codigo: 'X-01' };
+  novaOp('Outra');
+  A.incluirPontos(A.obterOperacoes()[0].id, [{ ...base, codigo: 'X-01' }]);
+  const antes = JSON.stringify(A.obterOperacoes());
+  assert.equal(A.criarOperacaoComPontos(d, '2026-11-18T00:00:00Z', []).ok, false);
+  const r = A.criarOperacaoComPontos(d, '2026-11-18T00:00:00Z', [{ ...base, municipio: 'Outro' }, ok]); // código repetido
+  assert.equal(r.ok, false);
+  assert.equal(JSON.stringify(A.obterOperacoes()), antes);
+  const certo = A.criarOperacaoComPontos(d, '2026-11-18T00:00:00Z', [{ ...base, equipe: 'A', saida: '2026-12-07', retorno: '2026-12-11' }]);
+  assert.ok(certo.ok);
+  const nova = A.obterOperacoes()[1];
+  assert.deepEqual([nova.inicio, nova.fim, nova.viagens.length, nova.pontos.length], ['2026-12-07', '2026-12-11', 1, 1]);
+});
+
+it('diasDaViagem e dataForaDaViagem: viagem de 4 dias, só saída, sem datas, limites e fora', () => {
+  const v = { saida: '2026-10-06', retorno: '2026-10-09' };
+  assert.deepEqual(R.diasDaViagem(v), ['2026-10-06', '2026-10-07', '2026-10-08', '2026-10-09']);
+  assert.deepEqual(R.diasDaViagem({ saida: '2026-10-31', retorno: '2026-11-02' }), ['2026-10-31', '2026-11-01', '2026-11-02']);
+  assert.deepEqual(R.diasDaViagem({ saida: '2026-10-06' }), ['2026-10-06']);
+  assert.deepEqual(R.diasDaViagem({}), []);
+  assert.deepEqual(R.diasDaViagem(undefined), []);
+  assert.deepEqual(R.diasDaViagem({ saida: '2026-10-09', retorno: '2026-10-06' }), []);
+  assert.equal(R.dataForaDaViagem(v, '2026-10-06'), false); // = saída
+  assert.equal(R.dataForaDaViagem(v, '2026-10-09'), false); // = retorno
+  assert.equal(R.dataForaDaViagem(v, '2026-10-05'), true);
+  assert.equal(R.dataForaDaViagem(v, '2026-10-18'), true);
+  assert.equal(R.dataForaDaViagem({ saida: '2026-10-06' }, '2026-10-07'), true); // só saída: só aquele dia
+  assert.equal(R.dataForaDaViagem({}, '2026-10-18'), false); // sem datas
+  assert.equal(R.dataForaDaViagem(v, ''), false);
+  assert.equal(R.textoPeriodoViagem(v), '06/10 a 09/10/2026');
+});
+
+describe('progressoDaOperacao', () => {
+  const vg = (id: string, saida?: string, retorno?: string) => ({ id, equipe: 'A', integrantes: [], veiculos: [], notas: '', ...(saida ? { saida } : {}), ...(retorno ? { retorno } : {}) });
+  const pt = (viagem: string | undefined, extra = {}) => ({ id: Math.random().toString(), ...base, ...(viagem ? { viagem } : {}), ...extra });
+  const prog = (o: { viagens: ReturnType<typeof vg>[]; pontos: ReturnType<typeof pt>[] }) => R.progressoDaOperacao(o as never, HOJE);
+
+  it('sem pontos: planejada e tudo zero', () => {
+    const r = prog({ viagens: [vg('v', '2026-10-01', '2026-10-05')], pontos: [] });
+    assert.equal(r.selo, 'planejada');
+    assert.deepEqual([r.total, r.encerrados, r.aFinalizar, r.vencidos], [0, 0, 0, 0]);
+  });
+  it('tudo encerrado (relatório enviado, cancelado, reprogramado): selo encerrada, sem vencidos', () => {
+    const r = prog({ viagens: [vg('v', '2026-10-01', '2026-10-05')], pontos: [pt('v', { resultado: 'sim', relatorio: { enviadoEm: '2026-10-06' } }), pt('v', { situacao: 'cancelado' }), pt('v', { reprogramado: { operacao: 'o', ponto: 'p' } })] });
+    assert.deepEqual([r.selo, r.total, r.encerrados, r.aFinalizar, r.vencidos], ['encerrada', 3, 3, 0, 0]);
+    assert.deepEqual(r.porSituacao, { planejado: 0, 'resultado-pendente': 0, finalizado: 1, 'a-reprogramar': 0, reprogramado: 1, cancelado: 1 });
+  });
+  it('misto com vencidos: a reprogramar conta como a finalizar', () => {
+    const r = prog({ viagens: [vg('v', '2026-10-01', '2026-10-05')], pontos: [pt('v', { resultado: 'sim', relatorio: { enviadoEm: '2026-10-06' } }), pt('v', { resultado: 'nao' }), pt('v'), pt('v', { situacao: 'vistoriado' })] });
+    assert.deepEqual([r.total, r.encerrados, r.aFinalizar, r.vencidos, r.selo], [4, 1, 3, 2, 'pendente']);
+    assert.equal(r.porSituacao['a-reprogramar'], 1);
+    assert.equal(r.porSituacao['resultado-pendente'], 1);
+  });
+  it('selos: pendente, em andamento, planejada; limites de hoje', () => {
+    assert.equal(prog({ viagens: [vg('v', '2026-11-14', '2026-11-14')], pontos: [pt('v')] }).selo, 'pendente'); // terminou ontem
+    assert.equal(prog({ viagens: [vg('v', '2026-11-14', HOJE)], pontos: [pt('v')] }).selo, 'em-andamento'); // retorno hoje: ainda não passou
+    assert.equal(prog({ viagens: [vg('v', HOJE, '2026-11-20')], pontos: [pt('v')] }).selo, 'em-andamento'); // saída hoje
+    assert.equal(prog({ viagens: [vg('v', '2026-11-16', '2026-11-20')], pontos: [pt('v')] }).selo, 'planejada');
+    const duas = { viagens: [vg('v', '2026-11-01', '2026-11-05'), vg('w', '2026-11-20', '2026-11-25')], pontos: [pt('v'), pt('w')] };
+    assert.equal(prog(duas).selo, 'em-andamento'); // uma já voltou e a outra ainda não saiu: há saída até hoje
+    assert.equal(prog(duas).vencidos, 1);
+  });
+  it('viagem sem retorno vale pela saída; sem viagem ou datas: planejada e nada vence', () => {
+    assert.equal(prog({ viagens: [vg('v', '2026-10-01')], pontos: [pt('v')] }).selo, 'pendente');
+    assert.equal(prog({ viagens: [vg('v', '2026-10-01')], pontos: [pt('v')] }).vencidos, 1);
+    const r = prog({ viagens: [vg('v')], pontos: [pt('v'), pt(undefined)] });
+    assert.deepEqual([r.selo, r.vencidos], ['planejada', 0]);
+  });
+});
+
+describe('fase pós-campo, prazo e vencimento (18/11/2026)', () => {
+  const vg = (saida: string, retorno: string) => ({ id: 'v', equipe: 'A', integrantes: [], veiculos: [], notas: '', saida, retorno });
+  const op = { viagens: [vg('2026-10-01', '2026-10-05')] };
+  const pt = (extra = {}) => ({ id: Math.random().toString(), ...base, viagem: 'v', ...extra });
+  const sim = { resultado: 'sim' as const };
+  const enviado = { relatorio: { enviadoEm: '2026-10-20' } };
+
+  it('faseDoPonto: campo, elaboração, concluído; Não, cancelado e reprogramado ficam sem fase', () => {
+    assert.equal(R.faseDoPonto(pt()), 'campo');
+    assert.equal(R.faseDoPonto(pt({ situacao: 'vistoriado' })), 'campo');
+    assert.equal(R.faseDoPonto(pt(sim)), 'elaboracao');
+    assert.equal(R.faseDoPonto(pt({ ...sim, relatorio: { protocoloSiga: 'X' } })), 'elaboracao');
+    assert.equal(R.faseDoPonto(pt({ ...sim, ...enviado })), 'concluido');
+    assert.equal(R.faseDoPonto(pt({ resultado: 'nao' })), null);
+    assert.equal(R.faseDoPonto(pt({ ...sim, situacao: 'cancelado' })), null);
+    assert.equal(R.faseDoPonto(pt({ ...sim, reprogramado: { operacao: 'o', ponto: 'p' } })), null);
+    assert.equal(R.faseDoPonto(pt(enviado)), 'campo'); // envio sem resultado não vale
+  });
+
+  it('prazo da elaboração: o mais cedo entre as demandas ligadas; sem demanda, o padrão após o retorno; senão nenhum', () => {
+    const prazos = new Map([['d1', '2026-11-30'], ['d2', '2026-10-25'], ['d3', '']]);
+    assert.equal(R.prazoDaElaboracao(op, pt({ demandas: ['d1', 'd2'] }), { prazosDemandas: prazos }), '2026-10-25');
+    assert.equal(R.prazoDaElaboracao(op, pt({ demandas: ['d1', 'd2'] }), { prazosDemandas: prazos, diasPadrao: 3 }), '2026-10-25'); // demanda vence o padrão
+    assert.equal(R.prazoDaElaboracao(op, pt({ demandas: ['d3'] }), { prazosDemandas: prazos, diasPadrao: 10 }), '2026-10-15'); // demanda sem prazo: cai no padrão
+    assert.equal(R.prazoDaElaboracao(op, pt(), { diasPadrao: 0 }), '2026-10-05');
+    assert.equal(R.prazoDaElaboracao(op, pt(), {}), null);
+    assert.equal(R.prazoDaElaboracao({ viagens: [] }, pt({ viagem: undefined }), { diasPadrao: 5 }), null); // sem viagem nem data
+  });
+
+  it('vence na elaboração só passado o prazo; sem prazo não vence; concluído nunca vence', () => {
+    const p = pt(sim);
+    assert.equal(R.pontoVencido(op, p, '2026-11-18'), false); // sem prazo
+    assert.equal(R.pontoVencido(op, p, '2026-10-15', { diasPadrao: 10 }), false); // no dia do prazo ainda não venceu
+    assert.equal(R.pontoVencido(op, p, '2026-10-16', { diasPadrao: 10 }), true);
+    assert.equal(R.pontoVencido(op, pt({ demandas: ['d'], ...sim }), '2026-11-02', { prazosDemandas: new Map([['d', '2026-11-01']]) }), true);
+    assert.equal(R.pontoVencido(op, pt({ ...sim, ...enviado }), '2030-01-01', { diasPadrao: 0 }), false);
+    assert.equal(R.pontoVencido(op, pt({ resultado: 'nao' }), '2030-01-01', { diasPadrao: 0 }), false);
+  });
+
+  it('travado continua vencido: o bloqueio não suspende o prazo', () => {
+    const b = { bloqueio: { motivo: 'autuado' as const, desde: '2026-10-10T12:00:00Z' } };
+    assert.equal(R.pontoVencido(op, pt(b), '2026-11-18'), true); // em campo
+    assert.equal(R.pontoVencido(op, pt({ ...sim, ...b }), '2026-10-16', { diasPadrao: 10 }), true); // em elaboração
+  });
+
+  it('selos: campo encerrado com elaboração e com travado; encerrada só com tudo concluído e sem bloqueio', () => {
+    const prog = (pontos: ReturnType<typeof pt>[]) => R.progressoDaOperacao({ ...op, pontos } as never, '2026-11-18');
+    const elab = prog([pt(sim), pt({ ...sim, ...enviado })]);
+    assert.deepEqual([elab.selo, elab.emElaboracao, elab.concluidos, elab.encerrados, elab.aFinalizar], ['campo-encerrado', 1, 1, 1, 1]);
+    const b = { bloqueio: { motivo: 'autuado' as const, desde: '2026-10-10T12:00:00Z' } };
+    const trav = prog([pt({ ...sim, ...enviado, ...b }), pt({ ...sim, ...enviado })]);
+    assert.deepEqual([trav.selo, trav.travados, trav.encerrados, trav.emElaboracao], ['campo-encerrado', 1, 2, 0]);
+    const fim = prog([pt({ ...sim, ...enviado }), pt({ situacao: 'cancelado' })]);
+    assert.deepEqual([fim.selo, fim.travados, fim.concluidos], ['encerrada', 0, 1]);
+    assert.notEqual(prog([pt(sim), pt()]).selo, 'campo-encerrado'); // ainda há ponto em campo
+    assert.notEqual(prog([pt(sim), pt({ resultado: 'nao' })]).selo, 'campo-encerrado'); // ainda há ponto a reprogramar
+  });
+
+  it('pendenciasDeCampo: relatório atrasado separado do sem resultado; travados do mais antigo ao mais recente, vencidos ou não', () => {
+    const o = (pontos: ReturnType<typeof pt>[]) => ({ id: 'o', nome: 'Op', pontos, ...op }) as never;
+    const novo = { bloqueio: { motivo: 'campo' as const, desde: '2026-11-10T12:00:00Z' } };
+    const velho = { bloqueio: { motivo: 'autuado' as const, desde: '2026-10-10T12:00:00Z' } };
+    const pontos = [pt({ ...sim, ...novo }), pt({ ...sim, ...velho }), pt(), pt({ ...sim, ...enviado })];
+    const r = R.pendenciasDeCampo([o(pontos)], '2026-11-18', { diasPadrao: 10 });
+    assert.equal(r.semResultado.length, 1);
+    assert.equal(r.relatorioAtrasado.length, 2); // os dois travados em elaboração vencem
+    assert.deepEqual(r.travados.map((x) => x.ponto.bloqueio!.desde), ['2026-10-10T12:00:00Z', '2026-11-10T12:00:00Z']);
+    assert.equal(R.textoParado(R.diasParado(r.travados[0].ponto.bloqueio!, '2026-11-18')), 'parado há 39 dias');
+    assert.equal(R.textoParado(R.diasParado({ desde: '2026-11-18T09:00:00' }, '2026-11-18')), 'parado desde hoje');
+    assert.equal(R.textoParado(1), 'parado há 1 dia');
+  });
+});

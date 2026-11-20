@@ -5,6 +5,9 @@
 // (duas ou mais pessoas, um ou mais veículos) e percorre vários pontos (pedido do responsável, 15/11/2026).
 
 import type { Coordenada } from '../demandas/coordenadas.ts';
+import type { Bloqueio } from '../demandas/modelo.ts';
+import type { Anotacao } from '../../compartilhado/anotacoes.ts';
+import type { Caracterizacao } from './pop-supressao.ts';
 
 export const CHAVE_OPERACOES = 'guara:operacoes:v1';
 
@@ -25,6 +28,8 @@ export interface Viagem {
   integrantes: string[];
   /** Veículos (prefixo, placa ou descrição curta); um ou mais para a viagem ficar completa. */
   veiculos: string[];
+  /** Um dos integrantes, que dirige; o roteiro imprime o nome. */
+  motorista?: string;
   /** AAAA-MM-DD. */
   saida?: string;
   retorno?: string;
@@ -74,6 +79,33 @@ export interface Ponto {
   observacao?: string;
   /** AAAA-MM-DD: data em que o ponto foi vistoriado. */
   dataVistoria?: string;
+  /** Marca à parte da situação (mesmo formato da demanda): o ponto segue como está, mas há algo travando o encerramento (ex.: dados do autuado). */
+  bloqueio?: Bloqueio;
+  /** Anotações em checklist (compartilhado/anotacoes.ts). */
+  anotacoes?: Anotacao[];
+  /** Caracterização do dano (POP IBAMA, Anexo I): resposta por item ("A-10"); ver pop-supressao.ts. Sem CPF, endereço ou nome do autuado. */
+  caracterizacao?: Caracterizacao;
+  /** Planejamento (opcionais): imóvel/local, área desmatada em ha (> 0, 1 casa), CAR estadual e situação do CAR. */
+  imovel?: string;
+  areaHa?: number;
+  car?: string;
+  situacaoCar?: SituacaoCar;
+  /** Etiquetas livres (até 10, 30 caracteres cada), com sugestões em ETIQUETAS_SUGERIDAS. */
+  etiquetas?: string[];
+  /** Ativa o bloco da caracterização (POP) num ponto cujo tipo de dano não o traz sozinho. */
+  popAtivo?: boolean;
+  /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
+  coordenadaAferida?: string;
+  waypoint?: string;
+  /** Quantidade de fotos (o roteiro pede de 12 a 30). */
+  fotos?: string;
+  drone?: { voou: boolean; arquivo?: string };
+  /** Só nome e função. */
+  pessoaContatada?: string;
+  /** Por que a vistoria foi cancelada (até 100 caracteres); some ao reativar. */
+  motivoCancelamento?: string;
+  /** Fase pós-campo: envio do relatório no SIGA-MT. Sem `enviadoEm`, o ponto com resultado está em elaboração. */
+  relatorio?: { enviadoEm?: string; protocoloSiga?: string; notas?: string };
   /** Ponto "Não" levado para outra operação: onde ele está agora. */
   reprogramado?: { operacao: string; ponto: string };
   coordenada: Coordenada;
@@ -138,7 +170,15 @@ export interface Operacao {
   historico?: EventoOperacao[];
 }
 
+export type SituacaoCar = 'com-car' | 'sem-car' | 'nao-verificado';
+export const SITUACOES_CAR: Record<SituacaoCar, string> = { 'com-car': 'com CAR', 'sem-car': 'sem CAR', 'nao-verificado': 'não verificado' };
+export const ETIQUETAS_SUGERIDAS = ['hot spot', 'DLA suspeita', 'fora de CAR', 'não embargado', 'perto de TI', 'perto de embargo', 'não fiscalizado antes', 'desmate 2026'] as const;
+
 export const LIMITES_OPERACAO = {
+  imovel: 120,
+  car: 60,
+  etiquetas: 10,
+  etiqueta: 30,
   nome: 80,
   origem: 80,
   municipio: 80,

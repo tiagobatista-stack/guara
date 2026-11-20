@@ -1,5 +1,7 @@
 // Modelo de demanda do MVP (planejamento/PLANO.md §2, alinhado à Apostila FluxoLab).
 
+import type { Anotacao } from '../../compartilhado/anotacoes.ts';
+
 import type { Natureza, Tipo } from './classificacao.ts';
 import type { Coordenada } from './coordenadas.ts';
 
@@ -12,6 +14,7 @@ export type Prioridade = (typeof PRIORIDADES)[number];
 /** Motivos de bloqueio, por botões (ideia do TOCA, `travada_modulo.py`). Só a categoria: texto livre poderia ter nomes. */
 export const MOTIVOS_BLOQUEIO = {
   documento: 'falta documento',
+  autuado: 'aguardando dados do autuado',
   setor: 'aguardando outro setor',
   campo: 'depende de campo',
   outro: 'outro motivo',
@@ -70,6 +73,8 @@ export interface Demanda {
   ultimaAcaoRelevante: string;
   /** Presente só enquanto a demanda está travada; não altera o status. */
   bloqueio?: Bloqueio;
+  /** Anotações em checklist (compartilhado/anotacoes.ts). */
+  anotacoes?: Anotacao[];
   /** Os três números (identificadores.ts), opcionais e já normalizados. */
   processo?: string;
   simp?: string;
