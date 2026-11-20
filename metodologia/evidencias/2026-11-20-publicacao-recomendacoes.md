@@ -21,7 +21,7 @@ Antes desta rodada a URL servia `index-BFAzjbW4.js` (`b800374`, registro do R2 e
 
 ## Limitações e pendências
 
-- O roteiro manual está na seção abaixo. **Pendentes:** teclado, celular, falha de armazenamento, DEM-FIC-0101 no seletor e o caso válido do assistente (sem resultado informado).
+- O roteiro manual está na seção abaixo. **Pendentes:** teclado, celular, falha de armazenamento e o caso válido do assistente (sem resultado informado). DEM-FIC-0101 não foi executada.
 - Celular: **NÃO TESTADO**. As telas foram vistas pelo responsável nos passos aprovados, no Firefox.
 - O fluxo de agentes usa demandas fictícias do catálogo, não as do localStorage.
 - **Pendente (decisão do responsável):** dados reais nos testes (`SEMA-PRO…`, `DUDJUINA`, planilha no histórico `80de2b7`). Citados pelo responsável; **não verificados nesta rodada**.
@@ -39,10 +39,16 @@ Feito pelo responsável na URL pública, com o bundle `index-D807sqTy.js` (**ant
 | 3 | F5 preserva os dados | **PASSOU** |
 | 4 | Teclado | **NÃO TESTADO** |
 | 5 | Saúde do sistema | **PASSOU** 10/10. Hook e MCP aparecem como NÃO TESTADO na tela por desenho (rodam fora do navegador; verificados no gate: hook 8/8, MCP 4 ferramentas) |
-| 6 | Seletor do fluxo | DEM-FIC-0001: **PASSOU**. Execução `EXE-LOCAL-2026-11-20T17:50:21.833Z`, entrada FIC-2026-0001 / DOC-FIC-0001, modo determinístico, 8 etapas OK, gate liberou. DEM-FIC-0101: **sem resultado informado (NÃO TESTADO)** |
+| 6 | Seletor do fluxo | **PASSOU**. DEM-FIC-0001: 8 etapas OK, gate liberou (`EXE-LOCAL-2026-11-20T18:01:41.115Z`; antes, `EXE-LOCAL-2026-11-20T17:50:21.833Z`, também liberou). DEM-FIC-0002: falha em `extrair-documento` ("sem documento fictício vinculado"), 3 etapas, gate bloqueou (`EXE-LOCAL-2026-11-20T18:06:09.086Z`). Duas entradas diferentes, cada trilha com os próprios dados e a falha bloqueando a liberação: critério de aceite do P1 atendido na URL pública. DEM-FIC-0101: **não executada** (desnecessária, segundo o responsável) |
 | 7 | Assistente | Caso negado: **PASSOU** (sem demanda aberta, orienta abrir uma; método determinístico visível). Caso válido com DEM-FIC-0001 aberta: **sem resultado informado (NÃO TESTADO)** |
 | 8 | Exportação em Alertas com bloco `origem` | **PASSOU** (`exportadoEm` 2026-11-20T17:47:36Z). O JSON exportado não vai para o repositório |
 | 9 | Celular | **NÃO TESTADO** |
 | 10 | Falha de armazenamento (Firefox, `dom.storage.enabled=false`) | **sem resultado informado (NÃO TESTADO)** |
 
-**Achado do roteiro:** a coluna de desenvolvimento dos padrões A–F na Saúde do sistema ainda dizia NÃO DEMONSTRADO (sessão de 13/11), contradizendo o STATUS. Corrigida em `8e6d766` (A–F DEMONSTRADO conforme `2026-11-19-orquestracao-a-d-e-f.md`, com C = APROVADO COM RESSALVAS; coluna do produto inalterada, D continua NÃO DEMONSTRADO no modo local). 684/684 e build ok. A correção ainda **não está publicada**: o roteiro acima foi feito sem ela.
+**Observações do roteiro** (relato do responsável):
+- Na primeira carga o seletor não apareceu: cache do Firefox; resolvido com Ctrl+Shift+R.
+- Com DEM-FIC-0002, o Estado geral passou a FALHA embora 10/10 habilidades estivessem OK: o bloqueio esperado era tratado como falha do sistema. Corrigido em `2429d61` (Estado geral e Última verificação só de habilidades e agentes; resultado do fluxo à parte, com selo LIBERADO/BLOQUEADO; exceção real continua FALHA). Está só na branch `operacoes-campo`, **fora da `main`** e **não publicado**: conferir na URL depois do deploy.
+- No caso bloqueado, "Revisor diferente do autor da minuta" aparece ✓ sem minuta (verdadeiro por vacuidade). **Observação registrada, sem correção nesta rodada.**
+- Os passos 7 (caso válido do assistente com DEM-FIC-0001 aberta) e 10 (falha de armazenamento) seguem **sem resultado informado (NÃO TESTADO)**.
+
+**Achado do roteiro:** a coluna de desenvolvimento dos padrões A–F na Saúde do sistema ainda dizia NÃO DEMONSTRADO (sessão de 13/11), contradizendo o STATUS. Corrigida em `8e6d766` (A–F DEMONSTRADO conforme `2026-11-19-orquestracao-a-d-e-f.md`, com C = APROVADO COM RESSALVAS; coluna do produto inalterada, D continua NÃO DEMONSTRADO no modo local). 684/684 e build ok. O `8e6d766` está na branch no GitHub, mas **fora da `main`** e **não publicado**: o roteiro acima foi feito sem ele.
