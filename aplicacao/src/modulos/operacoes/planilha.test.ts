@@ -61,6 +61,27 @@ it('número da linha: conta as linhas vazias descartadas e é a linha física on
   assert.deepEqual(C.importarPontosCsv('NOTAS;COORD_X;COORD_Y\n"a\nb";1;2\n\nc;3;4').linhas.map((l) => l.linha), [2, 5]);
 });
 
+// Casos conferidos à mão pelo auditor na revisão de bbb4ece (R3): cada tipo de quebra, aspas, BOM e fim do arquivo.
+const casosDeLinha: [string, string, number[]][] = [
+  ['\\n com linhas vazias', 'COORD_X;COORD_Y\n\n1;2\n\n3;4', [3, 5]],
+  ['\\r\\n com linha vazia', 'COORD_X;COORD_Y\r\n\r\n1;2', [3]],
+  ['\\r sozinho', 'COORD_X;COORD_Y\r\r1;2\r3;4', [3, 4]],
+  ['\\n dentro de aspas (3 linhas)', 'NOTAS;COORD_X;COORD_Y\n"a\nb\nc";1;2\nd;3;4', [2, 5]],
+  ['\\r\\n dentro de aspas', 'NOTAS;COORD_X;COORD_Y\r\n"a\r\nb";1;2\r\nc;3;4', [2, 4]],
+  ['\\r dentro de aspas', 'NOTAS;COORD_X;COORD_Y\r"a\rb";1;2\rc;3;4', [2, 4]],
+  ['aspas "" escapadas com quebra e linha vazia', 'NOTAS;COORD_X;COORD_Y\n"diz ""a""\nb";1;2\n\nc;3;4', [2, 5]],
+  ['sem quebra no fim', 'COORD_X;COORD_Y\n1;2', [2]],
+  ['quebras sobrando no fim', 'COORD_X;COORD_Y\n1;2\n\n\n', [2]],
+  ['com BOM', '﻿COORD_X;COORD_Y\n\n1;2', [3]],
+  ['linha só com separadores', 'COORD_X;COORD_Y\n ; \n1;2', [3]],
+  ['linhas em branco antes do cabeçalho (linha física, não "cabeçalho = 1")', '\n\nCOORD_X;COORD_Y\n58 W;abc', [4]],
+];
+for (const [nome, texto, esperado] of casosDeLinha) {
+  it(`número da linha: ${nome}`, () => {
+    assert.deepEqual(C.importarPontosCsv(texto).linhas.map((l) => l.linha), esperado);
+  });
+}
+
 it('servidores da equipe entram nos integrantes da viagem, sem repetir', () => {
   const id = novaOp();
   const r = C.importarPontosCsv(csv(linha({}), linha({ numero: '2', servidores: 'beltrana fictícia, Ciclano Fictício' })));

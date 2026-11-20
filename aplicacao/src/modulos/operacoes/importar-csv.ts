@@ -93,7 +93,7 @@ export function decodificarCsv(bytes: Uint8Array): string {
 }
 
 export interface LinhaImportada {
-  /** Linha no arquivo (cabeçalho = 1). */
+  /** Linha física no arquivo em que o registro começa (a primeira = 1; é o cabeçalho, se nada vier antes dele). */
   linha: number;
   /** Ponto com equipe e datas da linha: ao importar, elas viram (ou encontram) a viagem. */
   ponto?: PontoNovo;

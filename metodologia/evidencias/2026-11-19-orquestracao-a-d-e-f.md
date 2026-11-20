@@ -31,6 +31,15 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
 - **R2 (defeito antigo, fora do `bbb4ece`):** com linhas em branco antes do cabeçalho, a detecção do separador olha uma linha vazia e cai no `;`. Por isso `'\n\nCOORD_X,COORD_Y\n58 W,abc'` dá "Não achei as colunas de coordenada", tanto no código antigo quanto no novo.
 - **R3 (cobertura):** os casos `\r` sozinho, aspas com CRLF, `""` e linhas antes do cabeçalho passaram na sonda do auditor, mas não ficaram como teste no repositório.
 
+### R1 e R3 tratados (19/11/2026, depois de `dbe46de`)
+
+- **R1:** o comentário de `LinhaImportada.linha` (`importar-csv.ts:96`) passou a dizer "Linha física no arquivo em que o registro começa (a primeira = 1; é o cabeçalho, se nada vier antes dele)". **PASSOU** (só documentação; o build confere o tipo).
+- **R3:** os 11 casos da sonda do auditor, mais o caso de linhas em branco antes do cabeçalho, viraram 12 testes em `planilha.test.ts` (`casosDeLinha`).
+  - **Com o código atual:** `planilha.test.ts` deu `Tests 22 passed (22)`.
+  - **Com o `importar-csv.ts` de `bbb4ece~1`** (troca temporária, depois restaurada): `Tests 11 failed | 11 passed (22)`. Os 10 casos novos falham. Também falha o teste do F. Os 2 de fim de arquivo ("sem quebra no fim" e "quebras sobrando no fim") passam antes e depois, porque ali não há linha vazia antes do dado; ficam como proteção contra regressão.
+  - **Suíte e build:** `npm test` 44 arquivos, **540/540**. `npm run build` ok (`built in 161ms`). **PASSOU.**
+- **R2** (detecção do separador com linhas em branco antes do cabeçalho, defeito antigo): **continua em aberto**.
+
 ## E. Consolidação
 
 **Convergências:**
