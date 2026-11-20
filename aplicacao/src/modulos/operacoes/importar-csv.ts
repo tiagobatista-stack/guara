@@ -43,32 +43,47 @@ type Coluna = keyof typeof COLUNAS;
  * segundos (11° 28' 09,2" S) no meio do texto são do dado.
  */
 export function lerCsv(conteudo: string): string[][] {
+  return lerRegistros(conteudo).map((r) => r.celulas);
+}
+
+/**
+ * Como `lerCsv`, mas cada registro traz `linha`: a linha física do arquivo em que ele começa (a primeira = 1),
+ * contando as linhas vazias descartadas e as quebras dentro de aspas — é o número que a pessoa vê no editor.
+ */
+function lerRegistros(conteudo: string): { linha: number; celulas: string[] }[] {
   const texto = conteudo.replace(/^﻿/, '');
   const primeira = texto.split(/\r?\n/, 1)[0] ?? '';
   const conta = (c: string) => primeira.split(c).length - 1;
   const sep = [';', '	', ','].reduce((melhor, c) => (conta(c) > conta(melhor) ? c : melhor));
-  const linhas: string[][] = [];
+  const registros: { linha: number; celulas: string[] }[] = [];
   let linha: string[] = [];
   let celula = '';
   let aspas = false;
+  let fisica = 1;
+  let inicio = 1;
   for (let i = 0; i < texto.length; i++) {
     const c = texto[i];
     if (aspas) {
       if (c === '"' && texto[i + 1] === '"') { celula += '"'; i++; }
       else if (c === '"') aspas = false;
-      else celula += c;
+      else {
+        celula += c;
+        if (c === '\n' || (c === '\r' && texto[i + 1] !== '\n')) fisica++;
+      }
     } else if (c === '"' && celula === '') aspas = true;
     else if (c === sep) { linha.push(celula); celula = ''; }
     else if (c === '\n' || c === '\r') {
       if (c === '\r' && texto[i + 1] === '\n') i++;
       linha.push(celula); celula = '';
-      if (linha.some((x) => x.trim() !== '')) linhas.push(linha);
+      if (linha.some((x) => x.trim() !== '')) registros.push({ linha: inicio, celulas: linha });
       linha = [];
+      fisica++;
+      inicio = fisica;
     } else celula += c;
   }
   linha.push(celula);
-  if (linha.some((x) => x.trim() !== '')) linhas.push(linha);
-  return linhas;
+  if (linha.some((x) => x.trim() !== '')) registros.push({ linha: inicio, celulas: linha });
+  return registros;
 }
 
 /** Bytes do arquivo para texto: UTF-8 e, se houver byte inválido, Windows-1252 (o que o Excel costuma gravar). */
@@ -81,7 +96,7 @@ export function decodificarCsv(bytes: Uint8Array): string {
 }
 
 export interface LinhaImportada {
-  /** Linha no arquivo (cabeçalho = 1). */
+  /** Linha física no arquivo em que o registro começa (a primeira = 1; é o cabeçalho, se nada vier antes dele). */
   linha: number;
   /** Ponto com equipe e datas da linha: ao importar, elas viram (ou encontram) a viagem. */
   ponto?: PontoNovo;
@@ -117,7 +132,8 @@ const limpar = (t: string | undefined, max: number) => (t ?? '').replace(/\s+/g,
 
 /** Lê o CSV e confere cada linha; `janela` (opcional) é o período da operação. */
 export function importarPontosCsv(conteudo: string, janela?: Periodo): ResultadoCsv {
-  const tabela = lerCsv(conteudo);
+  const registros = lerRegistros(conteudo);
+  const tabela = registros.map((r) => r.celulas);
   if (tabela.length === 0) return { erro: 'O arquivo está vazio.', linhas: [] };
   const cabecalho = tabela[0].map(chave);
   const indice = {} as Record<Coluna, number>;
@@ -194,7 +210,7 @@ export function importarPontosCsv(conteudo: string, janela?: Periodo): Resultado
           situacao: resultado && resultado !== 'nao' ? 'vistoriado' : 'planejado',
         }
       : undefined;
-    return { linha: i + 2, ...(ponto ? { ponto } : {}), erros, avisos, resultado: limpar(campo('resultado'), 80), mes: limpar(campo('mes'), 10) };
+    return { linha: registros[i + 1].linha, ...(ponto ? { ponto } : {}), erros, avisos, resultado: limpar(campo('resultado'), 80), mes: limpar(campo('mes'), 10) };
   });
   const periodo = periodoDosPontos(linhas.flatMap((l) => (l.ponto ? [l.ponto] : [])));
   const setor = tabela.slice(1).map((c) => limpar(indice.setor >= 0 ? c[indice.setor] : '', LIMITES_OPERACAO.setor)).find(Boolean);
