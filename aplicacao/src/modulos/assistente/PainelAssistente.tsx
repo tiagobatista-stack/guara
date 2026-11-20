@@ -9,6 +9,8 @@ import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
 import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
+import { useDemandaEmFoco } from './demanda-em-foco.ts';
+import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
@@ -20,7 +22,7 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: () => Mensagem[]): Mensagem[] {
   const c = comando.trim().toLowerCase();
   if (c.startsWith('prazos')) {
     const fato: Mensagem = { autor: 'assistente', natureza: 'fato', fonte: origem, texto: textoDosPrazos(avisos) };
@@ -37,14 +39,15 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string): M
       },
     ];
   }
+  if (c.startsWith('demanda') || c.startsWith('esta demanda')) return sobreDemanda();
   if (c.startsWith('ajuda')) {
-    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos" (lista as demandas vencidas, com prazo próximo e paradas) e "ajuda". Os atalhos abaixo enviam esses comandos.' }];
+    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos" (lista as demandas vencidas, com prazo próximo e paradas), "demanda" (fala da demanda aberta em Demandas) e "ajuda". Todas as respostas seguem regras fixas, sem modelo de IA. Os atalhos abaixo enviam esses comandos.' }];
   }
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
-    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos" ou "ajuda".',
+    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos", "demanda" ou "ajuda".',
   }];
 }
 
@@ -58,6 +61,7 @@ const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote>
 // Comandos oferecidos como atalho abaixo da conversa: rótulo em linguagem de gente, comando por trás.
 const ATALHOS: readonly { rotulo: string; comando: string }[] = [
   { rotulo: 'Ver prazos', comando: 'prazos' },
+  { rotulo: 'Sobre a demanda aberta', comando: 'demanda' },
   { rotulo: 'O que você faz?', comando: 'ajuda' },
 ];
 
@@ -164,7 +168,9 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
 
   const enviarComando = (comando: string) => {
     if (!comando.trim()) return;
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+    const origemDoComando = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
+    const sobreDemanda = () => respostaSobreDemanda(emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda)]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -174,6 +180,9 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   };
 
   const instante = agora();
+  const emFoco = useDemandaEmFoco();
+  const { demandas, diasInatividade } = useEstadoDemandas();
+  const ajusteDoDia = useAjusteFeriados(instante);
   const { todos, visiveis: avisos, ocultos } = useAvisosVisiveis(instante);
   const origem = `fato · fonte: demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
   const humor = humorDoPainel(mensagens, avisos);
@@ -278,7 +287,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                 {m.texto}
                 {m.natureza && (
                   <span className="mensagem-meta">
-                    {m.natureza} · fonte: {m.fonte}
+                    {m.natureza} · fonte: {m.fonte} · {METODO_DETERMINISTICO}
                   </span>
                 )}
               </div>
