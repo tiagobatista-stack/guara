@@ -50,6 +50,8 @@ A frase "nada instalado" vale para **esta atividade e para o projeto**: nenhum p
 
 A tela mostra as 3 skills do projeto como "never used", embora o STATUS registre a invocação de `testar-sistema` em 13/11 (P08). O contador da tela não basta para contradizer nem para confirmar aquela evidência; a origem do número não foi investigada. **NÃO VERIFICADO.**
 
+**Atualização em 20/11/2026:** a skill `testar-sistema` foi invocada de novo pelo responsável (`/testar-sistema`, carregada pela ferramenta Skill) nesta sessão aberta na pasta do projeto, e a rodada foi registrada em `2026-11-20-testar-sistema.md` (674/674, build ok e hook 8/8). Isso responde ao "never used" com uma invocação real e datada. O contador da tela `/plugin` não foi reaberto depois dela, então se ele passou a contar essa invocação continua **NÃO VERIFICADO**.
+
 ### Resultado
 
 Inspeção de plugins: **PASSOU**, com a correção acima.
