@@ -22,10 +22,10 @@ Auditoria final feita sem recomeçar o projeto. Regra: **nada marcado como PASSO
 | 9 | MCP conectado e ferramenta realmente chamada | `node servidor-mcp/testar-servidor.ts` (cliente MCP real, 3 ferramentas `readOnly`). **Repetido:** `mcp__guara-dados__resumir_demandas` chamada pelo próprio Claude Code, total 5 = JSON exportado (5). **Tela `/mcp` aberta em 19/11/2026:** `guara-dados` conectado com 3 tools (`2026-11-19-tela-mcp.md` e `.png`) | **PASSOU** |
 | 10 | Hook sentinela realmente bloqueado | Regras: 8/8 testes. **Repetido em sessão real:** `echo GUARA_HOOK_TEST_BLOCK` bloqueado pelo hook e `echo GUARA_OK` permitido | **PASSOU** |
 | 11 | GitHub: URL real e teste de acesso | repositório privado criado; `git ls-remote` = commit local — `2026-11-13-p12-github.md` | **PASSOU** |
-| 12 | Vercel: URL real e teste de acesso | `https://guara-lemon.vercel.app`: HTTP 200; cadastro, Kanban, F5 e Saúde 10/10 na URL pública — `2026-11-13-p12-vercel.md` | **PASSOU** (em 13/11/2026). A versão final, com os commits de 19/11, ainda **não foi publicada nem testada na URL pública** (NÃO TESTADO até o push) |
+| 12 | Vercel: URL real e teste de acesso | `https://guara-lemon.vercel.app`: HTTP 200; cadastro, Kanban, F5 e Saúde 10/10 na URL pública — `2026-11-13-p12-vercel.md`. **Versão final (19/11/2026):** PR #3 mesclada na `main` (`3666d55`), deploy do Vercel com estado `success`, a URL serve o mesmo bundle do build local (`index-BFR3kueV.js` e `index-B3S3-AIP.css`). O roteiro na URL pública foi repetido: abrir, cadastrar (4 → 5 demandas), Kanban (A Fazer → Em Andamento), F5 (dados preservados) e Saúde do sistema (10/10 habilidades e 6/6 agentes) — `2026-11-19-roteiro-url-publica.md`. Limitações: parte das ações foi disparada por script na página (`requestSubmit` e o clique do menu), com janela emulada de 1280×800. Cliques físicos e celular: **NÃO TESTADO** | **PASSOU** (versão final `3666d55`) |
 | 13 | Diferencial: tela Saúde do sistema | 6 agentes e 10 habilidades com autoteste real; estado inicial NÃO TESTADO; "Executar verificação" dá 10/10 OK (local e na URL pública); testes provam que uma habilidade quebrada vira FALHA | **PASSOU** |
 
-**Resumo (19/11/2026):** 13 PASSOU · 0 PARCIAL · 0 FALHOU em aberto. Ainda falta repetir o item 12 com a versão final, depois do push.
+**Resumo (19/11/2026):** 13 PASSOU · 0 PARCIAL · 0 FALHOU em aberto. Versão final `3666d55` publicada e roteiro repetido na URL pública (item 12; ações por script, cliques físicos e celular NÃO TESTADO).
 
 **Fora dos 13 itens:** o `/plugin` foi aberto em 19/11/2026, sem instalar nada. O menu mostrou as abas Discover, Installed, Marketplaces, Errors e Stats (`2026-11-19-inspecao-plugins.md` e `2026-11-19-tela-plugin.png`). A captura mostra só a aba Discover. A afirmação "nada instalado" fica **PARCIAL** até haver uma captura da aba Installed.
 
@@ -94,7 +94,7 @@ Os testes no navegador usaram **eventos de DOM disparados por script** na págin
    ~~**Falta:** conferir a tela `/mcp` no terminal e fazer a rodada A–F com os subagentes registrados.~~ **Feito em 19/11/2026** (itens 8 e 9).
 
    **Falta:**
-   - publicar a versão final e testá-la na URL pública (item 12);
+   - ~~publicar a versão final~~ (feito: PR #3, `3666d55`, bundle conferido); ~~repetir o roteiro funcional na URL pública~~ (feito: `2026-11-19-roteiro-url-publica.md`); clique físico e celular continuam NÃO TESTADO;
    - capturar a aba Installed do `/plugin`;
    - corrigir o R2, a detecção do separador quando há linhas em branco antes do cabeçalho;
    - decidir sobre os dados de teste sem o prefixo `FIC-` e sobre a planilha no histórico do git (`80de2b7`).

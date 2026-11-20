@@ -90,3 +90,10 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
   - Com autorização do responsável, o dev server foi encerrado (o servidor MCP não foi tocado).
   - O 2º `npm ci` passou, com 0 vulnerabilidades.
 - **Gate:** `npm test` deu **58 arquivos, 672/672** (os 659 da `main` mais os 13 desta branch), e `npm run build` passou (`built in 229ms`). **PASSOU.**
+
+## Publicação (19/11/2026)
+
+- **Push e PR:** o responsável fez o push de `operacoes-campo` (`8df58f2`) e mesclou a PR #3 na `main` (`3666d55`, em 2026-11-20T01:09:09Z). `git merge-base --is-ancestor 8df58f2 origin/main` deu verdadeiro, e `git diff 8df58f2 origin/main` saiu vazio.
+- **Vercel:** o status do commit `3666d55` é `success`.
+- **URL pública:** `curl https://guara-lemon.vercel.app/` deu HTTP 200. O `index.html` público referencia `assets/index-BFR3kueV.js` e `assets/index-B3S3-AIP.css`, os mesmos arquivos do `aplicacao/dist/index.html` gerado localmente na mesma árvore. O JS respondeu HTTP 200, com 562.442 bytes. **PASSOU** (a versão publicada é a final).
+- **Roteiro funcional na URL pública** (cadastro, Kanban, F5 e Saúde do sistema): **PASSOU**, em `2026-11-19-roteiro-url-publica.md`. Feito no navegador integrado do app Claude, com ações por script e janela emulada. Cliques físicos e celular: **NÃO TESTADO**.
