@@ -87,15 +87,21 @@ describe('fluxo recebe a demanda como parâmetro (P1 do relatório)', () => {
 
 describe('padrões de orquestração A–F', () => {
   it('sem execução, nenhum padrão é dado como demonstrado', () => {
-    expect(avaliarPadroes(null).every((p) => p.produto.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    const semExecucao = avaliarPadroes(null);
+    expect(semExecucao.every((p) => p.produto.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    // A coluna de desenvolvimento é registro da rodada de 19/11, independente da execução do produto.
+    expect(semExecucao.every((p) => p.desenvolvimento.situacao === 'DEMONSTRADO')).toBe(true);
   });
 
-  it('após o fluxo: A, B, C, E e F demonstrados no produto; D não demonstrado; coluna de desenvolvimento pendente', () => {
+  it('após o fluxo: A, B, C, E e F demonstrados no produto; D não demonstrado; coluna de desenvolvimento conforme a rodada de 19/11', () => {
     const padroes = avaliarPadroes(executarFluxoPadrao(habilidades, agentes));
     const situacoes = Object.fromEntries(padroes.map((p) => [p.letra, p.produto.situacao]));
     expect(situacoes).toEqual({
       A: 'DEMONSTRADO', B: 'DEMONSTRADO', C: 'DEMONSTRADO', D: 'NÃO DEMONSTRADO', E: 'DEMONSTRADO', F: 'DEMONSTRADO',
     });
-    expect(padroes.every((p) => p.desenvolvimento.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    expect(padroes.every((p) => p.desenvolvimento.situacao === 'DEMONSTRADO')).toBe(true);
+    expect(padroes.every((p) => p.desenvolvimento.justificativa.includes('2026-11-19-orquestracao-a-d-e-f.md'))).toBe(true);
+    expect(padroes.find((p) => p.letra === 'C')?.desenvolvimento.justificativa).toContain('APROVADO COM RESSALVAS');
+    expect(padroes.find((p) => p.letra === 'D')?.produto.situacao).toBe('NÃO DEMONSTRADO');
   });
 });
