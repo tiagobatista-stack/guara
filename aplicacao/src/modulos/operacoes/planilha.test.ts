@@ -54,6 +54,13 @@ it('coordenadas: avisa quando COORD_X/COORD_Y e LONGITUDE/LATITUDE divergem; só
   assert.deepEqual(soDecimal.linhas[0].ponto!.coordenada, { lat: -10.830502, lon: -58.64059 });
 });
 
+it('número da linha: conta as linhas vazias descartadas e é a linha física onde o registro começa', () => {
+  assert.deepEqual(C.importarPontosCsv('COORD_X;COORD_Y\n;\n58 W;abc').linhas.map((l) => l.linha), [3]);
+  assert.deepEqual(C.importarPontosCsv('COORD_X;COORD_Y\r\n\r\n\r\n58 W;abc\r\n').linhas.map((l) => l.linha), [4]);
+  // Quebra de linha dentro de aspas fica no mesmo registro; o seguinte começa duas linhas depois.
+  assert.deepEqual(C.importarPontosCsv('NOTAS;COORD_X;COORD_Y\n"a\nb";1;2\n\nc;3;4').linhas.map((l) => l.linha), [2, 5]);
+});
+
 it('servidores da equipe entram nos integrantes da viagem, sem repetir', () => {
   const id = novaOp();
   const r = C.importarPontosCsv(csv(linha({}), linha({ numero: '2', servidores: 'beltrana fictícia, Ciclano Fictício' })));
