@@ -109,4 +109,24 @@ Sessão aberta em `F:\claude\guara` (branch `operacoes-campo`). Os agentes `arqu
   - "separador: com \r sozinho…".
 - **Antes da correção:** `Tests 2 failed | 22 passed (24)`. Os dois testes novos falharam por `AssertionError` (deep-equal).
 - **Depois:** `planilha.test.ts` 24/24. `npm test` **58 arquivos, 674/674**. `npm run build` ok (`built in 243ms`). **PASSOU.**
-- **Limitação:** uma linha só de separadores (por exemplo `,,,`) antes do cabeçalho ainda é tratada como linha com conteúdo. Nesse caso, ela decide o separador e pode virar um registro. Isso não foi tratado aqui.
+- **Limitações:**
+  - **Linha só de separadores** (por exemplo `,,,`) antes do cabeçalho: ainda conta como linha com conteúdo e decide o separador. Ela só vira registro quando o separador escolhido é outro; quando é o próprio `,`, a linha é descartada (ajuste R-c do auditor).
+  - **Cabeçalho com aspas e quebra de linha dentro** (por exemplo `'"A\nB",C\n1,2'`): o separador sai só do trecho antes da quebra, então pode ser escolhido errado. É um defeito que já existia; o resultado é o mesmo antes e depois de `74a8ef6`. É raro e não foi tratado (R-b do auditor).
+
+### Revisão independente do `74a8ef6` (padrão C, `auditor`)
+
+Chamada `Agent(subagent_type: "auditor")` observada (cerca de 149 s). O auditor não editou arquivos (`git status --short` saiu vazio). A verificação rodou em cópias fora do repositório, no scratchpad da sessão, sem junção nem link para o `node_modules`.
+
+**Resultado geral: APROVADO COM RESSALVAS.**
+
+| Item | Resultado | Evidência |
+|---|---|---|
+| 1. Correção mínima e correta | APROVADO | Script com casos limite nas duas versões. Corrige: BOM seguido de linhas em branco, linhas CRLF em branco com cabeçalho separado por tabulação, e linhas só de espaços, tabulações ou NBSP antes do cabeçalho. Arquivo vazio ou só com linhas em branco dá "O arquivo está vazio.". Ignorar a linha só de tabulações é coerente com o descarte de registros vazios |
+| 2. Os testes novos falham antes e passam depois | APROVADO | Harness do auditor com o node 26.13.1, nas duas árvores (`74a8ef6` e `74a8ef6~1`). A diferença está só nos 2 testes novos, que falham no código anterior por `AssertionError` de deep-equal. Outras 3 falhas aparecem nas duas versões e vêm do harness (sem jsdom nem setup do Vitest); no Vitest, o mesmo arquivo dá 24/24 |
+| 3. Regressão | APROVADO | `npm test`: 58 arquivos, **674/674**. `planilha.test.ts`: 24/24. `npm run build` ok (`built in 229ms`, só o aviso de chunk acima de 500 kB, que já existia) |
+| 4. Evidência e afirmações do commit | APROVADO para a evidência e para o commit; **REPROVADO** em `gestao/STATUS.md:18` | Havia um byte CR (0x0D) literal no lugar do texto `\r`, confirmado com `od -c` |
+
+**Ressalvas e o que foi feito:**
+- **R-a**, CR literal em `gestao/STATUS.md:18`: corrigido. O trecho agora tem o texto `\r`, e o arquivo ficou sem nenhum CR (conferido por script).
+- **R-b**, cabeçalho com aspas e quebra de linha dentro: registrado como limitação acima, sem correção no código.
+- **R-c**, frase da limitação `,,,`: ajustada acima.
