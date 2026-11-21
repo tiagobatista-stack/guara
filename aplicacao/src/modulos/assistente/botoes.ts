@@ -13,6 +13,8 @@ const PRAZOS: AcaoDaFala = { rotulo: 'Ver prazos', comando: 'prazos' };
 const AJUDA: AcaoDaFala = { rotulo: 'O que você faz?', comando: 'ajuda' };
 /** Só entra na resposta quando há uma demanda aberta na tela Demandas. */
 const SOBRE_A_DEMANDA_ABERTA: AcaoDaFala = { rotulo: 'Sobre a demanda aberta', comando: 'demanda' };
+/** Depois de "prioridades": troca para a aba Fila, onde as mesmas demandas aparecem com o motivo de cada uma. */
+const ABRIR_FILA: AcaoDaFala = { rotulo: 'Ver a fila do dia', comando: 'abrir fila', aba: 'fila' };
 const ABRIR_DEMANDAS: AcaoDaFala = { rotulo: 'Abrir Demandas', comando: 'abrir demandas', rota: rotaDaTelaDemandas() };
 
 /** Em que contexto a resposta foi dada: define os botões que completam a fala. */
@@ -37,7 +39,7 @@ export function botoesDaResposta(proprios: readonly AcaoDaFala[], contexto: Cont
   const todos: AcaoDaFala[] = [];
   const juntar = (a: AcaoDaFala) => { if (!todos.some((x) => x.comando === a.comando) && a.comando !== comandoAtual) todos.push(a); };
   // Depois de prazos ou prioridades, "Abrir Demandas" vem antes do "Abrir demanda" específico.
-  if (contexto === 'lista') juntar(ABRIR_DEMANDAS);
+  if (contexto === 'lista') { juntar(ABRIR_DEMANDAS); if (comandoAtual === 'prioridades') juntar(ABRIR_FILA); }
   proprios.forEach(juntar);
   for (const c of complementos) if (todos.length < alvo) juntar(c);
   const final = todos.slice(0, vagas);

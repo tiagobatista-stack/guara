@@ -14,6 +14,7 @@ import { Alertas } from '../modulos/alertas/Alertas.tsx';
 import { listarInativas } from '../modulos/alertas/inatividade.ts';
 import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
+import { pedirAba } from '../modulos/assistente/abas.ts';
 import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosVisiveis } from '../modulos/assistente/PainelAssistente.tsx';
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { Operacoes } from '../modulos/operacoes/Operacoes.tsx';
@@ -67,6 +68,11 @@ export function Aplicacao() {
   // Só os avisos que a pessoa ainda não marcou como cientes nem adiou.
   const { visiveis: avisos } = useAvisosVisiveis(new Date());
   const rotuloAssistente = rotuloAbrirAssistente(avisos);
+  // Abrir o assistente com um aviso urgente (demanda vencida) leva direto à aba "Avisos".
+  const abrirAssistente = () => {
+    if (avisos.some((a) => a.tipo === 'vencida')) pedirAba('avisos');
+    setConversaAberta(true);
+  };
 
   const itemMenu = (id: string) => {
     const m = modulos.find((x) => x.id === id)!;
@@ -124,7 +130,7 @@ export function Aplicacao() {
             <Icone nome="sino" />
             {totalAlertas > 0 && <span className="sino-contagem" aria-hidden="true">{totalAlertas}</span>}
           </button>
-          <button type="button" className="botao-assistente" onClick={() => setConversaAberta(true)} aria-label={rotuloAssistente}>
+          <button type="button" className="botao-assistente" onClick={abrirAssistente} aria-label={rotuloAssistente}>
             <RostoDoAssistente tamanho={28} avisos={avisos} /> Assistente
           </button>
         </header>
@@ -158,7 +164,7 @@ export function Aplicacao() {
       )}
 
       {/* No celular, o mascote fica no botão flutuante: assim continua visível com o painel fechado. */}
-      <button type="button" className="botao-flutuante" onClick={() => setConversaAberta(true)} aria-label={rotuloAssistente}>
+      <button type="button" className="botao-flutuante" onClick={abrirAssistente} aria-label={rotuloAssistente}>
         <RostoDoAssistente tamanho={44} avisos={avisos} />
         {avisos.length > 0 && <span className="sino-contagem botao-flutuante-contagem" aria-hidden="true">{avisos.length}</span>}
       </button>

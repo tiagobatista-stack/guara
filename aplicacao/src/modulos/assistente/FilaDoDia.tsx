@@ -10,8 +10,8 @@ const NOTA_DO_METODO = 'Ordem por pesos fixos (inferência, método determiníst
 /** Itens mostrados de uma vez; o restante fica no comando "prioridades". */
 export const MAXIMO_NA_FILA_DO_DIA = 3;
 
-export function FilaDoDia({ itens, origem }: { itens: readonly ItemDePrioridade[]; origem: string }) {
-  if (itens.length === 0) return <p className="texto-suave" data-testid="fila-vazia">Nada pede atenção agora.</p>;
+export function FilaDoDia({ itens, origem, aoVerLista }: { itens: readonly ItemDePrioridade[]; origem: string; aoVerLista?: () => void }) {
+  if (itens.length === 0) return <p className="texto-suave" data-testid="fila-vazia">Nenhuma demanda na fila. Tudo em dia.</p>;
   const mostrados = itens.slice(0, MAXIMO_NA_FILA_DO_DIA);
   const resto = itens.length - mostrados.length;
   return (
@@ -41,7 +41,14 @@ export function FilaDoDia({ itens, origem }: { itens: readonly ItemDePrioridade[
           </li>
         ))}
       </ol>
-      {resto > 0 && <p className="texto-pequeno texto-suave">E mais {resto}: digite "prioridades" para ver a lista.</p>}
+      {resto > 0 && (
+        <p className="texto-pequeno texto-suave">
+          E mais {resto}.{' '}
+          {aoVerLista
+            ? <button type="button" className="botao botao--pequeno" onClick={aoVerLista}>Ver a lista na conversa</button>
+            : 'Digite "prioridades" para ver a lista.'}
+        </p>
+      )}
       <p className="texto-pequeno texto-suave">
         {NOTA_DO_METODO} · {origem}. <a href="#/demandas">Abrir Demandas</a>
       </p>

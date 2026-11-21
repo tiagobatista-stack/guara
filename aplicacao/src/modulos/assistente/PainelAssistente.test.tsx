@@ -7,6 +7,7 @@ import { PainelAssistente } from './PainelAssistente.tsx';
 import { CHAVE_CONVERSA, limparConversa, MAXIMO_DE_FALAS } from './conversa.ts';
 import { definirDemandaEmFoco } from './demanda-em-foco.ts';
 import { mostrarDeNovo, obterLembretes } from './lembretes.ts';
+import { pedirAba } from './abas.ts';
 
 // Sexta, 13/11/2026.
 const AGORA = () => new Date('2026-11-13T12:00:00.000Z');
@@ -25,6 +26,10 @@ function montar(demandas: EntradaDemanda[] = [entrada('Revisar parecer FIC-0001'
     </ContextoArmazem.Provider>,
   );
   return { armazem, ...tela };
+}
+
+function irParaAba(nome: 'Conversa' | 'Fila' | 'Avisos') {
+  fireEvent.click(screen.getByRole('tab', { name: new RegExp(`^${nome}`) }));
 }
 
 function enviar(comando: string) {
@@ -91,13 +96,13 @@ describe('painel do assistente: mascote', () => {
     expect(inferencia).toHaveTextContent('inferência · fonte: ordem dos avisos');
   });
 
-  it('a fila do dia aparece no painel, acima das notificações, com o motivo e a sugestão', () => {
+  it('a fila do dia fica na aba Fila, com o motivo e a sugestão', () => {
     montar([entrada('Prazo antigo (fictício)', '2026-11-10')]);
-    const fila = screen.getByRole('region', { name: 'Fila do dia' });
+    irParaAba('Fila');
+    const fila = screen.getByRole('tabpanel', { name: /^Fila/ });
     expect(fila).toHaveTextContent('Prazo antigo (fictício)');
     expect(fila).toHaveTextContent('prazo: vencido há 3 dias úteis');
     expect(fila).toHaveTextContent('Decidir: prorrogar o prazo ou concluir.');
-    expect(fila.compareDocumentPosition(screen.getByRole('region', { name: 'Notificações' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it('o comando "prioridades" ordena a fila com motivo, e a próxima ação vem como sugestão', () => {
@@ -345,6 +350,7 @@ describe('painel do assistente: mascote', () => {
 
   it('"Ciente" esconde o aviso e acalma o mascote; o aviso volta quando a demanda muda de status', () => {
     const { armazem } = montar();
+    irParaAba('Avisos');
     fireEvent.click(within(screen.getByRole('group', { name: 'Lembrete de DEM-1' })).getByRole('button', { name: 'Ciente' }));
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(screen.getByText('Nenhum aviso novo.')).toBeInTheDocument();
@@ -361,6 +367,7 @@ describe('painel do assistente: mascote', () => {
 
   it('adiar esconde o lembrete até a hora escolhida; "Mostrar de novo" desfaz', () => {
     montar();
+    irParaAba('Avisos');
     const acoes = within(screen.getByRole('group', { name: 'Lembrete de DEM-1' }));
     const opcoes = acoes.getAllByRole('button', { name: /às (8|14)h$/ });
     expect(opcoes).toHaveLength(2);
@@ -377,6 +384,7 @@ describe('painel do assistente: mascote', () => {
 
   it('"Em 2 horas" esconde o lembrete por 2 horas exatas', () => {
     montar();
+    irParaAba('Avisos');
     fireEvent.click(within(screen.getByRole('group', { name: 'Lembrete de DEM-1' })).getByRole('button', { name: 'Em 2 horas' }));
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(new Date(obterLembretes()['DEM-1'].adiadoAte!).getTime()).toBe(AGORA().getTime() + 2 * 3_600_000);
@@ -384,6 +392,7 @@ describe('painel do assistente: mascote', () => {
 
   it('"Não mostrar para esta demanda" silencia o aviso até "Mostrar de novo"', () => {
     montar();
+    irParaAba('Avisos');
     fireEvent.click(screen.getByRole('button', { name: 'Não mostrar para esta demanda' }));
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     fireEvent.click(screen.getByRole('button', { name: /1 silenciada\(s\)$/ }));
@@ -439,32 +448,102 @@ describe('painel do assistente: mascote', () => {
 
   it('o comando "prazos" continua listando também os avisos cientes (é um fato, não um lembrete)', () => {
     montar();
+    irParaAba('Avisos');
     fireEvent.click(screen.getByRole('button', { name: 'Ciente' }));
+    irParaAba('Conversa');
     enviar('prazos');
     expect(screen.getByText(/Prazo próximo: DEM-1/)).toBeInTheDocument();
   });
 
   it('demanda concluída limpa o registro de ciente', () => {
     const { armazem } = montar();
+    irParaAba('Avisos');
     fireEvent.click(screen.getByRole('button', { name: 'Ciente' }));
     expect(Object.keys(obterLembretes())).toEqual(['DEM-1']);
     act(() => { armazem.mudarStatus('DEM-1', 'Concluída'); });
     expect(obterLembretes()).toEqual({});
   });
 
-  it('a seção de notificações pode ser recolhida, fica só a conversa, e a escolha vale ao remontar o painel', () => {
-    const primeira = montar();
-    const recolher = screen.getByRole('button', { name: /Notificações.*recolher/ });
-    expect(recolher).toHaveAttribute('aria-expanded', 'true');
-    fireEvent.click(recolher);
-    expect(screen.getByTestId('aviso-DEM-1')).not.toBeVisible();
-    expect(screen.getByRole('button', { name: /1 novo\(s\), recolhidas; mostrar/ })).toHaveAttribute('aria-expanded', 'false');
-    expect(screen.getByLabelText('Mensagem ao assistente')).toBeInTheDocument();
-    primeira.unmount();
+  describe('abas (item 11a)', () => {
+    it('abre em Conversa; o nome acessível das abas leva o número', () => {
+      montar();
+      const abas = screen.getAllByRole('tab');
+      expect(abas.map((x) => x.textContent)).toEqual(['Conversa', 'Fila (1)', 'Avisos (1)']);
+      expect(abas.map((x) => x.getAttribute('aria-label'))).toEqual(['Conversa', 'Fila, 1 item', 'Avisos, 1 item']);
+      expect(screen.getByRole('tab', { name: 'Conversa' })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tabpanel', { name: 'Conversa' })).toBeVisible();
+      expect(screen.getByLabelText('Mensagem ao assistente')).toBeVisible();
+      expect(screen.getByTestId('aviso-DEM-1')).not.toBeVisible();
+    });
 
-    montar([]); // a demanda DEM-1 já está no localStorage
-    expect(screen.getByTestId('aviso-DEM-1')).not.toBeVisible();
-    fireEvent.click(screen.getByRole('button', { name: /Notificações/ }));
-    expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
+    it('o número da Fila é o da fila do dia, não o total de demandas abertas', () => {
+      montar([{ ...entrada('Pronta (fictícia)', '2026-11-10'), status: 'Concluída' }, entrada('Vencida (fictícia)', '2026-11-10')]);
+      expect(screen.getByRole('tab', { name: 'Fila, 1 item' })).toBeInTheDocument();
+    });
+
+    it('setas, Home e End trocam de aba e movem o foco; só a aba ativa entra na sequência do Tab', () => {
+      montar();
+      const conversa = screen.getByRole('tab', { name: 'Conversa' });
+      conversa.focus();
+      fireEvent.keyDown(conversa, { key: 'ArrowRight' });
+      const fila = screen.getByRole('tab', { name: /^Fila/ });
+      expect(fila).toHaveAttribute('aria-selected', 'true');
+      expect(fila).toHaveFocus();
+      expect(conversa).toHaveAttribute('tabindex', '-1');
+      fireEvent.keyDown(fila, { key: 'End' });
+      const avisos = screen.getByRole('tab', { name: /^Avisos/ });
+      expect(avisos).toHaveFocus();
+      fireEvent.keyDown(avisos, { key: 'ArrowRight' });
+      expect(conversa).toHaveFocus();
+      fireEvent.keyDown(conversa, { key: 'ArrowLeft' });
+      expect(avisos).toHaveFocus();
+      fireEvent.keyDown(avisos, { key: 'Home' });
+      expect(conversa).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('a última aba escolhida vale ao reabrir o painel', () => {
+      const primeira = montar();
+      irParaAba('Fila');
+      expect(localStorage.getItem('guara:assistente:aba:v1')).toBe('fila');
+      primeira.unmount();
+      montar([]);
+      expect(screen.getByRole('tab', { name: /^Fila/ })).toHaveAttribute('aria-selected', 'true');
+      expect(screen.getByRole('tabpanel', { name: /^Fila/ })).toBeVisible();
+    });
+
+    it('gravação inválida ou armazenamento bloqueado: abre em Conversa', () => {
+      localStorage.setItem('guara:assistente:aba:v1', 'qualquer');
+      const primeira = montar();
+      expect(screen.getByRole('tab', { name: 'Conversa' })).toHaveAttribute('aria-selected', 'true');
+      primeira.unmount();
+      vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => { throw new Error('bloqueado'); });
+      montar([]);
+      expect(screen.getByRole('tab', { name: 'Conversa' })).toHaveAttribute('aria-selected', 'true');
+    });
+
+    it('aba vazia mostra mensagem curta', () => {
+      montar([]);
+      irParaAba('Fila');
+      expect(screen.getByTestId('fila-vazia')).toHaveTextContent('Nenhuma demanda na fila. Tudo em dia.');
+    });
+
+    it('aviso urgente: o painel aberto pelo cabeçalho começa em Avisos e volta à aba anterior quando o aviso é dispensado', () => {
+      localStorage.setItem('guara:assistente:aba:v1', 'fila');
+      pedirAba('avisos');
+      montar([entrada('Vencida (fictícia)', '2026-11-10')]);
+      expect(screen.getByRole('tab', { name: /^Avisos/ })).toHaveAttribute('aria-selected', 'true');
+      fireEvent.click(screen.getByRole('button', { name: 'Ciente' }));
+      expect(screen.getByRole('tab', { name: /^Fila/ })).toHaveAttribute('aria-selected', 'true');
+      expect(localStorage.getItem('guara:assistente:aba:v1')).toBe('fila');
+      pedirAba(null);
+    });
+
+    it('depois de "prioridades", o botão "Ver a fila do dia" abre a aba Fila', () => {
+      const { container } = montar([entrada('Vencida (fictícia)', '2026-11-10')]);
+      enviar('prioridades');
+      const falas = container.querySelectorAll('.conversa li.fala');
+      fireEvent.click(within(falas[falas.length - 1] as HTMLElement).getByRole('button', { name: 'Ver a fila do dia' }));
+      expect(screen.getByRole('tab', { name: /^Fila/ })).toHaveAttribute('aria-selected', 'true');
+    });
   });
 });

@@ -2,7 +2,7 @@
 // MVP: comandos determinísticos, sem modelo de IA. Toda resposta indica a natureza
 // (fato extraído, inferência ou sugestão) e a fonte.
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascote.tsx';
 import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
@@ -21,6 +21,7 @@ import { BOTOES_DE_ABERTURA, comBotoes, type ContextoDaResposta } from './botoes
 import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
 import { respostaDePrioridades } from './respostaPrioridades.ts';
 import { FilaDoDia } from './FilaDoDia.tsx';
+import { abaPedida, abaPorTecla, ABAS, gravarAba, lerAba, pedirAba, rotuloDaAba, type Aba } from './abas.ts';
 import { priorizarDemandas } from './priorizar.ts';
 import { useLimiteDeAvisos } from './preferencias-avisos.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, useLembretes } from './lembretes.ts';
@@ -104,24 +105,6 @@ const SAUDACAO: Mensagem = {
   texto: 'Olá! Trabalho só com dados fictícios. Toque num botão ou digite um comando.',
   acoes: [...BOTOES_DE_ABERTURA],
 };
-
-// A pessoa pode recolher a seção de notificações para ficar só com a conversa; a escolha fica
-// neste navegador, porque a gaveta é desmontada a cada fechamento.
-const CHAVE_NOTIFICACOES_RECOLHIDAS = 'guara:assistente:notificacoes-recolhidas:v1';
-function lerRecolhidas(): boolean {
-  try {
-    return window.localStorage.getItem(CHAVE_NOTIFICACOES_RECOLHIDAS) === '1';
-  } catch {
-    return false;
-  }
-}
-function gravarRecolhidas(valor: boolean) {
-  try {
-    window.localStorage.setItem(CHAVE_NOTIFICACOES_RECOLHIDAS, valor ? '1' : '0');
-  } catch {
-    // Armazenamento bloqueado: a escolha vale só até fechar a página.
-  }
-}
 
 // O humor resume o estado da tela: resposta de "não entendi" deixa o mascote curioso, inferência
 // deixa pensativo; demanda vencida, com prazo próximo ou parada deixa atento. Ele conta prazos,
@@ -237,10 +220,26 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const origemDoAviso = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
   const humor = humorDoPainel(mensagens, avisos);
   const [mostrandoOcultos, setMostrandoOcultos] = useState(false);
-  const [recolhidas, setRecolhidas] = useState(lerRecolhidas);
-  const alternarRecolhidas = () => {
-    setRecolhidas((v) => { gravarRecolhidas(!v); return !v; });
+  // Abas (item 11a): a última escolhida vale ao reabrir; um recado de "Avisos" (botão do cabeçalho com aviso
+  // urgente) abre em Avisos e volta para a aba anterior quando o aviso urgente é dispensado.
+  const idBase = useId();
+  const [aba, setAba] = useState<Aba>(() => abaPedida() ?? lerAba());
+  const [voltarPara, setVoltarPara] = useState<Aba | null>(() => (abaPedida() ? lerAba() : null));
+  useEffect(() => { pedirAba(null); }, []);
+  const botoesDasAbas = useRef<Partial<Record<Aba, HTMLButtonElement | null>>>({});
+  const escolherAba = (a: Aba) => { setAba(a); setVoltarPara(null); gravarAba(a); };
+  const temUrgente = avisos.some((x) => x.tipo === 'vencida');
+  useEffect(() => {
+    if (voltarPara && !temUrgente) { setAba(voltarPara); setVoltarPara(null); }
+  }, [voltarPara, temUrgente]);
+  const teclasDasAbas = (e: KeyboardEvent<HTMLDivElement>) => {
+    const proxima = abaPorTecla(aba, e.key);
+    if (!proxima) return;
+    e.preventDefault();
+    escolherAba(proxima);
+    botoesDasAbas.current[proxima]?.focus();
   };
+  const numeroDaAba: Record<Aba, number> = { conversa: 0, fila: fila.length, avisos: avisos.length };
   const opcoes = opcoesDeAdiamento(instante, useAjusteFeriados(instante));
 
   // Demanda concluída ou excluída não precisa mais do registro de ciente ou adiamento.
@@ -261,20 +260,34 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         </div>
       </div>
 
-      <section aria-label="Fila do dia" className="assistente-secao">
-        <h2 className="titulo-notificacoes"><strong>Fila do dia</strong></h2>
-        <FilaDoDia itens={fila} origem={`demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`} />
-      </section>
+      <div role="tablist" aria-label="Seções do assistente" className="abas-assistente" onKeyDown={teclasDasAbas}>
+        {ABAS.map((a) => {
+          const r = rotuloDaAba(a, numeroDaAba[a]);
+          return (
+            <button
+              key={a}
+              ref={(el) => { botoesDasAbas.current[a] = el; }}
+              type="button"
+              role="tab"
+              id={`${idBase}-aba-${a}`}
+              aria-selected={aba === a}
+              aria-controls={`${idBase}-painel-${a}`}
+              aria-label={r.nome}
+              tabIndex={aba === a ? 0 : -1}
+              className="aba-assistente"
+              onClick={() => escolherAba(a)}
+            >
+              {r.visivel}
+            </button>
+          );
+        })}
+      </div>
 
-      <section aria-label="Notificações" className={recolhidas ? 'assistente-secao assistente-secao--recolhida' : 'assistente-secao'}>
-        <h2 className="titulo-notificacoes">
-          <button type="button" className="botao-titulo" aria-expanded={!recolhidas} aria-controls="notificacoes-do-assistente" onClick={alternarRecolhidas}>
-            <strong>Notificações</strong>
-            {recolhidas && avisos.length > 0 && <span className="sino-contagem" aria-hidden="true">{avisos.length}</span>}
-            <span className="sr-only">{recolhidas ? ` (${avisos.length} novo(s), recolhidas; mostrar)` : ' (recolher)'}</span>
-          </button>
-        </h2>
-        <div id="notificacoes-do-assistente" hidden={recolhidas}>
+      <div role="tabpanel" id={`${idBase}-painel-fila`} aria-labelledby={`${idBase}-aba-fila`} hidden={aba !== 'fila'} className="aba-painel">
+        <FilaDoDia itens={fila} origem={`demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`} aoVerLista={() => { escolherAba('conversa'); enviarComando('prioridades'); }} />
+      </div>
+
+      <div role="tabpanel" id={`${idBase}-painel-avisos`} aria-labelledby={`${idBase}-aba-avisos`} hidden={aba !== 'avisos'} className="aba-painel">
         {avisos.length === 0 && ocultos.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
         {avisos.length === 0 && ocultos.length > 0 && <p className="texto-suave">Nenhum aviso novo.</p>}
         {avisos.length > 0 && (
@@ -325,9 +338,9 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
             )}
           </div>
         )}
-        </div>
-      </section>
+      </div>
 
+      <div role="tabpanel" id={`${idBase}-painel-conversa`} aria-labelledby={`${idBase}-aba-conversa`} hidden={aba !== 'conversa'} className="aba-conversa">
       <ol ref={conversa} className="conversa" aria-live="polite">
         {mensagens.map((m, i) => {
           // Só os botões da última fala do assistente ficam ativos; os das anteriores seguem à vista, apagados.
@@ -353,7 +366,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                         className="botao botao--pequeno"
                         aria-disabled={ativa ? undefined : true}
                         aria-label={a.rota?.includes('campo=prazo') ? `${a.rotulo} ${a.comando.replace(/^abrir /, '')}, no campo Prazo` : undefined}
-                        onClick={() => { if (!ativa) return; if (a.rota) window.location.assign(a.rota); else enviarComando(a.comando); }}
+                        onClick={() => { if (!ativa) return; if (a.aba) escolherAba(a.aba); else if (a.rota) window.location.assign(a.rota); else enviarComando(a.comando); }}
                       >
                         {a.rotulo}
                       </button>
@@ -388,6 +401,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
             <Icone nome="enviar" />
           </button>
         </form>
+      </div>
       </div>
     </div>
   );
