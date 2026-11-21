@@ -15,6 +15,7 @@ import { listarInativas } from '../modulos/alertas/inatividade.ts';
 import { useEstadoDemandas } from '../modulos/demandas/armazem.ts';
 import { SaudeDoSistema } from '../modulos/saude-do-sistema/SaudeDoSistema.tsx';
 import { pedirAba } from '../modulos/assistente/abas.ts';
+import { useCompromissosParaAvisar } from '../modulos/agenda/avisosDeCompromissos.ts';
 import { PainelAssistente, RostoDoAssistente, rotuloAbrirAssistente, useAvisosVisiveis } from '../modulos/assistente/PainelAssistente.tsx';
 import { Configuracoes } from '../modulos/configuracoes/Configuracoes.tsx';
 import { Operacoes } from '../modulos/operacoes/Operacoes.tsx';
@@ -67,7 +68,8 @@ export function Aplicacao() {
   const totalAlertas = listarInativas(demandas, diasInatividade, new Date()).length;
   // Só os avisos que a pessoa ainda não marcou como cientes nem adiou.
   const { visiveis: avisos } = useAvisosVisiveis(new Date());
-  const rotuloAssistente = rotuloAbrirAssistente(avisos);
+  const compromissosDoAviso = useCompromissosParaAvisar(new Date()).length;
+  const rotuloAssistente = rotuloAbrirAssistente(avisos, compromissosDoAviso);
   // Abrir o assistente com um aviso urgente (demanda vencida) leva direto à aba "Avisos".
   const abrirAssistente = () => {
     if (avisos.some((a) => a.tipo === 'vencida')) pedirAba('avisos');
@@ -132,7 +134,7 @@ export function Aplicacao() {
             {totalAlertas > 0 && <span className="sino-contagem" aria-hidden="true">{totalAlertas}</span>}
           </button>
           <button type="button" className="botao-assistente" onClick={abrirAssistente} aria-label={rotuloAssistente}>
-            <RostoDoAssistente tamanho={28} avisos={avisos} /> Assistente
+            <RostoDoAssistente tamanho={28} avisos={avisos} compromissos={compromissosDoAviso} /> Assistente
           </button>
         </header>
 
@@ -147,7 +149,7 @@ export function Aplicacao() {
           // Faixa estreita: o rosto do mascote (atento e com o pulinho de sempre quando chega aviso) e o contador dos avisos não vistos.
           <button type="button" className="painel-faixa" aria-expanded={false} onClick={alternarPainel} title="Expandir painel do assistente"
             aria-label={`Expandir painel do assistente${avisos.length ? `: ${resumoDosAvisos(avisos)}` : ''}`}>
-            <RostoDoAssistente tamanho={40} avisos={avisos} />
+            <RostoDoAssistente tamanho={40} avisos={avisos} compromissos={compromissosDoAviso} />
             {avisos.length > 0 && <span className="sino-contagem painel-faixa-contagem" data-testid="contador-faixa" aria-hidden="true">{avisos.length}</span>}
           </button>
         ) : (
@@ -166,7 +168,7 @@ export function Aplicacao() {
 
       {/* No celular, o mascote fica no botão flutuante: assim continua visível com o painel fechado. */}
       <button type="button" className="botao-flutuante" onClick={abrirAssistente} aria-label={rotuloAssistente}>
-        <RostoDoAssistente tamanho={44} avisos={avisos} />
+        <RostoDoAssistente tamanho={44} avisos={avisos} compromissos={compromissosDoAviso} />
         {avisos.length > 0 && <span className="sino-contagem botao-flutuante-contagem" aria-hidden="true">{avisos.length}</span>}
       </button>
 

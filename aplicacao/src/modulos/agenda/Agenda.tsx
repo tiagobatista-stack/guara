@@ -1,24 +1,52 @@
 // Agenda: calendário mensal (domingo a sábado, como o Google Agenda) com vistorias e saídas, exportação .ics
 // e as demandas de campo ainda não encaixadas. Sem login nem serviço externo: o .ics é importado pela própria pessoa.
 
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useEstadoDemandas } from '../demandas/armazem.ts';
 import { useOperacoes } from '../operacoes/armazem.ts';
 import { demandasEncaixadas } from '../operacoes/regras.ts';
 import { listarSemVistoria } from '../demandas/vistoria.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
+import { parametrosDaRota } from '../../nucleo/registro-modulos.ts';
+import { lerRotaDeCompromisso } from '../assistente/compromissoPelaConversa.ts';
+import { concluirCompromisso, limparRascunho, reabrirCompromisso, useCompromissos, type Compromisso } from './compromissos.ts';
+import { FormularioCompromisso, type InicialDoFormulario } from './FormularioCompromisso.tsx';
 import { gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
+
+const paraFormulario = (c: Compromisso): InicialDoFormulario => ({ id: c.id, tipo: c.tipo, data: c.data, hora: c.hora, assunto: c.assunto, demanda: c.demanda });
 
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
 export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
   const { demandas } = useEstadoDemandas();
   const operacoes = useOperacoes();
+  const compromissos = useCompromissos();
   const instante = agora();
   const hoje = instante.toLocaleDateString('sv-SE');
   const [mes, setMes] = useState({ ano: instante.getFullYear(), mes: instante.getMonth() + 1 });
   const [escolhido, setEscolhido] = useState(hoje);
-  const dias = montarAgenda(demandas, operacoes);
+  // Formulário: aberto vazio ("Novo compromisso"), com um compromisso ("Editar") ou preenchido pelo assistente ("Corrigir").
+  const [formulario, setFormulario] = useState<InicialDoFormulario | null>(null);
+  const [recado, setRecado] = useState('');
+  useEffect(() => {
+    const aplicar = () => {
+      const novo = parametrosDaRota(window.location.hash).get('novo');
+      if (novo === null) return;
+      window.history.replaceState(null, '', '#/agenda');
+      limparRascunho();
+      const campos = lerRotaDeCompromisso(novo);
+      if (!campos) return;
+      setFormulario(campos);
+      if (campos.data) {
+        setEscolhido(campos.data);
+        setMes({ ano: Number(campos.data.slice(0, 4)), mes: Number(campos.data.slice(5, 7)) });
+      }
+    };
+    aplicar();
+    window.addEventListener('hashchange', aplicar);
+    return () => window.removeEventListener('hashchange', aplicar);
+  }, []);
+  const dias = montarAgenda(demandas, operacoes, compromissos);
   const porDia = new Map(dias.map((d) => [d.dia, d.itens]));
   const semVistoria = listarSemVistoria(demandas, demandasEncaixadas(operacoes));
   const grade = gradeDoMes(mes.ano, mes.mes);
@@ -43,7 +71,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
     <section aria-labelledby="titulo-agenda" className="pagina">
       <div>
         <h1 id="titulo-agenda" className="titulo-pagina">Agenda</h1>
-        <p className="texto-suave texto-medio">Vistorias das demandas e saídas dos pontos planejados, dos dados deste navegador.</p>
+        <p className="texto-suave texto-medio">Compromissos, vistorias das demandas e saídas dos pontos planejados, dos dados deste navegador.</p>
       </div>
 
       <div className="cartao">
@@ -74,7 +102,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
                     onClick={() => setEscolhido(data)}
                   >
                     <span className="agenda-numero">{Number(data.slice(8))}</span>
-                    {itens.slice(0, 2).map((i, n) => <span key={n} className={`agenda-evento agenda-evento--${i.tipo}`}>{i.texto}</span>)}
+                    {itens.slice(0, 2).map((i, n) => <span key={n} className={`agenda-evento agenda-evento--${i.tipo}${i.concluido ? ' agenda-evento--concluido' : ''}`}>{i.hora ? `${i.hora} ` : ''}{i.texto}</span>)}
                     {itens.length > 2 && <span className="texto-pequeno texto-suave">+{itens.length - 2}</span>}
                   </button>
                 );
@@ -92,10 +120,32 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
           <EstadoVazio texto="Nada marcado neste dia." />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio">
-            {doDia.map((i, n) => <li key={n}>{i.tipo === 'vistoria' ? 'Vistoria' : 'Saída'}: {i.texto}</li>)}
+            {doDia.map((i, n) => {
+              if (i.tipo !== 'compromisso') return <li key={n}>{i.tipo === 'vistoria' ? 'Vistoria' : 'Saída'}: {i.texto}</li>;
+              const c = compromissos.find((x) => x.id === i.id);
+              return (
+                <li key={n} data-testid={`compromisso-do-dia-${i.id}`}>
+                  <span className={i.concluido ? 'agenda-evento--concluido' : undefined}>{i.hora ? `${i.hora} · ` : 'Dia todo · '}{i.texto}{i.concluido ? ' (concluído)' : ''}</span>
+                  {c && (
+                    <span className="acoes-aviso" role="group" aria-label={`Compromisso: ${i.texto}`}>
+                      <button type="button" className="botao botao--pequeno" onClick={() => { setRecado(''); setFormulario(paraFormulario(c)); }}>Editar</button>
+                      <button type="button" className="botao botao--pequeno" onClick={() => (c.concluido ? reabrirCompromisso(c.id) : concluirCompromisso(c.id))}>{c.concluido ? 'Reabrir' : 'Concluir'}</button>
+                    </span>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         )}
+        {recado && <p role="status" className="texto-pequeno texto-suave">{recado}</p>}
+        {!formulario && <button type="button" className="botao" onClick={() => { setRecado(''); setFormulario({ data: escolhido }); }}>Novo compromisso ou lembrete</button>}
       </div>
+
+      {formulario && (
+        <div className="cartao">
+          <FormularioCompromisso key={`${formulario.id ?? 'novo'}-${formulario.data ?? ''}-${formulario.assunto ?? ''}`} inicial={formulario} hoje={hoje} agora={agora} aoFechar={(m) => { setFormulario(null); if (m) setRecado(m); }} />
+        </div>
+      )}
 
       <div className="cartao">
         <h2 className="titulo-secao">Demandas de campo sem data nem operação</h2>

@@ -1,0 +1,176 @@
+// Compromissos e lembretes próprios pela conversa (item 14, 21/11/2026), sem IA.
+// Fluxo: a frase é interpretada (`interpretarCompromisso.ts`); ANTES de gravar, o assistente mostra o que
+// entendeu e pede confirmação ("Confirmar", "Corrigir", "Cancelar"). O entendimento fica num rascunho
+// (`guara:compromissos:rascunho:v1`) até a pessoa decidir. Só "Confirmar" grava.
+
+import type { Demanda } from '../demandas/modelo.ts';
+import type { Operacao } from '../operacoes/modelo.ts';
+import { dataLocal } from '../alertas/dias-uteis.ts';
+import {
+  criarCompromisso, diaCompleto, guardarRascunho, limparRascunho, obterRascunho, tituloDoCompromisso,
+  type Compromisso, type DadosCompromisso, type TipoDeCompromisso,
+} from '../agenda/compromissos.ts';
+import { montarAgenda, type ItemAgenda } from '../agenda/regras.ts';
+import { interpretarCompromisso, type Entendido, type ProblemaDaFrase } from './interpretarCompromisso.ts';
+import { palavras } from './normalizar.ts';
+import type { AcaoDaFala, Mensagem } from './conversa.ts';
+
+export const FONTE_DO_ENTENDIMENTO = 'interpretação da frase por regras; confira';
+const ABRIR_AGENDA: AcaoDaFala = { rotulo: 'Abrir a Agenda', comando: 'abrir agenda', rota: '#/agenda' };
+
+/** Rota da Agenda com o formulário já preenchido ("Corrigir"). Só carrega campos que o formulário valida de novo. */
+export function rotaParaCorrigirCompromisso(d: Partial<DadosCompromisso>): string {
+  const partes = [d.tipo ?? '', d.data ?? '', d.hora ?? '', d.demanda ?? '', d.assunto ?? ''];
+  return `#/agenda?novo=${encodeURIComponent(partes.join('|'))}`;
+}
+
+/** Lê o que `rotaParaCorrigirCompromisso` escreveu; nada que não caiba nos campos volta. */
+export function lerRotaDeCompromisso(valor: string | null): Partial<DadosCompromisso> | null {
+  if (!valor) return null;
+  const [tipo, data, hora, demanda, ...assunto] = valor.split('|');
+  const saida: Partial<DadosCompromisso> = {};
+  if (tipo === 'reunião' || tipo === 'palestra' || tipo === 'curso' || tipo === 'compromisso' || tipo === 'lembrete') saida.tipo = tipo;
+  if (/^\d{4}-\d{2}-\d{2}$/.test(data ?? '')) saida.data = data;
+  if (/^([01]\d|2[0-3]):[0-5]\d$/.test(hora ?? '')) saida.hora = hora;
+  if (/^DEM-FIC-\d{4}$/.test(demanda ?? '')) saida.demanda = demanda;
+  saida.assunto = assunto.join('|').slice(0, 120);
+  return saida;
+}
+
+const sugestao = (texto: string, fonte: string, acoes?: AcaoDaFala[]): Mensagem[] => [{ autor: 'assistente', natureza: 'sugestão', fonte, texto, ...(acoes ? { acoes } : {}) }];
+const fato = (texto: string, fonte: string, acoes?: AcaoDaFala[]): Mensagem[] => [{ autor: 'assistente', natureza: 'fato', fonte, texto, ...(acoes ? { acoes } : {}) }];
+
+const EXEMPLO = '"reunião dia 10/12 sobre licenciamento" ou "palestra amanhã às 14h"';
+
+const PERGUNTA: Record<ProblemaDaFrase, (e: Entendido) => string> = {
+  'sem-data': () => `Não entendi a data. Diga o dia, por exemplo: ${EXEMPLO}. Também entendo "dia 10", "10 de dezembro" e dias da semana.`,
+  'data-invalida': (e) => `A data${e.trecho ? ` "${e.trecho}"` : ''} não existe. Confira o dia e o mês e diga de novo, por exemplo: ${EXEMPLO}.`,
+  'data-passada': (e) => `A data${e.trecho ? ` "${e.trecho}"` : ''} já passou. Diga uma data de hoje em diante, por exemplo: ${EXEMPLO}.`,
+  'hora-invalida': (e) => `Não entendi a hora${e.trecho ? ` "${e.trecho}"` : ''}. Use de 0h a 23h59, por exemplo "às 14h" ou "14:30", ou deixe sem hora para o dia todo.`,
+  'hora-passada': () => 'Esse horário de hoje já passou. Diga outra hora, ou outro dia, ou deixe sem hora para o dia todo.',
+};
+
+/** "Reunião — licenciamento · quinta, 10/12/2026 · dia todo" (o que a pessoa confere antes de gravar). */
+export function descreverEntendimento(d: DadosCompromisso): string {
+  return `${tituloDoCompromisso(d)} · ${diaCompleto(d.data)} · ${d.hora ? `às ${d.hora}` : 'dia todo'}${d.demanda ? ` · demanda ${d.demanda}` : ''}`;
+}
+
+/**
+ * Frase de compromisso ou de lembrete próprio. Devolve a pergunta (quando falta ou está errado algo) ou o
+ * entendimento com os botões Confirmar, Corrigir e Cancelar. Não grava nada.
+ */
+export function respostaDeCompromisso(
+  frase: string,
+  demandas: readonly Pick<Demanda, 'id' | 'titulo'>[],
+  agora: Date,
+  tipoForcado?: TipoDeCompromisso,
+): Mensagem[] {
+  const e = interpretarCompromisso(frase, agora, tipoForcado);
+  // O vínculo só vale para demanda que existe neste navegador; senão avisa e segue sem vínculo.
+  const demanda = e.demanda ? demandas.find((d) => d.id === e.demanda) : undefined;
+  const avisoDoVinculo = e.demanda && !demanda ? ` Não encontrei ${e.demanda} nas demandas deste navegador; o vínculo não foi incluído.` : '';
+  const rascunho: Partial<DadosCompromisso> = { tipo: e.tipo, ...(e.data ? { data: e.data } : {}), ...(e.hora ? { hora: e.hora } : {}), ...(demanda ? { demanda: demanda.id } : {}), assunto: e.assunto || demanda?.titulo || '' };
+  if (e.problema || !e.data) {
+    limparRascunho();
+    return sugestao(`${PERGUNTA[e.problema ?? 'sem-data'](e)}${avisoDoVinculo}`, 'regra: compromisso sem dados suficientes', [
+      { rotulo: 'Abrir formulário', comando: 'abrir agenda', rota: rotaParaCorrigirCompromisso(rascunho) },
+    ]);
+  }
+  const dados: DadosCompromisso = {
+    tipo: e.tipo,
+    data: e.data,
+    ...(e.hora ? { hora: e.hora } : {}),
+    // Sem assunto na frase: o título da demanda vinculada, ou o nome do tipo.
+    assunto: e.assunto || demanda?.titulo || e.tipo[0].toUpperCase() + e.tipo.slice(1),
+    ...(demanda ? { demanda: demanda.id } : {}),
+  };
+  guardarRascunho(dados);
+  const [anotado] = [obterRascunho() ?? dados];
+  return [{
+    autor: 'assistente',
+    natureza: 'inferência',
+    fonte: FONTE_DO_ENTENDIMENTO,
+    texto: `Vou anotar: ${descreverEntendimento(anotado)}.${avisoDoVinculo}`,
+    acoes: [
+      { rotulo: 'Confirmar', comando: 'confirmar compromisso', acao: { tipo: 'confirmar-compromisso', dados: anotado } },
+      { rotulo: 'Corrigir', comando: 'corrigir compromisso', rota: rotaParaCorrigirCompromisso(anotado) },
+      { rotulo: 'Cancelar', comando: 'cancelar compromisso', acao: { tipo: 'cancelar-compromisso' } },
+    ],
+  }];
+}
+
+// A normalização reduz letras repetidas ("compromisso" vira "compromiso"); compara-se na mesma forma.
+const PALAVRA_COMPROMISSO = palavras('compromisso')[0];
+const SIM = new Set(['sim', 'confirmar', 'confirma', 'confirmo', 'isso', 'pode', 'ok']);
+const NAO = new Set(['nao', 'cancelar', 'cancela', 'deixa']);
+
+/** "Confirmar" / "Cancelar" (botão ou digitado) só valem com um entendimento pendente. */
+export function respostaDeDecisao(frase: string, agora: Date): Mensagem[] | null {
+  const ps = palavras(frase);
+  const botao = ps.length === 2 && ps[1] === PALAVRA_COMPROMISSO && ['confirmar', 'cancelar'].includes(ps[0]);
+  const pendente = obterRascunho();
+  const soloSim = ps.length >= 1 && ps.length <= 2 && ps.every((p) => SIM.has(p));
+  const soloNao = ps.length === 1 && NAO.has(ps[0]);
+  if (!botao && !(pendente && (soloSim || soloNao))) return null;
+  const confirmar = botao ? ps[0] === 'confirmar' : soloSim;
+  if (!pendente) return sugestao(`Não tenho nenhum compromisso esperando ${confirmar ? 'confirmação' : 'cancelamento'}. Diga a frase de novo, por exemplo: ${EXEMPLO}.`, 'regra: nada pendente');
+  return confirmar ? confirmarCompromisso(pendente, agora) : cancelarCompromisso();
+}
+
+/** Grava o compromisso entendido. É o que o botão "Confirmar" executa direto (e o "sim" digitado). */
+export function confirmarCompromisso(dados: DadosCompromisso, agora: Date): Mensagem[] {
+  const r = criarCompromisso(dados, agora.toISOString());
+  if (!r.ok) return fato(`${r.erro} Nada foi gravado.`, 'compromissos deste navegador');
+  limparRascunho();
+  return fato(
+    `Anotado: ${descreverEntendimento(dados)}. Aparece na Agenda e o aviso vem às 8h do dia${dados.hora && dados.hora !== '08:00' ? ` e às ${dados.hora}` : ''}.`,
+    'compromisso gravado agora',
+    [ABRIR_AGENDA],
+  );
+}
+
+/** Descarta o entendimento pendente. É o que o botão "Cancelar" executa direto. */
+export function cancelarCompromisso(): Mensagem[] {
+  limparRascunho();
+  return fato('Cancelado. Nada foi gravado.', 'compromisso cancelado agora');
+}
+
+// ---------- "agenda", "compromissos", "o que tenho hoje|amanhã|semana" ----------
+
+const MAXIMO_DE_LINHAS = 14;
+
+function rotuloDoItem(i: ItemAgenda): string {
+  if (i.tipo === 'vistoria') return `Vistoria: ${i.texto}`;
+  if (i.tipo === 'saida') return `Saída: ${i.texto}`;
+  return `${i.hora ? `${i.hora} ` : ''}${i.texto}`;
+}
+
+export function respostaDeAgenda(
+  frase: string,
+  compromissos: readonly Compromisso[],
+  demandas: Parameters<typeof montarAgenda>[0],
+  operacoes: readonly Operacao[],
+  agora: Date,
+): Mensagem[] {
+  const ps = palavras(frase);
+  const dia = (n: number) => { const d = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate() + n); return dataLocal(d); };
+  const periodo = ps.includes('hoje') ? { de: dia(0), ate: dia(0), nome: 'hoje' }
+    : ps.includes('amanha') ? { de: dia(1), ate: dia(1), nome: 'amanhã' }
+      : { de: dia(0), ate: dia(6), nome: 'nos próximos 7 dias' };
+  // Compromisso concluído não entra na lista; vistoria e saída seguem as mesmas regras da Agenda.
+  const dias = montarAgenda(demandas, operacoes, compromissos.filter((c) => !c.concluido)).filter((d) => d.dia >= periodo.de && d.dia <= periodo.ate);
+  const origem = `agenda deste navegador · ${agora.toLocaleDateString('pt-BR')}`;
+  if (dias.length === 0) return fato(`Nada marcado ${periodo.nome}.`, origem, [ABRIR_AGENDA]);
+  const linhas: string[] = [];
+  let corte = 0;
+  for (const { dia: data, itens } of dias) {
+    if (linhas.length >= MAXIMO_DE_LINHAS) { corte += itens.length; continue; }
+    if (periodo.de !== periodo.ate) linhas.push(`${diaCompleto(data)}:`);
+    for (const i of itens) {
+      if (linhas.length >= MAXIMO_DE_LINHAS) corte++;
+      else linhas.push(`• ${rotuloDoItem(i)}`);
+    }
+  }
+  if (corte) linhas.push(`E mais ${corte}: veja a Agenda.`);
+  return fato(`Agenda ${periodo.nome}:\n${linhas.join('\n')}`, origem, [ABRIR_AGENDA]);
+}

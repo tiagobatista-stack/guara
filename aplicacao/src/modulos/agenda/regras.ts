@@ -1,20 +1,27 @@
-// Agenda (15/11/2026): junta vistorias das demandas e saídas dos pontos das operações, por dia.
-// Regra pura, sem armazenamento próprio: lê o que Demandas e Operações já guardam.
+// Agenda (15/11/2026): junta vistorias das demandas, saídas dos pontos das operações e (item 14) os
+// compromissos próprios, por dia. Regra pura, sem armazenamento próprio: lê o que os outros módulos guardam.
 
 import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { viagemDoPonto } from '../operacoes/regras.ts';
+import { tituloDoCompromisso, type Compromisso } from './compromissos.ts';
 
 export interface ItemAgenda {
   /** AAAA-MM-DD. */
   data: string;
-  tipo: 'vistoria' | 'saida';
+  tipo: 'vistoria' | 'saida' | 'compromisso';
   texto: string;
+  /** HH:MM, só de compromisso com hora marcada. */
+  hora?: string;
+  /** Só de compromisso: permite editar, concluir e excluir pela Agenda. */
+  id?: string;
+  concluido?: true;
 }
 
 export function montarAgenda(
   demandas: readonly Pick<Demanda, 'titulo' | 'status' | 'vistoria'>[],
   operacoes: readonly Operacao[],
+  compromissos: readonly Compromisso[] = [],
 ): { dia: string; itens: ItemAgenda[] }[] {
   const itens: ItemAgenda[] = [];
   for (const d of demandas) {
@@ -28,9 +35,13 @@ export function montarAgenda(
       }
     }
   }
+  for (const c of compromissos) {
+    itens.push({ data: c.data, tipo: 'compromisso', texto: tituloDoCompromisso(c), id: c.id, ...(c.hora ? { hora: c.hora } : {}), ...(c.concluido ? { concluido: true as const } : {}) });
+  }
   const dias = new Map<string, ItemAgenda[]>();
   for (const i of itens) dias.set(i.data, [...(dias.get(i.data) ?? []), i]);
-  return [...dias.keys()].sort().map((dia) => ({ dia, itens: dias.get(dia)! }));
+  // Dentro do dia: o que não tem hora primeiro, depois os compromissos com hora, do mais cedo ao mais tarde.
+  return [...dias.keys()].sort().map((dia) => ({ dia, itens: dias.get(dia)!.sort((a, b) => (a.hora ?? '').localeCompare(b.hora ?? '')) }));
 }
 
 /** Nomes das operações cujo período (inicio a fim; com só um lado, aquele dia) cobre o dia AAAA-MM-DD. */
@@ -65,7 +76,14 @@ const dobrar = (l: string) => (l.length <= 75 ? l : [l.slice(0, 75), ...(l.slice
 /** Arquivo iCalendar (RFC 5545) de eventos de dia inteiro, que o Google Agenda importa. Só texto das demandas; nada sai do navegador. */
 export function gerarIcs(itens: readonly ItemAgenda[], agora: Date): string {
   const carimbo = agora.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const eventos = itens.flatMap((i) => {
+  const eventos = itens.filter((i) => !i.concluido).flatMap((i) => {
+    if (i.tipo === 'compromisso' && i.hora) {
+      // Com hora marcada: horário "flutuante" (sem fuso), com uma hora de duração.
+      const inicio = new Date(`${i.data}T${i.hora}:00`);
+      const fim = new Date(inicio.getTime() + 3_600_000);
+      const flutuante = (d: Date) => `${d.getFullYear()}${String(d.getMonth() + 1).padStart(2, '0')}${String(d.getDate()).padStart(2, '0')}T${String(d.getHours()).padStart(2, '0')}${String(d.getMinutes()).padStart(2, '0')}00`;
+      return ['BEGIN:VEVENT', `UID:${hash(`${i.tipo}|${i.id ?? ''}|${i.data}|${i.hora}|${i.texto}`)}@guara`, `DTSTAMP:${carimbo}`, `DTSTART:${flutuante(inicio)}`, `DTEND:${flutuante(fim)}`, `SUMMARY:${escapar(i.texto)}`, 'END:VEVENT'];
+    }
     const fim = new Date(`${i.data}T12:00:00`);
     fim.setDate(fim.getDate() + 1);
     return [
@@ -74,7 +92,7 @@ export function gerarIcs(itens: readonly ItemAgenda[], agora: Date): string {
       `DTSTAMP:${carimbo}`,
       `DTSTART;VALUE=DATE:${compacta(i.data)}`,
       `DTEND;VALUE=DATE:${compacta(fim.toLocaleDateString('sv-SE'))}`,
-      `SUMMARY:${escapar(`${i.tipo === 'vistoria' ? 'Vistoria' : 'Saída'}: ${i.texto}`)}`,
+      `SUMMARY:${escapar(i.tipo === 'compromisso' ? i.texto : `${i.tipo === 'vistoria' ? 'Vistoria' : 'Saída'}: ${i.texto}`)}`,
       'END:VEVENT',
     ];
   });
