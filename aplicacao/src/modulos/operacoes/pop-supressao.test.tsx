@@ -180,7 +180,33 @@ describe('tela do ponto', () => {
     fireEvent.change(within(bloco).getByLabelText(/^A-10\./), { target: { value: 'Sim' } });
     await act(async () => { fireEvent.click(within(bloco).getByRole('button', { name: 'Copiar texto para o relatório' })); });
     expect(escrever).toHaveBeenCalledWith('Caracterização do dano (POP IBAMA (Portaria Ibama nº 83/2022), Anexo I):\nA-10. Houve ocorrência de fogo recente ou indícios?: Sim');
-    expect(within(bloco).getByRole('status')).toHaveTextContent('Texto copiado.');
+    expect(within(bloco).getByText('Texto copiado.')).toBeInTheDocument();
+  });
+
+  it('salva sozinha: dado de campo grava ao digitar (após a pausa), sem sair do campo, e mostra "Salvo às"', () => {
+    vi.useFakeTimers();
+    try {
+      const { pontos } = montar([{ tipoDano: 'Desmatamento' }]);
+      const bloco = screen.getByTestId(`caracterizacao-${pontos[0].id}`);
+      expect(within(bloco).getByTestId('salvamento')).toHaveTextContent('Salva automaticamente.');
+      const campo = within(bloco).getByLabelText('Waypoint');
+      fireEvent.change(campo, { target: { value: 'WP 77' } });
+      expect(obterOperacoes()[0].pontos[0].waypoint).toBeUndefined();
+      act(() => { vi.advanceTimersByTime(700); });
+      expect(obterOperacoes()[0].pontos[0].waypoint).toBe('WP 77');
+      expect(within(bloco).getByTestId('salvamento')).toHaveTextContent(/^Salvo às \d{2}:\d{2}$/);
+      expect(campo).toHaveValue('WP 77');
+      // pendente é gravado ao ocultar a aba
+      fireEvent.change(campo, { target: { value: 'WP 78' } });
+      act(() => {
+        Object.defineProperty(document, 'visibilityState', { value: 'hidden', configurable: true });
+        document.dispatchEvent(new Event('visibilitychange'));
+      });
+      expect(obterOperacoes()[0].pontos[0].waypoint).toBe('WP 78');
+    } finally {
+      Object.defineProperty(document, 'visibilityState', { value: 'visible', configurable: true });
+      vi.useRealTimers();
+    }
   });
 
   it('registrar o relatório mostra quantos itens de campo faltam (não bloqueia); sem falta não pergunta; ponto fora do POP não pergunta', () => {

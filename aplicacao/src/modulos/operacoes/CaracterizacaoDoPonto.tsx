@@ -1,7 +1,7 @@
 // Caracterização do dano no cartão do ponto: transcrição das respostas do POP IBAMA (itens e desvios em pop-supressao.ts)
 // e dos dados de campo do roteiro. Quem usa grava a mudança no armazém da operação.
 
-import { Fragment, useId, useState } from 'react';
+import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { Ponto } from './modelo.ts';
 import {
   FONTE_POP, itensAplicaveis, marcadas, sugestoesPop, itensDeCampoSemResposta, ITENS_POP, LIMITE_TEXTO_POP, respondido, textoCaracterizacao, type Caracterizacao, type ItemPop, type Resposta,
@@ -43,9 +43,55 @@ function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undef
   );
 }
 
-export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
+const ESPERA_GRAVAR_MS = 600;
+const horaAgora = () => new Date().toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+
+// Campo de texto dos dados de campo: grava ao digitar (após uma pausa), ao sair do campo, ao fechar/ocultar a aba e ao desmontar.
+function CampoGravavel({ valor, aoGravar, ...resto }: { valor: string; aoGravar: (v: string) => void; placeholder?: string }) {
+  const [texto, setTexto] = useState(valor);
+  const pendente = useRef<string | null>(null);
+  const ultimo = useRef(valor);
+  const timer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+  const gravarRef = useRef(aoGravar);
+  gravarRef.current = aoGravar;
+  const gravar = useCallback(() => {
+    clearTimeout(timer.current);
+    const v = pendente.current?.trim();
+    pendente.current = null;
+    if (v === undefined || v === ultimo.current) return;
+    ultimo.current = v;
+    gravarRef.current(v);
+  }, []);
+  useEffect(() => {
+    if (pendente.current === null) { ultimo.current = valor; setTexto(valor); }
+  }, [valor]);
+  useEffect(() => {
+    const aoOcultar = () => { if (document.visibilityState === 'hidden') gravar(); };
+    document.addEventListener('visibilitychange', aoOcultar);
+    window.addEventListener('pagehide', gravar);
+    return () => {
+      document.removeEventListener('visibilitychange', aoOcultar);
+      window.removeEventListener('pagehide', gravar);
+      gravar();
+    };
+  }, [gravar]);
+  return (
+    <input className="campo" {...resto} value={texto} maxLength={100} autoComplete="off"
+      onChange={(e) => {
+        setTexto(e.target.value);
+        pendente.current = e.target.value;
+        clearTimeout(timer.current);
+        timer.current = setTimeout(gravar, ESPERA_GRAVAR_MS);
+      }}
+      onBlur={(e) => { pendente.current = e.target.value; gravar(); }} />
+  );
+}
+
+export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar: aoMudarFora }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
   const sugestoes = sugestoesPop(ponto);
   const [aviso, setAviso] = useState<string | null>(null);
+  const [salvoEm, setSalvoEm] = useState<string | null>(null);
+  const aoMudar = (m: Mudancas) => { aoMudarFora(m); setSalvoEm(horaAgora()); };
   const resp: Caracterizacao = ponto.caracterizacao ?? {};
   const aplicaveis = itensAplicaveis(resp);
   const puladas = ITENS_POP.filter((it) => !aplicaveis.includes(it)).map((it) => it.id);
@@ -68,18 +114,21 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto
   };
   const campo = (rot: string, k: 'coordenadaAferida' | 'waypoint' | 'fotos' | 'pessoaContatada', dica?: string) => (
     <label className="campo-grupo"><span>{rot}</span>
-      <input className="campo" defaultValue={ponto[k] ?? ''} maxLength={100} autoComplete="off" placeholder={dica} onBlur={(e) => { if (e.target.value.trim() !== (ponto[k] ?? '')) aoMudar({ [k]: e.target.value.trim() }); }} /></label>
+      <CampoGravavel valor={ponto[k] ?? ''} placeholder={dica} aoGravar={(v) => aoMudar({ [k]: v })} /></label>
   );
 
   return (
     <details className="mais-acoes" data-testid={`caracterizacao-${ponto.id}`}>
       <summary>Caracterização do dano ({semResposta} de campo sem resposta)</summary>
       <section aria-label={`Caracterização do dano do ${rotulo}`}>
+        <p role="status" className="texto-pequeno texto-suave" data-testid="salvamento" style={{ position: 'sticky', top: 0, background: 'Canvas', margin: 0, padding: '0.25rem 0', zIndex: 1 }}>
+          {salvoEm ? `Salvo às ${salvoEm}` : 'Salva automaticamente.'}
+        </p>
         <p className="texto-pequeno texto-suave">
           Fonte: {FONTE_POP}. Itens e opções copiados do formulário; a adoção pela SEMA-MT depende de confirmação do responsável. Não registre CPF, endereço ou nome do autuado.
         </p>
         <h4 className="titulo-secao titulo-secao--bloco">Dados de campo</h4>
-        <div className="grade grade--2" key={`${ponto.coordenadaAferida}|${ponto.waypoint}|${ponto.fotos}|${ponto.pessoaContatada}`}>
+        <div className="grade grade--2">
           {campo('Coordenada aferida', 'coordenadaAferida')}
           {campo('Waypoint', 'waypoint')}
           {campo('Fotos', 'fotos', '12 a 30')}
@@ -91,7 +140,7 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto
           </label>
           {ponto.drone?.voou && (
             <label className="campo-inline texto-pequeno">Arquivo do voo
-              <input className="campo" defaultValue={ponto.drone.arquivo ?? ''} maxLength={100} autoComplete="off" onBlur={(e) => aoMudar({ drone: { voou: true, ...(e.target.value.trim() ? { arquivo: e.target.value.trim() } : {}) } })} /></label>
+              <CampoGravavel valor={ponto.drone.arquivo ?? ''} aoGravar={(v) => aoMudar({ drone: { voou: true, ...(v ? { arquivo: v } : {}) } })} /></label>
           )}
         </div>
         {(['A', 'B'] as const).map((f) => (
