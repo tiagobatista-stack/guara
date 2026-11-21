@@ -17,7 +17,7 @@ describe('resposta da ajuda', () => {
   it('lista todos os comandos da tabela, um por linha, com descrição e exemplo', () => {
     const r = respostaDeAjuda(TODOS);
     const linhas = r.texto.split('\n');
-    expect(linhas[0]).toBe('Comandos disponíveis: "prazos", "prioridades", "demanda" e "ajuda".');
+    expect(linhas[0]).toBe('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar" e "ajuda".');
     expect(linhas).toContain('• prazos — lista as demandas vencidas, com prazo próximo e paradas (ou "o que tá vencido?")');
     expect(linhas).toHaveLength(INTENCOES.length + 2);
     expect(r.natureza).toBe('fato');

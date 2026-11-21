@@ -13,6 +13,7 @@ import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
 import { extrairIds } from './extrair.ts';
+import { respostaDeLembrete } from './lembrarPelaConversa.ts';
 import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
 import { respostaDePrioridades } from './respostaPrioridades.ts';
 import { FilaDoDia } from './FilaDoDia.tsx';
@@ -29,7 +30,7 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[]): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[]): Mensagem[] {
   // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
   // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
   const intencao = classificar(comando)?.id;
@@ -52,6 +53,7 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
     ];
   }
   if (intencao === 'prioridades') return prioridades();
+  if (intencao === 'lembrete') return lembrete(idDaFrase ?? null);
   if (intencao === 'demanda') return sobreDemanda(idDaFrase);
   if (!intencao && idDaFrase) return sobreDemanda(idDaFrase);
   if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
@@ -183,7 +185,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     const origemDoComando = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
     const sobreDemanda = (idDaFrase?: string) => respostaSobreDemanda(idDaFrase ?? emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando, Boolean(idDaFrase));
     const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda, prioridades)]);
+    const lembrete = (idDaFrase: string | null) => respostaDeLembrete(comando, idDaFrase ?? emFoco, todos, demandas, instante, ajusteDoDia, origemDoComando);
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete)]);
   };
 
   const enviar = (e: FormEvent) => {

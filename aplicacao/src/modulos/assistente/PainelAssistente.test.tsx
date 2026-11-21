@@ -151,11 +151,11 @@ describe('painel do assistente: mascote', () => {
     const { container } = montar();
     enviar('me ajuda');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
-    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda" e "ajuda".');
+    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar" e "ajuda".');
     expect(fala.querySelector('.mensagem-texto')?.textContent).toContain('\n• prazos — lista as demandas vencidas');
-    expect(fala).toHaveTextContent('Os atalhos abaixo enviam esses comandos.');
-    expect(within(fala).queryByRole('group', { name: 'Comandos sugeridos' })).toBeNull();
-    expect(within(fala).queryAllByRole('button')).toHaveLength(0);
+    // "lembrar" não está nos atalhos fixos: só ele ganha botão na resposta.
+    expect(fala).toHaveTextContent('Toque num comando abaixo para usá-lo.');
+    expect(within(fala).queryAllByRole('button').map((x) => x.textContent)).toEqual(['Criar um lembrete']);
   });
 
   it('sinônimos chegam ao mesmo comando ("o que tá vencido?" = "prazos")', () => {

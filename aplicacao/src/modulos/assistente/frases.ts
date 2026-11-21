@@ -3,7 +3,7 @@
 // novo entra aqui e aparece na ajuda sem mais nada. Gatilhos são escritos em português comum;
 // a comparação acontece depois de normalizar os dois lados (`normalizar.ts`).
 
-export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'cumprimento';
+export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'lembrete' | 'cumprimento';
 
 export interface Intencao {
   id: IdIntencao;
@@ -56,6 +56,14 @@ export const INTENCOES: readonly Intencao[] = [
       'demanda', 'esta demanda', 'essa demanda', 'demanda aberta', 'sobre a demanda',
       'fala dessa demanda', 'fala da demanda', 'resumo da demanda', 'o que falta nessa demanda',
     ],
+  },
+  {
+    id: 'lembrete',
+    comando: 'lembrar',
+    rotulo: 'Criar um lembrete',
+    descricao: 'adia o aviso de uma demanda até a hora combinada (precisa do código e de quando)',
+    exemplo: 'me lembra de DEM-FIC-0003 na segunda',
+    gatilhos: ['lembrar', 'lembra', 'lembre', 'lembrete', 'me lembra', 'me lembre', 'me avisa depois'],
   },
   {
     id: 'ajuda',
