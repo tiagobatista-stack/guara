@@ -13,12 +13,22 @@ const TAMANHO_MAXIMO_TEXTO = 2000;
 
 export type Natureza = 'fato' | 'inferência' | 'sugestão';
 
+/** Comando que a fala oferece como botão (ex.: a ajuda lista os comandos clicáveis). */
+export interface AcaoDaFala {
+  rotulo: string;
+  comando: string;
+}
+
 export interface Mensagem {
   autor: 'usuario' | 'assistente';
   texto: string;
   natureza?: Natureza;
   fonte?: string;
+  acoes?: AcaoDaFala[];
 }
+
+const MAXIMO_DE_ACOES = 8;
+const TAMANHO_MAXIMO_ROTULO = 80;
 
 const NATUREZAS: Natureza[] = ['fato', 'inferência', 'sugestão'];
 
@@ -29,6 +39,15 @@ function validarMensagem(x: unknown): Mensagem | null {
   const m: Mensagem = { autor: b.autor, texto: b.texto.slice(0, TAMANHO_MAXIMO_TEXTO) };
   if (typeof b.natureza === 'string' && (NATUREZAS as string[]).includes(b.natureza)) m.natureza = b.natureza as Natureza;
   if (typeof b.fonte === 'string') m.fonte = b.fonte.slice(0, TAMANHO_MAXIMO_TEXTO);
+  if (Array.isArray(b.acoes)) {
+    const acoes = b.acoes.flatMap((a): AcaoDaFala[] => {
+      if (typeof a !== 'object' || a === null) return [];
+      const { rotulo, comando } = a as Record<string, unknown>;
+      if (typeof rotulo !== 'string' || !rotulo.trim() || typeof comando !== 'string' || !comando.trim()) return [];
+      return [{ rotulo: rotulo.slice(0, TAMANHO_MAXIMO_ROTULO), comando: comando.slice(0, TAMANHO_MAXIMO_ROTULO) }];
+    }).slice(0, MAXIMO_DE_ACOES);
+    if (acoes.length) m.acoes = acoes;
+  }
   return m;
 }
 

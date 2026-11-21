@@ -122,6 +122,32 @@ describe('painel do assistente: mascote', () => {
     delete (Element.prototype as Partial<Element>).scrollIntoView;
   });
 
+  it('a ajuda entende frases comuns e lista um comando por linha, sem repetir os botões dos atalhos', () => {
+    const { container } = montar();
+    enviar('me ajuda');
+    const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "demanda" e "ajuda".');
+    expect(fala.querySelector('.mensagem-texto')?.textContent).toContain('\n• prazos — lista as demandas vencidas');
+    expect(fala).toHaveTextContent('Os atalhos abaixo enviam esses comandos.');
+    expect(within(fala).queryByRole('group', { name: 'Comandos sugeridos' })).toBeNull();
+    expect(within(fala).queryAllByRole('button')).toHaveLength(0);
+  });
+
+  it('sinônimos chegam ao mesmo comando ("o que tá vencido?" = "prazos")', () => {
+    const { container } = montar();
+    enviar('o que tá vencido?');
+    expect(container.querySelectorAll('.conversa li.fala')[1]).toHaveTextContent('Prazo próximo: DEM-1');
+  });
+
+  it('"não entendi" oferece o botão para ver o que o mascote sabe fazer', () => {
+    const { container } = montar();
+    enviar('bom dia');
+    const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+    expect(fala).toHaveTextContent('Ainda não entendo linguagem livre');
+    fireEvent.click(within(fala).getByRole('button', { name: 'Ver o que eu sei fazer' }));
+    expect(container.querySelectorAll('.conversa li.fala')[2]).toHaveTextContent('Comandos disponíveis');
+  });
+
   it('atalhos "Ver prazos" e "O que você faz?" enviam o comando sem digitar, e o campo continua como estava', () => {
     const { container } = montar();
     const atalhos = screen.getByRole('group', { name: 'Atalhos de comando' });

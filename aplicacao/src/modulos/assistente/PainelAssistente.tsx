@@ -11,6 +11,8 @@ import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avis
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
+import { classificar } from './classificar.ts';
+import { respostaDeAjuda } from './ajuda.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
@@ -23,8 +25,10 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
 }
 
 function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: () => Mensagem[]): Mensagem[] {
-  const c = comando.trim().toLowerCase();
-  if (c.startsWith('prazos')) {
+  // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
+  // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
+  const intencao = classificar(comando)?.id;
+  if (intencao === 'prazos') {
     const fato: Mensagem = { autor: 'assistente', natureza: 'fato', fonte: origem, texto: textoDosPrazos(avisos) };
     if (avisos.length === 0) return [fato];
     // A ordem é uma regra (vencidas, prazo próximo, paradas), não uma avaliação do mérito: por isso é inferência.
@@ -39,15 +43,14 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
       },
     ];
   }
-  if (c.startsWith('demanda') || c.startsWith('esta demanda')) return sobreDemanda();
-  if (c.startsWith('ajuda')) {
-    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos" (lista as demandas vencidas, com prazo próximo e paradas), "demanda" (fala da demanda aberta em Demandas) e "ajuda". Todas as respostas seguem regras fixas, sem modelo de IA. Os atalhos abaixo enviam esses comandos.' }];
-  }
+  if (intencao === 'demanda') return sobreDemanda();
+  if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
     texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos", "demanda" ou "ajuda".',
+    acoes: [{ rotulo: 'Ver o que eu sei fazer', comando: 'ajuda' }],
   }];
 }
 
@@ -284,7 +287,16 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
               <Mascote especie={especie} humor={m.natureza ? HUMOR_DA_NATUREZA[m.natureza] : 'tranquilo'} tamanho={28} decorativo />
               <div className="mensagem">
                 <span className="sr-only">{nome}: </span>
-                {m.texto}
+                <span className="mensagem-texto">{m.texto}</span>
+                {m.acoes && (
+                  <div className="acoes-aviso" role="group" aria-label="Comandos sugeridos">
+                    {m.acoes.map((a) => (
+                      <button key={a.comando} type="button" className="botao botao--pequeno" onClick={() => enviarComando(a.comando)}>
+                        {a.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {m.natureza && (
                   <span className="mensagem-meta">
                     {m.natureza} · fonte: {m.fonte} · {METODO_DETERMINISTICO}
@@ -300,7 +312,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         {/* Atalhos: os mesmos comandos, sem precisar digitar (útil no celular). */}
         <div className="atalhos-conversa" role="group" aria-label="Atalhos de comando">
           {ATALHOS.map(({ rotulo, comando }) => (
-            <button key={comando} type="button" className="botao" onClick={() => enviarComando(comando)}>{rotulo}</button>
+            <button key={comando} type="button" className="botao botao--pequeno" onClick={() => enviarComando(comando)}>{rotulo}</button>
           ))}
         </div>
         <form onSubmit={enviar} className="formulario-conversa">
