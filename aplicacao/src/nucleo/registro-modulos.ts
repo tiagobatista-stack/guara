@@ -53,3 +53,13 @@ export function rotaDaTelaDemandas(): string {
 export function rotaParaBuscarDemandas(texto: string): string {
   return `#/demandas?texto=${encodeURIComponent(texto)}`;
 }
+
+/** Rota da tela Operações, sem abrir nenhuma. */
+export function rotaDaTelaOperacoes(): string {
+  return '#/operacoes';
+}
+
+/** Rota que abre o detalhe de uma operação ("#/operacoes?abrir=op-abc-123"). */
+export function rotaParaAbrirOperacao(id: string): string {
+  return `#/operacoes?abrir=${encodeURIComponent(id)}`;
+}

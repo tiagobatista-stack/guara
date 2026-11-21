@@ -15,6 +15,8 @@ import { classificar } from './classificar.ts';
 import { extrairIds, extrairTermoDeBusca, restoDaFrase } from './extrair.ts';
 import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
 import { respostaDeBusca } from './buscarPelaConversa.ts';
+import { respostaDeOperacoes } from './respostaOperacoes.ts';
+import { useOperacoes } from '../operacoes/armazem.ts';
 import { respostaDeProrrogar } from './prorrogar.ts';
 import { respostaDeLembrete } from './lembrarPelaConversa.ts';
 import { BOTOES_DE_ABERTURA, comBotoes, type ContextoDaResposta } from './botoes.ts';
@@ -36,7 +38,7 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[], buscar: (termo: string | null) => Mensagem[]): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[], buscar: (termo: string | null) => Mensagem[], operacoes: () => Mensagem[]): Mensagem[] {
   // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
   // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
   const intencao = classificar(comando)?.id;
@@ -59,6 +61,7 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
     ];
   }
   if (intencao === 'prioridades') return prioridades();
+  if (intencao === 'operacoes') return operacoes();
   if (intencao === 'lembrete') return lembrete(idDaFrase ?? null);
   if (intencao === 'prorrogar') return prorrogar(idDaFrase ?? null);
   if (intencao === 'buscar') {
@@ -89,7 +92,7 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
-    texto: 'Ainda não entendi essa frase (o MVP não usa IA). Experimente "prazos", "prioridades", "demanda" ou "ajuda".',
+    texto: 'Ainda não entendi essa frase (o MVP não usa IA). Experimente "prazos", "prioridades", "operações" ou "ajuda".',
   }];
 }
 
@@ -188,8 +191,9 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
     const prorrogar = (idDaFrase: string | null) => respostaDeProrrogar(idDaFrase ?? emFoco, demandas, origemDoComando);
     const buscar = (termo: string | null) => respostaDeBusca(termo, demandas);
+    const operacoesDaConversa = () => respostaDeOperacoes(operacoes, demandas, instante);
     const lembrete = (idDaFrase: string | null) => respostaDeLembrete(comando, idDaFrase ?? emFoco, todos, demandas, instante, ajusteDoDia, origemDoComando);
-    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar, buscar);
+    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar, buscar, operacoesDaConversa);
     const intencao = classificar(comando)?.id;
     const temId = extrairIds(comando).length > 0;
     const contexto: ContextoDaResposta =
@@ -215,6 +219,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const maximoDeAvisos = useLimiteDeAvisos();
   const emFoco = useDemandaEmFoco();
   const { demandas, diasInatividade } = useEstadoDemandas();
+  const operacoes = useOperacoes();
   const ajusteDoDia = useAjusteFeriados(instante);
   const { todos, visiveis: avisos, ocultos } = useAvisosVisiveis(instante);
   const fila = priorizarDemandas(demandas, instante, diasInatividade, ajusteDoDia);
