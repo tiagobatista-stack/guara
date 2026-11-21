@@ -91,5 +91,5 @@ Um módulo puro novo, **`aplicacao/src/modulos/assistente/priorizar.ts`**, ao la
 2. Comando "prioridades" no assistente, usando o módulo.
 3. Fila do dia no painel, com "por que está aqui".
 4. Agregação do aviso (um por demanda com todos os sinais), em lugar de só o mais urgente.
-5. Snooze de 2 h e "não mostrar para esta demanda"; limite por dia.
-6. Evidência em `metodologia/evidencias/` e atualização de `gestao/STATUS.md`.
+5. Snooze de 2 h e "não mostrar para esta demanda"; limite de avisos listados (**feito em 21/11/2026**: o limite é de itens na tela, não "por dia", porque o assistente não emite notificação sozinho).
+6. Evidência em `metodologia/evidencias/` e atualização de `gestao/STATUS.md` (**feito em 21/11/2026**: `2026-11-21-assistente-prioridades.md`).

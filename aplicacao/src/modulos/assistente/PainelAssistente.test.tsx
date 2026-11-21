@@ -295,6 +295,24 @@ describe('painel do assistente: mascote', () => {
     expect(obterLembretes()).toEqual({});
   });
 
+  it('"Em 2 horas" esconde o lembrete por 2 horas exatas', () => {
+    montar();
+    fireEvent.click(within(screen.getByRole('group', { name: 'Lembrete de DEM-1' })).getByRole('button', { name: 'Em 2 horas' }));
+    expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
+    expect(new Date(obterLembretes()['DEM-1'].adiadoAte!).getTime()).toBe(AGORA().getTime() + 2 * 3_600_000);
+  });
+
+  it('"Não mostrar para esta demanda" silencia o aviso até "Mostrar de novo"', () => {
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Não mostrar para esta demanda' }));
+    expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /1 silenciada\(s\)$/ }));
+    expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent('(silenciada)');
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
+    expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
+    expect(obterLembretes()).toEqual({});
+  });
+
   it('o comando "prazos" continua listando também os avisos cientes (é um fato, não um lembrete)', () => {
     montar();
     fireEvent.click(screen.getByRole('button', { name: 'Ciente' }));

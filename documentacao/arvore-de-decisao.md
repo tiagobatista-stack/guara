@@ -130,6 +130,8 @@ Cada demanda que pede atenção recebe:
 
 A linha que casa primeiro vence. A decisão continua humana: o GUARÁ sugere, o profissional decide.
 
+**O que o analista pode fazer com um aviso do assistente** (`lembretes.ts`): "Ciente" (vale até a situação mudar), adiar por 2 horas ou até as 8h/14h seguintes em dia útil, ou "Não mostrar para esta demanda" (vale até "Mostrar de novo", mesmo que a situação mude). São escolhas só do painel: não alteram a demanda, e a fila do dia, o Dashboard e Alertas continuam mostrando tudo. O número de avisos listados de uma vez (3, 5, 8 ou 10) é uma opção em Configurações.
+
 ## 4. Status e bloqueio
 
 Os quatro status são **A Fazer → Em Andamento → Em Validação → Concluída** (`aplicacao/src/modulos/demandas/modelo.ts`).

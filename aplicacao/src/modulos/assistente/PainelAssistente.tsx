@@ -16,7 +16,8 @@ import { respostaDeAjuda } from './ajuda.ts';
 import { respostaDePrioridades } from './respostaPrioridades.ts';
 import { FilaDoDia } from './FilaDoDia.tsx';
 import { priorizarDemandas } from './priorizar.ts';
-import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
+import { useLimiteDeAvisos } from './preferencias-avisos.ts';
+import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, useLembretes } from './lembretes.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
 
@@ -78,9 +79,6 @@ const SAUDACAO: Mensagem = {
   autor: 'assistente', natureza: 'fato', fonte: 'sistema',
   texto: 'Olá! Trabalho só com dados fictícios. Escolha um atalho abaixo ou digite um comando.',
 };
-
-// Avisos mostrados de uma vez; os demais ficam no Dashboard e em Alertas.
-const MAXIMO_DE_AVISOS = 5;
 
 // A pessoa pode recolher a seção de notificações para ficar só com a conversa; a escolha fica
 // neste navegador, porque a gaveta é desmontada a cada fechamento.
@@ -189,6 +187,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   };
 
   const instante = agora();
+  // Avisos listados de uma vez (Configurações); os demais ficam no Dashboard e em Alertas.
+  const maximoDeAvisos = useLimiteDeAvisos();
   const emFoco = useDemandaEmFoco();
   const { demandas, diasInatividade } = useEstadoDemandas();
   const ajusteDoDia = useAjusteFeriados(instante);
@@ -239,7 +239,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         {avisos.length === 0 && ocultos.length > 0 && <p className="texto-suave">Nenhum aviso novo.</p>}
         {avisos.length > 0 && (
           <ul className="lista-limpa avisos-assistente">
-            {avisos.slice(0, MAXIMO_DE_AVISOS).map((aviso, i) => (
+            {avisos.slice(0, maximoDeAvisos).map((aviso, i) => (
               // Cada aviso é uma fala curta do mascote, com a origem e a data do cálculo.
               <li key={aviso.id} ref={i === 0 ? setPrimeiroAviso : undefined} className="fala" data-testid={`aviso-${aviso.id}`} data-tipo={aviso.tipo}>
                 <Mascote especie={especie} humor="atento" tamanho={28} decorativo />
@@ -255,25 +255,27 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                         {o.rotulo}
                       </button>
                     ))}
+                    <button type="button" className="botao botao--pequeno" onClick={() => silenciarDemanda(aviso, agora())}>Não mostrar para esta demanda</button>
                   </div>
                 </div>
               </li>
             ))}
           </ul>
         )}
-        {avisos.length > MAXIMO_DE_AVISOS && (
-          <p className="texto-pequeno texto-suave">E mais {avisos.length - MAXIMO_DE_AVISOS}: veja o Dashboard e a tela Alertas.</p>
+        {avisos.length > maximoDeAvisos && (
+          <p className="texto-pequeno texto-suave">E mais {avisos.length - maximoDeAvisos}: veja o Dashboard e a tela Alertas.</p>
         )}
         {ocultos.length > 0 && (
           <div className="avisos-ocultos">
             <button type="button" className="botao botao--pequeno" aria-expanded={mostrandoOcultos} onClick={() => setMostrandoOcultos((v) => !v)}>
               {ocultos.filter((o) => o.motivo === 'ciente').length} ciente(s) e {ocultos.filter((o) => o.motivo === 'adiado').length} adiado(s)
+              {ocultos.some((o) => o.motivo === 'silenciado') && ` e ${ocultos.filter((o) => o.motivo === 'silenciado').length} silenciada(s)`}
             </button>
             {mostrandoOcultos && (
               <ul className="lista-limpa avisos-assistente">
                 {ocultos.map(({ aviso, motivo, ate }) => (
                   <li key={aviso.id} className="mensagem texto-pequeno" data-testid={`oculto-${aviso.id}`}>
-                    {aviso.texto} <span className="texto-suave">({motivo === 'adiado' && ate ? `adiado até ${textoDoRetorno(ate, instante)}` : 'ciente'})</span>
+                    {aviso.texto} <span className="texto-suave">({motivo === 'adiado' && ate ? `adiado até ${textoDoRetorno(ate, instante)}` : motivo === 'silenciado' ? 'silenciada' : 'ciente'})</span>
                     <div className="acoes-aviso">
                       <button type="button" className="botao botao--pequeno" onClick={() => mostrarDeNovo(aviso.id)}>Mostrar de novo</button>
                     </div>
