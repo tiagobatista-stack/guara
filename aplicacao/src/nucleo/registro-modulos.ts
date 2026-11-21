@@ -27,7 +27,19 @@ export const modulos: ContratoModulo[] = [
   { id: 'saude-do-sistema', versao: '0.1.0', rotulo: 'Saúde do sistema', icone: 'saude', principal: true, ativo: true, implementado: true },
 ];
 
+/** A rota é o que vem antes do "?": "#/demandas?abrir=DEM-FIC-0001" é a tela "demandas". */
 export function moduloDaRota(hash: string): string {
-  const id = hash.replace(/^#\/?/, '');
+  const id = hash.replace(/^#\/?/, '').split('?')[0];
   return modulos.some((m) => m.id === id && m.ativo) ? id : 'painel';
+}
+
+/** Parâmetros depois do "?" da rota ("#/demandas?abrir=DEM-FIC-0001&campo=prazo"). */
+export function parametrosDaRota(hash: string): URLSearchParams {
+  const i = hash.indexOf('?');
+  return new URLSearchParams(i < 0 ? '' : hash.slice(i + 1));
+}
+
+/** Rota que abre a demanda para edição, com foco no campo (por ora só "prazo"). */
+export function rotaParaAbrirDemanda(id: string, campo: 'prazo' = 'prazo'): string {
+  return `#/demandas?abrir=${encodeURIComponent(id)}&campo=${campo}`;
 }

@@ -521,3 +521,31 @@ describe('vínculo com operação, na ficha da demanda', () => {
     expect(screen.getByText('Campo encaixada fictícia', { selector: 'strong' })).toBeInTheDocument();
   });
 });
+
+describe('tela Demandas: rota "abrir" (botão do assistente)', () => {
+  afterEach(() => { window.location.hash = ''; });
+
+  function criarUma() {
+    const armazem = criarArmazem(localStorage, { gerarId: () => 'id-1', exemplos: () => [] });
+    const r = armazem.criar({ titulo: 'Renovação de licença fictícia', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '2026-11-10' } as never);
+    if (!r.ok) throw new Error('não criou');
+    return { armazem, id: armazem.obter().demandas[0].id };
+  }
+
+  it('abre a demanda para edição, foca o Prazo e limpa os parâmetros da URL', () => {
+    const { armazem, id } = criarUma();
+    window.location.hash = `#/demandas?abrir=${id}&campo=prazo`;
+    render(<ContextoArmazem.Provider value={armazem}><Demandas /></ContextoArmazem.Provider>);
+    expect(screen.getByRole('heading', { name: 'Editar demanda' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Prazo/)).toHaveFocus();
+    expect(window.location.hash).toBe('#/demandas');
+  });
+
+  it('código inexistente vira mensagem na tela, sem erro e sem abrir formulário', () => {
+    const { armazem } = criarUma();
+    window.location.hash = '#/demandas?abrir=DEM-FIC-0099&campo=prazo';
+    render(<ContextoArmazem.Provider value={armazem}><Demandas /></ContextoArmazem.Provider>);
+    expect(screen.getByRole('alert')).toHaveTextContent('Não encontrei a demanda DEM-FIC-0099');
+    expect(screen.queryByRole('heading', { name: 'Editar demanda' })).toBeNull();
+  });
+});

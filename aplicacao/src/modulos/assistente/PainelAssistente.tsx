@@ -13,6 +13,7 @@ import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
 import { extrairIds } from './extrair.ts';
+import { respostaDeProrrogar } from './prorrogar.ts';
 import { respostaDeLembrete } from './lembrarPelaConversa.ts';
 import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
 import { respostaDePrioridades } from './respostaPrioridades.ts';
@@ -30,7 +31,7 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[]): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[]): Mensagem[] {
   // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
   // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
   const intencao = classificar(comando)?.id;
@@ -54,6 +55,7 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
   }
   if (intencao === 'prioridades') return prioridades();
   if (intencao === 'lembrete') return lembrete(idDaFrase ?? null);
+  if (intencao === 'prorrogar') return prorrogar(idDaFrase ?? null);
   if (intencao === 'demanda') return sobreDemanda(idDaFrase);
   if (!intencao && idDaFrase) return sobreDemanda(idDaFrase);
   if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
@@ -185,8 +187,9 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     const origemDoComando = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
     const sobreDemanda = (idDaFrase?: string) => respostaSobreDemanda(idDaFrase ?? emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando, Boolean(idDaFrase));
     const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
+    const prorrogar = (idDaFrase: string | null) => respostaDeProrrogar(idDaFrase ?? emFoco, demandas, origemDoComando);
     const lembrete = (idDaFrase: string | null) => respostaDeLembrete(comando, idDaFrase ?? emFoco, todos, demandas, instante, ajusteDoDia, origemDoComando);
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete)]);
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar)]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -314,7 +317,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                 {m.acoes && (
                   <div className="acoes-aviso" role="group" aria-label="Comandos sugeridos">
                     {m.acoes.map((a) => (
-                      <button key={a.comando} type="button" className="botao botao--pequeno" onClick={() => enviarComando(a.comando)}>
+                      <button key={a.comando} type="button" className="botao botao--pequeno" aria-label={a.rota ? `${a.rotulo} ${a.comando.replace(/^abrir /, '')}, no campo Prazo` : undefined} onClick={() => (a.rota ? window.location.assign(a.rota) : enviarComando(a.comando))}>
                         {a.rotulo}
                       </button>
                     ))}

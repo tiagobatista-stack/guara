@@ -17,6 +17,8 @@ export type Natureza = 'fato' | 'inferência' | 'sugestão';
 export interface AcaoDaFala {
   rotulo: string;
   comando: string;
+  /** Quando existe, o botão navega para esta rota ("#/demandas?abrir=…") em vez de enviar o comando. */
+  rota?: string;
 }
 
 export interface Mensagem {
@@ -42,9 +44,11 @@ function validarMensagem(x: unknown): Mensagem | null {
   if (Array.isArray(b.acoes)) {
     const acoes = b.acoes.flatMap((a): AcaoDaFala[] => {
       if (typeof a !== 'object' || a === null) return [];
-      const { rotulo, comando } = a as Record<string, unknown>;
+      const { rotulo, comando, rota } = a as Record<string, unknown>;
       if (typeof rotulo !== 'string' || !rotulo.trim() || typeof comando !== 'string' || !comando.trim()) return [];
-      return [{ rotulo: rotulo.slice(0, TAMANHO_MAXIMO_ROTULO), comando: comando.slice(0, TAMANHO_MAXIMO_ROTULO) }];
+      const acao: AcaoDaFala = { rotulo: rotulo.slice(0, TAMANHO_MAXIMO_ROTULO), comando: comando.slice(0, TAMANHO_MAXIMO_ROTULO) };
+      if (typeof rota === 'string' && /^#\/demandas\?abrir=DEM-FIC-\d{4}&campo=prazo$/.test(rota)) acao.rota = rota;
+      return [acao];
     }).slice(0, MAXIMO_DE_ACOES);
     if (acoes.length) m.acoes = acoes;
   }

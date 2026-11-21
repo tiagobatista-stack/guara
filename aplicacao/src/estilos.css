@@ -488,3 +488,6 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .mais-acoes > summary::-webkit-details-marker { display: none; }
 .mais-acoes > summary::after { content: '▾'; }
 .mais-acoes[open] > summary::after { content: '▴'; }
+
+/* Botões das respostas do assistente: área de toque mínima de 44 px no celular. */
+@media (max-width: 640px) { .acoes-aviso .botao--pequeno { min-height: 44px; } }

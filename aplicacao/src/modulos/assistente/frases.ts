@@ -3,7 +3,7 @@
 // novo entra aqui e aparece na ajuda sem mais nada. Gatilhos são escritos em português comum;
 // a comparação acontece depois de normalizar os dois lados (`normalizar.ts`).
 
-export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'lembrete' | 'cumprimento';
+export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'lembrete' | 'prorrogar' | 'cumprimento';
 
 export interface Intencao {
   id: IdIntencao;
@@ -64,6 +64,14 @@ export const INTENCOES: readonly Intencao[] = [
     descricao: 'adia o aviso de uma demanda até a hora combinada (precisa do código e de quando)',
     exemplo: 'me lembra de DEM-FIC-0003 na segunda',
     gatilhos: ['lembrar', 'lembra', 'lembre', 'lembrete', 'me lembra', 'me lembre', 'me avisa depois'],
+  },
+  {
+    id: 'prorrogar',
+    comando: 'prorrogar',
+    rotulo: 'Prorrogar um prazo',
+    descricao: 'leva você ao campo Prazo da demanda; a nova data é decisão sua (precisa do código)',
+    exemplo: 'prorrogar DEM-FIC-0001',
+    gatilhos: ['prorrogar', 'prorroga', 'prorrogue', 'prorrogacao', 'prorrogar prazo', 'estender prazo', 'dilatar prazo'],
   },
   {
     id: 'ajuda',

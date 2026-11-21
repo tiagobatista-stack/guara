@@ -5,6 +5,7 @@
 import type { Demanda } from '../demandas/modelo.ts';
 import type { AjusteFeriados } from '../alertas/dias-uteis.ts';
 import type { Mensagem } from './conversa.ts';
+import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
 import { priorizarDemandas, resumoDosMotivos, type ItemDePrioridade } from './priorizar.ts';
 
 /** Itens listados de uma vez; o resto vira "E mais N". */
@@ -48,6 +49,10 @@ export function respostaDePrioridades(
       natureza: 'sugestão',
       fonte: 'tabela de decisão da próxima ação (método determinístico); a decisão é sua',
       texto: `Para ${primeira.id}: ${primeira.proximaAcao.texto}`,
+      // Decidir sobre o prazo acontece no campo Prazo da demanda: o botão leva até lá, sem alterar nada.
+      ...(primeira.proximaAcao.tipo === 'decidir'
+        ? { acoes: [{ rotulo: 'Abrir demanda', comando: `abrir ${primeira.id}`, rota: rotaParaAbrirDemanda(primeira.id) }] }
+        : {}),
     },
   ];
 }
