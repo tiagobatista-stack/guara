@@ -185,6 +185,8 @@ flowchart TD
     M([Mensagem]) --> N{Contém um gatilho de comando?}
     N -- "prazos, vencido, atrasado, parado..." --> PR[Lista de prazos]
     N -- "prioridades, o que faço primeiro..." --> PI[Fila priorizada com motivos]
+    N -- "operações, pontos, campo, viagens..." --> OP[Pendências de campo e operações em andamento]
+    N -- "buscar, procurar, achar, cadê + termo" --> BU[Demandas encontradas, como na tela Demandas]
     N -- "demanda, essa demanda..." --> DM[Resumo da demanda aberta]
     N -- "ajuda, comandos, o que você faz..." --> AJ[Lista de comandos]
     N -- "só '?'" --> AJ
@@ -192,6 +194,8 @@ flowchart TD
 ```
 
 Para ensinar um sinônimo, acrescente um gatilho em `frases.ts`. Para um comando novo, acrescente uma intenção: ela aparece sozinha na ajuda.
+
+O painel tem três abas: Conversa, Fila (N) e Avisos (N). O assistente nunca mostra o UUID da demanda e nunca copia o comentário livre do analista para a fila ou para a conversa guardada. Demanda bloqueada recebe a sugestão pelo motivo do bloqueio (documento, autuado, setor, campo ou "ver o motivo"). A decisão (prorrogar, concluir, cobrar) continua humana.
 
 ## 7. Onde a decisão é humana
 
