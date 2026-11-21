@@ -114,15 +114,8 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
   display: flex; align-items: center; gap: 12px; padding: 10px 16px;
   background: var(--pantanal-600); color: #fff;
 }
-.cabecalho-nome { font-weight: 700; }
-.busca { position: relative; flex: 1; }
-.busca .icone { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: 0.7; pointer-events: none; }
-.busca input {
-  width: 100%; min-height: 40px; padding: 0 12px 0 34px; border-radius: 8px;
-  border: 1px solid rgb(255 255 255 / 0.35); background: rgb(255 255 255 / 0.12); color: #fff;
-}
-.busca input::placeholder { color: rgb(255 255 255 / 0.75); }
-.selo-ficticio { display: none; padding: 2px 8px; border-radius: 999px; background: var(--atencao-fundo); color: var(--atencao-texto); font-size: 12px; font-weight: 600; }
+.cabecalho-nome { font-weight: 700; } /* o selo empurra selo, sino e Assistente para a direita */
+.selo-ficticio { display: inline-block; margin-left: auto; padding: 2px 8px; border-radius: 999px; background: var(--atencao-fundo); color: var(--atencao-texto); font-size: 12px; font-weight: 600; }
 .botao-assistente { display: none; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.5); background: transparent; color: #fff; cursor: pointer; }
 
 .sino { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #fff; cursor: pointer; flex-shrink: 0; }
@@ -170,7 +163,6 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
   .menu-lateral { display: flex; }
   .barra-inferior, .botao-flutuante, .cabecalho-nome { display: none; }
   .botao-assistente { display: inline-flex; }
-  .selo-ficticio { display: inline-block; }
   .conteudo { padding: 24px; }
 }
 /* Desktop: menu completo */

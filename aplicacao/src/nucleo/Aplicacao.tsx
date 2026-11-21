@@ -114,11 +114,6 @@ export function Aplicacao() {
       <div className="area-central">
         <header className="cabecalho">
           <span className="cabecalho-nome">GUARÁ</span>
-          <label className="busca">
-            <span className="sr-only">Buscar demanda</span>
-            <Icone nome="busca" className="icone icone--pequeno" />
-            <input type="search" placeholder="Buscar demanda (em breve)" disabled />
-          </label>
           <span className="selo-ficticio">Dados fictícios</span>
           <button
             type="button"

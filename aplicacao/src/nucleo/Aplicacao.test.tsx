@@ -24,6 +24,24 @@ it('aviso de persistência continua visível após importar com o fallback em me
   expect(screen.getByText(/As alterações valem só até fechar a página/)).toBeInTheDocument();
 });
 
+// Item 9a (21/11/2026): a barra de busca desativada saiu do cabeçalho; a busca virá pela conversa.
+it('o cabeçalho não tem campo de busca, e mantém o selo, o sino e o botão do assistente', () => {
+  localStorage.clear();
+  const armazem = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [] });
+  const { container } = render(
+    <ContextoArmazem.Provider value={armazem}>
+      <Aplicacao />
+    </ContextoArmazem.Provider>,
+  );
+  const cabecalho = container.querySelector('header.cabecalho') as HTMLElement;
+  expect(cabecalho.querySelector('input')).toBeNull();
+  expect(cabecalho.querySelector('.busca')).toBeNull();
+  expect(screen.queryByPlaceholderText(/Buscar demanda/)).toBeNull();
+  expect(within(cabecalho).getByText('Dados fictícios')).toBeInTheDocument();
+  expect(within(cabecalho).getByRole('button', { name: /^Alertas/ })).toBeInTheDocument();
+  expect(within(cabecalho).getByRole('button', { name: /^Abrir assistente/ })).toBeInTheDocument();
+});
+
 // Presença do mascote no celular e no tablet: o rosto fica nos botões que abrem o assistente.
 it('o botão do assistente leva o rosto do mascote principal, atento com aviso e com o resumo no nome', () => {
   localStorage.clear();
