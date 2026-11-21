@@ -148,6 +148,8 @@ node testar-servidor.ts
 - `extrair-documento` usa texto por página e não lê PDF real.
 - O deploy de Edge Functions pode não empacotar `dados-ficticios/`, que fica fora de `functions/`. Verificar quando houver Supabase.
 - Hook em Python, e não em Node como diz a apostila. Desvio registrado.
+- Falha intermitente "Invalid Chai property: toBeInTheDocument" nos testes (matchers do jest-dom não chegam ao `expect`): **hipótese, não confirmada**; sumiu sem mudança de código. Detalhes em `metodologia/evidencias/2026-11-21-caracterizacao-salva-e-copia.md`.
+- Cópia da caracterização (item 13): teste manual no ponto JUINA202610-01 **NÃO TESTADO**; só há teste automático.
 
 ## Identidade Git local
 
