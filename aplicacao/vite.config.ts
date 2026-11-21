@@ -25,6 +25,6 @@ export default defineConfig({
     exclude: ['**/node_modules/**', '**/dist/**'],
     environment: 'jsdom',
     globals: true,
-    setupFiles: ['./src/configuracao-testes.ts'],
+    setupFiles: [fileURLToPath(new URL('./src/configuracao-testes.ts', import.meta.url))],
   },
 });
