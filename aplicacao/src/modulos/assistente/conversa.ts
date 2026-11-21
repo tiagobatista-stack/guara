@@ -50,7 +50,7 @@ function validarMensagem(x: unknown): Mensagem | null {
       const { rotulo, comando, rota, aba } = a as Record<string, unknown>;
       if (typeof rotulo !== 'string' || !rotulo.trim() || typeof comando !== 'string' || !comando.trim()) return [];
       const acao: AcaoDaFala = { rotulo: rotulo.slice(0, TAMANHO_MAXIMO_ROTULO), comando: comando.slice(0, TAMANHO_MAXIMO_ROTULO) };
-      if (typeof rota === 'string' && /^#\/demandas(\?abrir=DEM-FIC-\d{4}&campo=prazo|\?texto=[A-Za-z0-9\-_.!~*'()%]{1,600})?$/.test(rota)) acao.rota = rota;
+      if (typeof rota === 'string' && /^#\/demandas(\?abrir=(DEM-FIC-\d{4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})&campo=(prazo|bloqueio)|\?texto=[A-Za-z0-9\-_.!~*'()%]{1,600})?$/.test(rota)) acao.rota = rota;
       if (ehAba(aba) && aba !== 'conversa') acao.aba = aba;
       return [acao];
     }).slice(0, MAXIMO_DE_ACOES);

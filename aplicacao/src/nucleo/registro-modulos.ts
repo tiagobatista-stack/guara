@@ -40,7 +40,7 @@ export function parametrosDaRota(hash: string): URLSearchParams {
 }
 
 /** Rota que abre a demanda para edição, com foco no campo (por ora só "prazo"). */
-export function rotaParaAbrirDemanda(id: string, campo: 'prazo' = 'prazo'): string {
+export function rotaParaAbrirDemanda(id: string, campo: 'prazo' | 'bloqueio' = 'prazo'): string {
   return `#/demandas?abrir=${encodeURIComponent(id)}&campo=${campo}`;
 }
 

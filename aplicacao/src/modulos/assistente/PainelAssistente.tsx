@@ -23,6 +23,7 @@ import { respostaDePrioridades } from './respostaPrioridades.ts';
 import { FilaDoDia } from './FilaDoDia.tsx';
 import { abaPedida, abaPorTecla, ABAS, gravarAba, lerAba, pedirAba, rotuloDaAba, type Aba } from './abas.ts';
 import { priorizarDemandas } from './priorizar.ts';
+import { nomeDaDemanda } from './rotuloDaDemanda.ts';
 import { useLimiteDeAvisos } from './preferencias-avisos.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, useLembretes } from './lembretes.ts';
 
@@ -31,7 +32,7 @@ const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-
 /** Os mesmos avisos do painel, agrupados por tipo, com o id de cada demanda. */
 function textoDosPrazos(avisos: readonly Aviso[]): string {
   return (Object.keys(ROTULO_DO_TIPO) as TipoAviso[])
-    .map((tipo) => `${ROTULO_DO_TIPO[tipo]}: ${avisos.filter((a) => a.tipo === tipo).map((a) => a.id).join(', ') || 'nenhuma'}.`)
+    .map((tipo) => `${ROTULO_DO_TIPO[tipo]}: ${avisos.filter((a) => a.tipo === tipo).map((a) => nomeDaDemanda(a.id, a.titulo)).join(', ') || 'nenhuma'}.`)
     .join(' ');
 }
 
@@ -53,7 +54,7 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
         autor: 'assistente',
         natureza: 'inferência',
         fonte: 'ordem dos avisos: vencidas, prazo próximo e paradas; confira antes de agir',
-        texto: `Pela ordem das regras, a mais urgente é ${primeiro.id} (${primeiro.texto})`,
+        texto: `Pela ordem das regras, a mais urgente é ${nomeDaDemanda(primeiro.id, primeiro.titulo)} (${primeiro.texto})`,
       },
     ];
   }
@@ -301,7 +302,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                   {aviso.texto}
                   <span className="mensagem-meta">{naturezaDoAviso(aviso)} · fonte: {origemDoAviso}</span>
                   {/* Decisões da pessoa sobre o lembrete: não mudam a demanda nem as outras telas. */}
-                  <div className="acoes-aviso" role="group" aria-label={`Lembrete de ${aviso.id}`}>
+                  <div className="acoes-aviso" role="group" aria-label={`Lembrete de ${nomeDaDemanda(aviso.id, aviso.titulo)}`}>
                     <button type="button" className="botao botao--pequeno" onClick={() => marcarCiente(aviso, agora())}>Ciente</button>
                     {opcoes.map((o) => (
                       <button key={o.rotulo} type="button" className="botao botao--pequeno" onClick={() => adiarLembrete(aviso, o.ate)}>
@@ -338,6 +339,10 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
             )}
           </div>
         )}
+        {/* O sino do cabeçalho conta outra coisa (demandas inativas, tela Alertas): a nota evita achar que os números deveriam ser iguais. */}
+        <p className="texto-pequeno texto-suave" data-testid="nota-sino">
+          Avisos do dia: prazo vencido, prazo próximo e demanda parada. O número do sino, no cabeçalho, conta só demandas inativas (tela Alertas).
+        </p>
       </div>
 
       <div role="tabpanel" id={`${idBase}-painel-conversa`} aria-labelledby={`${idBase}-aba-conversa`} hidden={aba !== 'conversa'} className="aba-conversa">

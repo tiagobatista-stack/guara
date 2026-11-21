@@ -7,7 +7,7 @@ import { FILTROS_VAZIOS } from '../demandas/regras.ts';
 import type { Demanda } from '../demandas/modelo.ts';
 import { rotaParaBuscarDemandas } from '../../nucleo/registro-modulos.ts';
 import type { Mensagem } from './conversa.ts';
-import { encurtarTitulo } from './priorizar.ts';
+import { rotuloDaDemanda } from './rotuloDaDemanda.ts';
 
 export const MAXIMO_DE_RESULTADOS = 5;
 const FONTE = 'demandas deste navegador · busca por título, descrição ou número';
@@ -25,7 +25,7 @@ export function respostaDeBusca(termo: string | null, demandas: readonly Demanda
   if (achadas.length === 0) {
     return [{ autor: 'assistente', natureza: 'fato', fonte: FONTE, texto: `Não achei demanda com '${termo}'.` }];
   }
-  const linhas = achadas.slice(0, MAXIMO_DE_RESULTADOS).map((d) => `• ${d.id} — ${encurtarTitulo(d.titulo)} (${d.status})`);
+  const linhas = achadas.slice(0, MAXIMO_DE_RESULTADOS).map((d) => `• ${rotuloDaDemanda(d.id, d.titulo)} (${d.status})`);
   const mais = achadas.length - MAXIMO_DE_RESULTADOS;
   return [{
     autor: 'assistente',

@@ -132,6 +132,11 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
         return;
       }
       setAviso(null);
+      // "campo=bloqueio" (botão "Ver o motivo do bloqueio"): abre o detalhe, onde o motivo e o comentário aparecem.
+      if (p.get('campo') === 'bloqueio') {
+        setModo({ tipo: 'detalhe', id });
+        return;
+      }
       setFocoInicial(p.get('campo') === 'prazo' ? 'prazo' : undefined);
       setModo({ tipo: 'editar', id });
     };

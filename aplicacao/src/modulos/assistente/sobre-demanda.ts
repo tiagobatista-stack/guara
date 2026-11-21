@@ -6,6 +6,7 @@ import { camposQueFaltam, ROTULOS_ESSENCIAL } from '../demandas/essenciais.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
 import { diasParado, estaInativa } from '../alertas/inatividade.ts';
 import type { Mensagem } from './conversa.ts';
+import { codigoLegivel } from './rotuloDaDemanda.ts';
 
 export const METODO_DETERMINISTICO = 'método: determinístico (regras locais, sem modelo de IA)';
 
@@ -31,7 +32,7 @@ export function respostaSobreDemanda(
   }
   const fato: Mensagem = {
     autor: 'assistente', natureza: 'fato', fonte: origem,
-    texto: `${d.id} · ${d.titulo} — situação ${d.status}, prioridade ${d.prioridade}${d.prazo ? `, prazo ${d.prazo}` : ', sem prazo'}.`,
+    texto: `${codigoLegivel(d.id) ? `${d.id} · ` : ''}${d.titulo} — situação ${d.status}, prioridade ${d.prioridade}${d.prazo ? `, prazo ${d.prazo}` : ', sem prazo'}.`,
   };
   const prazo = situacaoDaDemanda(d, agora, ajuste);
   const parada = estaInativa(d, limiarDias, agora);

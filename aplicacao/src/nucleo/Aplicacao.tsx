@@ -126,6 +126,7 @@ export function Aplicacao() {
             className="sino"
             onClick={() => navegar('alertas')}
             aria-label={`Alertas: ${totalAlertas} demanda(s) inativa(s)`}
+            title={`Alertas: ${totalAlertas} demanda(s) inativa(s). Os avisos do dia ficam no assistente.`}
           >
             <Icone nome="sino" />
             {totalAlertas > 0 && <span className="sino-contagem" aria-hidden="true">{totalAlertas}</span>}

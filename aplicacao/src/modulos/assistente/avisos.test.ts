@@ -14,7 +14,7 @@ const avisos = (...ds: Demanda[]) => avisosDoDia(ds, AGORA, 3);
 describe('avisos do dia: um por demanda, com todos os sinais', () => {
   it('um sinal só: o texto e a situação seguem como antes', () => {
     const [a] = avisos(demanda({ prazo: '2026-11-11' }));
-    expect(a).toEqual({ tipo: 'vencida', id: 'DEM-FIC-0001', texto: 'Demanda fictícia: vencido há 2 dias úteis.', situacao: 'vencida|Em Andamento' });
+    expect(a).toEqual({ tipo: 'vencida', id: 'DEM-FIC-0001', titulo: 'Demanda fictícia', texto: 'Demanda fictícia: vencido há 2 dias úteis.', situacao: 'vencida|Em Andamento' });
   });
 
   it('vencida e parada: um aviso do tipo mais urgente, com os dois sinais no texto', () => {

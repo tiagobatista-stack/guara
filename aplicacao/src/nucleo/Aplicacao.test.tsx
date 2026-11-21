@@ -91,7 +91,7 @@ it('aviso marcado como ciente sai da contagem do botão flutuante; as outras tel
   });
   const flutuante = container.querySelector('.botao-flutuante')!;
   expect(flutuante).toHaveAccessibleName('Abrir assistente: 1 vencida');
-  act(() => { marcarCiente({ id, tipo: 'vencida', texto: '', situacao: 'vencida|A Fazer' }, new Date()); });
+  act(() => { marcarCiente({ id, titulo: '', tipo: 'vencida', texto: '', situacao: 'vencida|A Fazer' }, new Date()); });
   expect(flutuante).toHaveAccessibleName('Abrir assistente');
   expect(flutuante.querySelector('.botao-flutuante-contagem')).toBeNull();
   // A regra de vencida das outras telas não muda: o Dashboard continua contando.

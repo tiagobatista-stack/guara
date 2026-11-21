@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Demanda } from '../demandas/modelo.ts';
-import { DIAS_VISTORIA_PROXIMA, PESOS, encurtarTitulo, motivosDaDemanda, priorizarDemandas, proximaAcao, resumoDosMotivos } from './priorizar.ts';
+import { DIAS_VISTORIA_PROXIMA, PESOS, TAMANHO_MAXIMO_TITULO, encurtarTitulo, motivosDaDemanda, priorizarDemandas, proximaAcao, resumoDosMotivos } from './priorizar.ts';
 
 // Sexta, 13/11/2026, 10h (horário local do teste). Dados fictícios.
 const AGORA = new Date(2026, 10, 13, 10, 0, 0);
@@ -100,13 +100,33 @@ describe('priorizar: sinais por demanda', () => {
 describe('priorizar: próxima ação sugerida', () => {
   const acao = (o: Partial<Demanda>) => priorizarDemandas([demanda(o)], AGORA, LIMIAR)[0]?.proximaAcao;
 
-  it('vencida e travada: cobrar o motivo; vencida sem bloqueio: decidir', () => {
-    expect(acao({ prazo: '2026-11-11', bloqueio: { motivo: 'setor', desde: iso(2026, 11, 10) } })).toEqual({ tipo: 'cobrar', texto: 'Cobrar o retorno: aguardando outro setor.', natureza: 'sugestão' });
+  it('vencida e travada: cobrar conforme o motivo; vencida sem bloqueio: decidir', () => {
+    expect(acao({ prazo: '2026-11-11', bloqueio: { motivo: 'setor', desde: iso(2026, 11, 10) } })).toEqual({ tipo: 'cobrar', texto: 'Cobrar o retorno do outro setor.', natureza: 'sugestão' });
     expect(acao({ prazo: '2026-11-11' })).toMatchObject({ tipo: 'decidir', texto: 'Decidir: prorrogar o prazo ou concluir.' });
   });
 
+  // Item 11b: o texto de cada motivo de bloqueio; "outro" nunca vira "Cobrar o retorno: outro motivo".
+  it.each([
+    ['documento', 'cobrar', 'Cobrar o documento que falta.'],
+    ['autuado', 'cobrar', 'Cobrar os dados do autuado.'],
+    ['setor', 'cobrar', 'Cobrar o retorno do outro setor.'],
+    ['campo', 'cobrar', 'Conferir quando a ação de campo está prevista.'],
+    ['outro', 'ver-bloqueio', 'Ver o motivo do bloqueio.'],
+  ] as const)('travada por "%s": %s → %s (no prazo e vencida)', (motivo, tipo, texto) => {
+    const bloqueio = { motivo, desde: iso(2026, 11, 12) };
+    expect(acao({ bloqueio })).toMatchObject({ tipo, texto });
+    expect(acao({ prazo: '2026-11-11', bloqueio })).toMatchObject({ tipo, texto });
+  });
+
+  it('o comentário do analista (detalhe do bloqueio) não aparece em nenhum texto da fila', () => {
+    const detalhe = 'SEGREDO-do-analista: falar com Fulano';
+    const [item] = priorizarDemandas([demanda({ prazo: '2026-11-11', bloqueio: { motivo: 'outro', desde: iso(2026, 11, 10), detalhe } })], AGORA, LIMIAR);
+    expect(JSON.stringify(item)).not.toContain('SEGREDO');
+    expect(item.motivos.find((m) => m.sinal === 'bloqueada')?.texto).toMatch(/^travada há .+ \(motivo na demanda\)$/);
+  });
+
   it('travada e no prazo: cobrar', () => {
-    expect(acao({ bloqueio: { motivo: 'autuado', desde: iso(2026, 11, 12) } })).toMatchObject({ tipo: 'cobrar', texto: 'Cobrar o retorno: aguardando dados do autuado.' });
+    expect(acao({ bloqueio: { motivo: 'autuado', desde: iso(2026, 11, 12) } })).toMatchObject({ tipo: 'cobrar', texto: 'Cobrar os dados do autuado.' });
   });
 
   it('parada: a sugestão depende do status', () => {
@@ -172,21 +192,44 @@ describe('priorizar: fila do dia', () => {
   });
 });
 
-describe('encurtarTitulo', () => {
+describe('encurtarTitulo (item 11b: corta entre palavras)', () => {
+  const longo = 'Renovação de licença de operação da estação de tratamento de efluentes do distrito industrial de Rio Claro (FICTÍCIA)';
+  /** Cada pedaço do resultado é uma palavra inteira do original (ou o "…" do corte). */
+  const semPalavraPartida = (original: string, r: string) => {
+    const inteiras = new Set(original.split(/\s+/));
+    return r.split(' ').every((p) => p === '…' || inteiras.has(p));
+  };
+
   it('título curto fica como está', () => {
     expect(encurtarTitulo('Renovação de licença (FICTÍCIA)')).toBe('Renovação de licença (FICTÍCIA)');
   });
-  it('corta no MEIO e preserva o fim e o sufixo "(FICTÍCIA)"', () => {
-    const t = 'Renovação de licença de operação da estação de tratamento de efluentes do distrito industrial de Rio Claro (FICTÍCIA)';
-    const r = encurtarTitulo(t);
-    expect(r.length).toBeLessThanOrEqual(60);
-    expect(r.startsWith('Renovação de licença')).toBe(true);
-    expect(r).toContain(' … ');
-    expect(r.endsWith('Rio Claro (FICTÍCIA)')).toBe(true);
+  it('corta no MEIO, entre palavras, e preserva o fim e o sufixo "(FICTÍCIA)"', () => {
+    const r = encurtarTitulo(longo);
+    expect(r).toBe('Renovação de licença … Rio Claro (FICTÍCIA)');
+    expect(r.length).toBeLessThanOrEqual(TAMANHO_MAXIMO_TITULO);
+    expect(semPalavraPartida(longo, r)).toBe(true);
+  });
+  it('o sufixo "(FICTÍCIA)" nunca se perde, em qualquer limite', () => {
+    for (let max = 24; max <= 80; max += 1) {
+      const r = encurtarTitulo(longo, max);
+      expect(r.endsWith('(FICTÍCIA)'), `max ${max}: ${r}`).toBe(true);
+      expect(semPalavraPartida(longo, r), `max ${max}: ${r}`).toBe(true);
+    }
+  });
+  it('nenhum pedaço de palavra, com ou sem sufixo, em vários limites', () => {
+    const t = 'Auto de infração por supressão de vegetação nativa em área de preservação permanente da bacia do rio Cuiabá';
+    for (let max = 20; max <= 70; max += 1) {
+      const r = encurtarTitulo(t, max);
+      expect(r.length, `max ${max}: ${r}`).toBeLessThanOrEqual(max);
+      expect(semPalavraPartida(t, r), `max ${max}: ${r}`).toBe(true);
+    }
   });
   it('sem sufixo, também corta no meio', () => {
-    const r = encurtarTitulo('x'.repeat(40) + 'MEIO' + 'y'.repeat(40));
-    expect(r.length).toBeLessThanOrEqual(60);
-    expect(r).toMatch(/^x+ … y+$/);
+    expect(encurtarTitulo('Vistoria técnica de campo em propriedade rural para verificar a recuperação da área degradada')).toMatch(/^Vistoria técnica .+ … .+/);
+  });
+  it('uma palavra só, maior que o limite: corta no limite e termina em "…" (única exceção)', () => {
+    const r = encurtarTitulo('x'.repeat(100));
+    expect(r).toBe(`${'x'.repeat(TAMANHO_MAXIMO_TITULO - 1)}…`);
+    expect(encurtarTitulo(`${'y'.repeat(100)} (FICTÍCIA)`)).toMatch(/^y+… \(FICTÍCIA\)$/);
   });
 });
