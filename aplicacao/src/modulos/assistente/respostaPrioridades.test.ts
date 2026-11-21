@@ -27,7 +27,7 @@ describe('resposta do comando "prioridades"', () => {
     expect(r[0].texto).toContain('1. A — Demanda fictícia\n   prazo: vencido há 2 dias úteis + prioridade alta (74 pontos)');
     expect(r[0].texto).toContain('2. B — Demanda fictícia\n   sem prazo definido (10 pontos)');
     expect(r[0].fonte).toContain('determinístico');
-    expect(r[1].texto).toBe('Para A: Decidir: prorrogar o prazo ou concluir.');
+    expect(r[1].texto).toBe('A → decidir: prorrogar o prazo ou concluir.');
   });
 
   it('mostra só as primeiras e avisa quantas ficaram de fora', () => {

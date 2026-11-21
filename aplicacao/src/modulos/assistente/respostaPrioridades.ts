@@ -6,16 +6,12 @@ import type { Demanda } from '../demandas/modelo.ts';
 import type { AjusteFeriados } from '../alertas/dias-uteis.ts';
 import type { Mensagem } from './conversa.ts';
 import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
-import { priorizarDemandas, resumoDosMotivos, type ItemDePrioridade } from './priorizar.ts';
+import { encurtarTitulo, priorizarDemandas, resumoDosMotivos, type ItemDePrioridade } from './priorizar.ts';
 
 /** Itens listados de uma vez; o resto vira "E mais N". */
 export const MAXIMO_NA_FILA = 5;
-const TAMANHO_MAXIMO_TITULO = 60;
-
-const encurtar = (t: string) => (t.length > TAMANHO_MAXIMO_TITULO ? `${t.slice(0, TAMANHO_MAXIMO_TITULO - 1).trimEnd()}…` : t);
-
 function linhaDoItem(item: ItemDePrioridade, posicao: number): string {
-  return `${posicao}. ${item.id} — ${encurtar(item.titulo)}\n   ${resumoDosMotivos(item.motivos)} (${item.pontos} pontos)`;
+  return `${posicao}. ${item.id} — ${encurtarTitulo(item.titulo)}\n   ${resumoDosMotivos(item.motivos)} (${item.pontos} pontos)`;
 }
 
 export function respostaDePrioridades(
@@ -48,7 +44,7 @@ export function respostaDePrioridades(
       autor: 'assistente',
       natureza: 'sugestão',
       fonte: 'tabela de decisão da próxima ação (método determinístico); a decisão é sua',
-      texto: `Para ${primeira.id}: ${primeira.proximaAcao.texto}`,
+      texto: `${primeira.id} → ${primeira.proximaAcao.texto.charAt(0).toLowerCase()}${primeira.proximaAcao.texto.slice(1)}`,
       // Decidir sobre o prazo acontece no campo Prazo da demanda: o botão leva até lá, sem alterar nada.
       ...(primeira.proximaAcao.tipo === 'decidir'
         ? { acoes: [{ rotulo: 'Abrir demanda', comando: `abrir ${primeira.id}`, rota: rotaParaAbrirDemanda(primeira.id) }] }

@@ -22,7 +22,7 @@ describe('FilaDoDia', () => {
     render(<FilaDoDia itens={fila([demanda({ id: 'A', prazo: '2026-11-11', prioridade: 'Alta' }), demanda({ id: 'B', prazo: undefined })])} origem="demandas deste navegador" />);
     const a = screen.getByTestId('fila-A');
     expect(a).toHaveTextContent('prazo: vencido há 2 dias úteis');
-    expect(a).toHaveTextContent('(inferência, 54 pontos)');
+    expect(a).toHaveTextContent('(fato, 54 pontos)');
     expect(a).toHaveTextContent('prioridade alta (fato, 20 pontos)');
     expect(a).toHaveTextContent('Decidir: prorrogar o prazo ou concluir.');
     expect(within(a).getByText('Sugestão (decisão sua)')).toBeInTheDocument();

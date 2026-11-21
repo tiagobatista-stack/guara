@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Demanda } from '../demandas/modelo.ts';
-import { DIAS_VISTORIA_PROXIMA, PESOS, motivosDaDemanda, priorizarDemandas, proximaAcao, resumoDosMotivos } from './priorizar.ts';
+import { DIAS_VISTORIA_PROXIMA, PESOS, encurtarTitulo, motivosDaDemanda, priorizarDemandas, proximaAcao, resumoDosMotivos } from './priorizar.ts';
 
 // Sexta, 13/11/2026, 10h (horário local do teste). Dados fictícios.
 const AGORA = new Date(2026, 10, 13, 10, 0, 0);
@@ -38,7 +38,7 @@ describe('priorizar: sinais por demanda', () => {
 
   it('vencida: pontos pelos dias úteis de atraso, com o texto da regra de prazo', () => {
     const [m] = motivosDaDemanda(demanda({ prazo: '2026-11-11' }), AGORA, LIMIAR);
-    expect(m).toMatchObject({ sinal: 'vencida', pontos: PESOS.vencida.base + 2 * PESOS.vencida.porDia, texto: 'prazo: vencido há 2 dias úteis', natureza: 'inferência' });
+    expect(m).toMatchObject({ sinal: 'vencida', pontos: PESOS.vencida.base + 2 * PESOS.vencida.porDia, texto: 'prazo: vencido há 2 dias úteis', natureza: 'fato' });
   });
 
   it('o atraso pesa só até o teto, para uma demanda velha não esconder as demais', () => {
@@ -169,5 +169,24 @@ describe('priorizar: fila do dia', () => {
     const d = demanda({ ultimaAcaoRelevante: iso(2026, 11, 9) });
     expect(priorizarDemandas([d], AGORA, 3)).toHaveLength(1);
     expect(priorizarDemandas([d], AGORA, 7)).toHaveLength(0);
+  });
+});
+
+describe('encurtarTitulo', () => {
+  it('título curto fica como está', () => {
+    expect(encurtarTitulo('Renovação de licença (FICTÍCIA)')).toBe('Renovação de licença (FICTÍCIA)');
+  });
+  it('corta no MEIO e preserva o fim e o sufixo "(FICTÍCIA)"', () => {
+    const t = 'Renovação de licença de operação da estação de tratamento de efluentes do distrito industrial de Rio Claro (FICTÍCIA)';
+    const r = encurtarTitulo(t);
+    expect(r.length).toBeLessThanOrEqual(60);
+    expect(r.startsWith('Renovação de licença')).toBe(true);
+    expect(r).toContain(' … ');
+    expect(r.endsWith('Rio Claro (FICTÍCIA)')).toBe(true);
+  });
+  it('sem sufixo, também corta no meio', () => {
+    const r = encurtarTitulo('x'.repeat(40) + 'MEIO' + 'y'.repeat(40));
+    expect(r.length).toBeLessThanOrEqual(60);
+    expect(r).toMatch(/^x+ … y+$/);
   });
 });

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Demanda } from '../demandas/modelo.ts';
-import { avisosDoDia, resumoDosAvisos } from './avisos.ts';
+import { avisosDoDia, naturezaDoAviso, resumoDosAvisos } from './avisos.ts';
 
 const AGORA = new Date(2026, 10, 13, 10, 0, 0); // sexta, 13/11/2026
 const iso = (a: number, m: number, d: number) => new Date(a, m - 1, d, 10, 0, 0).toISOString();
@@ -45,5 +45,14 @@ describe('avisos do dia: um por demanda, com todos os sinais', () => {
     );
     expect(lista.map((a) => a.id)).toEqual(['D', 'C']);
     expect(resumoDosAvisos(lista)).toBe('1 vencida e 1 parada');
+  });
+});
+
+describe('naturezaDoAviso', () => {
+  it('prazo é fato; parada é inferência; os dois juntos dizem qual é qual', () => {
+    expect(naturezaDoAviso({ situacao: 'vencida|A Fazer' })).toBe('fato');
+    expect(naturezaDoAviso({ situacao: 'prazo-proximo|A Fazer' })).toBe('fato');
+    expect(naturezaDoAviso({ situacao: 'parada|Em Andamento' })).toBe('inferência');
+    expect(naturezaDoAviso({ situacao: 'vencida+parada|Em Andamento' })).toBe('fato (prazo) e inferência (parada)');
   });
 });

@@ -35,7 +35,7 @@ export interface Motivo {
   sinal: Sinal | 'prioridade';
   pontos: number;
   texto: string;
-  /** Como o texto deve ser lido: cálculo por regra (inferência) ou dado gravado (fato). */
+  /** Como o texto deve ser lido: dado gravado ou conta sobre ele, como o atraso do prazo (fato), ou palpite por regra, como "parada" (inferência). */
   natureza: 'fato' | 'inferência';
 }
 
@@ -66,10 +66,10 @@ export function motivosDaDemanda(d: Demanda, agora: Date, limiarDias: number, aj
   if (prazo?.vencido) {
     const atraso = Math.max(0, -prazo.diasUteis);
     const p = PESOS.vencida;
-    motivos.push({ sinal: 'vencida', pontos: p.base + Math.min(atraso, p.maxDias) * p.porDia, texto: `prazo: ${prazo.texto}`, natureza: 'inferência' });
+    motivos.push({ sinal: 'vencida', pontos: p.base + Math.min(atraso, p.maxDias) * p.porDia, texto: `prazo: ${prazo.texto}`, natureza: 'fato' });
   } else if (prazo && prazo.diasUteis <= DIAS_PRAZO_PROXIMO) {
     const p = PESOS['prazo-proximo'];
-    motivos.push({ sinal: 'prazo-proximo', pontos: p.base + (DIAS_PRAZO_PROXIMO - prazo.diasUteis) * p.porDiaQueSobra, texto: `prazo: ${prazo.texto}`, natureza: 'inferência' });
+    motivos.push({ sinal: 'prazo-proximo', pontos: p.base + (DIAS_PRAZO_PROXIMO - prazo.diasUteis) * p.porDiaQueSobra, texto: `prazo: ${prazo.texto}`, natureza: 'fato' });
   }
 
   // Só a demanda de campo com data marcada (vistoria.ts, 'agendada'); "em aberto" ou em operação não tem data.
@@ -155,6 +155,23 @@ export function priorizarDemandas(
       void _prazo;
       return item;
     });
+}
+
+const TAMANHO_MAXIMO_TITULO = 60;
+const SUFIXO_FICTICIO = /\s*\(fict[ií]ci[ao]\)\s*$/i;
+
+/** Título longo cortado NO MEIO ("Renovação de licença … Rio Claro (FICTÍCIA)"), guardando o fim e o sufixo "(FICTÍCIA)". */
+export function encurtarTitulo(titulo: string, maximo = TAMANHO_MAXIMO_TITULO): string {
+  const t = titulo.trim();
+  if (t.length <= maximo) return t;
+  const sufixo = SUFIXO_FICTICIO.exec(t)?.[0].trim() ?? '';
+  const corpo = sufixo ? t.slice(0, t.length - SUFIXO_FICTICIO.exec(t)![0].length).trimEnd() : t;
+  const reserva = sufixo ? sufixo.length + 1 : 0;
+  const sobra = maximo - reserva - 3; // " … " ocupa 3 caracteres
+  const inicio = Math.ceil(sobra * 0.6);
+  const fim = sobra - inicio;
+  const cortado = `${corpo.slice(0, inicio).trimEnd()} … ${corpo.slice(corpo.length - fim).trimStart()}`;
+  return sufixo ? `${cortado} ${sufixo}` : cortado;
 }
 
 /** "vencido há 2 dias úteis + parada há 4 dias + prioridade alta": o porquê da posição, em uma linha. */

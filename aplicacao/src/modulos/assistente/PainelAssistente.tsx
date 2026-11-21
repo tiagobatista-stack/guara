@@ -7,7 +7,7 @@ import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascot
 import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
-import { avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
+import { avisosDoDia, naturezaDoAviso, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
@@ -221,7 +221,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const ajusteDoDia = useAjusteFeriados(instante);
   const { todos, visiveis: avisos, ocultos } = useAvisosVisiveis(instante);
   const fila = priorizarDemandas(demandas, instante, diasInatividade, ajusteDoDia);
-  const origem = `fato · fonte: demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
+  const origemDoAviso = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
   const humor = humorDoPainel(mensagens, avisos);
   const [mostrandoOcultos, setMostrandoOcultos] = useState(false);
   const [recolhidas, setRecolhidas] = useState(lerRecolhidas);
@@ -273,7 +273,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                 <div className="mensagem">
                   <span className="sr-only">{nome}: </span>
                   {aviso.texto}
-                  <span className="mensagem-meta">{origem}</span>
+                  <span className="mensagem-meta">{naturezaDoAviso(aviso)} · fonte: {origemDoAviso}</span>
                   {/* Decisões da pessoa sobre o lembrete: não mudam a demanda nem as outras telas. */}
                   <div className="acoes-aviso" role="group" aria-label={`Lembrete de ${aviso.id}`}>
                     <button type="button" className="botao botao--pequeno" onClick={() => marcarCiente(aviso, agora())}>Ciente</button>

@@ -2,7 +2,8 @@
 // cada uma com "por que está aqui" (os motivos, com a marca fato ou inferência) e a próxima ação
 // sugerida. Só mostra; não altera demanda. A decisão continua sendo do analista.
 
-import type { ItemDePrioridade } from './priorizar.ts';
+import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
+import { encurtarTitulo, type ItemDePrioridade } from './priorizar.ts';
 
 const NOTA_DO_METODO = 'Ordem por pesos fixos (inferência, método determinístico); confira antes de agir';
 
@@ -20,7 +21,7 @@ export function FilaDoDia({ itens, origem }: { itens: readonly ItemDePrioridade[
           <li key={item.id} className="fila-item" data-testid={`fila-${item.id}`}>
             <details open={i === 0}>
               <summary>
-                <strong>{item.id}</strong> — {item.titulo}
+                <strong>{item.id}</strong> — {encurtarTitulo(item.titulo)}
                 <span className="fila-pontos"> · {item.pontos} pontos</span>
               </summary>
               <p className="texto-pequeno fila-subtitulo">Por que está aqui</p>
@@ -33,6 +34,9 @@ export function FilaDoDia({ itens, origem }: { itens: readonly ItemDePrioridade[
               </ul>
               <p className="texto-pequeno fila-subtitulo">Sugestão (decisão sua)</p>
               <p>{item.proximaAcao.texto}</p>
+              {item.proximaAcao.tipo === 'decidir' && (
+                <a className="botao botao--pequeno" href={rotaParaAbrirDemanda(item.id)} aria-label={`Abrir demanda ${item.id}, no campo Prazo`}>Abrir demanda</a>
+              )}
             </details>
           </li>
         ))}

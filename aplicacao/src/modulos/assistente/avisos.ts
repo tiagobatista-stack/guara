@@ -55,6 +55,14 @@ export function avisosDoDia(demandas: readonly Demanda[], agora: Date, limiarDia
     .map(({ tipo, id, texto, situacao }) => ({ tipo, id, texto, situacao }));
 }
 
+/** Natureza do texto do aviso: prazo é fato (conta sobre a data gravada); "parada" é inferência por regra. */
+export function naturezaDoAviso(a: Pick<Aviso, 'situacao'>): string {
+  const tipos = a.situacao.split('|')[0].split('+');
+  const parada = tipos.includes('parada');
+  const prazo = tipos.some((t) => t !== 'parada');
+  return parada && prazo ? 'fato (prazo) e inferência (parada)' : parada ? 'inferência' : 'fato';
+}
+
 const CONTAGEM: Record<TipoAviso, [string, string]> = {
   vencida: ['1 vencida', 'vencidas'],
   'prazo-proximo': ['1 com prazo próximo', 'com prazo próximo'],

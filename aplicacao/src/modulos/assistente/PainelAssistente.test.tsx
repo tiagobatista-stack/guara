@@ -54,6 +54,8 @@ describe('painel do assistente: mascote', () => {
     act(() => { armazem.criar(entrada('Conferir prazo antigo (fictício)', '2026-11-10')); });
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Atento: 1 vencida.');
     expect(screen.getByTestId('aviso-DEM-2')).toHaveTextContent('vencido há 3 dias úteis.');
+    // vencido há N dias úteis é fato (conta sobre o prazo gravado); só "parada" é inferência
+    expect(screen.getByTestId('aviso-DEM-2').querySelector('.mensagem-meta')).toHaveTextContent(/^fato · fonte:/);
   });
 
   it('com aviso, o mascote olha para o primeiro aviso', () => {
@@ -109,7 +111,7 @@ describe('painel do assistente: mascote', () => {
     expect(fila).toHaveTextContent('1. DEM-2');
     expect(fila).toHaveTextContent('prazo: vencido há 3 dias úteis');
     expect(fila).toHaveTextContent('inferência · fonte: demandas deste navegador');
-    expect(sugestao).toHaveTextContent('Para DEM-2: Decidir: prorrogar o prazo ou concluir.');
+    expect(sugestao).toHaveTextContent('DEM-2 → decidir: prorrogar o prazo ou concluir.');
     expect(sugestao).toHaveTextContent('sugestão');
   });
 
