@@ -16,11 +16,16 @@ export function respostaSobreDemanda(
   limiarDias: number,
   ajuste: AjusteFeriados,
   origem: string,
+  /** true quando o código veio escrito na frase (e não da demanda aberta na tela). */
+  explicito = false,
 ): Mensagem[] {
   if (!emFoco) {
     return [{ autor: 'assistente', natureza: 'sugestão', fonte: 'regra: nenhuma demanda em foco', texto: 'Abra uma demanda na tela Demandas (detalhe) e peça de novo: o comando "demanda" fala da demanda aberta.' }];
   }
   const d = demandas.find((x) => x.id === emFoco);
+  if (!d && explicito) {
+    return [{ autor: 'assistente', natureza: 'fato', fonte: origem, texto: `Não encontrei ${emFoco} nas demandas deste navegador. Nada foi alterado.` }];
+  }
   if (!d) {
     return [{ autor: 'assistente', natureza: 'fato', fonte: 'regra: demanda em foco não encontrada nos dados deste navegador', texto: `Não encontrei a demanda ${emFoco}: ela pode ter sido excluída ou os dados foram trocados. Nada foi alterado.` }];
   }

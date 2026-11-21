@@ -44,12 +44,12 @@ npm run build
 
 ## O que foi testado, e o que está publicado
 
-Em 20/11/2026, na branch `operacoes-campo`, a partir do commit `758453f` mais as mudanças ainda **não commitadas** descritas em `metodologia/evidencias/2026-11-20-recomendacoes-relatorio.md`:
+Em 20/11/2026, na branch `operacoes-campo`, a partir do commit `2fd98ad` (mais o `5553c9a` do STATUS), descrito em `metodologia/evidencias/2026-11-20-recomendacoes-relatorio.md`:
 
 - **Testado localmente:** `npm test` (684/684 em 59 arquivos), `npm run build` ok, hook 8/8 (`python -m unittest testes/unidade/test_hook_verificar_comando.py`) e cliente MCP (`node servidor-mcp/testar-servidor.ts`).
-- **Commit:** `758453f` (branch `operacoes-campo`, já no GitHub). As mudanças desta rodada não estão em commit.
-- **Versão publicada:** a URL acima serve a `main`. A última conferência do bundle público registrada no STATUS é a da `main` `b800374` (`index-BFAzjbW4.js`, 19/11/2026); o que veio depois não foi conferido na URL.
-- Teste local, commit e versão publicada são três coisas diferentes: só o primeiro foi feito para as mudanças atuais.
+- **Commit:** `2fd98ad`, mesclado na `main` pela PR #7 (`b6970c5`).
+- **Versão publicada:** `main` `b6970c5`, deploy `success`. A URL serve `index-D807sqTy.js` e `index-B3S3-AIP.css`, iguais aos de um build local da mesma árvore (`metodologia/evidencias/2026-11-20-publicacao-recomendacoes.md`). O roteiro de uso na URL pública (teclado, celular) ainda não foi repetido.
+- Teste local, commit e versão publicada são três coisas diferentes; aqui os três foram feitos, mas sem conferência visual.
 
 ## Situação
 

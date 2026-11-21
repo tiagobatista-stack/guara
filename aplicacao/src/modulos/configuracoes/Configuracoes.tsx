@@ -2,6 +2,7 @@
 // A escolha é visual: não muda permissões, dados nem capacidades do sistema.
 
 import { useState } from 'react';
+import { definirLimiteDeAvisos, OPCOES_LIMITE_AVISOS, useLimiteDeAvisos } from '../assistente/preferencias-avisos.ts';
 import { Mascote, MASCOTES, type EspecieMascote } from '../../compartilhado/Mascote.tsx';
 import {
   escolherPrincipal,
@@ -36,6 +37,7 @@ function CampoNome({ especie, inicial }: { especie: EspecieMascote; inicial: str
 }
 
 export function Configuracoes() {
+  const limiteDeAvisos = useLimiteDeAvisos();
   const preferencias = usePreferenciasMascote();
   const soNaMemoria = usePreferenciasSoNaMemoria();
   const especies = Object.keys(MASCOTES) as EspecieMascote[];
@@ -88,6 +90,19 @@ export function Configuracoes() {
         </ul>
         <p className="texto-pequeno texto-suave">
           Sem nome, o mascote usa o nome da espécie. As mudanças são gravadas na hora (até {TAMANHO_MAXIMO_NOME} caracteres por nome).
+        </p>
+      </section>
+
+      <section aria-labelledby="titulo-avisos" className="cartao">
+        <h2 id="titulo-avisos"><strong>Avisos do assistente</strong></h2>
+        <label>
+          Avisos listados de uma vez{' '}
+          <select className="seletor" value={limiteDeAvisos} onChange={(e) => definirLimiteDeAvisos(Number(e.target.value))}>
+            {OPCOES_LIMITE_AVISOS.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <p className="texto-pequeno texto-suave">
+          O excedente vira "E mais N" e continua no Dashboard e em Alertas. A fila do dia não muda com este limite.
         </p>
       </section>
     </section>

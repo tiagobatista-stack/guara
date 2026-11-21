@@ -14,9 +14,9 @@ const entrada = (titulo: string, prazo: string): EntradaDemanda => ({
 });
 
 /** Painel com uma demanda que vence hoje (um aviso), salvo se vier outra lista. */
-function montar(demandas: EntradaDemanda[] = [entrada('Revisar parecer FIC-0001', '2026-11-13')]) {
+function montar(demandas: EntradaDemanda[] = [entrada('Revisar parecer FIC-0001', '2026-11-13')], formatarId: (n: number) => string = (n) => `DEM-${n}`) {
   let n = 0;
-  const armazem = criarArmazem(localStorage, { gerarId: () => `DEM-${++n}`, exemplos: () => [], agora: AGORA });
+  const armazem = criarArmazem(localStorage, { gerarId: () => formatarId(++n), exemplos: () => [], agora: AGORA });
   demandas.forEach((d) => armazem.criar(d));
   const tela = render(
     <ContextoArmazem.Provider value={armazem}>
@@ -54,6 +54,8 @@ describe('painel do assistente: mascote', () => {
     act(() => { armazem.criar(entrada('Conferir prazo antigo (fictício)', '2026-11-10')); });
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Atento: 1 vencida.');
     expect(screen.getByTestId('aviso-DEM-2')).toHaveTextContent('vencido há 3 dias úteis.');
+    // vencido há N dias úteis é fato (conta sobre o prazo gravado); só "parada" é inferência
+    expect(screen.getByTestId('aviso-DEM-2').querySelector('.mensagem-meta')).toHaveTextContent(/^fato · fonte:/);
   });
 
   it('com aviso, o mascote olha para o primeiro aviso', () => {
@@ -88,11 +90,36 @@ describe('painel do assistente: mascote', () => {
     expect(inferencia).toHaveTextContent('inferência · fonte: ordem dos avisos');
   });
 
+  it('a fila do dia aparece no painel, acima das notificações, com o motivo e a sugestão', () => {
+    montar([entrada('Prazo antigo (fictício)', '2026-11-10')]);
+    const fila = screen.getByRole('region', { name: 'Fila do dia' });
+    expect(fila).toHaveTextContent('Prazo antigo (fictício)');
+    expect(fila).toHaveTextContent('prazo: vencido há 3 dias úteis');
+    expect(fila).toHaveTextContent('Decidir: prorrogar o prazo ou concluir.');
+    expect(fila.compareDocumentPosition(screen.getByRole('region', { name: 'Notificações' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('o comando "prioridades" ordena a fila com motivo, e a próxima ação vem como sugestão', () => {
+    montar([
+      entrada('Vence hoje (fictício)', '2026-11-13'),
+      entrada('Prazo antigo (fictício)', '2026-11-10'),
+    ]);
+    enviar('o que faço primeiro?');
+    const falas = document.querySelectorAll('.conversa li.fala');
+    const [fila, sugestao] = [falas[falas.length - 2], falas[falas.length - 1]];
+    expect(fila).toHaveTextContent('2 demandas pedem atenção');
+    expect(fila).toHaveTextContent('1. DEM-2');
+    expect(fila).toHaveTextContent('prazo: vencido há 3 dias úteis');
+    expect(fila).toHaveTextContent('inferência · fonte: demandas deste navegador');
+    expect(sugestao).toHaveTextContent('DEM-2 → decidir: prorrogar o prazo ou concluir.');
+    expect(sugestao).toHaveTextContent('sugestão');
+  });
+
   it('cada natureza de resposta tem sua pose, junto com o selo de texto; inferência deixa o mascote pensativo', () => {
     const { container } = montar();
     enviar('ajuda');
     enviar('prazos');
-    enviar('bom dia');
+    enviar('xyz');
     const poses = [...container.querySelectorAll('.conversa li.fala')].map((fala) => [
       fala.querySelector('svg')!.getAttribute('data-humor'),
       fala.querySelector('.mensagem-meta')?.textContent?.split(' · ')[0] ?? null,
@@ -116,10 +143,36 @@ describe('painel do assistente: mascote', () => {
     enviar('ajuda');
     const ultima = rolar.mock.contexts.at(-1) as Element;
     expect(ultima).toHaveTextContent('Comandos disponíveis: "prazos"');
-    enviar('bom dia');
-    expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendo linguagem livre');
+    enviar('xyz');
+    expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendi essa frase');
     expect(rolar).toHaveBeenLastCalledWith({ block: 'nearest' });
     delete (Element.prototype as Partial<Element>).scrollIntoView;
+  });
+
+  it('a ajuda entende frases comuns e lista um comando por linha, sem repetir os botões dos atalhos', () => {
+    const { container } = montar();
+    enviar('me ajuda');
+    const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar", "prorrogar" e "ajuda".');
+    expect(fala.querySelector('.mensagem-texto')?.textContent).toContain('\n• prazos — lista as demandas vencidas');
+    // "lembrar" não está nos atalhos fixos: só eles ganham botão na resposta.
+    expect(fala).toHaveTextContent('Toque num comando abaixo para usá-lo.');
+    expect(within(fala).queryAllByRole('button').map((x) => x.textContent)).toEqual(['Criar um lembrete', 'Prorrogar um prazo']);
+  });
+
+  it('sinônimos chegam ao mesmo comando ("o que tá vencido?" = "prazos")', () => {
+    const { container } = montar();
+    enviar('o que tá vencido?');
+    expect(container.querySelectorAll('.conversa li.fala')[1]).toHaveTextContent('Prazo próximo: DEM-1');
+  });
+
+  it('"não entendi" oferece o botão para ver o que o mascote sabe fazer', () => {
+    const { container } = montar();
+    enviar('xyz');
+    const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+    expect(fala).toHaveTextContent('Ainda não entendi essa frase');
+    fireEvent.click(within(fala).getByRole('button', { name: 'Ver o que eu sei fazer' }));
+    expect(container.querySelectorAll('.conversa li.fala')[2]).toHaveTextContent('Comandos disponíveis');
   });
 
   it('atalhos "Ver prazos" e "O que você faz?" enviam o comando sem digitar, e o campo continua como estava', () => {
@@ -145,7 +198,7 @@ describe('painel do assistente: mascote', () => {
 
   it('comando não reconhecido deixa o mascote curioso; um comando conhecido devolve ao estado dos avisos', () => {
     montar();
-    enviar('bom dia');
+    enviar('xyz');
     expect(screen.getByRole('img', { name: 'Capivara (Pantanal), curioso' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Curioso');
     enviar('ajuda');
@@ -242,6 +295,68 @@ describe('painel do assistente: mascote', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
     expect(obterLembretes()).toEqual({});
+  });
+
+  it('"Em 2 horas" esconde o lembrete por 2 horas exatas', () => {
+    montar();
+    fireEvent.click(within(screen.getByRole('group', { name: 'Lembrete de DEM-1' })).getByRole('button', { name: 'Em 2 horas' }));
+    expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
+    expect(new Date(obterLembretes()['DEM-1'].adiadoAte!).getTime()).toBe(AGORA().getTime() + 2 * 3_600_000);
+  });
+
+  it('"Não mostrar para esta demanda" silencia o aviso até "Mostrar de novo"', () => {
+    montar();
+    fireEvent.click(screen.getByRole('button', { name: 'Não mostrar para esta demanda' }));
+    expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
+    fireEvent.click(screen.getByRole('button', { name: /1 silenciada\(s\)$/ }));
+    expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent('(silenciada)');
+    fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
+    expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
+    expect(obterLembretes()).toEqual({});
+  });
+
+  it('código de demanda na frase: resume aquela demanda, sem depender da demanda aberta', () => {
+    montar([entrada('Revisar parecer FIC-0001', '2026-11-13'), entrada('Outra demanda fictícia', '2026-12-30')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    ['DEM-FIC-0002', 'me fala da dem fic 2', 'dem-fic-0002 ?'].forEach((frase, i) => {
+      enviar(frase);
+      expect(screen.getAllByText(/DEM-FIC-0002 · Outra demanda fictícia/)).toHaveLength(i + 1);
+    });
+    expect(screen.queryByText(/Ainda não entendo/)).toBeNull();
+  });
+
+  it('código com verbo desconhecido: diz o que reconheceu e oferece resumo, lembrar e abrir demanda', () => {
+    const { container } = montar([entrada('Revisar parecer FIC-0001', '2026-11-13')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    enviar('DEM-FIC-0001 xyz');
+    const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+    expect(fala).toHaveTextContent('Reconheci DEM-FIC-0001, mas não entendi o restante. Para essa demanda posso: resumo, lembrete, abrir para prorrogar.');
+    expect(within(fala).getAllByRole('button').map((b) => b.textContent)).toEqual(['Resumo de DEM-FIC-0001', 'Lembrar', 'Abrir demanda']);
+  });
+
+  it('"Abrir demanda" navega para a rota com o parâmetro', () => {
+    montar([entrada('Revisar parecer FIC-0001', '2026-11-13')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    enviar('prorrogar DEM-FIC-0001');
+    const botao = screen.getByRole('button', { name: 'Abrir demanda DEM-FIC-0001, no campo Prazo' });
+    fireEvent.click(botao);
+    expect(window.location.hash).toBe('#/demandas?abrir=DEM-FIC-0001&campo=prazo');
+    window.location.hash = '';
+  });
+
+  it('código inexistente: diz que não encontrou, sem inventar', () => {
+    montar([entrada('Revisar parecer FIC-0001', '2026-11-13')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    enviar('DEM-FIC-0099');
+    expect(screen.getByText('Não encontrei DEM-FIC-0099 nas demandas deste navegador. Nada foi alterado.')).toBeInTheDocument();
+  });
+
+  it('cumprimento: responde "fato · fonte: sistema" com atalhos; "bom dia, prioridades" responde a fila', () => {
+    const { container } = montar();
+    enviar('ola');
+    const falas = container.querySelectorAll('.conversa li.fala');
+    const ultima = falas[falas.length - 1];
+    expect(ultima).toHaveTextContent(/Olá! Posso mostrar prazos/);
+    expect(ultima.querySelector('.mensagem-meta')).toHaveTextContent(/^fato · fonte: sistema/);
+    expect(within(ultima as HTMLElement).getByRole('button', { name: 'O que faço primeiro?' })).toBeInTheDocument();
+    enviar('bom dia, prioridades');
+    expect(screen.getAllByText(/pede(m)? atenção/).length).toBeGreaterThan(0);
   });
 
   it('o comando "prazos" continua listando também os avisos cientes (é um fato, não um lembrete)', () => {

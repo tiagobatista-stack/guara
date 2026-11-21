@@ -356,15 +356,23 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .fala .mensagem { flex: 1; min-width: 0; margin-right: 0; }
 .avisos-assistente { display: grid; gap: 8px; }
 .titulo-notificacoes { margin: 0; font-size: 14px; }
+.fila-do-dia { display: grid; gap: 8px; margin: 8px 0; }
+.fila-item { padding: 8px; border-radius: 8px; background: var(--superficie-2); }
+.fila-item summary { cursor: pointer; }
+.fila-pontos { color: var(--texto-suave); font-size: 12px; }
+.fila-subtitulo { margin: 8px 0 2px; color: var(--texto-suave); }
+.fila-motivos { margin: 0; padding-left: 18px; }
+.fila-item p { margin: 0; }
 .botao-titulo { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .botao-titulo .sino-contagem { position: static; }
 .assistente-secao--recolhida { padding-top: 8px; padding-bottom: 8px; }
 .acoes-aviso { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
 .avisos-ocultos { margin-top: 8px; display: grid; gap: 8px; }
 .mensagem--usuario { background: var(--guara-100); margin: 0 0 0 32px; }
+.mensagem-texto { white-space: pre-line; } /* listas da ajuda: uma linha por comando */
 .mensagem-meta { display: block; margin-top: 4px; font-size: 11px; color: var(--texto-suave); }
 .rodape-conversa { border-top: 1px solid var(--borda); }
-.atalhos-conversa { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 12px 0; }
+.atalhos-conversa { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 0; } /* botões pequenos: dois ou três por linha no painel */
 .formulario-conversa { display: flex; gap: 8px; padding: 12px; }
 .formulario-conversa label { flex: 1; }
 .campo { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--borda); background: transparent; }
@@ -480,3 +488,6 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .mais-acoes > summary::-webkit-details-marker { display: none; }
 .mais-acoes > summary::after { content: '▾'; }
 .mais-acoes[open] > summary::after { content: '▴'; }
+
+/* Botões das respostas do assistente: área de toque mínima de 44 px no celular. */
+@media (max-width: 640px) { .acoes-aviso .botao--pequeno { min-height: 44px; } }

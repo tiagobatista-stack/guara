@@ -87,15 +87,62 @@ describe('fluxo recebe a demanda como parâmetro (P1 do relatório)', () => {
 
 describe('padrões de orquestração A–F', () => {
   it('sem execução, nenhum padrão é dado como demonstrado', () => {
-    expect(avaliarPadroes(null).every((p) => p.produto.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    const semExecucao = avaliarPadroes(null);
+    expect(semExecucao.every((p) => p.produto.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    // A coluna de desenvolvimento é registro da rodada de 19/11, independente da execução do produto.
+    expect(semExecucao.every((p) => p.desenvolvimento.situacao === 'DEMONSTRADO')).toBe(true);
   });
 
-  it('após o fluxo: A, B, C, E e F demonstrados no produto; D não demonstrado; coluna de desenvolvimento pendente', () => {
+  it('após o fluxo: A, B, C, E e F demonstrados no produto; D não demonstrado; coluna de desenvolvimento conforme a rodada de 19/11', () => {
     const padroes = avaliarPadroes(executarFluxoPadrao(habilidades, agentes));
     const situacoes = Object.fromEntries(padroes.map((p) => [p.letra, p.produto.situacao]));
     expect(situacoes).toEqual({
       A: 'DEMONSTRADO', B: 'DEMONSTRADO', C: 'DEMONSTRADO', D: 'NÃO DEMONSTRADO', E: 'DEMONSTRADO', F: 'DEMONSTRADO',
     });
-    expect(padroes.every((p) => p.desenvolvimento.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    expect(padroes.every((p) => p.desenvolvimento.situacao === 'DEMONSTRADO')).toBe(true);
+    expect(padroes.every((p) => p.desenvolvimento.justificativa.includes('2026-11-19-orquestracao-a-d-e-f.md'))).toBe(true);
+    expect(padroes.find((p) => p.letra === 'C')?.desenvolvimento.justificativa).toContain('APROVADO COM RESSALVAS');
+    expect(padroes.find((p) => p.letra === 'D')?.produto.situacao).toBe('NÃO DEMONSTRADO');
+  });
+});
+
+describe('padrões A–F: bloqueio esperado não é falha', () => {
+  const demandaDe = (id: string) => demandasFicticias.find((d) => d.id === id)!;
+
+  it.each(['DEM-FIC-0002', 'DEM-FIC-0004'])('%s (sem documento): nenhum FALHOU; A, B, C e E não exercidos; F demonstrado; D não demonstrado', (id) => {
+    const ex = executarFluxoPadrao(habilidades, agentes, new Set(), demandaDe(id));
+    expect(ex.liberado).toBe(false);
+    const p = Object.fromEntries(avaliarPadroes(ex).map((x) => [x.letra, x.produto]));
+    expect(Object.values(p).some((x) => x.situacao === 'FALHOU')).toBe(false);
+    for (const letra of ['A', 'B', 'C', 'E']) {
+      expect(p[letra].situacao).toBe('NÃO EXERCIDO NESTA EXECUÇÃO');
+      expect(p[letra].justificativa).toContain('fluxo bloqueado pelo gate em extrair-documento: ');
+      expect(p[letra].justificativa).toContain('sem documento fictício vinculado');
+      expect(p[letra].justificativa).toContain('DEM-FIC-0001');
+    }
+    expect(p.F.situacao).toBe('DEMONSTRADO');
+    expect(p.F.justificativa).toContain('BLOQUEOU');
+    expect(p.D.situacao).toBe('NÃO DEMONSTRADO');
+  });
+
+  it('demanda não fictícia: bloqueio esperado, também sem FALHOU', () => {
+    const ex = executarFluxoPadrao(habilidades, agentes, new Set(), { ...demandaDe('DEM-FIC-0001'), ficticio: false } as never);
+    expect(avaliarPadroes(ex).some((x) => x.produto.situacao === 'FALHOU')).toBe(false);
+  });
+
+  it('exceção forçada numa habilidade gera FALHOU (não é bloqueio esperado)', () => {
+    const comExcecao = habilidades.map((h) =>
+      h.contrato.id === 'extrair-documento' ? { ...h, executar: () => { throw new Error('exceção forçada'); } } : h,
+    ) as typeof habilidades;
+    const ex = executarFluxoPadrao(comExcecao, agentes);
+    expect(ex.etapas.some((e) => e.estado === 'FALHA' && e.detalhe.startsWith('exceção:'))).toBe(true);
+    const p = Object.fromEntries(avaliarPadroes(ex).map((x) => [x.letra, x.produto.situacao]));
+    expect(p.A).toBe('FALHOU');
+    expect(Object.values(p)).not.toContain('NÃO EXERCIDO NESTA EXECUÇÃO');
+  });
+
+  it('com demanda que libera, os padrões seguem DEMONSTRADO (exceto D)', () => {
+    const p = Object.fromEntries(avaliarPadroes(executarFluxoPadrao(habilidades, agentes)).map((x) => [x.letra, x.produto.situacao]));
+    expect(p).toEqual({ A: 'DEMONSTRADO', B: 'DEMONSTRADO', C: 'DEMONSTRADO', D: 'NÃO DEMONSTRADO', E: 'DEMONSTRADO', F: 'DEMONSTRADO' });
   });
 });

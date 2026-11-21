@@ -70,4 +70,35 @@ describe('tela Saúde do sistema', () => {
     expect(screen.getAllByTestId('entrada-do-fluxo')[0]).toHaveTextContent('documento nenhum');
     expect(screen.getAllByText('bloqueou').length).toBeGreaterThan(0);
   });
+
+  it('fluxo bloqueado pelo gate não é falha do sistema: Estado geral e Última verificação seguem OK', () => {
+    render(<SaudeDoSistema />);
+    fireEvent.change(screen.getByLabelText(/Demanda fictícia do fluxo/), { target: { value: 'DEM-FIC-0002' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    const resultado = screen.getByTestId('resultado-do-fluxo');
+    expect(resultado).toHaveTextContent('Fluxo DEM-FIC-0002: bloqueado pelo gate (falha em extrair-documento');
+    expect(resultado).toHaveTextContent('BLOQUEADO');
+    expect(resultado).not.toHaveTextContent('FALHA');
+    expect(screen.getByTestId('estado-geral')).toHaveTextContent('OK');
+    expect(screen.getByTestId('estado-geral')).not.toHaveTextContent('FALHA');
+    const verificacao = screen.getByText(/habilidades OK/);
+    expect(verificacao).toHaveTextContent('0 com falha');
+    expect(verificacao).toHaveTextContent('OK');
+    expect(verificacao).not.toHaveTextContent('FALHA');
+  });
+
+  it('padrões A–F com demanda bloqueada: "não exercido" em tom neutro, sem FALHOU na coluna do produto', () => {
+    render(<SaudeDoSistema />);
+    fireEvent.change(screen.getByLabelText(/Demanda fictícia do fluxo/), { target: { value: 'DEM-FIC-0004' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    expect(screen.getAllByText(/NÃO EXERCIDO NESTA EXECUÇÃO/).length).toBe(4);
+    expect(screen.queryByText(/FALHOU/)).not.toBeInTheDocument();
+  });
+
+  it('fluxo liberado aparece com o selo LIBERADO', () => {
+    render(<SaudeDoSistema />);
+    fireEvent.click(screen.getByRole('button', { name: 'Executar verificação' }));
+    expect(screen.getByTestId('resultado-do-fluxo')).toHaveTextContent('Fluxo DEM-FIC-0001: liberado pelo gate');
+    expect(screen.getByTestId('resultado-do-fluxo')).toHaveTextContent('LIBERADO');
+  });
 });

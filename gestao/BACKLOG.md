@@ -1,8 +1,21 @@
 # BACKLOG — GUARÁ
 
-**Atualizado em:** 14/11/2026. A situação de cada entrega fica em `STATUS.md`; aqui fica só o que falta fazer, em ordem.
+**Atualizado em:** 20/11/2026. A situação de cada entrega fica em `STATUS.md`; aqui fica só o que falta fazer, em ordem.
 
 ## Próxima sessão (em ordem)
+
+**Pendências de 20/11/2026 (recomendações do relatório de formação), antes dos itens abaixo:**
+
+- **PR #8 `operacoes-campo` → `main`, merge e deploy.** A branch está no GitHub com 6 commits fora da `main` (`09953ae`, `8e6d766`, `3a77fde`, `2429d61`, `c270b24`, `d4ef6fd`; 693/693, build ok). O push e o merge são do responsável (o hook bloqueia o push do Claude). Depois do deploy, comparar `index-*.js` e `index-*.css` da URL com um build local da mesma árvore e registrar em `metodologia/evidencias/2026-11-20-publicacao-recomendacoes.md`.
+- **Conferir na URL, depois do deploy (Firefox):** Saúde do sistema com DEM-FIC-0002 e DEM-FIC-0004 (Estado geral e Última verificação só de habilidades e agentes; cartão "Resultado do fluxo" com BLOQUEADO; padrões A, B, C e E "NÃO EXERCIDO NESTA EXECUÇÃO", sem FALHOU) e a coluna de desenvolvimento A–F (todos DEMONSTRADO, com o caminho da evidência de 19/11).
+- **Roteiro manual na URL pública, o que falta:** teclado, celular, caso válido do assistente com DEM-FIC-0001 aberta e falha de armazenamento (Firefox, `dom.storage.enabled=false`). Já PASSOU em 20/11: cadastro, Kanban, F5, Saúde do sistema 10/10, seletor do fluxo (DEM-FIC-0001 e 0002), assistente (caso negado) e exportação com `origem`.
+- **Decisão sobre dados reais nos testes:** `SEMA-PRO…`, `DUDJUINA` e a planilha no histórico `80de2b7` (seção 12; só o responsável decide).
+- **"Revisor diferente do autor da minuta" aparece ✓ sem minuta** (verdadeiro por vacuidade) no gate de um fluxo bloqueado. Registrado como observação, sem correção; decidir se o gate deve mostrar "não aplicável".
+- **Fluxo de agentes sobre as demandas do localStorage:** hoje roda só sobre demandas fictícias do catálogo (sem documento e com outro formato). Planejado, sem data.
+- **Contrato do MCP:** respostas em `{rastreio, resultado}`; o `arquivo` saiu do corpo de `resumir_demandas`. Quem consome deve ler `resultado`. O aviso de idade da exportação (limite de 24 h) depende de o responsável exportar de novo pela tela Alertas.
+- **CRLF → LF:** o git avisa nos arquivos tocados; sem ação. Decidir se vale um `.gitattributes`.
+
+**Itens anteriores (14/11/2026):**
 
 0. **Banco de dados no Supabase (definido pelo responsável em 14/11/2026, depois da coordenada).** Em branch separada (D10), sem tirar o modo local. Antes de criar conta ou projeto, aceitar termos ou configurar qualquer coisa: pedir autorização, com o serviço, a etapa e o link oficial. A `service_role` nunca vai para o navegador, o repositório ou os logs. Primeiro passo sem custo: desenhar as tabelas e a RLS a partir do modelo do `PLANO.md` e da seção 9 do planejamento, em migrações SQL versionadas no repositório.
 1. **Abrir a tela `/mcp` (P10).** O MCP foi reativado no Node 26 em 14/11/2026 (`2026-11-14-mcp-reativado.md`): teste stdio 4 = 4 e chamadas reais de `resumir_demandas` e `listar_inativas` nesta sessão. Falta só o responsável abrir `/mcp` no terminal e registrar o que aparece.
@@ -74,3 +87,4 @@
 - **Roteiro: listas de A-1 e A-2 (18/11/2026).** Aguarda decisão do responsável: reduzir às opções que ocorrem em MT + "Outra: ____". Hoje o roteiro traz as listas completas do POP.
 - **Lacunas do roteiro: o que ficou de fora (18/11/2026).** Imóvel, área, CAR e etiquetas não entram nas exportações CSV/planilha da SEMA nem na reimportação (só na importação inicial, e só as etiquetas, pela coluna ETIQUETAS); CAR federal e responsável/contato/documento seguem fora (contato de pessoa não é guardado). A etiqueta digitada e não confirmada com "Incluir" se perde ao salvar. A sugestão de B-3 só aparece no cartão (o Formulário B não vai no roteiro).
 - **Croqui do ponto (18/11/2026).** Removido do roteiro de vistoria até existir o módulo de croqui; quando houver, decidir se o roteiro leva o croqui impresso ou um espaço para desenhar.
+- **Lembretes próprios (item 8, registrado em 21/11/2026; NÃO feito).** Armazenamento separado (`guara:lembretes:v1`) com demanda opcional, texto da ação, data e hora; destaque visual com cor própria; aparecem na Agenda; "lembrar" pela conversa passa a criar esse lembrete para qualquer demanda. Motivo: hoje "lembrar" é soneca de aviso (`adiarLembrete`) e some se o aviso deixar de existir; demanda sem aviso não recebe lembrete ("Lembretes livres ainda não existem").

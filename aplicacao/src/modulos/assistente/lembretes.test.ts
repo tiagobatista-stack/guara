@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'vitest';
 import type { Aviso } from './avisos.ts';
 import {
   adiarLembrete, CHAVE_LEMBRETES, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, obterLembretes,
-  opcoesDeAdiamento, separarAvisos, textoDoRetorno, validarLembretes,
+  opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, validarLembretes,
 } from './lembretes.ts';
 
 const aviso = (id: string, tipo: Aviso['tipo'] = 'vencida', status = 'A Fazer'): Aviso =>
@@ -31,16 +31,30 @@ describe('lembretes: regras', () => {
   });
 
   it('opções de adiamento: as próximas 8h e 14h em dia útil, em ordem, com rótulo de hoje, amanhã ou dia da semana', () => {
+    const apos2h = (rotulos: string[]) => ['Em 2 horas', ...rotulos];
     expect(opcoesDeAdiamento(AGORA).map((o) => [o.rotulo, o.ate.toISOString()])).toEqual([
+      ['Em 2 horas', new Date(AGORA.getTime() + 2 * 3_600_000).toISOString()],
       ['Hoje às 14h', new Date(2026, 10, 13, 14).toISOString()],
       ['Segunda às 8h', new Date(2026, 10, 16, 8).toISOString()], // pula sábado e domingo
     ]);
     const quinta = new Date(2026, 10, 12, 15, 30);
-    expect(opcoesDeAdiamento(quinta).map((o) => o.rotulo)).toEqual(['Amanhã às 8h', 'Amanhã às 14h']);
+    expect(opcoesDeAdiamento(quinta).map((o) => o.rotulo)).toEqual(apos2h(['Amanhã às 8h', 'Amanhã às 14h']));
     // Quinta 19/11 à tarde: sexta 20/11 é feriado nacional (Consciência Negra); cai na segunda 23/11.
-    expect(opcoesDeAdiamento(new Date(2026, 10, 19, 15)).map((o) => o.rotulo)).toEqual(['Segunda às 8h', 'Segunda às 14h']);
+    expect(opcoesDeAdiamento(new Date(2026, 10, 19, 15)).map((o) => o.rotulo)).toEqual(['Em 2 horas', 'Segunda às 8h', 'Segunda às 14h']);
     // Feriado local: segunda 16/11 removida pela configuração; cai na terça.
-    expect(opcoesDeAdiamento(AGORA, { extras: ['2026-11-16'] }).map((o) => o.rotulo)).toEqual(['Hoje às 14h', 'Terça às 8h']);
+    expect(opcoesDeAdiamento(AGORA, { extras: ['2026-11-16'] }).map((o) => o.rotulo)).toEqual(['Em 2 horas', 'Hoje às 14h', 'Terça às 8h']);
+  });
+
+  it('silenciar: some até "mostrar de novo", mesmo com a situação mudando, e sobrevive à limpeza', () => {
+    silenciarDemanda(aviso('D1'), AGORA);
+    const mudou = { ...aviso('D1'), situacao: 'outra' };
+    const sep = separarAvisos([mudou], obterLembretes(), new Date(2027, 0, 1));
+    expect(sep.visiveis).toHaveLength(0);
+    expect(sep.ocultos[0]).toMatchObject({ motivo: 'silenciado' });
+    limparLembretesSemAviso([]);
+    expect(obterLembretes().D1?.silenciada).toBe(true);
+    mostrarDeNovo('D1');
+    expect(obterLembretes().D1).toBeUndefined();
   });
 
   it('texto do retorno: hoje, amanhã ou a data', () => {

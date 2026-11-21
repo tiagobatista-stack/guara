@@ -1,10 +1,25 @@
 import { fireEvent, render, screen, within } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { CHAVE_MASCOTE, escolherPrincipal, obterPreferencias } from '../../compartilhado/preferencias-mascote.ts';
+import { CHAVE_LIMITE_AVISOS, LIMITE_AVISOS_PADRAO, obterLimiteDeAvisos } from '../assistente/preferencias-avisos.ts';
 import { PainelAssistente } from '../assistente/PainelAssistente.tsx';
 import { Configuracoes } from './Configuracoes.tsx';
 
 beforeEach(() => localStorage.clear());
+
+describe('Configurações: avisos do assistente', () => {
+  it('o limite começa em 5, grava a escolha e ignora valor inválido guardado', () => {
+    const { unmount } = render(<Configuracoes />);
+    const seletor = screen.getByRole('combobox', { name: /Avisos listados de uma vez/ });
+    expect(seletor).toHaveValue('5');
+    fireEvent.change(seletor, { target: { value: '8' } });
+    expect(localStorage.getItem(CHAVE_LIMITE_AVISOS)).toBe('8');
+    expect(obterLimiteDeAvisos()).toBe(8);
+    unmount();
+    localStorage.setItem(CHAVE_LIMITE_AVISOS, '999');
+    expect(obterLimiteDeAvisos()).toBe(LIMITE_AVISOS_PADRAO);
+  });
+});
 
 describe('Configurações: mascotes', () => {
   it('mostra os três mascotes, com a capivara como principal e os campos de nome vazios', () => {
@@ -36,7 +51,9 @@ describe('Configurações: mascotes', () => {
         <PainelAssistente />
       </>,
     );
-    expect(screen.queryByRole('combobox')).toBeNull();
+    // O único seletor da tela é o limite de avisos (Configurações); o painel não tem seletor de mascote.
+    expect(screen.getAllByRole('combobox')).toHaveLength(1);
+    expect(screen.getByRole('combobox', { name: /Avisos listados de uma vez/ })).toBeInTheDocument();
     expect(screen.getByTestId('nome-do-mascote')).toHaveTextContent('Capivara');
 
     fireEvent.click(within(screen.getByTestId('mascote-lobo-guara')).getByRole('radio'));
