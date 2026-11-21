@@ -356,6 +356,13 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .fala .mensagem { flex: 1; min-width: 0; margin-right: 0; }
 .avisos-assistente { display: grid; gap: 8px; }
 .titulo-notificacoes { margin: 0; font-size: 14px; }
+.fila-do-dia { display: grid; gap: 8px; margin: 8px 0; }
+.fila-item { padding: 8px; border-radius: 8px; background: var(--superficie-2); }
+.fila-item summary { cursor: pointer; }
+.fila-pontos { color: var(--texto-suave); font-size: 12px; }
+.fila-subtitulo { margin: 8px 0 2px; color: var(--texto-suave); }
+.fila-motivos { margin: 0; padding-left: 18px; }
+.fila-item p { margin: 0; }
 .botao-titulo { display: inline-flex; align-items: center; gap: 8px; min-height: 36px; padding: 0; border: 0; background: transparent; color: inherit; font: inherit; cursor: pointer; }
 .botao-titulo .sino-contagem { position: static; }
 .assistente-secao--recolhida { padding-top: 8px; padding-bottom: 8px; }

@@ -88,6 +88,31 @@ describe('painel do assistente: mascote', () => {
     expect(inferencia).toHaveTextContent('inferência · fonte: ordem dos avisos');
   });
 
+  it('a fila do dia aparece no painel, acima das notificações, com o motivo e a sugestão', () => {
+    montar([entrada('Prazo antigo (fictício)', '2026-11-10')]);
+    const fila = screen.getByRole('region', { name: 'Fila do dia' });
+    expect(fila).toHaveTextContent('Prazo antigo (fictício)');
+    expect(fila).toHaveTextContent('prazo: vencido há 3 dias úteis');
+    expect(fila).toHaveTextContent('Decidir: prorrogar o prazo ou concluir.');
+    expect(fila.compareDocumentPosition(screen.getByRole('region', { name: 'Notificações' })) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it('o comando "prioridades" ordena a fila com motivo, e a próxima ação vem como sugestão', () => {
+    montar([
+      entrada('Vence hoje (fictício)', '2026-11-13'),
+      entrada('Prazo antigo (fictício)', '2026-11-10'),
+    ]);
+    enviar('o que faço primeiro?');
+    const falas = document.querySelectorAll('.conversa li.fala');
+    const [fila, sugestao] = [falas[falas.length - 2], falas[falas.length - 1]];
+    expect(fila).toHaveTextContent('2 demandas pedem atenção');
+    expect(fila).toHaveTextContent('1. DEM-2');
+    expect(fila).toHaveTextContent('prazo: vencido há 3 dias úteis');
+    expect(fila).toHaveTextContent('inferência · fonte: demandas deste navegador');
+    expect(sugestao).toHaveTextContent('Para DEM-2: Decidir: prorrogar o prazo ou concluir.');
+    expect(sugestao).toHaveTextContent('sugestão');
+  });
+
   it('cada natureza de resposta tem sua pose, junto com o selo de texto; inferência deixa o mascote pensativo', () => {
     const { container } = montar();
     enviar('ajuda');
@@ -126,7 +151,7 @@ describe('painel do assistente: mascote', () => {
     const { container } = montar();
     enviar('me ajuda');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
-    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "demanda" e "ajuda".');
+    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda" e "ajuda".');
     expect(fala.querySelector('.mensagem-texto')?.textContent).toContain('\n• prazos — lista as demandas vencidas');
     expect(fala).toHaveTextContent('Os atalhos abaixo enviam esses comandos.');
     expect(within(fala).queryByRole('group', { name: 'Comandos sugeridos' })).toBeNull();

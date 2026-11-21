@@ -3,7 +3,7 @@
 // novo entra aqui e aparece na ajuda sem mais nada. Gatilhos são escritos em português comum;
 // a comparação acontece depois de normalizar os dois lados (`normalizar.ts`).
 
-export type IdIntencao = 'prazos' | 'demanda' | 'ajuda';
+export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda';
 
 export interface Intencao {
   id: IdIntencao;
@@ -32,6 +32,18 @@ export const INTENCOES: readonly Intencao[] = [
       'atrasadas', 'atrasados', 'atrasada', 'atrasado', 'paradas', 'parados', 'parada', 'parado',
       'o que esta vencido', 'o que venceu', 'o que esta atrasado', 'o que esta parado',
       'pendencias', 'urgentes', 'urgencias',
+    ],
+  },
+  {
+    id: 'prioridades',
+    comando: 'prioridades',
+    rotulo: 'O que faço primeiro?',
+    descricao: 'ordena as demandas que pedem atenção, com o motivo e a próxima ação sugerida',
+    exemplo: 'o que faço primeiro?',
+    gatilhos: [
+      'prioridades', 'prioridade', 'priorizar', 'prioriza', 'fila do dia', 'prioridades do dia',
+      'o que faco primeiro', 'o que eu faco primeiro', 'o que fazer primeiro', 'o que fazer hoje',
+      'por onde comeco', 'por onde eu comeco', 'o que priorizar', 'o que e mais urgente',
     ],
   },
   {

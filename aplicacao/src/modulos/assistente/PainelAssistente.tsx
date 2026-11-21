@@ -13,6 +13,9 @@ import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
 import { respostaDeAjuda } from './ajuda.ts';
+import { respostaDePrioridades } from './respostaPrioridades.ts';
+import { FilaDoDia } from './FilaDoDia.tsx';
+import { priorizarDemandas } from './priorizar.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
@@ -24,7 +27,7 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: () => Mensagem[]): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: () => Mensagem[], prioridades: () => Mensagem[]): Mensagem[] {
   // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
   // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
   const intencao = classificar(comando)?.id;
@@ -43,13 +46,14 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
       },
     ];
   }
+  if (intencao === 'prioridades') return prioridades();
   if (intencao === 'demanda') return sobreDemanda();
   if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
-    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos", "demanda" ou "ajuda".',
+    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos", "prioridades", "demanda" ou "ajuda".',
     acoes: [{ rotulo: 'Ver o que eu sei fazer', comando: 'ajuda' }],
   }];
 }
@@ -64,6 +68,7 @@ const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote>
 // Comandos oferecidos como atalho abaixo da conversa: rótulo em linguagem de gente, comando por trás.
 const ATALHOS: readonly { rotulo: string; comando: string }[] = [
   { rotulo: 'Ver prazos', comando: 'prazos' },
+  { rotulo: 'O que faço primeiro?', comando: 'prioridades' },
   { rotulo: 'Sobre a demanda aberta', comando: 'demanda' },
   { rotulo: 'O que você faz?', comando: 'ajuda' },
 ];
@@ -173,7 +178,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     if (!comando.trim()) return;
     const origemDoComando = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
     const sobreDemanda = () => respostaSobreDemanda(emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda)]);
+    const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda, prioridades)]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -187,6 +193,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const { demandas, diasInatividade } = useEstadoDemandas();
   const ajusteDoDia = useAjusteFeriados(instante);
   const { todos, visiveis: avisos, ocultos } = useAvisosVisiveis(instante);
+  const fila = priorizarDemandas(demandas, instante, diasInatividade, ajusteDoDia);
   const origem = `fato · fonte: demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
   const humor = humorDoPainel(mensagens, avisos);
   const [mostrandoOcultos, setMostrandoOcultos] = useState(false);
@@ -213,6 +220,11 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
           <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](avisos, ocultos.length)}</p>
         </div>
       </div>
+
+      <section aria-label="Fila do dia" className="assistente-secao">
+        <h2 className="titulo-notificacoes"><strong>Fila do dia</strong></h2>
+        <FilaDoDia itens={fila} origem={`demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`} />
+      </section>
 
       <section aria-label="Notificações" className={recolhidas ? 'assistente-secao assistente-secao--recolhida' : 'assistente-secao'}>
         <h2 className="titulo-notificacoes">

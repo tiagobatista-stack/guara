@@ -1,6 +1,8 @@
 // Avisos do assistente a partir das demandas deste navegador (etapa 4 do plano dos mascotes).
 // Mesmas regras das outras telas: vencida como no Dashboard, dias úteis com os feriados locais
-// e inatividade pelo limiar gravado. Cada demanda gera no máximo um aviso, o mais urgente.
+// e inatividade pelo limiar gravado. Cada demanda gera no máximo um aviso (passo 4, 21/11/2026): o tipo
+// é o do sinal mais urgente, e o texto junta os demais (vencida e parada: "vencido há 3 dias úteis;
+// parada há 5 dias"), em vez de esconder o menos urgente.
 
 import type { Demanda } from '../demandas/modelo.ts';
 import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
@@ -26,16 +28,26 @@ export function avisosDoDia(demandas: readonly Demanda[], agora: Date, limiarDia
   for (const d of demandas) {
     if (d.status === 'Concluída') continue;
     const prazo = situacaoDaDemanda(d, agora, ajuste);
-    const novo = (tipo: TipoAviso, texto: string, chave: number) =>
-      avisos.push({ tipo, id: d.id, texto, chave, situacao: `${tipo}|${d.status}` });
+    // Sinais da demanda, do mais urgente para o menos; o prazo e a parada podem valer ao mesmo tempo.
+    const sinais: { tipo: TipoAviso; texto: string; chave: number }[] = [];
     if (prazo?.vencido) {
-      novo('vencida', `${d.titulo}: ${prazo.texto}.`, prazo.diasUteis);
+      sinais.push({ tipo: 'vencida', texto: prazo.texto, chave: prazo.diasUteis });
     } else if (prazo && prazo.diasUteis <= DIAS_PRAZO_PROXIMO) {
-      novo('prazo-proximo', `${d.titulo}: ${prazo.texto}.`, prazo.diasUteis);
-    } else if (estaInativa(d, limiarDias, agora)) {
-      const dias = diasParado(d, agora);
-      novo('parada', `${d.titulo}: parada há ${dias} dia(s) sem ação relevante.`, -dias);
+      sinais.push({ tipo: 'prazo-proximo', texto: prazo.texto, chave: prazo.diasUteis });
     }
+    if (estaInativa(d, limiarDias, agora)) {
+      const dias = diasParado(d, agora);
+      sinais.push({ tipo: 'parada', texto: `parada há ${dias} dia(s) sem ação relevante`, chave: -dias });
+    }
+    if (sinais.length === 0) continue;
+    avisos.push({
+      tipo: sinais[0].tipo,
+      id: d.id,
+      texto: `${d.titulo}: ${sinais.map((x) => x.texto).join('; ')}.`,
+      chave: sinais[0].chave,
+      // Um sinal novo (ex.: a demanda ficou parada) muda a situação e faz o "ciente" deixar de valer.
+      situacao: `${sinais.map((x) => x.tipo).join('+')}|${d.status}`,
+    });
   }
   // Mais urgente primeiro: vencidas há mais tempo, prazos mais curtos, paradas há mais tempo.
   return avisos
