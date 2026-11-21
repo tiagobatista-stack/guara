@@ -19,7 +19,7 @@ describe('lembrete pela conversa', () => {
   it('segunda a partir de sábado: grava via adiarLembrete e confirma com data e hora absolutas', () => {
     const [m] = pedir('DEM-FIC-0003 lembrar segunda feira', 'DEM-FIC-0003');
     expect(m).toMatchObject({ natureza: 'fato', fonte: 'lembrete criado agora' });
-    expect(m.texto).toContain('Combinado: lembro de DEM-FIC-0003 na segunda, 23/11/2026, às 8h.');
+    expect(m.texto).toContain('Tirei o aviso de DEM-FIC-0003 da lista; ele volta na segunda, 23/11/2026, às 8h, se a demanda ainda estiver atrasada ou parada.');
     expect(new Date(obterLembretes()['DEM-FIC-0003']!.adiadoAte!)).toEqual(new Date(2026, 10, 23, 8));
   });
 
@@ -44,7 +44,7 @@ describe('lembrete pela conversa', () => {
   it('id inexistente, sem id, sem aviso e silenciada não gravam nada', () => {
     expect(pedir('lembrar amanhã', 'DEM-FIC-0099')[0].texto).toContain('Não encontrei DEM-FIC-0099');
     expect(pedir('lembrar amanhã', null)[0].natureza).toBe('sugestão');
-    expect(pedir('lembrar amanhã', 'DEM-FIC-0004')[0].texto).toContain('não tem aviso hoje');
+    expect(pedir('lembrar amanhã', 'DEM-FIC-0004')[0].texto).toContain('Lembretes livres ainda não existem');
     silenciarDemanda(avisos[0], SABADO);
     expect(pedir('lembrar amanhã', 'DEM-FIC-0003')[0].texto).toContain('silenciada');
     expect(obterLembretes()['DEM-FIC-0003']!.adiadoAte).toBeUndefined();

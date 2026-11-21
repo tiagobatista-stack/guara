@@ -16,6 +16,14 @@ export function extrairIds(texto: string): string[] {
   return ids;
 }
 
+/** Palavras que, junto do código, ainda são só "fala dela": não mudam o pedido de resumo. */
+const PALAVRAS_DE_APOIO = new Set(['me', 'fala', 'falar', 'da', 'de', 'do', 'sobre', 'a', 'o', 'e', 'resumo', 'detalhe', 'detalhes', 'situacao', 'status', 'como', 'esta', 'qual', 'demanda', 'mostra', 'mostrar', 'ver', 'quero', 'pode', 'voce']);
+
+/** O que sobra da frase sem o código e sem palavras de apoio ("DEM-FIC-0001 xyz" → ["xyz"]). Vazio = só o código. */
+export function restoDaFrase(texto: string): string[] {
+  return palavras(texto.replace(PADRAO_ID, ' ')).filter((p) => !PALAVRAS_DE_APOIO.has(p));
+}
+
 // ---------- "Quando" de um lembrete ----------
 
 

@@ -12,7 +12,8 @@ import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
-import { extrairIds } from './extrair.ts';
+import { extrairIds, restoDaFrase } from './extrair.ts';
+import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
 import { respostaDeProrrogar } from './prorrogar.ts';
 import { respostaDeLembrete } from './lembrarPelaConversa.ts';
 import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
@@ -57,14 +58,28 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
   if (intencao === 'lembrete') return lembrete(idDaFrase ?? null);
   if (intencao === 'prorrogar') return prorrogar(idDaFrase ?? null);
   if (intencao === 'demanda') return sobreDemanda(idDaFrase);
-  if (!intencao && idDaFrase) return sobreDemanda(idDaFrase);
+  if (!intencao && idDaFrase) {
+    // Só o código (ou o código com "fala dela"): resumo. Com outra coisa, diz o que reconheceu.
+    if (restoDaFrase(comando).length === 0) return sobreDemanda(idDaFrase);
+    return [{
+      autor: 'assistente',
+      natureza: 'sugestão',
+      fonte: 'regra de comando não reconhecido',
+      texto: `Reconheci ${idDaFrase}, mas não entendi o restante. Para essa demanda posso: resumo, lembrete, abrir para prorrogar.`,
+      acoes: [
+        { rotulo: `Resumo de ${idDaFrase}`, comando: idDaFrase },
+        { rotulo: 'Lembrar', comando: `lembrar ${idDaFrase}` },
+        { rotulo: 'Abrir demanda', comando: `abrir ${idDaFrase}`, rota: rotaParaAbrirDemanda(idDaFrase) },
+      ],
+    }];
+  }
   if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
   if (intencao === 'cumprimento') return [respostaDeCumprimento()];
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
-    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos", "prioridades", "demanda" ou "ajuda".',
+    texto: 'Ainda não entendi essa frase (o MVP não usa IA). Experimente "prazos", "prioridades", "demanda" ou "ajuda".',
     acoes: [{ rotulo: 'Ver o que eu sei fazer', comando: 'ajuda' }],
   }];
 }

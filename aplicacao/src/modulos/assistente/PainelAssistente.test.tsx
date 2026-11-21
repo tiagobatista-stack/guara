@@ -142,7 +142,7 @@ describe('painel do assistente: mascote', () => {
     const ultima = rolar.mock.contexts.at(-1) as Element;
     expect(ultima).toHaveTextContent('Comandos disponíveis: "prazos"');
     enviar('xyz');
-    expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendo linguagem livre');
+    expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendi essa frase');
     expect(rolar).toHaveBeenLastCalledWith({ block: 'nearest' });
     delete (Element.prototype as Partial<Element>).scrollIntoView;
   });
@@ -168,7 +168,7 @@ describe('painel do assistente: mascote', () => {
     const { container } = montar();
     enviar('xyz');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
-    expect(fala).toHaveTextContent('Ainda não entendo linguagem livre');
+    expect(fala).toHaveTextContent('Ainda não entendi essa frase');
     fireEvent.click(within(fala).getByRole('button', { name: 'Ver o que eu sei fazer' }));
     expect(container.querySelectorAll('.conversa li.fala')[2]).toHaveTextContent('Comandos disponíveis');
   });
@@ -320,6 +320,23 @@ describe('painel do assistente: mascote', () => {
       expect(screen.getAllByText(/DEM-FIC-0002 · Outra demanda fictícia/)).toHaveLength(i + 1);
     });
     expect(screen.queryByText(/Ainda não entendo/)).toBeNull();
+  });
+
+  it('código com verbo desconhecido: diz o que reconheceu e oferece resumo, lembrar e abrir demanda', () => {
+    const { container } = montar([entrada('Revisar parecer FIC-0001', '2026-11-13')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    enviar('DEM-FIC-0001 xyz');
+    const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+    expect(fala).toHaveTextContent('Reconheci DEM-FIC-0001, mas não entendi o restante. Para essa demanda posso: resumo, lembrete, abrir para prorrogar.');
+    expect(within(fala).getAllByRole('button').map((b) => b.textContent)).toEqual(['Resumo de DEM-FIC-0001', 'Lembrar', 'Abrir demanda']);
+  });
+
+  it('"Abrir demanda" navega para a rota com o parâmetro', () => {
+    montar([entrada('Revisar parecer FIC-0001', '2026-11-13')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    enviar('prorrogar DEM-FIC-0001');
+    const botao = screen.getByRole('button', { name: 'Abrir demanda DEM-FIC-0001, no campo Prazo' });
+    fireEvent.click(botao);
+    expect(window.location.hash).toBe('#/demandas?abrir=DEM-FIC-0001&campo=prazo');
+    window.location.hash = '';
   });
 
   it('código inexistente: diz que não encontrou, sem inventar', () => {

@@ -48,7 +48,7 @@ export function respostaDeLembrete(
   if (!demandas.some((d) => d.id === id)) return nao(`Não encontrei ${id} nas demandas deste navegador. Nada foi gravado.`, origem);
   const aviso = avisos.find((a) => a.id === id);
   if (!aviso) {
-    return nao(`${id} não tem aviso hoje (sem prazo vencido ou próximo e sem parada). O lembrete adia um aviso que já existe, então nada foi gravado.`, origem);
+    return nao(`${id} não tem aviso hoje. Por enquanto só consigo adiar avisos de demandas atrasadas ou paradas. Lembretes livres ainda não existem. Nada foi gravado.`, origem);
   }
   if (obterLembretes()[id]?.silenciada) {
     return nao(`${id} está silenciada no painel. Use "Mostrar de novo" nas notificações antes de combinar um lembrete. Nada foi gravado.`, 'lembretes deste navegador');
@@ -70,6 +70,6 @@ export function respostaDeLembrete(
     autor: 'assistente',
     natureza: 'fato',
     fonte: 'lembrete criado agora',
-    texto: `Combinado: lembro de ${id} ${descreverQuando(quando.ate, agora)}. Até lá o aviso fica escondido no assistente; Dashboard e Alertas continuam mostrando a situação real.`,
+    texto: `Tirei o aviso de ${id} da lista; ele volta ${descreverQuando(quando.ate, agora)}, se a demanda ainda estiver atrasada ou parada. Dashboard e Alertas continuam mostrando a situação real.`,
   }];
 }
