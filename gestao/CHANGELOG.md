@@ -4,6 +4,7 @@
 
 ### Adicionado
 
+- Compromissos e lembretes próprios (item 14): reunião, palestra, curso, compromisso e lembrete com data, hora opcional, assunto e demanda opcional (`guara:compromissos:v1`). O assistente entende a frase por regras e pede confirmação antes de gravar (Confirmar, Corrigir, Cancelar); aparecem na Agenda e no `.ics`, com formulário para criar, editar e excluir; aviso em destaque às 8h do dia e na hora marcada (Ciente, Concluído, Em 2 horas); comandos "agenda" e "o que tenho hoje". "Lembrar" sem aviso ativo cria lembrete próprio; com aviso ativo continua sendo a soneca. Botões que gravam (Confirmar/Cancelar) executam a ação direto, sem passar pelo classificador de texto (corrige o Confirmar que não gravava). A agenda entra no backup exportado e no "Desfazer última importação". 1034/1034 testes, build ok; telas NÃO CONFERIDAS no navegador.
 - Notificações do assistente com "Ciente" (some até a demanda mudar de situação), adiar para as próximas 8h ou 14h de dia útil (pula fim de semana e feriado), lista dos ocultos com "Mostrar de novo" e seção recolhível para ficar só a conversa (`guara:avisos:v1`). As outras telas não mudam. 318/318 testes.
 - Configurações avisam quando o navegador não deixa gravar as preferências do mascote (armazenamento bloqueado, cheio ou modo privado): as mudanças valem só até fechar a página. 319/319 testes.
 - Testes da navegação até Configurações pelo menu lateral e pelo "Mais" do celular. 321/321 testes.

@@ -89,6 +89,60 @@ export function validarCompromissos(x: unknown): Compromisso[] {
 }
 
 const lista = criarListaLocal<Compromisso>(CHAVE_COMPROMISSOS, () => [], validarCompromissos);
+export const CHAVE_BACKUP_COMPROMISSOS = 'guara:compromissos:backup-antes-importacao:v1';
+
+/** Importação de arquivo: só aceita a lista inteira válida (nada é descartado em silêncio). */
+export function compromissosImportaveis(x: unknown): { ok: true; lista: Compromisso[] } | { ok: false; erro: string } {
+  if (!Array.isArray(x)) return { ok: false, erro: 'A lista de compromissos do arquivo não é uma lista.' };
+  if (x.length > LIMITES_COMPROMISSO.compromissos) return { ok: false, erro: `Mais de ${LIMITES_COMPROMISSO.compromissos} compromissos.` };
+  const lista = validarCompromissos(x);
+  if (lista.length !== x.length) return { ok: false, erro: 'Há compromisso inválido ou com id repetido no arquivo.' };
+  return { ok: true, lista };
+}
+
+/**
+ * Troca a agenda pelos compromissos importados, guardando antes a lista atual para o "Desfazer última importação".
+ * Devolve erro (e não troca nada) se o navegador não deixar gravar.
+ */
+export function substituirCompromissos(novos: Compromisso[], agoraIso: string): { ok: true } | { ok: false; erro: string } {
+  const antes = lista.obter();
+  try {
+    window.localStorage.setItem(CHAVE_BACKUP_COMPROMISSOS, JSON.stringify({ salvoEm: agoraIso, compromissos: antes }));
+  } catch {
+    return { ok: false, erro: 'O navegador não deixou guardar a agenda atual; os compromissos não foram importados.' };
+  }
+  lista.gravar(novos);
+  if (lista.soNaMemoria()) {
+    lista.gravar(antes);
+    return { ok: false, erro: 'O navegador recusou gravar os compromissos; a agenda anterior foi mantida.' };
+  }
+  return { ok: true };
+}
+
+/** Arquivo sem compromissos não mexe na agenda; o backup antigo deixa de valer para não restaurar uma lista velha. */
+export function descartarBackupDeCompromissos() {
+  try { window.localStorage.removeItem(CHAVE_BACKUP_COMPROMISSOS); } catch { /* sem armazenamento: nada a descartar */ }
+}
+
+/** Desfaz a última importação da agenda. 'sem-backup' = a importação não trouxe compromissos (nada a restaurar). */
+export function restaurarCompromissos(): 'restaurado' | 'sem-backup' | 'erro' {
+  let bruto: string | null;
+  try { bruto = window.localStorage.getItem(CHAVE_BACKUP_COMPROMISSOS); } catch { return 'erro'; }
+  if (bruto === null) return 'sem-backup';
+  let anterior: Compromisso[];
+  try {
+    const b = JSON.parse(bruto) as { compromissos?: unknown };
+    const r = compromissosImportaveis(b.compromissos);
+    if (!r.ok) return 'erro';
+    anterior = r.lista;
+  } catch { return 'erro'; }
+  const atual = lista.obter();
+  lista.gravar(anterior);
+  if (lista.soNaMemoria()) { lista.gravar(atual); return 'erro'; }
+  descartarBackupDeCompromissos();
+  return 'restaurado';
+}
+
 export const obterCompromissos = lista.obter;
 export const useCompromissos = lista.useLista;
 export const useCompromissosSoNaMemoria = lista.useSoNaMemoria;
