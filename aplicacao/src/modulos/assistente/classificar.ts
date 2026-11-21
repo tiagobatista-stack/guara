@@ -29,6 +29,10 @@ export function classificar(texto: string): Intencao | null {
   const frase = palavras(texto);
   // Só um "?" (ou "??"): a pessoa está perguntando o que pode fazer.
   if (frase.length === 0) return /\?/.test(texto) ? (INTENCOES.find((i) => i.id === 'ajuda') ?? null) : null;
+  // Frase que COMEÇA com buscar/procurar/achar/cadê é uma busca, mesmo que o termo seja outro gatilho
+  // ("buscar parada" procura "parada" nas demandas; não pede a lista de prazos).
+  const busca = INTENCOES.find((i) => i.id === 'buscar');
+  if (busca && busca.gatilhos.some((g) => palavras(g)[0] === frase[0])) return busca;
   let melhor: { intencao: Intencao; tamanho: number; social: boolean } | null = null;
   for (const g of GATILHOS) {
     if (!contem(frase, g.palavras)) continue;

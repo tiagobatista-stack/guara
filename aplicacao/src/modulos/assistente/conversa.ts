@@ -47,7 +47,7 @@ function validarMensagem(x: unknown): Mensagem | null {
       const { rotulo, comando, rota } = a as Record<string, unknown>;
       if (typeof rotulo !== 'string' || !rotulo.trim() || typeof comando !== 'string' || !comando.trim()) return [];
       const acao: AcaoDaFala = { rotulo: rotulo.slice(0, TAMANHO_MAXIMO_ROTULO), comando: comando.slice(0, TAMANHO_MAXIMO_ROTULO) };
-      if (typeof rota === 'string' && /^#\/demandas(\?abrir=DEM-FIC-\d{4}&campo=prazo)?$/.test(rota)) acao.rota = rota;
+      if (typeof rota === 'string' && /^#\/demandas(\?abrir=DEM-FIC-\d{4}&campo=prazo|\?texto=[A-Za-z0-9\-_.!~*'()%]{1,600})?$/.test(rota)) acao.rota = rota;
       return [acao];
     }).slice(0, MAXIMO_DE_ACOES);
     if (acoes.length) m.acoes = acoes;

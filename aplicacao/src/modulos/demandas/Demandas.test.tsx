@@ -549,3 +549,20 @@ describe('tela Demandas: rota "abrir" (botão do assistente)', () => {
     expect(screen.queryByRole('heading', { name: 'Editar demanda' })).toBeNull();
   });
 });
+
+describe('tela Demandas: rota "texto" (botão "Ver todos em Demandas" da busca)', () => {
+  afterEach(() => { window.location.hash = ''; });
+
+  it('abre a lista com o termo no campo de pesquisa, filtra e limpa o endereço', () => {
+    const armazem = criarArmazem(localStorage, { gerarId: () => `id-${Math.random()}`, exemplos: () => [] });
+    const base = { descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer' } as const;
+    armazem.criar({ ...base, titulo: 'Renovação de licença fictícia' } as never);
+    armazem.criar({ ...base, titulo: 'Parecer do embargo fictício' } as never);
+    window.location.hash = '#/demandas?texto=licen%C3%A7a';
+    render(<ContextoArmazem.Provider value={armazem}><Demandas /></ContextoArmazem.Provider>);
+    expect(screen.getByPlaceholderText('Título, descrição ou número')).toHaveValue('licença');
+    expect(screen.getByText('Renovação de licença fictícia')).toBeInTheDocument();
+    expect(screen.queryByText('Parecer do embargo fictício')).toBeNull();
+    expect(window.location.hash).toBe('#/demandas');
+  });
+});

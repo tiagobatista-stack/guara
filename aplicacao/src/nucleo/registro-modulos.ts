@@ -48,3 +48,8 @@ export function rotaParaAbrirDemanda(id: string, campo: 'prazo' = 'prazo'): stri
 export function rotaDaTelaDemandas(): string {
   return '#/demandas';
 }
+
+/** Rota da lista de Demandas já com o termo no campo de pesquisa ("#/demandas?texto=licen%C3%A7a"). */
+export function rotaParaBuscarDemandas(texto: string): string {
+  return `#/demandas?texto=${encodeURIComponent(texto)}`;
+}

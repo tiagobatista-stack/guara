@@ -12,8 +12,9 @@ import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
-import { extrairIds, restoDaFrase } from './extrair.ts';
+import { extrairIds, extrairTermoDeBusca, restoDaFrase } from './extrair.ts';
 import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
+import { respostaDeBusca } from './buscarPelaConversa.ts';
 import { respostaDeProrrogar } from './prorrogar.ts';
 import { respostaDeLembrete } from './lembrarPelaConversa.ts';
 import { BOTOES_DE_ABERTURA, comBotoes, type ContextoDaResposta } from './botoes.ts';
@@ -33,7 +34,7 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[]): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[], buscar: (termo: string | null) => Mensagem[]): Mensagem[] {
   // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
   // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
   const intencao = classificar(comando)?.id;
@@ -58,6 +59,12 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
   if (intencao === 'prioridades') return prioridades();
   if (intencao === 'lembrete') return lembrete(idDaFrase ?? null);
   if (intencao === 'prorrogar') return prorrogar(idDaFrase ?? null);
+  if (intencao === 'buscar') {
+    const termo = extrairTermoDeBusca(comando);
+    // "cadê DEM-FIC-0002": só o código, sem outra palavra, vira o resumo daquela demanda.
+    if (idDaFrase && restoDaFrase(termo ?? '').length === 0) return sobreDemanda(idDaFrase);
+    return buscar(termo);
+  }
   if (intencao === 'demanda') return sobreDemanda(idDaFrase);
   if (!intencao && idDaFrase) {
     // Só o código (ou o código com "fala dela"): resumo. Com outra coisa, diz o que reconheceu.
@@ -196,16 +203,18 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     const sobreDemanda = (idDaFrase?: string) => respostaSobreDemanda(idDaFrase ?? emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando, Boolean(idDaFrase));
     const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
     const prorrogar = (idDaFrase: string | null) => respostaDeProrrogar(idDaFrase ?? emFoco, demandas, origemDoComando);
+    const buscar = (termo: string | null) => respostaDeBusca(termo, demandas);
     const lembrete = (idDaFrase: string | null) => respostaDeLembrete(comando, idDaFrase ?? emFoco, todos, demandas, instante, ajusteDoDia, origemDoComando);
+    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar, buscar);
     const intencao = classificar(comando)?.id;
     const temId = extrairIds(comando).length > 0;
     const contexto: ContextoDaResposta =
       intencao === 'cumprimento' ? 'inicio'
         : intencao === 'prazos' || intencao === 'prioridades' ? 'lista'
         : intencao === 'ajuda' ? 'ajuda'
+        : intencao === 'buscar' && !resposta[resposta.length - 1].acoes?.length && !temId ? 'nao-entendi'
         : !intencao && !temId ? 'nao-entendi'
         : 'outro';
-    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar);
     // Toda resposta termina com 2 a 4 botões coerentes com o contexto (não há mais fileira fixa de atalhos).
     const comandoDado = intencao === 'prazos' || intencao === 'prioridades' || intencao === 'ajuda' || intencao === 'demanda' ? intencao : undefined;
     acrescentarFalas([{ autor: 'usuario', texto: comando }, ...comBotoes(resposta, contexto, Boolean(emFoco), comandoDado)]);

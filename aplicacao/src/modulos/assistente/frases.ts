@@ -3,7 +3,7 @@
 // novo entra aqui e aparece na ajuda sem mais nada. Gatilhos são escritos em português comum;
 // a comparação acontece depois de normalizar os dois lados (`normalizar.ts`).
 
-export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'lembrete' | 'prorrogar' | 'cumprimento';
+export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'lembrete' | 'prorrogar' | 'buscar' | 'cumprimento';
 
 export interface Intencao {
   id: IdIntencao;
@@ -72,6 +72,14 @@ export const INTENCOES: readonly Intencao[] = [
     descricao: 'leva você ao campo Prazo da demanda; a nova data é decisão sua (precisa do código)',
     exemplo: 'prorrogar DEM-FIC-0001',
     gatilhos: ['prorrogar', 'prorroga', 'prorrogue', 'prorrogacao', 'prorrogar prazo', 'estender prazo', 'dilatar prazo'],
+  },
+  {
+    id: 'buscar',
+    comando: 'buscar',
+    rotulo: 'Buscar uma demanda',
+    descricao: 'acha demandas pelo título, pela descrição ou pelo número (precisa de uma palavra)',
+    exemplo: 'cadê a licença de Sinop?',
+    gatilhos: ['buscar', 'procurar', 'procura', 'achar', 'cade'],
   },
   {
     id: 'ajuda',

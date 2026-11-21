@@ -154,11 +154,11 @@ describe('painel do assistente: mascote', () => {
     const { container } = montar();
     enviar('me ajuda');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
-    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar", "prorrogar" e "ajuda".');
+    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar", "prorrogar", "buscar" e "ajuda".');
     expect(fala.querySelector('.mensagem-texto')?.textContent).toContain('\n• prazos — lista as demandas vencidas');
     // "lembrar" não está nos atalhos fixos: só eles ganham botão na resposta.
     expect(fala).toHaveTextContent('Toque num comando abaixo para usá-lo.');
-    expect(within(fala).queryAllByRole('button').map((x) => x.textContent)).toEqual(['Criar um lembrete', 'Prorrogar um prazo', 'O que faço primeiro?', 'Ver prazos']);
+    expect(within(fala).queryAllByRole('button').map((x) => x.textContent)).toEqual(['Criar um lembrete', 'Prorrogar um prazo', 'Buscar uma demanda', 'O que faço primeiro?']);
   });
 
   it('sinônimos chegam ao mesmo comando ("o que tá vencido?" = "prazos")', () => {
@@ -230,6 +230,41 @@ describe('painel do assistente: mascote', () => {
     within(falas[0] as HTMLElement).getAllByRole('button').forEach((b) => expect(b).toHaveAttribute('aria-disabled', 'true'));
     // Última fala: ativa.
     within(falas[total - 1] as HTMLElement).getAllByRole('button').forEach((b) => expect(b).not.toHaveAttribute('aria-disabled'));
+  });
+
+  describe('buscar', () => {
+    const titulos = ['Licença A (fictícia)', 'Licença B (fictícia)', 'Parecer C (fictícia)'].map((t) => entrada(t, '2026-12-20'));
+
+    it('com termo: lista os achados e o botão "Ver todos em Demandas" leva à tela com o termo', () => {
+      const { container } = montar(titulos);
+      enviar('cadê a licença?');
+      const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+      expect(fala).toHaveTextContent("Achei 2 demandas com 'licença'");
+      expect(fala).toHaveTextContent('DEM-1 — Licença A (fictícia) (A Fazer)');
+      expect(fala).toHaveTextContent('fato · fonte: demandas deste navegador · busca por título, descrição ou número');
+      const assign = vi.fn();
+      vi.stubGlobal('location', { ...window.location, assign });
+      fireEvent.click(within(fala).getByRole('button', { name: 'Ver todos em Demandas' }));
+      expect(assign).toHaveBeenCalledWith('#/demandas?texto=licen%C3%A7a');
+      vi.unstubAllGlobals();
+    });
+
+    it('sem termo pergunta o que buscar; sem resultado diz que não achou; os dois oferecem os botões de ajuda', () => {
+      const { container } = montar(titulos);
+      for (const [frase, trecho] of [['buscar', 'O que você quer buscar?'], ['procurar zzz', "Não achei demanda com 'zzz'."]]) {
+        enviar(frase);
+        const falas = container.querySelectorAll('.conversa li.fala');
+        const ultima = falas[falas.length - 1] as HTMLElement;
+        expect(ultima).toHaveTextContent(trecho);
+        expect(within(ultima).getAllByRole('button').map((b) => b.textContent)).toEqual(['Ver prazos', 'O que faço primeiro?', 'O que você faz?']);
+      }
+    });
+
+    it('"cadê DEM-FIC-0001" (só o código) vira o resumo da demanda', () => {
+      const { container } = montar(titulos, (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+      enviar('cadê DEM-FIC-0001');
+      expect(container.querySelectorAll('.conversa li.fala')[1]).not.toHaveTextContent('Achei');
+    });
   });
 
   it('mostra no máximo 5 avisos e indica onde ver os demais', () => {

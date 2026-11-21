@@ -78,3 +78,23 @@ export function extrairQuando(texto: string, agora: Date): Quando {
   }
   return { motivo: 'sem-horario' };
 }
+
+// ---------- Termo de uma busca ----------
+
+const GATILHO_DE_BUSCA = /(?<![\p{L}\p{N}])(?:buscar|procurar|procura|achar|cad[eê])(?![\p{L}\p{N}])/iu;
+const PREENCHIMENTO = /^[\s,:;"'“”‘’]*(?:por|pela|pelo|pelas|pelos|a|o|as|os|um|uma|de|do|da|dos|das|sobre|pra|para|me|com|que|tem|demanda|demandas|processo|favor)(?![\p{L}\p{N}])/iu;
+export const TAMANHO_MAXIMO_DO_TERMO = 80;
+
+/**
+ * Termo que vem depois de "buscar", "procurar", "procura", "achar" ou "cadê", como foi digitado
+ * (acentos e maiúsculas intactos: o filtro da tela Demandas é quem decide como comparar).
+ * "cadê o contrato?" → "contrato". Sem nada depois, devolve null.
+ */
+export function extrairTermoDeBusca(texto: string): string | null {
+  const m = GATILHO_DE_BUSCA.exec(texto);
+  if (!m) return null;
+  let resto = texto.slice(m.index + m[0].length);
+  for (let anterior = ''; anterior !== resto;) { anterior = resto; resto = resto.replace(PREENCHIMENTO, ''); }
+  const termo = resto.replace(/^[\s"'“”‘’]+|[\s?!.,;:"'“”‘’]+$/g, '').replace(/\s+/g, ' ').slice(0, TAMANHO_MAXIMO_DO_TERMO).trim();
+  return termo || null;
+}
