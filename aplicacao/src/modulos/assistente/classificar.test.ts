@@ -53,8 +53,25 @@ describe('classificar: frase → comando', () => {
     expect(classificar(frase)?.id).toBe(esperado);
   });
 
-  it.each(['bom dia', 'oi', '', '   ', 'bloqueio', 'demandas123x', 'reprazos'])('"%s" não é reconhecido (palavra inteira, não pedaço)', (frase) => {
+  it.each(['', '   ', 'bloqueio', 'demandas123x', 'reprazos'])('"%s" não é reconhecido (palavra inteira, não pedaço)', (frase) => {
     expect(classificar(frase)).toBeNull();
+  });
+
+  it.each(['oi', 'olá', 'ola', 'Olá!', 'OLAAA', 'bom dia', 'Bom dia!', 'boa tarde', 'boa noite', 'e aí', 'e ai?', 'eai'])('"%s" é cumprimento', (frase) => {
+    expect(classificar(frase)?.id).toBe('cumprimento');
+  });
+
+  it.each([
+    ['bom dia, prioridades', 'prioridades'],
+    ['oi, o que tá vencido?', 'prazos'],
+    ['boa tarde me ajuda', 'ajuda'],
+    ['ola fala dessa demanda', 'demanda'],
+  ])('comando vence cumprimento, mesmo com o gatilho do cumprimento maior: "%s" → %s', (frase, esperado) => {
+    expect(classificar(frase)?.id).toBe(esperado);
+  });
+
+  it('cumprimento não é comando: não está na tabela da ajuda', () => {
+    expect(INTENCOES.some((i) => i.id === 'cumprimento')).toBe(false);
   });
 
   it('todo comando da tabela é reconhecido pelo próprio nome, pelo exemplo da ajuda e por todos os gatilhos', () => {

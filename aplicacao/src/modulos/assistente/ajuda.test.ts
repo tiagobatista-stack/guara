@@ -1,8 +1,17 @@
 import { describe, expect, it } from 'vitest';
-import { respostaDeAjuda } from './ajuda.ts';
+import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
 import { INTENCOES, type Intencao } from './frases.ts';
 
 const TODOS = INTENCOES.map((i) => i.comando);
+
+describe('resposta do cumprimento', () => {
+  it('é fato do sistema, diz o que sabe fazer e traz os atalhos', () => {
+    const r = respostaDeCumprimento();
+    expect(r).toMatchObject({ natureza: 'fato', fonte: 'sistema' });
+    expect(r.texto).toMatch(/^Olá!/);
+    expect(r.acoes?.map((a) => a.comando)).toEqual(['prioridades', 'prazos', 'ajuda']);
+  });
+});
 
 describe('resposta da ajuda', () => {
   it('lista todos os comandos da tabela, um por linha, com descrição e exemplo', () => {

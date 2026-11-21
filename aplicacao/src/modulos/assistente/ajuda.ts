@@ -19,3 +19,18 @@ export function respostaDeAjuda(comandosDosAtalhos: readonly string[], intencoes
   if (acoes.length) resposta.acoes = acoes;
   return resposta;
 }
+
+/** Cumprimento curto, o que sei fazer em uma linha e os atalhos. Fato do sistema, sem consultar dados. */
+export function respostaDeCumprimento(): Mensagem {
+  return {
+    autor: 'assistente',
+    natureza: 'fato',
+    fonte: 'sistema',
+    texto: 'Olá! Posso mostrar prazos, a fila de prioridades e falar de uma demanda. Escolha um atalho ou digite "ajuda".',
+    acoes: [
+      { rotulo: 'O que faço primeiro?', comando: 'prioridades' },
+      { rotulo: 'Ver prazos', comando: 'prazos' },
+      { rotulo: 'O que você faz?', comando: 'ajuda' },
+    ],
+  };
+}

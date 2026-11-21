@@ -117,7 +117,7 @@ describe('painel do assistente: mascote', () => {
     const { container } = montar();
     enviar('ajuda');
     enviar('prazos');
-    enviar('bom dia');
+    enviar('xyz');
     const poses = [...container.querySelectorAll('.conversa li.fala')].map((fala) => [
       fala.querySelector('svg')!.getAttribute('data-humor'),
       fala.querySelector('.mensagem-meta')?.textContent?.split(' · ')[0] ?? null,
@@ -141,7 +141,7 @@ describe('painel do assistente: mascote', () => {
     enviar('ajuda');
     const ultima = rolar.mock.contexts.at(-1) as Element;
     expect(ultima).toHaveTextContent('Comandos disponíveis: "prazos"');
-    enviar('bom dia');
+    enviar('xyz');
     expect(rolar.mock.contexts.at(-1)).toHaveTextContent('Ainda não entendo linguagem livre');
     expect(rolar).toHaveBeenLastCalledWith({ block: 'nearest' });
     delete (Element.prototype as Partial<Element>).scrollIntoView;
@@ -166,7 +166,7 @@ describe('painel do assistente: mascote', () => {
 
   it('"não entendi" oferece o botão para ver o que o mascote sabe fazer', () => {
     const { container } = montar();
-    enviar('bom dia');
+    enviar('xyz');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
     expect(fala).toHaveTextContent('Ainda não entendo linguagem livre');
     fireEvent.click(within(fala).getByRole('button', { name: 'Ver o que eu sei fazer' }));
@@ -196,7 +196,7 @@ describe('painel do assistente: mascote', () => {
 
   it('comando não reconhecido deixa o mascote curioso; um comando conhecido devolve ao estado dos avisos', () => {
     montar();
-    enviar('bom dia');
+    enviar('xyz');
     expect(screen.getByRole('img', { name: 'Capivara (Pantanal), curioso' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Curioso');
     enviar('ajuda');
@@ -311,6 +311,18 @@ describe('painel do assistente: mascote', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
     expect(obterLembretes()).toEqual({});
+  });
+
+  it('cumprimento: responde "fato · fonte: sistema" com atalhos; "bom dia, prioridades" responde a fila', () => {
+    const { container } = montar();
+    enviar('ola');
+    const falas = container.querySelectorAll('.conversa li.fala');
+    const ultima = falas[falas.length - 1];
+    expect(ultima).toHaveTextContent(/Olá! Posso mostrar prazos/);
+    expect(ultima.querySelector('.mensagem-meta')).toHaveTextContent(/^fato · fonte: sistema/);
+    expect(within(ultima as HTMLElement).getByRole('button', { name: 'O que faço primeiro?' })).toBeInTheDocument();
+    enviar('bom dia, prioridades');
+    expect(screen.getAllByText(/pede(m)? atenção/).length).toBeGreaterThan(0);
   });
 
   it('o comando "prazos" continua listando também os avisos cientes (é um fato, não um lembrete)', () => {

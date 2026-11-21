@@ -1,13 +1,19 @@
 // Classificador de frases do assistente (etapa 1 da conversa, 20/11/2026): sem IA, por regras.
 // Normaliza a frase e procura, na tabela `frases.ts`, o gatilho que aparece nela como sequência
-// de palavras inteiras ("ok" não casa dentro de "bloqueio"). Vence o gatilho mais longo; no
-// empate, a ordem da tabela. Nada reconhecido devolve null, e o painel responde "não entendi".
+// de palavras inteiras ("ok" não casa dentro de "bloqueio").
+// Regra de precedência (21/11/2026):
+//   1. Comando vence cumprimento: "bom dia, prioridades" é prioridades, mesmo com o gatilho
+//      "bom dia" (2 palavras) maior que "prioridades" (1). Cumprimento só vale sozinho.
+//   2. Dentro do mesmo grupo, vence o gatilho mais longo; no empate, a ordem da tabela.
+// Nada reconhecido devolve null, e o painel responde "não entendi".
 
-import { INTENCOES, type Intencao } from './frases.ts';
+import { INTENCOES, INTENCOES_SOCIAIS, type Intencao } from './frases.ts';
 import { palavras } from './normalizar.ts';
 
-const GATILHOS = INTENCOES.flatMap((intencao) =>
-  intencao.gatilhos.map((g) => ({ intencao, palavras: palavras(g) })).filter((g) => g.palavras.length > 0),
+const GATILHOS = [...INTENCOES, ...INTENCOES_SOCIAIS].flatMap((intencao) =>
+  intencao.gatilhos
+    .map((g) => ({ intencao, palavras: palavras(g), social: INTENCOES_SOCIAIS.includes(intencao) }))
+    .filter((g) => g.palavras.length > 0),
 );
 
 /** true se `trecho` aparece em `frase` como sequência de palavras inteiras. */
@@ -23,11 +29,11 @@ export function classificar(texto: string): Intencao | null {
   const frase = palavras(texto);
   // Só um "?" (ou "??"): a pessoa está perguntando o que pode fazer.
   if (frase.length === 0) return /\?/.test(texto) ? (INTENCOES.find((i) => i.id === 'ajuda') ?? null) : null;
-  let melhor: { intencao: Intencao; tamanho: number } | null = null;
+  let melhor: { intencao: Intencao; tamanho: number; social: boolean } | null = null;
   for (const g of GATILHOS) {
-    if (contem(frase, g.palavras) && (!melhor || g.palavras.length > melhor.tamanho)) {
-      melhor = { intencao: g.intencao, tamanho: g.palavras.length };
-    }
+    if (!contem(frase, g.palavras)) continue;
+    const vence = !melhor || (melhor.social && !g.social) || (melhor.social === g.social && g.palavras.length > melhor.tamanho);
+    if (vence) melhor = { intencao: g.intencao, tamanho: g.palavras.length, social: g.social };
   }
   return melhor?.intencao ?? null;
 }

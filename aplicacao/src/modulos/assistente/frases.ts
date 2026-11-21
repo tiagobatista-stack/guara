@@ -3,7 +3,7 @@
 // novo entra aqui e aparece na ajuda sem mais nada. Gatilhos são escritos em português comum;
 // a comparação acontece depois de normalizar os dois lados (`normalizar.ts`).
 
-export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda';
+export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'cumprimento';
 
 export interface Intencao {
   id: IdIntencao;
@@ -68,5 +68,21 @@ export const INTENCOES: readonly Intencao[] = [
       'o que voce faz', 'o que voce sabe fazer', 'o que voce sabe', 'o que posso pedir',
       'o que eu posso pedir', 'como funciona', 'como te uso', 'como usar',
     ],
+  },
+];
+
+/**
+ * Intenções sociais: não são comandos e ficam fora da lista da ajuda. Têm precedência menor que
+ * as de `INTENCOES`: se a frase também pede um comando ("bom dia, prioridades"), o comando vence,
+ * mesmo com gatilho mais curto (regra em `classificar.ts`).
+ */
+export const INTENCOES_SOCIAIS: readonly Intencao[] = [
+  {
+    id: 'cumprimento',
+    comando: 'oi',
+    rotulo: 'Dizer oi',
+    descricao: 'cumprimenta e lembra o que sei fazer',
+    exemplo: 'bom dia',
+    gatilhos: ['oi', 'ola', 'oie', 'e ai', 'eai', 'opa', 'bom dia', 'boa tarde', 'boa noite', 'hello', 'hey'],
   },
 ];

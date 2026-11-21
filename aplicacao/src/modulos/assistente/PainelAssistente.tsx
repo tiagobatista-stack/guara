@@ -12,7 +12,7 @@ import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
-import { respostaDeAjuda } from './ajuda.ts';
+import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
 import { respostaDePrioridades } from './respostaPrioridades.ts';
 import { FilaDoDia } from './FilaDoDia.tsx';
 import { priorizarDemandas } from './priorizar.ts';
@@ -50,6 +50,7 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
   if (intencao === 'prioridades') return prioridades();
   if (intencao === 'demanda') return sobreDemanda();
   if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
+  if (intencao === 'cumprimento') return [respostaDeCumprimento()];
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
