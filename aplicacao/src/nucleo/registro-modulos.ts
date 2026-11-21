@@ -43,3 +43,8 @@ export function parametrosDaRota(hash: string): URLSearchParams {
 export function rotaParaAbrirDemanda(id: string, campo: 'prazo' = 'prazo'): string {
   return `#/demandas?abrir=${encodeURIComponent(id)}&campo=${campo}`;
 }
+
+/** Rota da lista de Demandas, sem abrir nenhuma. */
+export function rotaDaTelaDemandas(): string {
+  return '#/demandas';
+}

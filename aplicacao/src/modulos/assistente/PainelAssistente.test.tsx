@@ -5,6 +5,7 @@ import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import type { EntradaDemanda } from '../demandas/modelo.ts';
 import { PainelAssistente } from './PainelAssistente.tsx';
 import { CHAVE_CONVERSA, limparConversa, MAXIMO_DE_FALAS } from './conversa.ts';
+import { definirDemandaEmFoco } from './demanda-em-foco.ts';
 import { mostrarDeNovo, obterLembretes } from './lembretes.ts';
 
 // Sexta, 13/11/2026.
@@ -149,7 +150,7 @@ describe('painel do assistente: mascote', () => {
     delete (Element.prototype as Partial<Element>).scrollIntoView;
   });
 
-  it('a ajuda entende frases comuns e lista um comando por linha, sem repetir os botões dos atalhos', () => {
+  it('a ajuda entende frases comuns e lista um comando por linha, sem repetir botões de comandos que já têm botão', () => {
     const { container } = montar();
     enviar('me ajuda');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
@@ -157,7 +158,7 @@ describe('painel do assistente: mascote', () => {
     expect(fala.querySelector('.mensagem-texto')?.textContent).toContain('\n• prazos — lista as demandas vencidas');
     // "lembrar" não está nos atalhos fixos: só eles ganham botão na resposta.
     expect(fala).toHaveTextContent('Toque num comando abaixo para usá-lo.');
-    expect(within(fala).queryAllByRole('button').map((x) => x.textContent)).toEqual(['Criar um lembrete', 'Prorrogar um prazo']);
+    expect(within(fala).queryAllByRole('button').map((x) => x.textContent)).toEqual(['Criar um lembrete', 'Prorrogar um prazo', 'O que faço primeiro?', 'Ver prazos']);
   });
 
   it('sinônimos chegam ao mesmo comando ("o que tá vencido?" = "prazos")', () => {
@@ -166,27 +167,69 @@ describe('painel do assistente: mascote', () => {
     expect(container.querySelectorAll('.conversa li.fala')[1]).toHaveTextContent('Prazo próximo: DEM-1');
   });
 
-  it('"não entendi" oferece o botão para ver o que o mascote sabe fazer', () => {
+  it('"não entendi" oferece "Ver prazos", "O que faço primeiro?" e "O que você faz?"', () => {
     const { container } = montar();
     enviar('xyz');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
     expect(fala).toHaveTextContent('Ainda não entendi essa frase');
-    fireEvent.click(within(fala).getByRole('button', { name: 'Ver o que eu sei fazer' }));
+    expect(within(fala).getAllByRole('button').map((x) => x.textContent)).toEqual(['Ver prazos', 'O que faço primeiro?', 'O que você faz?']);
+    fireEvent.click(within(fala).getByRole('button', { name: 'O que você faz?' }));
     expect(container.querySelectorAll('.conversa li.fala')[2]).toHaveTextContent('Comandos disponíveis');
   });
 
-  it('atalhos "Ver prazos" e "O que você faz?" enviam o comando sem digitar, e o campo continua como estava', () => {
+  it('não há fileira fixa de atalhos; a abertura já traz botões e eles enviam o comando sem digitar', () => {
     const { container } = montar();
-    const atalhos = screen.getByRole('group', { name: 'Atalhos de comando' });
+    expect(screen.queryByRole('group', { name: 'Atalhos de comando' })).toBeNull();
+    expect(container.querySelector('.atalhos-conversa')).toBeNull();
+    const abertura = container.querySelectorAll('.conversa li.fala')[0] as HTMLElement;
+    expect(within(abertura).getAllByRole('button').map((x) => x.textContent)).toEqual(['O que faço primeiro?', 'Ver prazos', 'O que você faz?']);
     fireEvent.change(screen.getByLabelText('Mensagem ao assistente'), { target: { value: 'rascunho' } });
-    fireEvent.click(within(atalhos).getByRole('button', { name: 'O que você faz?' }));
+    fireEvent.click(within(abertura).getByRole('button', { name: 'O que você faz?' }));
     expect(container.querySelector('.conversa li.mensagem--usuario')).toHaveTextContent('Você: ajuda');
     expect(container.querySelectorAll('.conversa li.fala')[1]).toHaveTextContent('Comandos disponíveis: "prazos"');
     expect(screen.getByLabelText('Mensagem ao assistente')).toHaveValue('rascunho');
+    expect(screen.getByPlaceholderText('Ex.: "prazos"')).toBeInTheDocument();
+  });
 
-    fireEvent.click(within(atalhos).getByRole('button', { name: 'Ver prazos' }));
-    expect(container.querySelectorAll('.conversa li.mensagem--usuario')[1]).toHaveTextContent('Você: prazos');
-    expect(screen.getByText(/Prazo próximo: DEM-1/)).toBeInTheDocument();
+  it('toda resposta do assistente termina com 2 a 4 botões', () => {
+    const { container } = montar();
+    for (const frase of ['ola', 'ajuda', 'prioridades', 'prazos', 'demanda', 'DEM-1', 'lembrar DEM-1 amanhã', 'prorrogar DEM-1', 'xyz', 'DEM-1 xyz']) {
+      enviar(frase);
+      const falas = container.querySelectorAll('.conversa li.fala');
+      const ultima = falas[falas.length - 1] as HTMLElement;
+      const n = within(ultima).queryAllByRole('button').length;
+      expect(n, frase).toBeGreaterThanOrEqual(2);
+      expect(n, frase).toBeLessThanOrEqual(4);
+    }
+  });
+
+  it('"Sobre a demanda aberta" só aparece quando há demanda aberta na tela Demandas', () => {
+    const { container } = montar();
+    enviar('xyz');
+    expect(screen.queryByRole('button', { name: 'Sobre a demanda aberta' })).toBeNull();
+    act(() => definirDemandaEmFoco('DEM-1'));
+    enviar('xyz');
+    const falas = container.querySelectorAll('.conversa li.fala');
+    expect(within(falas[falas.length - 1] as HTMLElement).getByRole('button', { name: 'Sobre a demanda aberta' })).toBeInTheDocument();
+    act(() => definirDemandaEmFoco(null));
+  });
+
+  it('só os botões da última fala ficam ativos; os anteriores seguem no histórico, desativados', () => {
+    const { container } = montar();
+    enviar('xyz');
+    const antes = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
+    fireEvent.click(within(antes).getByRole('button', { name: 'Ver prazos' }));
+    const falas = container.querySelectorAll('.conversa li.fala');
+    const total = falas.length;
+    expect(total).toBeGreaterThan(2);
+    // Fala antiga: aria-disabled e clique sem efeito.
+    within(antes).getAllByRole('button').forEach((b) => expect(b).toHaveAttribute('aria-disabled', 'true'));
+    fireEvent.click(within(antes).getByRole('button', { name: 'O que você faz?' }));
+    expect(container.querySelectorAll('.conversa li.fala')).toHaveLength(total);
+    // Abertura também fica desativada.
+    within(falas[0] as HTMLElement).getAllByRole('button').forEach((b) => expect(b).toHaveAttribute('aria-disabled', 'true'));
+    // Última fala: ativa.
+    within(falas[total - 1] as HTMLElement).getAllByRole('button').forEach((b) => expect(b).not.toHaveAttribute('aria-disabled'));
   });
 
   it('mostra no máximo 5 avisos e indica onde ver os demais', () => {

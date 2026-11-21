@@ -16,6 +16,7 @@ import { extrairIds, restoDaFrase } from './extrair.ts';
 import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
 import { respostaDeProrrogar } from './prorrogar.ts';
 import { respostaDeLembrete } from './lembrarPelaConversa.ts';
+import { BOTOES_DE_ABERTURA, comBotoes, type ContextoDaResposta } from './botoes.ts';
 import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
 import { respostaDePrioridades } from './respostaPrioridades.ts';
 import { FilaDoDia } from './FilaDoDia.tsx';
@@ -73,14 +74,13 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
       ],
     }];
   }
-  if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
+  if (intencao === 'ajuda') return [respostaDeAjuda(['prazos', 'prioridades', 'demanda', 'ajuda'])];
   if (intencao === 'cumprimento') return [respostaDeCumprimento()];
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
     texto: 'Ainda não entendi essa frase (o MVP não usa IA). Experimente "prazos", "prioridades", "demanda" ou "ajuda".',
-    acoes: [{ rotulo: 'Ver o que eu sei fazer', comando: 'ajuda' }],
   }];
 }
 
@@ -91,18 +91,11 @@ const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote>
   sugestão: 'curioso',
 };
 
-// Comandos oferecidos como atalho abaixo da conversa: rótulo em linguagem de gente, comando por trás.
-const ATALHOS: readonly { rotulo: string; comando: string }[] = [
-  { rotulo: 'Ver prazos', comando: 'prazos' },
-  { rotulo: 'O que faço primeiro?', comando: 'prioridades' },
-  { rotulo: 'Sobre a demanda aberta', comando: 'demanda' },
-  { rotulo: 'O que você faz?', comando: 'ajuda' },
-];
-
 // Primeira fala, sempre no topo da conversa (não é gravada).
 const SAUDACAO: Mensagem = {
   autor: 'assistente', natureza: 'fato', fonte: 'sistema',
-  texto: 'Olá! Trabalho só com dados fictícios. Escolha um atalho abaixo ou digite um comando.',
+  texto: 'Olá! Trabalho só com dados fictícios. Toque num botão ou digite um comando.',
+  acoes: [...BOTOES_DE_ABERTURA],
 };
 
 // A pessoa pode recolher a seção de notificações para ficar só com a conversa; a escolha fica
@@ -204,7 +197,18 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
     const prorrogar = (idDaFrase: string | null) => respostaDeProrrogar(idDaFrase ?? emFoco, demandas, origemDoComando);
     const lembrete = (idDaFrase: string | null) => respostaDeLembrete(comando, idDaFrase ?? emFoco, todos, demandas, instante, ajusteDoDia, origemDoComando);
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar)]);
+    const intencao = classificar(comando)?.id;
+    const temId = extrairIds(comando).length > 0;
+    const contexto: ContextoDaResposta =
+      intencao === 'cumprimento' ? 'inicio'
+        : intencao === 'prazos' || intencao === 'prioridades' ? 'lista'
+        : intencao === 'ajuda' ? 'ajuda'
+        : !intencao && !temId ? 'nao-entendi'
+        : 'outro';
+    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar);
+    // Toda resposta termina com 2 a 4 botões coerentes com o contexto (não há mais fileira fixa de atalhos).
+    const comandoDado = intencao === 'prazos' || intencao === 'prioridades' || intencao === 'ajuda' || intencao === 'demanda' ? intencao : undefined;
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...comBotoes(resposta, contexto, Boolean(emFoco), comandoDado)]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -316,8 +320,10 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
       </section>
 
       <ol ref={conversa} className="conversa" aria-live="polite">
-        {mensagens.map((m, i) =>
-          m.autor === 'usuario' ? (
+        {mensagens.map((m, i) => {
+          // Só os botões da última fala do assistente ficam ativos; os das anteriores seguem à vista, apagados.
+          const ativa = i === mensagens.length - 1;
+          return m.autor === 'usuario' ? (
             <li key={i} className="mensagem mensagem--usuario">
               <span className="sr-only">Você: </span>
               {m.texto}
@@ -330,9 +336,16 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                 <span className="sr-only">{nome}: </span>
                 <span className="mensagem-texto">{m.texto}</span>
                 {m.acoes && (
-                  <div className="acoes-aviso" role="group" aria-label="Comandos sugeridos">
+                  <div className={ativa ? 'acoes-aviso' : 'acoes-aviso acoes-aviso--antigas'} role="group" aria-label="Comandos sugeridos">
                     {m.acoes.map((a) => (
-                      <button key={a.comando} type="button" className="botao botao--pequeno" aria-label={a.rota ? `${a.rotulo} ${a.comando.replace(/^abrir /, '')}, no campo Prazo` : undefined} onClick={() => (a.rota ? window.location.assign(a.rota) : enviarComando(a.comando))}>
+                      <button
+                        key={a.comando}
+                        type="button"
+                        className="botao botao--pequeno"
+                        aria-disabled={ativa ? undefined : true}
+                        aria-label={a.rota?.includes('campo=prazo') ? `${a.rotulo} ${a.comando.replace(/^abrir /, '')}, no campo Prazo` : undefined}
+                        onClick={() => { if (!ativa) return; if (a.rota) window.location.assign(a.rota); else enviarComando(a.comando); }}
+                      >
                         {a.rotulo}
                       </button>
                     ))}
@@ -345,17 +358,11 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                 )}
               </div>
             </li>
-          ),
-        )}
+          );
+        })}
       </ol>
 
       <div className="rodape-conversa">
-        {/* Atalhos: os mesmos comandos, sem precisar digitar (útil no celular). */}
-        <div className="atalhos-conversa" role="group" aria-label="Atalhos de comando">
-          {ATALHOS.map(({ rotulo, comando }) => (
-            <button key={comando} type="button" className="botao botao--pequeno" onClick={() => enviarComando(comando)}>{rotulo}</button>
-          ))}
-        </div>
         <form onSubmit={enviar} className="formulario-conversa">
           <label>
             <span className="sr-only">Mensagem ao assistente</span>
