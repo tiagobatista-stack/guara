@@ -14,9 +14,9 @@ const entrada = (titulo: string, prazo: string): EntradaDemanda => ({
 });
 
 /** Painel com uma demanda que vence hoje (um aviso), salvo se vier outra lista. */
-function montar(demandas: EntradaDemanda[] = [entrada('Revisar parecer FIC-0001', '2026-11-13')]) {
+function montar(demandas: EntradaDemanda[] = [entrada('Revisar parecer FIC-0001', '2026-11-13')], formatarId: (n: number) => string = (n) => `DEM-${n}`) {
   let n = 0;
-  const armazem = criarArmazem(localStorage, { gerarId: () => `DEM-${++n}`, exemplos: () => [], agora: AGORA });
+  const armazem = criarArmazem(localStorage, { gerarId: () => formatarId(++n), exemplos: () => [], agora: AGORA });
   demandas.forEach((d) => armazem.criar(d));
   const tela = render(
     <ContextoArmazem.Provider value={armazem}>
@@ -311,6 +311,21 @@ describe('painel do assistente: mascote', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
     expect(obterLembretes()).toEqual({});
+  });
+
+  it('código de demanda na frase: resume aquela demanda, sem depender da demanda aberta', () => {
+    montar([entrada('Revisar parecer FIC-0001', '2026-11-13'), entrada('Outra demanda fictícia', '2026-12-30')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    ['DEM-FIC-0002', 'me fala da dem fic 2', 'dem-fic-0002 ?'].forEach((frase, i) => {
+      enviar(frase);
+      expect(screen.getAllByText(/DEM-FIC-0002 · Outra demanda fictícia/)).toHaveLength(i + 1);
+    });
+    expect(screen.queryByText(/Ainda não entendo/)).toBeNull();
+  });
+
+  it('código inexistente: diz que não encontrou, sem inventar', () => {
+    montar([entrada('Revisar parecer FIC-0001', '2026-11-13')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    enviar('DEM-FIC-0099');
+    expect(screen.getByText('Não encontrei DEM-FIC-0099 nas demandas deste navegador. Nada foi alterado.')).toBeInTheDocument();
   });
 
   it('cumprimento: responde "fato · fonte: sistema" com atalhos; "bom dia, prioridades" responde a fila', () => {

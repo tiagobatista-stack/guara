@@ -12,6 +12,7 @@ import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
+import { extrairIds } from './extrair.ts';
 import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
 import { respostaDePrioridades } from './respostaPrioridades.ts';
 import { FilaDoDia } from './FilaDoDia.tsx';
@@ -28,10 +29,13 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: () => Mensagem[], prioridades: () => Mensagem[]): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[]): Mensagem[] {
   // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
   // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
   const intencao = classificar(comando)?.id;
+  // Código de demanda escrito na frase: vale mais que a demanda aberta na tela. Sem outra intenção,
+  // a frase "DEM-FIC-0002" (ou qualquer frase só com o código) é um pedido de resumo daquela demanda.
+  const [idDaFrase] = extrairIds(comando);
   if (intencao === 'prazos') {
     const fato: Mensagem = { autor: 'assistente', natureza: 'fato', fonte: origem, texto: textoDosPrazos(avisos) };
     if (avisos.length === 0) return [fato];
@@ -48,7 +52,8 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
     ];
   }
   if (intencao === 'prioridades') return prioridades();
-  if (intencao === 'demanda') return sobreDemanda();
+  if (intencao === 'demanda') return sobreDemanda(idDaFrase);
+  if (!intencao && idDaFrase) return sobreDemanda(idDaFrase);
   if (intencao === 'ajuda') return [respostaDeAjuda(ATALHOS.map((a) => a.comando))];
   if (intencao === 'cumprimento') return [respostaDeCumprimento()];
   return [{
@@ -176,7 +181,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const enviarComando = (comando: string) => {
     if (!comando.trim()) return;
     const origemDoComando = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
-    const sobreDemanda = () => respostaSobreDemanda(emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
+    const sobreDemanda = (idDaFrase?: string) => respostaSobreDemanda(idDaFrase ?? emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando, Boolean(idDaFrase));
     const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
     acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, origemDoComando, sobreDemanda, prioridades)]);
   };
