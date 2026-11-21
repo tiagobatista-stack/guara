@@ -16,6 +16,8 @@ export type TipoAviso = 'vencida' | 'prazo-proximo' | 'parada';
 export interface Aviso {
   tipo: TipoAviso;
   id: string;
+  /** Título da demanda: o id interno (UUID) nunca é mostrado, o título sim. */
+  titulo: string;
   texto: string;
   /** Tipo do aviso e status da demanda: quando muda, "ciente" e "adiar" deixam de valer. */
   situacao: string;
@@ -43,6 +45,7 @@ export function avisosDoDia(demandas: readonly Demanda[], agora: Date, limiarDia
     avisos.push({
       tipo: sinais[0].tipo,
       id: d.id,
+      titulo: d.titulo,
       texto: `${d.titulo}: ${sinais.map((x) => x.texto).join('; ')}.`,
       chave: sinais[0].chave,
       // Um sinal novo (ex.: a demanda ficou parada) muda a situação e faz o "ciente" deixar de valer.
@@ -52,7 +55,7 @@ export function avisosDoDia(demandas: readonly Demanda[], agora: Date, limiarDia
   // Mais urgente primeiro: vencidas há mais tempo, prazos mais curtos, paradas há mais tempo.
   return avisos
     .sort((a, b) => ORDEM[a.tipo] - ORDEM[b.tipo] || a.chave - b.chave || a.id.localeCompare(b.id))
-    .map(({ tipo, id, texto, situacao }) => ({ tipo, id, texto, situacao }));
+    .map(({ tipo, id, titulo, texto, situacao }) => ({ tipo, id, titulo, texto, situacao }));
 }
 
 /** Natureza do texto do aviso: prazo é fato (conta sobre a data gravada); "parada" é inferência por regra. */

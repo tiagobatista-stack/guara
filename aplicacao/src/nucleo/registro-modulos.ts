@@ -40,6 +40,26 @@ export function parametrosDaRota(hash: string): URLSearchParams {
 }
 
 /** Rota que abre a demanda para edição, com foco no campo (por ora só "prazo"). */
-export function rotaParaAbrirDemanda(id: string, campo: 'prazo' = 'prazo'): string {
+export function rotaParaAbrirDemanda(id: string, campo: 'prazo' | 'bloqueio' = 'prazo'): string {
   return `#/demandas?abrir=${encodeURIComponent(id)}&campo=${campo}`;
+}
+
+/** Rota da lista de Demandas, sem abrir nenhuma. */
+export function rotaDaTelaDemandas(): string {
+  return '#/demandas';
+}
+
+/** Rota da lista de Demandas já com o termo no campo de pesquisa ("#/demandas?texto=licen%C3%A7a"). */
+export function rotaParaBuscarDemandas(texto: string): string {
+  return `#/demandas?texto=${encodeURIComponent(texto)}`;
+}
+
+/** Rota da tela Operações, sem abrir nenhuma. */
+export function rotaDaTelaOperacoes(): string {
+  return '#/operacoes';
+}
+
+/** Rota que abre o detalhe de uma operação ("#/operacoes?abrir=op-abc-123"). */
+export function rotaParaAbrirOperacao(id: string): string {
+  return `#/operacoes?abrir=${encodeURIComponent(id)}`;
 }

@@ -114,15 +114,8 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
   display: flex; align-items: center; gap: 12px; padding: 10px 16px;
   background: var(--pantanal-600); color: #fff;
 }
-.cabecalho-nome { font-weight: 700; }
-.busca { position: relative; flex: 1; }
-.busca .icone { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); opacity: 0.7; pointer-events: none; }
-.busca input {
-  width: 100%; min-height: 40px; padding: 0 12px 0 34px; border-radius: 8px;
-  border: 1px solid rgb(255 255 255 / 0.35); background: rgb(255 255 255 / 0.12); color: #fff;
-}
-.busca input::placeholder { color: rgb(255 255 255 / 0.75); }
-.selo-ficticio { display: none; padding: 2px 8px; border-radius: 999px; background: var(--atencao-fundo); color: var(--atencao-texto); font-size: 12px; font-weight: 600; }
+.cabecalho-nome { font-weight: 700; } /* o selo empurra selo, sino e Assistente para a direita */
+.selo-ficticio { display: inline-block; margin-left: auto; padding: 2px 8px; border-radius: 999px; background: var(--atencao-fundo); color: var(--atencao-texto); font-size: 12px; font-weight: 600; }
 .botao-assistente { display: none; align-items: center; gap: 8px; min-height: 40px; padding: 0 12px; border-radius: 8px; border: 1px solid rgb(255 255 255 / 0.5); background: transparent; color: #fff; cursor: pointer; }
 
 .sino { position: relative; display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; color: #fff; cursor: pointer; flex-shrink: 0; }
@@ -139,11 +132,9 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 .gaveta { display: flex; flex-direction: column; width: 100%; max-width: 380px; height: 100%; background: var(--superficie); }
 .gaveta--inferior { position: absolute; left: 0; right: 0; bottom: 0; height: auto; max-width: none; border-radius: 16px 16px 0 0; padding: 16px; }
 .gaveta-topo { display: flex; align-items: center; justify-content: space-between; padding: 8px; }
-/* Na gaveta (celular e tablet), uma rolagem só: o painel inteiro rola abaixo do "fechar", e o campo
-   de digitar fica preso embaixo. O scroll-padding impede que a última fala fique atrás do campo. */
-.gaveta .assistente { flex: 1; height: auto; min-height: 0; overflow-y: auto; scroll-padding-bottom: 140px; }
-.gaveta .conversa { flex: none; overflow: visible; }
-.gaveta .rodape-conversa { position: sticky; bottom: 0; background: var(--superficie); }
+/* Na gaveta (celular e tablet), o painel ocupa a altura abaixo do "fechar" e não rola: quem rola é a aba
+   (a conversa rola por dentro e o campo de digitar fica fixo no rodapé). */
+.gaveta .assistente { flex: 1; height: auto; min-height: 0; overflow: hidden; }
 
 .botao-icone { display: grid; place-items: center; width: 44px; height: 44px; border: 0; border-radius: 8px; background: transparent; cursor: pointer; }
 
@@ -170,7 +161,6 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
   .menu-lateral { display: flex; }
   .barra-inferior, .botao-flutuante, .cabecalho-nome { display: none; }
   .botao-assistente { display: inline-flex; }
-  .selo-ficticio { display: inline-block; }
   .conteudo { padding: 24px; }
 }
 /* Desktop: menu completo */
@@ -348,9 +338,22 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 
 /* ---------- Assistente ---------- */
 .assistente { display: flex; flex-direction: column; width: 100%; height: 100%; min-height: 0; }
-.assistente-topo { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid var(--borda); }
+.assistente-topo { display: flex; align-items: center; gap: 12px; padding: 16px; border-bottom: 1px solid var(--borda); flex: none; }
+/* Abas (item 11a): a conversa ocupa toda a altura que sobra; fila e avisos rolam por dentro da própria aba. */
+.abas-assistente { display: flex; flex: none; overflow-x: auto; border-bottom: 1px solid var(--borda); }
+.aba-assistente { flex: 1 0 auto; min-height: 44px; padding: 0 12px; border: 0; border-bottom: 3px solid transparent; background: transparent; color: inherit; font: inherit; font-size: 14px; cursor: pointer; white-space: nowrap; }
+.aba-assistente[aria-selected="true"] { border-bottom-color: var(--guara-600, currentColor); font-weight: 600; }
+.aba-assistente:focus-visible { outline: 3px solid var(--foco, currentColor); outline-offset: -3px; }
+.aba-painel { flex: 1; min-height: 0; overflow-y: auto; padding: 16px; font-size: 14px; }
+.aba-conversa { flex: 1; min-height: 0; display: flex; flex-direction: column; }
+.aba-painel[hidden], .aba-conversa[hidden] { display: none; }
+@media (max-width: 1279px), (max-height: 760px) {
+  .assistente-topo { padding: 8px 12px; gap: 8px; }
+  .mascote-palco { width: 56px; height: 56px; }
+  .mascote-palco .mascote { width: 48px; height: 48px; }
+}
 .assistente-secao { padding: 16px; border-bottom: 1px solid var(--borda); font-size: 14px; }
-.conversa { flex: 1; overflow-y: auto; list-style: none; margin: 0; padding: 16px; display: grid; gap: 8px; align-content: start; }
+.conversa { flex: 1; min-height: 0; overflow-y: auto; list-style: none; margin: 0; padding: 16px; display: grid; gap: 8px; align-content: start; }
 .mensagem { padding: 8px; border-radius: 8px; font-size: 14px; background: var(--superficie-2); margin-right: 32px; }
 .fala { display: flex; align-items: flex-end; gap: 6px; margin-right: 16px; }
 .fala .mensagem { flex: 1; min-width: 0; margin-right: 0; }
@@ -371,8 +374,10 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .mensagem--usuario { background: var(--guara-100); margin: 0 0 0 32px; }
 .mensagem-texto { white-space: pre-line; } /* listas da ajuda: uma linha por comando */
 .mensagem-meta { display: block; margin-top: 4px; font-size: 11px; color: var(--texto-suave); }
-.rodape-conversa { border-top: 1px solid var(--borda); }
-.atalhos-conversa { display: flex; flex-wrap: wrap; gap: 6px; padding: 8px 12px 0; } /* botões pequenos: dois ou três por linha no painel */
+.rodape-conversa { flex: none; border-top: 1px solid var(--borda); background: var(--superficie); }
+/* Botões de falas antigas: continuam no histórico, mas apagados e sem ação. */
+.acoes-aviso--antigas { opacity: 0.5; }
+.acoes-aviso--antigas .botao { cursor: default; }
 .formulario-conversa { display: flex; gap: 8px; padding: 12px; }
 .formulario-conversa label { flex: 1; }
 .campo { width: 100%; min-height: 44px; padding: 0 12px; border-radius: 8px; border: 1px solid var(--borda); background: transparent; }

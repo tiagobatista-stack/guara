@@ -15,7 +15,7 @@ const fila = (ds: Demanda[]) => priorizarDemandas(ds, AGORA, 3, {});
 describe('FilaDoDia', () => {
   it('sem itens, diz que nada pede atenção', () => {
     render(<FilaDoDia itens={[]} origem="x" />);
-    expect(screen.getByTestId('fila-vazia')).toHaveTextContent('Nada pede atenção agora.');
+    expect(screen.getByTestId('fila-vazia')).toHaveTextContent('Nenhuma demanda na fila. Tudo em dia.');
   });
 
   it('cada item mostra por que está aqui (com a marca) e a sugestão; só o primeiro abre aberto', () => {

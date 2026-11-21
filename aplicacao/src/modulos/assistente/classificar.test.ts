@@ -81,4 +81,14 @@ describe('classificar: frase → comando', () => {
       for (const g of intencao.gatilhos) expect(classificar(g)?.id, g).toBe(intencao.id);
     }
   });
+
+  it.each(['buscar licença', 'procurar vistoria', 'procura embargo', 'achar contrato', 'cadê o parecer?'])('"%s" é uma busca', (frase) => {
+    expect(classificar(frase)?.id).toBe('buscar');
+  });
+
+  it('frase que começa por buscar é busca mesmo com outro gatilho no termo ("buscar parada", "buscar prazos")', () => {
+    expect(classificar('buscar parada')?.id).toBe('buscar');
+    expect(classificar('buscar prazos')?.id).toBe('buscar');
+    expect(classificar('prazos')?.id).toBe('prazos');
+  });
 });

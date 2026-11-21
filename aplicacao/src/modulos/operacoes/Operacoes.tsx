@@ -3,6 +3,7 @@
 // Coordenadas podem identificar imóvel: os dados ficam só neste navegador.
 
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { parametrosDaRota } from '../../nucleo/registro-modulos.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
@@ -1452,6 +1453,18 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
   const operacoes = useOperacoes();
   const soNaMemoria = useOperacoesSoNaMemoria();
   const [aberta, setAberta] = useState<string | null>(null);
+  // Rota "#/operacoes?abrir=<id>" (botão "Abrir <operação>" do assistente): abre o detalhe e limpa o endereço.
+  useEffect(() => {
+    const abrirDaRota = () => {
+      const id = parametrosDaRota(window.location.hash).get('abrir');
+      if (!id || !window.location.hash.startsWith('#/operacoes')) return;
+      setAberta(id);
+      window.history.replaceState(null, '', '#/operacoes');
+    };
+    abrirDaRota();
+    window.addEventListener('hashchange', abrirDaRota);
+    return () => window.removeEventListener('hashchange', abrirDaRota);
+  }, []);
   const emDetalhe = operacoes.find((o) => o.id === aberta);
   const hoje = dataLocal(agora());
   const { demandas } = useEstadoDemandas();

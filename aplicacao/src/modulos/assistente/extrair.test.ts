@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extrairIds, extrairQuando } from './extrair.ts';
+import { extrairIds, extrairQuando, extrairTermoDeBusca } from './extrair.ts';
 
 describe('extrairIds', () => {
   it.each([
@@ -68,5 +68,27 @@ describe('extrairQuando', () => {
 
   it('sem horário reconhecível pede o horário', () => {
     for (const frase of ['', 'lembrar', 'mais tarde', 'dia 23', '25h', 'em dois dias', 'hoje']) expect(ate(frase), frase).toBe('sem-horario');
+  });
+});
+
+describe('extrairTermoDeBusca', () => {
+  it.each([
+    ['buscar licença', 'licença'],
+    ['Buscar Licença Ambiental', 'Licença Ambiental'],
+    ['procurar por vistoria', 'vistoria'],
+    ['procura a demanda de Sinop', 'Sinop'],
+    ['achar o contrato', 'contrato'],
+    ['cadê o parecer?', 'parecer'],
+    ['cade processo 123/2026', '123/2026'],
+    ['buscar "embargo remoto"', 'embargo remoto'],
+    ['onde posso achar licença', 'licença'],
+  ])('%s → %s', (frase, termo) => expect(extrairTermoDeBusca(frase)).toBe(termo));
+
+  it.each(['buscar', 'procurar', 'cadê?', 'buscar a', 'achar o  ', 'ola'])('sem termo: %s → null', (frase) => {
+    expect(extrairTermoDeBusca(frase)).toBeNull();
+  });
+
+  it('corta termos muito longos', () => {
+    expect(extrairTermoDeBusca(`buscar ${'a'.repeat(200)}`)?.length).toBe(80);
   });
 });

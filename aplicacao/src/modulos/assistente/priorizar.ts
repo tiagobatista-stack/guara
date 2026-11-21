@@ -6,7 +6,7 @@
 // Mesmas regras das outras telas: prazo em dias úteis com feriados, inatividade pelo limiar gravado.
 
 import type { Demanda, Prioridade } from '../demandas/modelo.ts';
-import { MOTIVOS_BLOQUEIO } from '../demandas/modelo.ts';
+import { MOTIVOS_BLOQUEIO, type MotivoBloqueio } from '../demandas/modelo.ts';
 import { camposQueFaltam, ROTULOS_ESSENCIAL } from '../demandas/essenciais.ts';
 import { PRAZO_SUGERIDO_DIAS_UTEIS } from '../alertas/triagem.ts';
 import { dataLocal, diasUteis, rotuloDias, situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts';
@@ -39,7 +39,7 @@ export interface Motivo {
   natureza: 'fato' | 'inferência';
 }
 
-export type TipoDeAcao = 'cobrar' | 'decidir' | 'registrar' | 'comecar' | 'concluir-validacao' | 'planejar' | 'preparar-vistoria' | 'definir-prazo' | 'preencher';
+export type TipoDeAcao = 'cobrar' | 'decidir' | 'registrar' | 'comecar' | 'concluir-validacao' | 'planejar' | 'preparar-vistoria' | 'definir-prazo' | 'preencher' | 'ver-bloqueio';
 
 export interface ProximaAcao {
   tipo: TipoDeAcao;
@@ -92,7 +92,7 @@ export function motivosDaDemanda(d: Demanda, agora: Date, limiarDias: number, aj
     const desde = dataLocal(new Date(d.bloqueio.desde));
     const n = Math.max(0, diasUteis(desde, dataLocal(agora), ajuste));
     const tempo = n === 0 ? 'hoje' : `há ${rotuloDias(n)}`;
-    motivos.push({ sinal: 'bloqueada', pontos: PESOS.bloqueada.base, texto: `travada ${tempo}: ${MOTIVOS_BLOQUEIO[d.bloqueio.motivo]}`, natureza: 'fato' });
+    motivos.push({ sinal: 'bloqueada', pontos: PESOS.bloqueada.base, texto: `travada ${tempo}${d.bloqueio.motivo === 'outro' ? ' (motivo na demanda)' : `: ${MOTIVOS_BLOQUEIO[d.bloqueio.motivo]}`}`, natureza: 'fato' });
   }
 
   const faltam = camposQueFaltam(d);
@@ -110,11 +110,25 @@ export function motivosDaDemanda(d: Demanda, agora: Date, limiarDias: number, aj
   return motivos;
 }
 
+/** O que cobrar, por motivo de bloqueio (o motivo "outro" é tratado à parte: não há o que cobrar). */
+const COBRANCA_POR_MOTIVO: Record<Exclude<MotivoBloqueio, 'outro'>, string> = {
+  documento: 'Cobrar o documento que falta.',
+  autuado: 'Cobrar os dados do autuado.',
+  setor: 'Cobrar o retorno do outro setor.',
+  campo: 'Conferir quando a ação de campo está prevista.',
+};
+
 /** Tabela de decisão: a primeira linha que casa vence. Só sugere; não altera a demanda. */
 export function proximaAcao(d: Pick<Demanda, 'status' | 'bloqueio'>, motivos: readonly Motivo[]): ProximaAcao | null {
   const tem = (s: Sinal) => motivos.some((m) => m.sinal === s);
   const sugerir = (tipo: TipoDeAcao, texto: string): ProximaAcao => ({ tipo, texto, natureza: 'sugestão' });
-  const cobrar = () => sugerir('cobrar', `Cobrar o retorno: ${d.bloqueio ? MOTIVOS_BLOQUEIO[d.bloqueio.motivo] : 'bloqueio'}.`);
+  const cobrar = () => {
+    // Motivo "outro" não diz o que cobrar: leva a pessoa a ler o motivo na demanda. O comentário (detalhe)
+    // do analista NÃO entra aqui, de propósito: texto livre fica só no detalhe da demanda, nunca na fila,
+    // na conversa gravada, em registros ou exportações.
+    const texto = d.bloqueio && d.bloqueio.motivo !== 'outro' ? COBRANCA_POR_MOTIVO[d.bloqueio.motivo] : null;
+    return texto ? sugerir('cobrar', texto) : sugerir('ver-bloqueio', 'Ver o motivo do bloqueio.');
+  };
 
   if (tem('vencida') && d.bloqueio) return cobrar();
   if (tem('vencida')) return sugerir('decidir', 'Decidir: prorrogar o prazo ou concluir.');
@@ -157,21 +171,45 @@ export function priorizarDemandas(
     });
 }
 
-const TAMANHO_MAXIMO_TITULO = 60;
+/** Limite do título na fila e na conversa; a tela é estreita (celular), então o título é curto. */
+export const TAMANHO_MAXIMO_TITULO = 45;
 const SUFIXO_FICTICIO = /\s*\(fict[ií]ci[ao]\)\s*$/i;
 
-/** Título longo cortado NO MEIO ("Renovação de licença … Rio Claro (FICTÍCIA)"), guardando o fim e o sufixo "(FICTÍCIA)". */
+/**
+ * Título longo cortado NO MEIO, sempre entre palavras: "Renovação de licença … Rio Claro (FICTÍCIA)".
+ * Guarda o começo (até ~65% do espaço) e o fim, nunca perde o sufixo "(FICTÍCIA)" e nunca parte palavra.
+ * Única exceção, definida de propósito: uma palavra sozinha maior que o limite (ex.: um código ou URL
+ * colado) é cortada no limite e termina em "…" colado a ela, sem fim nem meio.
+ */
 export function encurtarTitulo(titulo: string, maximo = TAMANHO_MAXIMO_TITULO): string {
-  const t = titulo.trim();
+  const t = titulo.trim().replace(/\s+/g, ' ');
   if (t.length <= maximo) return t;
-  const sufixo = SUFIXO_FICTICIO.exec(t)?.[0].trim() ?? '';
-  const corpo = sufixo ? t.slice(0, t.length - SUFIXO_FICTICIO.exec(t)![0].length).trimEnd() : t;
+  const achado = SUFIXO_FICTICIO.exec(t);
+  const sufixo = achado ? achado[0].trim() : '';
+  const corpo = achado ? t.slice(0, t.length - achado[0].length).trimEnd() : t;
   const reserva = sufixo ? sufixo.length + 1 : 0;
-  const sobra = maximo - reserva - 3; // " … " ocupa 3 caracteres
-  const inicio = Math.ceil(sobra * 0.6);
-  const fim = sobra - inicio;
-  const cortado = `${corpo.slice(0, inicio).trimEnd()} … ${corpo.slice(corpo.length - fim).trimStart()}`;
-  return sufixo ? `${cortado} ${sufixo}` : cortado;
+  const juntar = (texto: string) => (sufixo ? `${texto} ${sufixo}` : texto);
+  const espaco = maximo - reserva - 3; // " … " ocupa 3 caracteres
+  const palavras = corpo.split(' ');
+  if (palavras[0].length > espaco) {
+    return juntar(`${palavras[0].slice(0, Math.max(1, maximo - reserva - 1))}…`);
+  }
+  const orcamentoInicio = Math.max(Math.ceil(espaco * 0.65), palavras[0].length);
+  let inicio = '';
+  let usadas = 0;
+  for (const p of palavras) {
+    const candidato = inicio ? `${inicio} ${p}` : p;
+    if (candidato.length > orcamentoInicio) break;
+    inicio = candidato;
+    usadas += 1;
+  }
+  let fim = '';
+  for (let i = palavras.length - 1; i >= usadas; i -= 1) {
+    const candidato = fim ? `${palavras[i]} ${fim}` : palavras[i];
+    if (candidato.length > espaco - inicio.length) break;
+    fim = candidato;
+  }
+  return juntar(fim ? `${inicio} … ${fim}` : `${inicio} …`);
 }
 
 /** "vencido há 2 dias úteis + parada há 4 dias + prioridade alta": o porquê da posição, em uma linha. */

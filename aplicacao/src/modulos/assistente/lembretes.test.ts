@@ -6,7 +6,7 @@ import {
 } from './lembretes.ts';
 
 const aviso = (id: string, tipo: Aviso['tipo'] = 'vencida', status = 'A Fazer'): Aviso =>
-  ({ id, tipo, texto: `${id}: texto`, situacao: `${tipo}|${status}` });
+  ({ id, titulo: id, tipo, texto: `${id}: texto`, situacao: `${tipo}|${status}` });
 
 // Sexta, 13/11/2026, 10h (horário local do teste).
 const AGORA = new Date(2026, 10, 13, 10, 0, 0);

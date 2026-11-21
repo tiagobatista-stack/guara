@@ -114,6 +114,16 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   useEffect(() => {
     const aplicar = () => {
       const p = parametrosDaRota(window.location.hash);
+      // "#/demandas?texto=licença" (botão "Ver todos em Demandas" da busca do assistente): volta à lista com
+      // o termo no campo de pesquisa, o mesmo que a conversa usou.
+      const texto = p.get('texto');
+      if (texto !== null) {
+        window.history.replaceState(null, '', '#/demandas');
+        setAviso(null);
+        setModo({ tipo: 'lista' });
+        setFiltros({ ...FILTROS_VAZIOS, texto });
+        return;
+      }
       const id = p.get('abrir');
       if (!id) return;
       window.history.replaceState(null, '', '#/demandas');
@@ -122,6 +132,11 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
         return;
       }
       setAviso(null);
+      // "campo=bloqueio" (botão "Ver o motivo do bloqueio"): abre o detalhe, onde o motivo e o comentário aparecem.
+      if (p.get('campo') === 'bloqueio') {
+        setModo({ tipo: 'detalhe', id });
+        return;
+      }
       setFocoInicial(p.get('campo') === 'prazo' ? 'prazo' : undefined);
       setModo({ tipo: 'editar', id });
     };

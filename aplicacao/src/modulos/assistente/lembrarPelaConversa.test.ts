@@ -8,7 +8,7 @@ import { obterLembretes, silenciarDemanda } from './lembretes.ts';
 const SABADO = new Date(2026, 10, 21, 10);
 const SEGUNDA = new Date(2026, 10, 16, 10);
 const demandas = [{ id: 'DEM-FIC-0003' }, { id: 'DEM-FIC-0004' }] as unknown as Demanda[];
-const avisos: Aviso[] = [{ id: 'DEM-FIC-0003', tipo: 'vencida', texto: 'x', situacao: 'vencida|A Fazer' }];
+const avisos: Aviso[] = [{ id: 'DEM-FIC-0003', titulo: 'x', tipo: 'vencida', texto: 'x', situacao: 'vencida|A Fazer' }];
 const ORIGEM = 'demandas deste navegador';
 const pedir = (frase: string, id: string | null, agora = SABADO, av = avisos) =>
   respostaDeLembrete(frase, id, av, demandas, agora, {}, ORIGEM);
