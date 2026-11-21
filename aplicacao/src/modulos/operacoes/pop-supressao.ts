@@ -171,11 +171,49 @@ export function itensAplicaveis(resp: Caracterizacao | undefined = {}): ItemPop[
 export const itensDeCampoSemResposta = (resp: Caracterizacao | undefined): ItemPop[] =>
   itensAplicaveis(resp).filter((it) => it.onde === 'campo' && !it.opcional && !respondido(resp?.[it.id]));
 
-/** Só o que foi respondido (e ainda se aplica), na ordem do POP, para colar no relatório. */
-export function textoCaracterizacao(resp: Caracterizacao | undefined): string {
-  const linhas = itensAplicaveis(resp).filter((it) => respondido(resp?.[it.id])).map((it) => `${it.id}. ${it.texto}: ${marcadas(resp![it.id]).join('; ')}`);
-  return linhas.length ? [`Caracterização do dano (${FONTE_POP}):`, ...linhas].join('\n') : '';
+export interface DadosDeCampo { coordenadaAferida?: string; waypoint?: string; fotos?: string; drone?: { voou: boolean; arquivo?: string }; pessoaContatada?: string }
+
+/** Linhas da seção "Dados de campo": só o que já foi registrado. */
+function linhasDadosDeCampo(d: DadosDeCampo | undefined): string[] {
+  if (!d) return [];
+  const l: string[] = [];
+  if (d.coordenadaAferida?.trim()) l.push(`Coordenada aferida: ${d.coordenadaAferida.trim()}`);
+  if (d.waypoint?.trim()) l.push(`Waypoint: ${d.waypoint.trim()}`);
+  if (d.fotos?.trim()) l.push(`Fotos: ${d.fotos.trim()}`);
+  if (d.drone?.voou) l.push(`Voo de drone: sim${d.drone.arquivo?.trim() ? ` (arquivo ${d.drone.arquivo.trim()})` : ''}`);
+  if (d.pessoaContatada?.trim()) l.push(`Pessoa contatada: ${d.pessoaContatada.trim()}`);
+  return l;
 }
+
+/** Só o que foi respondido (e ainda se aplica), na ordem do POP, mais os dados de campo já registrados, para colar no relatório. */
+export function textoCaracterizacao(resp: Caracterizacao | undefined, dados?: DadosDeCampo): string {
+  const linhas = itensAplicaveis(resp).filter((it) => respondido(resp?.[it.id])).map((it) => `${it.id}. ${it.texto}: ${marcadas(resp![it.id]).join('; ')}`);
+  const campo = linhasDadosDeCampo(dados);
+  return [
+    ...(linhas.length ? [`Caracterização do dano (${FONTE_POP}):`, ...linhas] : []),
+    ...(campo.length ? ['Dados de campo:', ...campo] : []),
+  ].join('\n');
+}
+
+const lista = (ids: string[]) => (ids.length > 1 ? `${ids.slice(0, -1).join(', ')} e ${ids[ids.length - 1]}` : ids[0]);
+
+/** Avisos antes de copiar (nunca bloqueiam): obrigatórios sem resposta, resposta genérica sem detalhe em A-22 e incoerência em A-5. */
+export function avisosDaCopia(resp: Caracterizacao | undefined): { faltam: string[]; lembretes: string[] } {
+  const r = resp ?? {};
+  const aplicaveis = itensAplicaveis(r).map((it) => it.id);
+  const faltam = itensDeCampoSemResposta(r).map((it) => it.id);
+  const lembretes: string[] = [];
+  const semA22 = !respondido(r['A-22']);
+  if (semA22 && aplicaveis.includes('A-12') && marcadas(r['A-12']).includes('Outros recursos')) lembretes.push('A-12 marcou "Outros recursos": descreva em A-22.');
+  if (semA22 && aplicaveis.includes('A-21.1') && marcadas(r['A-21.1']).some((t) => t.startsWith('Outros (especificar'))) lembretes.push('A-21.1 marcou "Outros (especificar…)": descreva em A-22.');
+  if (marcadas(r['A-5']).includes('Não foi possível verificar') && marcadas(r['A-5.2']).includes('Verificação em campo')) {
+    lembretes.push('A-5 diz "Não foi possível verificar", mas A-5.2 diz "Verificação em campo": confira.');
+  }
+  return { faltam, lembretes };
+}
+
+/** Texto do aviso de itens obrigatórios sem resposta; vazio se não falta nenhum. */
+export const textoFaltam = (faltam: string[]) => (faltam.length ? `Faltam ${lista(faltam)}. Copiar assim mesmo?` : '');
 
 const norm = (t: string) => t.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
 /**

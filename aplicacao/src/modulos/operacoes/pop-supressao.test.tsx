@@ -7,7 +7,7 @@ import { Operacoes } from './Operacoes.tsx';
 import { criarOperacao, incluirPontos, obterOperacoes, registrarResultado } from './armazem.ts';
 import { validarListaOperacoes } from './regras.ts';
 import {
-  caracterizacaoValida, itensAplicaveis, itensDeCampoSemResposta, ITENS_POP, blocoPopAtivo, textoCaracterizacao,
+  caracterizacaoValida, itensAplicaveis, itensDeCampoSemResposta, ITENS_POP, blocoPopAtivo, textoCaracterizacao, avisosDaCopia, textoFaltam,
 } from './pop-supressao.ts';
 
 beforeEach(() => localStorage.clear());
@@ -85,6 +85,44 @@ describe('itens de campo sem resposta e texto do relatório', () => {
 
   it('resposta que o desvio tornou sem efeito não vai no texto', () => {
     expect(textoCaracterizacao({ 'A-15': ['Não'], 'A-16': 'Sim, houve preparo' })).not.toContain('A-16');
+  });
+});
+
+describe('avisos e dados de campo na cópia', () => {
+  it('lista os obrigatórios aplicáveis sem resposta ("Faltam A-7 e A-23") e não os põe no texto', () => {
+    const todos = itensDeCampoSemResposta({}).map((i) => i.id);
+    const resp = Object.fromEntries(ITENS_POP.filter((i) => todos.includes(i.id) && !['A-7', 'A-23'].includes(i.id)).map((i) => [i.id, i.opcoes ? i.opcoes[0].texto : 'x']));
+    const { faltam } = avisosDaCopia(resp);
+    expect(faltam).toEqual(['A-7', 'A-23']);
+    expect(textoFaltam(faltam)).toBe('Faltam A-7 e A-23. Copiar assim mesmo?');
+    expect(textoFaltam(['A-7'])).toBe('Faltam A-7. Copiar assim mesmo?');
+    expect(textoFaltam([])).toBe('');
+    expect(textoCaracterizacao(resp)).not.toMatch(/A-7\.|A-23\./);
+  });
+
+  it('A-12 "Outros recursos" e A-21.1 "Outros (especificar…)" lembram A-22; some quando A-22 está preenchido', () => {
+    expect(avisosDaCopia({ 'A-12': 'Outros recursos' }).lembretes).toEqual(['A-12 marcou "Outros recursos": descreva em A-22.']);
+    expect(avisosDaCopia({ 'A-21': 'Criação extensiva', 'A-21.1': ['Bovino', 'Outros (especificar nas Informações Complementares)'] }).lembretes)
+      .toEqual(['A-21.1 marcou "Outros (especificar…)": descreva em A-22.']);
+    expect(avisosDaCopia({ 'A-12': 'Outros recursos', 'A-22': 'Trator de esteira' }).lembretes).toEqual([]);
+    expect(avisosDaCopia({ 'A-12': 'Aterro' }).lembretes).toEqual([]);
+  });
+
+  it('coerência: A-5 "Não foi possível verificar" com A-5.2 "Verificação em campo" só avisa', () => {
+    expect(avisosDaCopia({ 'A-5': ['Não foi possível verificar'], 'A-5.2': 'Verificação em campo' }).lembretes).toHaveLength(1);
+    expect(avisosDaCopia({ 'A-5': ['Não foi possível verificar'], 'A-5.2': 'Verificação por imagem' }).lembretes).toEqual([]);
+    expect(avisosDaCopia({ 'A-5': ['Nascentes'], 'A-5.2': 'Verificação em campo' }).lembretes).toEqual([]);
+  });
+
+  it('texto com dados de campo (só os registrados), com e sem respostas do POP', () => {
+    const dados = { coordenadaAferida: '-12,1; -58,2', waypoint: 'WP 14', fotos: '18', drone: { voou: true, arquivo: 'DJI_0042.MP4' }, pessoaContatada: 'Fulano, vaqueiro' };
+    expect(textoCaracterizacao({ 'A-1': 'Cerrado' }, dados).split('\n')).toEqual([
+      'Caracterização do dano (POP IBAMA (Portaria Ibama nº 83/2022), Anexo I):', 'A-1. Bioma: Cerrado',
+      'Dados de campo:', 'Coordenada aferida: -12,1; -58,2', 'Waypoint: WP 14', 'Fotos: 18', 'Voo de drone: sim (arquivo DJI_0042.MP4)', 'Pessoa contatada: Fulano, vaqueiro',
+    ]);
+    expect(textoCaracterizacao({}, { waypoint: 'WP 1', drone: { voou: true } })).toBe('Dados de campo:\nWaypoint: WP 1\nVoo de drone: sim');
+    expect(textoCaracterizacao({ 'A-1': 'Cerrado' }, { drone: { voou: false } })).not.toContain('Dados de campo');
+    expect(textoCaracterizacao({}, {})).toBe('');
   });
 });
 
@@ -179,8 +217,24 @@ describe('tela do ponto', () => {
     expect(within(bloco).getByRole('button', { name: 'Copiar texto para o relatório' })).toBeDisabled();
     fireEvent.change(within(bloco).getByLabelText(/^A-10\./), { target: { value: 'Sim' } });
     await act(async () => { fireEvent.click(within(bloco).getByRole('button', { name: 'Copiar texto para o relatório' })); });
+    expect(escrever).not.toHaveBeenCalled(); // faltam itens obrigatórios: pergunta antes
+    expect(within(bloco).getByTestId('confirma-copia')).toHaveTextContent(/^Faltam A-1, .* e A-\d+\. Copiar assim mesmo\?/);
+    await act(async () => { fireEvent.click(within(bloco).getByRole('button', { name: 'Copiar assim mesmo' })); });
     expect(escrever).toHaveBeenCalledWith('Caracterização do dano (POP IBAMA (Portaria Ibama nº 83/2022), Anexo I):\nA-10. Houve ocorrência de fogo recente ou indícios?: Sim');
     expect(within(bloco).getByText('Texto copiado.')).toBeInTheDocument();
+    expect(within(bloco).queryByTestId('confirma-copia')).toBeNull();
+  });
+
+  it('"Voltar" no aviso de itens faltando não copia', async () => {
+    const escrever = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: escrever }, configurable: true });
+    const { pontos } = montar([{ tipoDano: 'Desmatamento' }]);
+    const bloco = screen.getByTestId(`caracterizacao-${pontos[0].id}`);
+    fireEvent.change(within(bloco).getByLabelText(/^A-10\./), { target: { value: 'Sim' } });
+    await act(async () => { fireEvent.click(within(bloco).getByRole('button', { name: 'Copiar texto para o relatório' })); });
+    fireEvent.click(within(bloco).getByRole('button', { name: 'Voltar' }));
+    expect(within(bloco).queryByTestId('confirma-copia')).toBeNull();
+    expect(escrever).not.toHaveBeenCalled();
   });
 
   it('salva sozinha: dado de campo grava ao digitar (após a pausa), sem sair do campo, e mostra "Salvo às"', () => {

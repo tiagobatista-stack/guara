@@ -4,7 +4,7 @@
 import { Fragment, useCallback, useEffect, useId, useRef, useState } from 'react';
 import type { Ponto } from './modelo.ts';
 import {
-  FONTE_POP, itensAplicaveis, marcadas, sugestoesPop, itensDeCampoSemResposta, ITENS_POP, LIMITE_TEXTO_POP, respondido, textoCaracterizacao, type Caracterizacao, type ItemPop, type Resposta,
+  FONTE_POP, avisosDaCopia, textoFaltam, itensAplicaveis, marcadas, sugestoesPop, itensDeCampoSemResposta, ITENS_POP, LIMITE_TEXTO_POP, textoCaracterizacao, type Caracterizacao, type ItemPop, type Resposta,
 } from './pop-supressao.ts';
 
 type Mudancas = Partial<Pick<Ponto, 'caracterizacao' | 'coordenadaAferida' | 'waypoint' | 'fotos' | 'drone' | 'pessoaContatada'>>;
@@ -102,15 +102,22 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar: aoMudarFora }: {
     aoMudar({ caracterizacao: v === undefined ? resto : { ...resto, [item.id]: v } });
     setAviso(null);
   };
-  const copiar = async () => {
-    const texto = textoCaracterizacao(resp);
-    if (!texto) return setAviso('Nenhum item respondido para copiar.');
+  const [confirmar, setConfirmar] = useState<string | null>(null);
+  const copiarTexto = async () => {
+    setConfirmar(null);
+    const texto = textoCaracterizacao(resp, ponto);
+    if (!texto) return setAviso('Nada respondido nem registrado para copiar.');
+    const { lembretes } = avisosDaCopia(resp);
     try {
       await navigator.clipboard.writeText(texto);
-      setAviso('Texto copiado.');
+      setAviso(['Texto copiado.', ...lembretes].join(' '));
     } catch {
       setAviso('Este navegador não deixou copiar; selecione o texto abaixo e copie.');
     }
+  };
+  const copiar = () => {
+    const f = textoFaltam(avisosDaCopia(resp).faltam);
+    if (f) { setAviso(null); setConfirmar(f); } else void copiarTexto();
   };
   const campo = (rot: string, k: 'coordenadaAferida' | 'waypoint' | 'fotos' | 'pessoaContatada', dica?: string) => (
     <label className="campo-grupo"><span>{rot}</span>
@@ -167,8 +174,15 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar: aoMudarFora }: {
         ))}
         {puladas.length > 0 && <p className="texto-pequeno texto-suave" data-testid="pop-puladas">Itens pulados pelo formulário: {puladas.join(', ')}.</p>}
         <div className="acoes">
-          <button type="button" className="botao botao--pequeno" disabled={!Object.values(resp).some(respondido)} onClick={copiar}>Copiar texto para o relatório</button>
+          <button type="button" className="botao botao--pequeno" disabled={!textoCaracterizacao(resp, ponto)} onClick={copiar}>Copiar texto para o relatório</button>
         </div>
+        {confirmar && (
+          <div className="acoes" data-testid="confirma-copia">
+            <p className="texto-pequeno">{confirmar}</p>
+            <button type="button" className="botao botao--pequeno" onClick={() => void copiarTexto()}>Copiar assim mesmo</button>
+            <button type="button" className="botao botao--pequeno" onClick={() => setConfirmar(null)}>Voltar</button>
+          </div>
+        )}
         {aviso && <p role="status" className="texto-pequeno">{aviso}</p>}
       </section>
     </details>
