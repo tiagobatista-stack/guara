@@ -123,6 +123,12 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 
 .conteudo { flex: 1; padding: 16px 16px 96px; }
 
+/* Rodapé da área central: autoria e versão do programa. */
+.rodape-app {
+  margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--borda);
+  font-size: 12px; color: var(--texto-suave); text-align: center;
+}
+
 .painel-assistente {
   display: none; position: sticky; top: 0; height: 100dvh; width: 320px; flex-shrink: 0;
   background: var(--superficie); border-left: 1px solid var(--borda);

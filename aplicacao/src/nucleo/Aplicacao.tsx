@@ -141,6 +141,9 @@ export function Aplicacao() {
         <main id="conteudo" className="conteudo">
           {avisoPersistencia && <p role="alert" className="aviso aviso--topo">{avisoPersistencia}</p>}
           <Conteudo rota={rota} />
+          <footer className="rodape-app">
+            GUARÁ v{__VERSAO_GUARA__}{__COMMIT_GUARA__ ? ` (${__COMMIT_GUARA__})` : ''} · Desenvolvido por Tiago Alexandre Batista
+          </footer>
         </main>
       </div>
 

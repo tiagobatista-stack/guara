@@ -201,3 +201,18 @@ describe('menu e painel recolhíveis', () => {
     expect(container.querySelector('.app')).toHaveClass('app--menu-recolhido');
   });
 });
+
+// Rodapé (21/11/2026): autoria e versão do programa em todas as telas.
+it('o rodapé mostra o autor e a versão do programa', () => {
+  localStorage.clear();
+  const armazem = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [] });
+  const { container } = render(
+    <ContextoArmazem.Provider value={armazem}>
+      <Aplicacao />
+    </ContextoArmazem.Provider>,
+  );
+  const rodape = container.querySelector('footer.rodape-app') as HTMLElement;
+  expect(rodape).toHaveTextContent('Desenvolvido por Tiago Alexandre Batista');
+  expect(rodape).toHaveTextContent(`GUARÁ v${__VERSAO_GUARA__}`);
+  expect(__VERSAO_GUARA__).toMatch(/^\d+\.\d+\.\d+/);
+});
