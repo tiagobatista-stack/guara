@@ -28,8 +28,8 @@ import { priorizarDemandas } from './priorizar.ts';
 import { nomeDaDemanda } from './rotuloDaDemanda.ts';
 import { useLimiteDeAvisos } from './preferencias-avisos.ts';
 import { cancelarCompromisso, confirmarCompromisso, respostaDeAgenda, respostaDeCompromisso, respostaDeDecisao } from './compromissoPelaConversa.ts';
-import { adiarCompromisso, concluirCompromisso, marcarCienteCompromisso, tituloDoCompromisso, useCompromissos, type Compromisso } from '../agenda/compromissos.ts';
-import { OPCAO_EM_DUAS_HORAS, textoDoCompromisso, useCompromissosParaAvisar } from '../agenda/avisosDeCompromissos.ts';
+import { adiarCompromisso, concluirOcorrencia, marcarCienteCompromisso, tituloDoCompromisso, useCompromissos } from '../agenda/compromissos.ts';
+import { OPCAO_EM_DUAS_HORAS, textoDoCompromisso, useCompromissosParaAvisar, type CompromissoAvisado } from '../agenda/avisosDeCompromissos.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, useLembretes } from './lembretes.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
@@ -326,7 +326,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         {compromissosDoAviso.length > 0 && (
           <ul className="lista-limpa avisos-assistente" aria-label="Compromissos e lembretes">
             {compromissosDoAviso.map((c) => (
-              <AvisoDeCompromisso key={c.id} compromisso={c} agora={instante} aoMarcarCiente={() => marcarCienteCompromisso(c.id, agora())} aoConcluir={() => concluirCompromisso(c.id)} aoAdiar={() => adiarCompromisso(c.id, new Date(agora().getTime() + OPCAO_EM_DUAS_HORAS.horas * 3_600_000))} />
+              <AvisoDeCompromisso key={`${c.id}-${c.ocorrencia}`} compromisso={c} agora={instante} aoMarcarCiente={() => marcarCienteCompromisso(c.id, agora())} aoConcluir={() => concluirOcorrencia(c.id, c.ocorrencia)} aoAdiar={() => adiarCompromisso(c.id, new Date(agora().getTime() + OPCAO_EM_DUAS_HORAS.horas * 3_600_000))} />
             ))}
           </ul>
         )}
@@ -452,7 +452,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
 }
 
 /** Aviso de um compromisso ou lembrete próprio, com a cor própria de lembrete (não é prazo de demanda). */
-function AvisoDeCompromisso({ compromisso: c, agora, aoMarcarCiente, aoConcluir, aoAdiar }: { compromisso: Compromisso; agora: Date; aoMarcarCiente: () => void; aoConcluir: () => void; aoAdiar: () => void }) {
+function AvisoDeCompromisso({ compromisso: c, agora, aoMarcarCiente, aoConcluir, aoAdiar }: { compromisso: CompromissoAvisado; agora: Date; aoMarcarCiente: () => void; aoConcluir: () => void; aoAdiar: () => void }) {
   const titulo = tituloDoCompromisso(c);
   return (
     <li className="fala aviso-compromisso" data-testid={`compromisso-${c.id}`}>

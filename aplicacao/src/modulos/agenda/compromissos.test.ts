@@ -292,3 +292,72 @@ describe('quando o compromisso pede aviso', () => {
     expect(textoDoCompromisso(c(), new Date(2026, 11, 1, 9))).toBe('Reunião — licenciamento · quinta, 10/12/2026 · dia todo');
   });
 });
+
+describe('avisos de vários dias e de séries', () => {
+  const s = (extra: object) => ({ id: 's1', criadoEm: AGORA, ...base, ...extra }) as ReturnType<typeof obterCompromissos>[number];
+  const avisar = (lista: ReturnType<typeof obterCompromissos>, agora: Date) => compromissosParaAvisar(lista, agora);
+
+  it('horariosDeAviso usa o dia da ocorrência: 8h e a hora, naquele dia', () => {
+    const h = horariosDeAviso({ data: '2026-12-10', hora: '14:30' }, '2026-12-17');
+    expect(h.map((d) => `${d.getDate()}/${d.getHours()}:${d.getMinutes()}`)).toEqual(['17/8:0', '17/14:30']);
+  });
+
+  it('intervalo de 3 dias: avisa às 8h de cada dia, a ocorrência é a do início, e o texto diz "Dia 2 de 3"', () => {
+    const c = s({ dataFim: '2026-12-12', tipo: 'curso', assunto: 'geoprocessamento' });
+    expect(avisar([c], new Date(2026, 11, 9, 12))).toEqual([]);
+    const [dia2] = avisar([c], new Date(2026, 11, 11, 8, 30));
+    expect(dia2.ocorrencia).toBe('2026-12-10');
+    expect(textoDoCompromisso(dia2, new Date(2026, 11, 11, 8, 30))).toBe('Curso — geoprocessamento · hoje · dia todo · Dia 2 de 3');
+    // "Ciente" no dia 11 esconde até as 8h do dia 12.
+    const ciente = { ...c, cienteEm: new Date(2026, 11, 11, 9).toISOString() };
+    expect(avisar([ciente], new Date(2026, 11, 11, 20))).toEqual([]);
+    expect(textoDoCompromisso(avisar([ciente], new Date(2026, 11, 12, 8))[0], new Date(2026, 11, 12, 8))).toContain('Dia 3 de 3');
+  });
+
+  it('série diária: no máximo UM aviso (o mais recente), nunca sete', () => {
+    const c = s({ repeticao: 'diaria' });
+    const r = avisar([c], new Date(2026, 11, 17, 9));
+    expect(r).toHaveLength(1);
+    expect(r[0].ocorrencia).toBe('2026-12-17');
+    expect(textoDoCompromisso(r[0], new Date(2026, 11, 17, 9))).toBe('Reunião — licenciamento · hoje · dia todo · todos os dias');
+  });
+
+  it('antes do horário de hoje, a série diária mostra a ocorrência de ontem ainda sem tratar', () => {
+    const c = s({ repeticao: 'diaria', hora: '14:30' });
+    expect(avisar([c], new Date(2026, 11, 17, 7))[0].ocorrencia).toBe('2026-12-16');
+    expect(avisar([c], new Date(2026, 11, 17, 8))[0].ocorrencia).toBe('2026-12-17');
+  });
+
+  it('Concluído vale por ocorrência: a de hoje some, a de amanhã volta; ontem aberta não reaparece', () => {
+    const c = s({ repeticao: 'semanal', concluidasEm: ['2026-12-17'] });
+    expect(avisar([c], new Date(2026, 11, 17, 9))).toEqual([]);
+    expect(avisar([c], new Date(2026, 11, 24, 9))[0].ocorrencia).toBe('2026-12-24');
+    // Concluída a mais recente, a de 7 dias atrás (aberta) não vira aviso.
+    expect(avisar([s({ repeticao: 'semanal', concluidasEm: ['2026-12-17'] })], new Date(2026, 11, 20, 9))).toEqual([]);
+  });
+
+  it('série semanal: aparece só no dia, com "toda quinta" no texto; antes do início não há aviso; depois do "até" a última ainda aparece por 7 dias', () => {
+    const c = s({ repeticao: 'semanal', repetirAte: '2026-12-24' });
+    expect(avisar([c], new Date(2026, 11, 9, 12))).toEqual([]);
+    expect(textoDoCompromisso(avisar([c], new Date(2026, 11, 10, 9))[0], new Date(2026, 11, 10, 9))).toBe('Reunião — licenciamento · hoje · dia todo · toda quinta, até 24/12/2026');
+    expect(avisar([c], new Date(2026, 11, 28, 9))[0].ocorrencia).toBe('2026-12-24');
+    expect(avisar([c], new Date(2027, 0, 2, 9))).toEqual([]);
+  });
+
+  it('mensal por semana: "todo mês, na 2ª quinta"; semana do mês: "2ª semana de dez" no texto', () => {
+    const m = s({ repeticao: 'mensal_semana' });
+    expect(textoDoCompromisso(avisar([m], new Date(2026, 11, 10, 9))[0], new Date(2026, 11, 10, 9))).toContain('todo mês, na 2ª quinta');
+    const semana = s({ data: '2026-12-08', dataFim: '2026-12-14', tipo: 'curso', assunto: 'x' });
+    expect(textoDoCompromisso(avisar([semana], new Date(2026, 11, 8, 9))[0], new Date(2026, 11, 8, 9))).toBe('Curso — x · hoje · dia todo · Dia 1 de 7 · 2ª semana de dez');
+  });
+
+  it('"Em 2 horas" esconde a série até a hora', () => {
+    const c = s({ repeticao: 'diaria', adiadoAte: new Date(2026, 11, 17, 11).toISOString() });
+    expect(avisar([c], new Date(2026, 11, 17, 10))).toEqual([]);
+    expect(avisar([c], new Date(2026, 11, 17, 11))).toHaveLength(1);
+  });
+
+  it('com concluído geral, nada avisa', () => {
+    expect(avisar([s({ repeticao: 'diaria', concluido: true })], new Date(2026, 11, 17, 9))).toEqual([]);
+  });
+});
