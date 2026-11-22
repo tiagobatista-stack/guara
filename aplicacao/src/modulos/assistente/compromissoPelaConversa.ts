@@ -7,12 +7,12 @@ import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { dataLocal } from '../alertas/dias-uteis.ts';
 import {
-  criarCompromisso, diaCompleto, guardarRascunho, limparRascunho, obterRascunho, tituloDoCompromisso,
-  type Compromisso, type DadosCompromisso, type TipoDeCompromisso,
+  criarCompromisso, diaCompleto, guardarRascunho, limparRascunho, obterEtapaDoRascunho, obterRascunho, tituloDoCompromisso,
+  type Compromisso, type DadosCompromisso, type EtapaDoRascunho, type TipoDeCompromisso,
 } from '../agenda/compromissos.ts';
 import { montarAgenda, type ItemAgenda } from '../agenda/regras.ts';
 import { descreverRepeticao, REPETICOES } from '../agenda/recorrencia.ts';
-import { interpretarCompromisso, type Entendido, type ProblemaDaFrase } from './interpretarCompromisso.ts';
+import { interpretarCompromisso, pareceCompromisso, type Entendido, type ProblemaDaFrase } from './interpretarCompromisso.ts';
 import { palavras } from './normalizar.ts';
 import type { AcaoDaFala, Mensagem } from './conversa.ts';
 
@@ -109,19 +109,104 @@ export function respostaDeCompromisso(
     assunto: e.assunto || demanda?.titulo || e.tipo[0].toUpperCase() + e.tipo.slice(1),
     ...(demanda ? { demanda: demanda.id } : {}),
   };
+  // Frase com só o dia (sem hora, intervalo nem repetição) deixa coisas em aberto: o mascote pergunta,
+  // uma coisa por vez. Frase completa e lembrete (aviso às 8h) vão direto à confirmação.
+  if (dados.tipo !== 'lembrete' && !dados.hora && !dados.dataFim && !dados.repeticao) {
+    guardarRascunho(dados, 'hora');
+    return perguntar(obterRascunho() ?? dados, 'hora', avisoDoVinculo);
+  }
   guardarRascunho(dados);
-  const [anotado] = [obterRascunho() ?? dados];
+  return confirmacao(obterRascunho() ?? dados, avisoDoVinculo);
+}
+
+const CANCELAR: AcaoDaFala = { rotulo: 'Cancelar', comando: 'cancelar compromisso', acao: { tipo: 'cancelar-compromisso' } };
+const PULAR: AcaoDaFala = { rotulo: 'Pular, está bom assim', comando: 'pular', };
+
+/** "Vou anotar: …" com Confirmar, Corrigir e Cancelar. */
+function confirmacao(anotado: DadosCompromisso, aviso = ''): Mensagem[] {
   return [{
     autor: 'assistente',
     natureza: 'inferência',
     fonte: FONTE_DO_ENTENDIMENTO,
-    texto: `Vou anotar: ${descreverEntendimento(anotado)}.${avisoDoVinculo}`,
+    texto: `Vou anotar: ${descreverEntendimento(anotado)}.${aviso}`,
     acoes: [
       { rotulo: 'Confirmar', comando: 'confirmar compromisso', acao: { tipo: 'confirmar-compromisso', dados: anotado } },
       { rotulo: 'Corrigir', comando: 'corrigir compromisso', rota: rotaParaCorrigirCompromisso(anotado) },
-      { rotulo: 'Cancelar', comando: 'cancelar compromisso', acao: { tipo: 'cancelar-compromisso' } },
+      CANCELAR,
     ],
   }];
+}
+
+/** Minúsculas, sem acento nem pontuação; NÃO reduz letras repetidas ("nesse", "assim"), ao contrário de `normalizar`. */
+const chave = (t: string) => t.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/[^a-z0-9]+/g, ' ').trim();
+
+const PERGUNTAS_DO_MASCOTE: Record<EtapaDoRascunho, { texto: string; botao: AcaoDaFala }> = {
+  hora: { texto: 'É o dia todo ou tem hora? Pode dizer, por exemplo, "às 14h".', botao: { rotulo: 'Dia todo', comando: 'dia todo' } },
+  fim: { texto: 'É só nesse dia ou vai até quando? Pode dizer, por exemplo, "até 12/12".', botao: { rotulo: 'Só nesse dia', comando: 'só nesse dia' } },
+  repete: { texto: 'Isso se repete? Pode dizer, por exemplo, "toda semana até 20/12".', botao: { rotulo: 'Não repete', comando: 'não repete' } },
+};
+
+/** Pergunta curta do mascote; o rascunho (com a etapa) já está guardado e nada foi gravado. */
+function perguntar(dados: DadosCompromisso, etapa: EtapaDoRascunho, prefixo = ''): Mensagem[] {
+  return sugestao(
+    `${prefixo ? `${prefixo.trim()} ` : `Entendi: ${descreverEntendimento(dados)}. `}${PERGUNTAS_DO_MASCOTE[etapa].texto}`,
+    'pergunta do assistente; nada foi gravado ainda',
+    [PERGUNTAS_DO_MASCOTE[etapa].botao, PULAR, CANCELAR],
+  );
+}
+
+/** Lê a resposta a uma pergunta reaproveitando o interpretador da frase; null quando não é uma resposta válida. */
+function lerResposta(etapa: EtapaDoRascunho, texto: string, d: DadosCompromisso, agora: Date): { dados: DadosCompromisso } | { erro: string } | null {
+  const k = chave(texto);
+  if (etapa === 'hora') {
+    if (/^(?:nao|o dia todo|dia todo|dia inteiro|o dia inteiro)(?: mesmo)?$/.test(k)) return { dados: d };
+    const e = interpretarCompromisso(`${dataBr(d.data)} ${texto}`, agora, d.tipo);
+    if (e.problema === 'hora-invalida' || e.problema === 'hora-passada') return { erro: PERGUNTA[e.problema](e) };
+    return e.hora ? { dados: { ...d, hora: e.hora } } : null;
+  }
+  if (etapa === 'fim') {
+    if (/^(?:nao|so nesse dia|so neste dia|so esse dia|so este dia|so um dia|so isso|apenas nesse dia)$/.test(k)) return { dados: d };
+    // "até 12/12", "até dia 12", "de 10/12 a 12/12" e "2ª semana de dezembro".
+    const soDia = /^(?:ate )?(?:o )?(?:dia )?(\d{1,2})$/.exec(k);
+    let frase = `${dataBr(d.data)} ${texto}`;
+    if (soDia) {
+      // Só o número do dia: no mesmo mês se ainda vem depois do início, senão no mês seguinte.
+      const [a, m, dia] = d.data.split('-').map(Number);
+      const depois = Number(soDia[1]) > dia;
+      frase = `${dataBr(d.data)} ate ${soDia[1]}/${depois ? m : (m % 12) + 1}/${depois || m < 12 ? a : a + 1}`;
+    }
+    let e = interpretarCompromisso(frase, agora, d.tipo);
+    if (!e.dataFim && !e.problema) e = interpretarCompromisso(texto, agora, d.tipo);
+    if (e.problema === 'intervalo-invalido' || e.problema === 'data-invalida' || e.problema === 'data-passada') return { erro: PERGUNTA['intervalo-invalido'](e) };
+    if (!e.data || !e.dataFim || e.problema) return null;
+    // "até 05/12" depois de 10/12 sem ano: o interpretador pularia para o ano seguinte; aqui é fim antes do início.
+    if (e.data === d.data && e.dataFim.slice(5) < d.data.slice(5) && !/\d{4}/.test(texto)) return { erro: PERGUNTA['intervalo-invalido'](e) };
+    return { dados: { ...d, data: e.data, dataFim: e.dataFim } };
+  }
+  if (/^(?:nao|nao repete|so uma vez|uma vez so|nunca)$/.test(k)) return { dados: d };
+  const e = interpretarCompromisso(`${dataBr(d.data)} ${texto}`, agora, d.tipo);
+  if (!e.repeticao) return null;
+  if (e.problema === 'intervalo-invalido' || e.problema === 'data-invalida') return { erro: PERGUNTA['intervalo-invalido'](e) };
+  if (e.problema) return null;
+  return { dados: { ...d, repeticao: e.repeticao, ...(e.repetirAte ? { repetirAte: e.repetirAte } : {}) } };
+}
+
+/** A pessoa respondeu (ou pulou) a pergunta pendente; devolve a próxima pergunta ou o "Vou anotar". */
+function responderEtapa(frase: string, etapa: EtapaDoRascunho, pendente: DadosCompromisso, agora: Date): Mensagem[] | null {
+  if (pareceCompromisso(frase, agora)) return null; // frase nova de compromisso: segue o fluxo normal
+  const k = chave(frase);
+  if (/^(?:pular|pula|pulo|ta bom|esta bom|ta bom assim|esta bom assim|pular esta bom assim|assim mesmo)$/.test(k)) {
+    guardarRascunho(pendente);
+    return confirmacao(obterRascunho() ?? pendente);
+  }
+  const r = lerResposta(etapa, frase, pendente, agora);
+  if (!r) return perguntar(pendente, etapa, 'Não entendi.');
+  if ('erro' in r) return perguntar(pendente, etapa, r.erro);
+  // Segunda e última pergunta: com hora, "se repete"; dia todo, "até quando". Depois disso, só confirmar.
+  const proxima: EtapaDoRascunho | null = etapa === 'hora' ? (r.dados.hora ? 'repete' : 'fim') : null;
+  guardarRascunho(r.dados, proxima ?? undefined);
+  const gravado = obterRascunho() ?? r.dados;
+  return proxima ? perguntar(gravado, proxima) : confirmacao(gravado);
 }
 
 // A normalização reduz letras repetidas ("compromisso" vira "compromiso"); compara-se na mesma forma.
@@ -136,6 +221,12 @@ export function respostaDeDecisao(frase: string, agora: Date): Mensagem[] | null
   const pendente = obterRascunho();
   const soloSim = ps.length >= 1 && ps.length <= 2 && ps.every((p) => SIM.has(p));
   const soloNao = ps.length === 1 && NAO.has(ps[0]);
+  // Com uma pergunta do mascote esperando, a frase é a resposta (menos "confirmar"/"cancelar", que valem sempre).
+  const etapa = obterEtapaDoRascunho();
+  if (etapa && pendente && !botao && !soloSim && !(soloNao && ps[0] !== 'nao')) {
+    const r = responderEtapa(frase, etapa, pendente, agora);
+    if (r) return r;
+  }
   if (!botao && !(pendente && (soloSim || soloNao))) return null;
   const confirmar = botao ? ps[0] === 'confirmar' : soloSim;
   if (!pendente) return sugestao(`Não tenho nenhum compromisso esperando ${confirmar ? 'confirmação' : 'cancelamento'}. Diga a frase de novo, por exemplo: ${EXEMPLO}.`, 'regra: nada pendente');

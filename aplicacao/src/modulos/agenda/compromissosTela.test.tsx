@@ -219,6 +219,8 @@ describe('conversa: do pedido à gravação (cliques reais nos botões)', () => 
   it('Confirmar grava em guara:compromissos:v1 e o compromisso aparece na Agenda em 10/12/2026', () => {
     montarPainel();
     enviar('reunião dia 10/12 sobre licenciamento');
+    expect(screen.getByText(/É o dia todo ou tem hora\?/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole('button', { name: 'Pular, está bom assim' }));
     expect(screen.getByText(/Vou anotar: Reunião — licenciamento · quinta, 10\/12\/2026 · dia todo\./)).toBeInTheDocument();
     expect(screen.getByText(/inferência · fonte: interpretação da frase por regras; confira/)).toBeInTheDocument();
     expect(localStorage.getItem('guara:compromissos:v1')).toBeNull();
@@ -237,6 +239,7 @@ describe('conversa: do pedido à gravação (cliques reais nos botões)', () => 
   it('o Confirmar não depende do texto do botão: vale mesmo se o texto do comando fosse outro', () => {
     montarPainel();
     enviar('reunião dia 10/12 sobre licenciamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Pular, está bom assim' }));
     const guardada = JSON.parse(localStorage.getItem('guara:conversa:v1')!);
     const confirmar = JSON.stringify(guardada).includes('"acao":{"tipo":"confirmar-compromisso"');
     expect(confirmar).toBe(true);

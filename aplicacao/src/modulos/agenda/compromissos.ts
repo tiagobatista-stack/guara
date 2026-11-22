@@ -301,12 +301,22 @@ export function adiarCompromisso(id: string, ate: Date) {
 
 // ---------- Rascunho: o que o assistente entendeu e espera confirmação ----------
 
-const rascunho = criarListaLocal<DadosCompromisso>(CHAVE_RASCUNHO_COMPROMISSO, () => [], (x) => {
+/** Pergunta do mascote ainda sem resposta: hora ("dia todo ou tem hora?"), fim ("só nesse dia ou até quando?") ou repetição. */
+export const ETAPAS_DO_RASCUNHO = ['hora', 'fim', 'repete'] as const;
+export type EtapaDoRascunho = (typeof ETAPAS_DO_RASCUNHO)[number];
+
+// O rascunho é [dados] ou [dados, { etapa }]; a etapa existe só enquanto o mascote espera uma resposta.
+type ItemDoRascunho = DadosCompromisso | { etapa: EtapaDoRascunho };
+
+const rascunho = criarListaLocal<ItemDoRascunho>(CHAVE_RASCUNHO_COMPROMISSO, () => [], (x) => {
   if (!Array.isArray(x)) return [];
   const d = typeof x[0] === 'object' && x[0] !== null ? dadosValidos(x[0] as Record<string, unknown>) : null;
-  return d ? [d] : [];
+  if (!d) return [];
+  const e = typeof x[1] === 'object' && x[1] !== null ? (x[1] as Record<string, unknown>).etapa : undefined;
+  return (ETAPAS_DO_RASCUNHO as readonly unknown[]).includes(e) ? [d, { etapa: e as EtapaDoRascunho }] : [d];
 });
 
-export const obterRascunho = (): DadosCompromisso | null => rascunho.obter()[0] ?? null;
-export const guardarRascunho = (d: DadosCompromisso) => rascunho.gravar([dadosLimpos(d)]);
+export const obterRascunho = (): DadosCompromisso | null => (rascunho.obter()[0] as DadosCompromisso | undefined) ?? null;
+export const obterEtapaDoRascunho = (): EtapaDoRascunho | null => (rascunho.obter()[1] as { etapa: EtapaDoRascunho } | undefined)?.etapa ?? null;
+export const guardarRascunho = (d: DadosCompromisso, etapa?: EtapaDoRascunho) => rascunho.gravar(etapa ? [dadosLimpos(d), { etapa }] : [dadosLimpos(d)]);
 export const limparRascunho = () => { if (rascunho.obter().length) rascunho.gravar([]); };
