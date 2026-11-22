@@ -54,3 +54,24 @@ Testes novos: `interpretarCompromisso.test.ts` (57), `compromissos.test.ts` (arm
 - Código de demanda inexistente: avisa e grava sem vínculo.
 - Backup: ver a seção "Backup com compromissos". Ao importar um arquivo SEM o campo `compromissos` (exportado antes desta mudança), a agenda atual fica intacta.
 - O formulário não pede aviso antecipado (só 8h e a hora marcada) nem repetição.
+
+## Evolução: intervalo, repetição, semana do mês e `.ics` com séries (22/11/2026)
+
+Branch `melhoria-agenda-intervalo-repeticao`, 9 etapas, um commit por etapa (`08f3501`, `e1ab742`, `2dcc02d`, `bbe3231`, `1c466c9`, `807d15a`, `a77ba40`, `bc09e9a` e o da etapa 9). Decisões em `gestao/decisoes/2026-11-22-agenda-intervalo-e-repeticao.md`. Esta seção substitui a última linha de "Limitações" acima (o formulário agora pede intervalo e repetição).
+
+| Verificação (PowerShell) | Resultado |
+|---|---|
+| `npx tsc --noEmit` | PASSOU (saída 0) |
+| `npm test` | PASSOU: 80 arquivos, 1159 testes |
+| `npm run build` | PASSOU (só o aviso de chunk grande) |
+| Agenda + assistente, 3 repetições seguidas | PASSOU: 22 arquivos, 479 testes nas 3 vezes; sem falha intermitente |
+| `.ics` (13 testes novos) | PASSOU: strings exatas de `RRULE`, `DTEND` exclusivo, `UNTIL`, `EXDATE`, UID por id e dobra em 75 caracteres |
+
+Observação: o `vitest` pelo Bash falhou em massa neste ambiente; pelo PowerShell passa. Os números acima são do PowerShell.
+
+### Não testado
+
+- Importar o `.ics` no Google Agenda ou Outlook reais: NÃO TESTADO (só o texto do arquivo foi conferido).
+- Formulário e conversa em 375 px e desktop, tema claro e escuro: NÃO TESTADO (sem navegador).
+- Roteiro manual com cliques físicos: NÃO TESTADO.
+- Push e publicação: não feitos (exigem autorização).
