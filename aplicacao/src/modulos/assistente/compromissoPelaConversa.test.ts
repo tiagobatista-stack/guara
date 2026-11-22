@@ -92,6 +92,66 @@ describe('confirmação antes de gravar', () => {
   });
 });
 
+describe('intervalo e repetição na conversa', () => {
+  it('intervalo: mostra "10/12/2026 a 12/12/2026" e grava dataFim ao confirmar', () => {
+    const [m] = pedir('curso de geoprocessamento de 10/12 a 12/12');
+    expect(m.texto).toBe('Vou anotar: Curso — geoprocessamento · 10/12/2026 a 12/12/2026 · dia todo.');
+    expect(obterRascunho()).toMatchObject({ data: '2026-12-10', dataFim: '2026-12-12' });
+    const [ok] = respostaDeDecisao('confirmar compromisso', SABADO)!;
+    expect(ok.texto).toContain('aviso vem às 8h de cada dia');
+    expect(obterCompromissos()[0]).toMatchObject({ data: '2026-12-10', dataFim: '2026-12-12' });
+  });
+
+  it('repetição: mostra "toda segunda a partir de 23/11/2026" e grava a série', () => {
+    const [m] = pedir('reunião toda segunda às 9h sobre alinhamento');
+    expect(m.texto).toBe('Vou anotar: Reunião — alinhamento · toda segunda a partir de 23/11/2026 · às 09:00.');
+    const [ok] = respostaDeDecisao('sim', SABADO)!;
+    expect(ok.texto).toContain('aviso vem às 8h de cada ocorrência');
+    expect(obterCompromissos()[0]).toMatchObject({ data: '2026-11-23', hora: '09:00', repeticao: 'semanal' });
+  });
+
+  it('repetição com fim mostra "até"', () => {
+    const [m] = pedir('reunião toda segunda até 20/12 sobre alinhamento');
+    expect(m.texto).toContain('toda segunda a partir de 23/11/2026, até 20/12/2026');
+    expect(obterRascunho()).toMatchObject({ repeticao: 'semanal', repetirAte: '2026-12-20' });
+  });
+
+  it('o botão Confirmar sobrevive à conversa guardada com os campos novos', () => {
+    const [m] = pedir('reunião toda segunda até 20/12 sobre alinhamento');
+    const guardada = validarMensagem(JSON.parse(JSON.stringify(m)));
+    expect(guardada?.acoes?.[0].acao).toEqual(m.acoes![0].acao);
+    expect(guardada?.acoes?.[0].acao).toMatchObject({ dados: { repeticao: 'semanal', repetirAte: '2026-12-20' } });
+    const adulterada = validarMensagem({ ...m, acoes: [{ ...m.acoes![0], acao: { tipo: 'confirmar-compromisso', dados: { tipo: 'reunião', data: '2026-11-23', assunto: 'x', repeticao: 'quinzenal' } } }] });
+    expect(adulterada?.acoes?.[0].acao).toBeUndefined();
+  });
+
+  it('"Corrigir" leva intervalo e repetição na rota, e a leitura os valida de novo', () => {
+    const [m] = pedir('reunião toda segunda até 20/12 sobre alinhamento');
+    const corrigir = m.acoes!.find((a) => a.rotulo === 'Corrigir')!;
+    expect(corrigir.rota).toMatch(/&rep=semanal&ate=2026-12-20$/);
+    expect(validarMensagem({ autor: 'assistente', texto: 't', natureza: 'inferência', fonte: 'f', acoes: [corrigir] })?.acoes?.[0].rota).toBe(corrigir.rota);
+    const [curso] = pedir('curso de 10/12 a 12/12 sobre SIG');
+    const rotaCurso = curso.acoes!.find((a) => a.rotulo === 'Corrigir')!.rota!;
+    expect(rotaCurso).toMatch(/&fim=2026-12-12$/);
+    expect(validarMensagem({ autor: 'assistente', texto: 't', natureza: 'inferência', fonte: 'f', acoes: [{ rotulo: 'Corrigir', comando: 'x', rota: rotaCurso }] })?.acoes?.[0].rota).toBe(rotaCurso);
+    expect(lerRotaDeCompromisso('curso|2026-12-10|||SIG', { fim: '2026-12-12', rep: 'semanal', ate: '2026-12-20' })).toEqual({ tipo: 'curso', data: '2026-12-10', assunto: 'SIG', dataFim: '2026-12-12', repeticao: 'semanal', repetirAte: '2026-12-20' });
+    expect(lerRotaDeCompromisso('curso|2026-12-10|||SIG', { fim: 'ontem', rep: 'quinzenal', ate: '20/12' })).toEqual({ tipo: 'curso', data: '2026-12-10', assunto: 'SIG' });
+  });
+
+  it('intervalo inválido pergunta e não grava', () => {
+    const [m] = pedir('curso 12/12 a 10/12/2026');
+    expect(m.natureza).toBe('sugestão');
+    expect(m.texto).toContain('O período');
+    expect(obterRascunho()).toBeNull();
+    expect(obterCompromissos()).toEqual([]);
+  });
+
+  it('"toda segunda reunião ..." é compromisso para o classificador', () => {
+    expect(classificar('toda segunda reunião de alinhamento', SABADO)?.id).toBe('compromisso');
+    expect(classificar('curso de 10/12 a 12/12', SABADO)?.id).toBe('compromisso');
+  });
+});
+
 describe('perguntas quando falta ou está errado', () => {
   it.each([
     ['reunião sobre licenciamento', 'Não entendi a data'],

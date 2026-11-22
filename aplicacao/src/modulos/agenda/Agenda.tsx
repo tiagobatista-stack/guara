@@ -34,11 +34,12 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
   const [recado, setRecado] = useState('');
   useEffect(() => {
     const aplicar = () => {
-      const novo = parametrosDaRota(window.location.hash).get('novo');
+      const parametros = parametrosDaRota(window.location.hash);
+      const novo = parametros.get('novo');
       if (novo === null) return;
       window.history.replaceState(null, '', '#/agenda');
       limparRascunho();
-      const campos = lerRotaDeCompromisso(novo);
+      const campos = lerRotaDeCompromisso(novo, { fim: parametros.get('fim'), rep: parametros.get('rep'), ate: parametros.get('ate') });
       if (!campos) return;
       setFormulario(campos);
       if (campos.data) {

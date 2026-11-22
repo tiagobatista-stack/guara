@@ -11,6 +11,7 @@ import {
   type Compromisso, type DadosCompromisso, type TipoDeCompromisso,
 } from '../agenda/compromissos.ts';
 import { montarAgenda, type ItemAgenda } from '../agenda/regras.ts';
+import { descreverRepeticao, REPETICOES } from '../agenda/recorrencia.ts';
 import { interpretarCompromisso, type Entendido, type ProblemaDaFrase } from './interpretarCompromisso.ts';
 import { palavras } from './normalizar.ts';
 import type { AcaoDaFala, Mensagem } from './conversa.ts';
@@ -21,11 +22,15 @@ const ABRIR_AGENDA: AcaoDaFala = { rotulo: 'Abrir a Agenda', comando: 'abrir age
 /** Rota da Agenda com o formulário já preenchido ("Corrigir"). Só carrega campos que o formulário valida de novo. */
 export function rotaParaCorrigirCompromisso(d: Partial<DadosCompromisso>): string {
   const partes = [d.tipo ?? '', d.data ?? '', d.hora ?? '', d.demanda ?? '', d.assunto ?? ''];
-  return `#/agenda?novo=${encodeURIComponent(partes.join('|'))}`;
+  const extras = `${d.dataFim ? `&fim=${d.dataFim}` : ''}${d.repeticao ? `&rep=${d.repeticao}` : ''}${d.repetirAte ? `&ate=${d.repetirAte}` : ''}`;
+  return `#/agenda?novo=${encodeURIComponent(partes.join('|'))}${extras}`;
 }
 
+/** Os parâmetros opcionais da rota ("fim", "rep", "ate"), como a Agenda os lê do endereço. */
+export interface ExtrasDaRota { fim?: string | null; rep?: string | null; ate?: string | null }
+
 /** Lê o que `rotaParaCorrigirCompromisso` escreveu; nada que não caiba nos campos volta. */
-export function lerRotaDeCompromisso(valor: string | null): Partial<DadosCompromisso> | null {
+export function lerRotaDeCompromisso(valor: string | null, extras: ExtrasDaRota = {}): Partial<DadosCompromisso> | null {
   if (!valor) return null;
   const [tipo, data, hora, demanda, ...assunto] = valor.split('|');
   const saida: Partial<DadosCompromisso> = {};
@@ -34,6 +39,9 @@ export function lerRotaDeCompromisso(valor: string | null): Partial<DadosComprom
   if (/^([01]\d|2[0-3]):[0-5]\d$/.test(hora ?? '')) saida.hora = hora;
   if (/^DEM-FIC-\d{4}$/.test(demanda ?? '')) saida.demanda = demanda;
   saida.assunto = assunto.join('|').slice(0, 120);
+  if (extras.fim && /^\d{4}-\d{2}-\d{2}$/.test(extras.fim)) saida.dataFim = extras.fim;
+  if (extras.rep && extras.rep !== 'nenhuma' && (REPETICOES as readonly string[]).includes(extras.rep)) saida.repeticao = extras.rep as DadosCompromisso['repeticao'];
+  if (extras.ate && /^\d{4}-\d{2}-\d{2}$/.test(extras.ate)) saida.repetirAte = extras.ate;
   return saida;
 }
 
@@ -51,9 +59,22 @@ const PERGUNTA: Record<ProblemaDaFrase, (e: Entendido) => string> = {
   'intervalo-invalido': (e) => `O período${e.trecho ? ` "${e.trecho}"` : ''} não faz sentido: o fim precisa ser depois do início e caber em menos de um ano. Diga de novo, por exemplo: "curso de 10/12 a 12/12".`,
 };
 
-/** "Reunião — licenciamento · quinta, 10/12/2026 · dia todo" (o que a pessoa confere antes de gravar). */
+const dataBr = (iso: string) => iso.split('-').reverse().join('/');
+
+/**
+ * O que a pessoa confere antes de gravar:
+ *   "Reunião — licenciamento · quinta, 10/12/2026 · dia todo"
+ *   "Curso — geoprocessamento · 10/12/2026 a 12/12/2026 · dia todo"
+ *   "Reunião — alinhamento · toda segunda a partir de 23/11/2026 · às 09:00"
+ */
 export function descreverEntendimento(d: DadosCompromisso): string {
-  return `${tituloDoCompromisso(d)} · ${diaCompleto(d.data)} · ${d.hora ? `às ${d.hora}` : 'dia todo'}${d.demanda ? ` · demanda ${d.demanda}` : ''}`;
+  let quando = diaCompleto(d.data);
+  if (d.repeticao) {
+    quando = `${descreverRepeticao({ data: d.data, repeticao: d.repeticao })} a partir de ${dataBr(d.data)}${d.repetirAte ? `, até ${dataBr(d.repetirAte)}` : ''}`;
+  } else if (d.dataFim && d.dataFim > d.data) {
+    quando = `${dataBr(d.data)} a ${dataBr(d.dataFim)}`;
+  }
+  return `${tituloDoCompromisso(d)} · ${quando} · ${d.hora ? `às ${d.hora}` : 'dia todo'}${d.demanda ? ` · demanda ${d.demanda}` : ''}`;
 }
 
 /**
@@ -70,7 +91,7 @@ export function respostaDeCompromisso(
   // O vínculo só vale para demanda que existe neste navegador; senão avisa e segue sem vínculo.
   const demanda = e.demanda ? demandas.find((d) => d.id === e.demanda) : undefined;
   const avisoDoVinculo = e.demanda && !demanda ? ` Não encontrei ${e.demanda} nas demandas deste navegador; o vínculo não foi incluído.` : '';
-  const rascunho: Partial<DadosCompromisso> = { tipo: e.tipo, ...(e.data ? { data: e.data } : {}), ...(e.hora ? { hora: e.hora } : {}), ...(demanda ? { demanda: demanda.id } : {}), assunto: e.assunto || demanda?.titulo || '' };
+  const rascunho: Partial<DadosCompromisso> = { tipo: e.tipo, ...(e.data ? { data: e.data } : {}), ...(e.dataFim ? { dataFim: e.dataFim } : {}), ...(e.repeticao ? { repeticao: e.repeticao } : {}), ...(e.repetirAte ? { repetirAte: e.repetirAte } : {}), ...(e.hora ? { hora: e.hora } : {}), ...(demanda ? { demanda: demanda.id } : {}), assunto: e.assunto || demanda?.titulo || '' };
   if (e.problema || !e.data) {
     limparRascunho();
     return sugestao(`${PERGUNTA[e.problema ?? 'sem-data'](e)}${avisoDoVinculo}`, 'regra: compromisso sem dados suficientes', [
@@ -80,6 +101,9 @@ export function respostaDeCompromisso(
   const dados: DadosCompromisso = {
     tipo: e.tipo,
     data: e.data,
+    ...(e.dataFim ? { dataFim: e.dataFim } : {}),
+    ...(e.repeticao ? { repeticao: e.repeticao } : {}),
+    ...(e.repetirAte ? { repetirAte: e.repetirAte } : {}),
     ...(e.hora ? { hora: e.hora } : {}),
     // Sem assunto na frase: o título da demanda vinculada, ou o nome do tipo.
     assunto: e.assunto || demanda?.titulo || e.tipo[0].toUpperCase() + e.tipo.slice(1),
@@ -124,7 +148,7 @@ export function confirmarCompromisso(dados: DadosCompromisso, agora: Date): Mens
   if (!r.ok) return fato(`${r.erro} Nada foi gravado.`, 'compromissos deste navegador');
   limparRascunho();
   return fato(
-    `Anotado: ${descreverEntendimento(dados)}. Aparece na Agenda e o aviso vem às 8h do dia${dados.hora && dados.hora !== '08:00' ? ` e às ${dados.hora}` : ''}.`,
+    `Anotado: ${descreverEntendimento(dados)}. Aparece na Agenda e o aviso vem às 8h ${dados.repeticao ? 'de cada ocorrência' : dados.dataFim && dados.dataFim > dados.data ? 'de cada dia' : 'do dia'}${dados.hora && dados.hora !== '08:00' ? ` e às ${dados.hora}` : ''}.`,
     'compromisso gravado agora',
     [ABRIR_AGENDA],
   );

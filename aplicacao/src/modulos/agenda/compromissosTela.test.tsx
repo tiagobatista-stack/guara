@@ -268,6 +268,19 @@ describe('conversa: do pedido à gravação (cliques reais nos botões)', () => 
     expect(obterCompromissos()).toEqual([]);
   });
 
+  it('Corrigir de uma repetição com fim abre o formulário com repetição e "repetir até"', () => {
+    montarPainel();
+    enviar('reunião toda segunda até 20/12 sobre alinhamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Corrigir' }));
+    expect(window.location.hash).toMatch(/&rep=semanal&ate=2026-12-20$/);
+    cleanup();
+    montarAgenda();
+    expect(screen.getByLabelText(/^Data de início/)).toHaveValue('2026-11-23');
+    expect(screen.getByLabelText(/^Repetição/)).toHaveValue('semanal');
+    expect(screen.getByLabelText(/^Repetir até/)).toHaveValue('2026-12-20');
+    expect(obterCompromissos()).toEqual([]);
+  });
+
   it('o comando "o que tenho hoje" lista os compromissos', () => {
     criarCompromisso({ tipo: 'reunião', data: '2026-11-21', hora: '14:30', assunto: 'licenciamento' }, instante.toISOString());
     montarPainel();

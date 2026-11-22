@@ -20,6 +20,9 @@ function validarAcaoDireta(x: unknown): AcaoDireta | undefined {
     tipo: d.tipo, data: d.data, assunto: d.assunto,
     ...(typeof d.hora === 'string' ? { hora: d.hora } : {}),
     ...(typeof d.demanda === 'string' ? { demanda: d.demanda } : {}),
+    ...(typeof d.dataFim === 'string' ? { dataFim: d.dataFim } : {}),
+    ...(typeof d.repeticao === 'string' ? { repeticao: d.repeticao } : {}),
+    ...(typeof d.repetirAte === 'string' ? { repetirAte: d.repetirAte } : {}),
   };
   return problemaDoCompromisso(lidos) === null ? { tipo, dados: lidos as DadosCompromisso } : undefined;
 }
@@ -74,7 +77,7 @@ export function validarMensagem(x: unknown): Mensagem | null {
       const { rotulo, comando, rota, aba } = a as Record<string, unknown>;
       if (typeof rotulo !== 'string' || !rotulo.trim() || typeof comando !== 'string' || !comando.trim()) return [];
       const acao: AcaoDaFala = { rotulo: rotulo.slice(0, TAMANHO_MAXIMO_ROTULO), comando: comando.slice(0, TAMANHO_MAXIMO_ROTULO) };
-      if (typeof rota === 'string' && /^(#\/demandas(\?abrir=(DEM-FIC-\d{4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})&campo=(prazo|bloqueio)|\?texto=[A-Za-z0-9\-_.!~*'()%]{1,600})?|#\/agenda(\?novo=[A-Za-z0-9\-_.!~*'()%]{1,900})?|#\/operacoes(\?abrir=op-[a-z0-9]{1,20}-[a-z0-9]{1,20})?)$/.test(rota)) acao.rota = rota;
+      if (typeof rota === 'string' && /^(#\/demandas(\?abrir=(DEM-FIC-\d{4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})&campo=(prazo|bloqueio)|\?texto=[A-Za-z0-9\-_.!~*'()%]{1,600})?|#\/agenda(\?novo=[A-Za-z0-9\-_.!~*'()%]{1,900}(&fim=\d{4}-\d{2}-\d{2})?(&rep=[a-z_]{1,20})?(&ate=\d{4}-\d{2}-\d{2})?)?|#\/operacoes(\?abrir=op-[a-z0-9]{1,20}-[a-z0-9]{1,20})?)$/.test(rota)) acao.rota = rota;
       if (ehAba(aba) && aba !== 'conversa') acao.aba = aba;
       const direta = validarAcaoDireta((a as Record<string, unknown>).acao);
       if (direta) acao.acao = direta;
