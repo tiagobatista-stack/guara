@@ -6,10 +6,13 @@
 
 import { novoId, criarListaLocal } from '../atalhos/lista-local.ts';
 import { dataValida } from '../demandas/regras.ts';
+import { duracaoEmDias, MAXIMO_DE_DIAS_DO_EVENTO, REPETICOES, repete, somarDias, type Repeticao } from './recorrencia.ts';
+
+export { REPETICOES, type Repeticao };
 
 export const CHAVE_COMPROMISSOS = 'guara:compromissos:v1';
 export const CHAVE_RASCUNHO_COMPROMISSO = 'guara:compromissos:rascunho:v1';
-export const LIMITES_COMPROMISSO = { compromissos: 2000, assunto: 120 } as const;
+export const LIMITES_COMPROMISSO = { compromissos: 2000, assunto: 120, concluidasEm: 400 } as const;
 
 export const TIPOS_DE_COMPROMISSO = ['reunião', 'palestra', 'curso', 'compromisso', 'lembrete'] as const;
 export type TipoDeCompromisso = (typeof TIPOS_DE_COMPROMISSO)[number];
@@ -24,12 +27,21 @@ export interface DadosCompromisso {
   assunto: string;
   /** DEM-FIC-nnnn. */
   demanda?: string;
+  /** AAAA-MM-DD; só existe quando é depois de `data` (sem ele, ou igual a `data`, o evento tem 1 dia). */
+  dataFim?: string;
+  /** Só existe quando há repetição (ausente = 'nenhuma'). */
+  repeticao?: Exclude<Repeticao, 'nenhuma'>;
+  /** AAAA-MM-DD; último dia em que a repetição vale. Só existe com repetição. */
+  repetirAte?: string;
 }
 
 export interface Compromisso extends DadosCompromisso {
   id: string;
   criadoEm: string;
+  /** Evento sem repetição concluído (em série, vale para todas as ocorrências). */
   concluido?: true;
+  /** Só de série: datas de início das ocorrências concluídas, sem apagar as seguintes. */
+  concluidasEm?: string[];
   /** Última vez que a pessoa disse "Ciente" ao aviso (ISO). */
   cienteEm?: string;
   /** "Em 2 horas": o aviso fica escondido até este instante (ISO). */
@@ -59,6 +71,20 @@ export function tituloDoCompromisso(c: Pick<Compromisso, 'tipo' | 'assunto'>): s
 /** Texto do assunto limpo: espaços reduzidos e no máximo 120 caracteres. */
 export const limparAssunto = (x: string) => x.replace(/\s+/g, ' ').trim().slice(0, LIMITES_COMPROMISSO.assunto).trim();
 
+/** Intervalo e repetição de dados já lidos: o que não se sustenta é descartado (nunca derruba o registro). */
+function quandoValido(b: Record<string, unknown>, data: string, hora: string | undefined): Pick<DadosCompromisso, 'dataFim' | 'repeticao' | 'repetirAte'> {
+  const saida: Pick<DadosCompromisso, 'dataFim' | 'repeticao' | 'repetirAte'> = {};
+  if (typeof b.repeticao === 'string' && b.repeticao !== 'nenhuma' && (REPETICOES as readonly string[]).includes(b.repeticao)) {
+    saida.repeticao = b.repeticao as Exclude<Repeticao, 'nenhuma'>;
+    if (typeof b.repetirAte === 'string' && dataValida(b.repetirAte) && b.repetirAte >= data) saida.repetirAte = b.repetirAte;
+  }
+  if (typeof b.dataFim === 'string' && dataValida(b.dataFim) && b.dataFim > data && duracaoEmDias({ data, dataFim: b.dataFim }) < MAXIMO_DE_DIAS_DO_EVENTO) {
+    // Vários dias com hora não combina com repetição: vale a repetição.
+    if (!(hora && saida.repeticao)) saida.dataFim = b.dataFim;
+  }
+  return saida;
+}
+
 function dadosValidos(b: Record<string, unknown>): DadosCompromisso | null {
   if (!(TIPOS_DE_COMPROMISSO as readonly unknown[]).includes(b.tipo)) return null;
   if (typeof b.data !== 'string' || !dataValida(b.data)) return null;
@@ -66,7 +92,7 @@ function dadosValidos(b: Record<string, unknown>): DadosCompromisso | null {
   const d: DadosCompromisso = { tipo: b.tipo as TipoDeCompromisso, data: b.data, assunto: limparAssunto(b.assunto) };
   if (typeof b.hora === 'string' && HORA.test(b.hora)) d.hora = b.hora;
   if (typeof b.demanda === 'string' && DEMANDA.test(b.demanda)) d.demanda = b.demanda;
-  return d;
+  return { ...d, ...quandoValido(b, d.data, d.hora) };
 }
 
 export function validarCompromissos(x: unknown): Compromisso[] {
@@ -81,6 +107,10 @@ export function validarCompromissos(x: unknown): Compromisso[] {
     ids.add(b.id);
     const c: Compromisso = { ...d, id: b.id, criadoEm: b.criadoEm };
     if (b.concluido === true) c.concluido = true;
+    if (c.repeticao && Array.isArray(b.concluidasEm)) {
+      const datas = [...new Set(b.concluidasEm.filter((x): x is string => typeof x === 'string' && dataValida(x)))].sort().slice(-LIMITES_COMPROMISSO.concluidasEm);
+      if (datas.length) c.concluidasEm = datas;
+    }
     if (dataIso(b.cienteEm)) c.cienteEm = b.cienteEm;
     if (dataIso(b.adiadoAte)) c.adiadoAte = b.adiadoAte;
     saida.push(c);
@@ -148,7 +178,7 @@ export const useCompromissos = lista.useLista;
 export const useCompromissosSoNaMemoria = lista.useSoNaMemoria;
 
 /** Problema dos dados (mensagem para a tela) ou null. */
-export function problemaDoCompromisso(d: { tipo: string; data: string; hora?: string; assunto: string; demanda?: string }): string | null {
+export function problemaDoCompromisso(d: { tipo: string; data: string; hora?: string; assunto: string; demanda?: string; dataFim?: string; repeticao?: string; repetirAte?: string }): string | null {
   if (!(TIPOS_DE_COMPROMISSO as readonly string[]).includes(d.tipo)) return 'Escolha o tipo.';
   if (!dataValida(d.data)) return 'Informe uma data válida.';
   if (d.hora && !HORA.test(d.hora)) return 'Informe uma hora válida (de 00:00 a 23:59) ou deixe em branco para o dia todo.';
@@ -156,11 +186,29 @@ export function problemaDoCompromisso(d: { tipo: string; data: string; hora?: st
   if (!assunto) return 'Informe o assunto.';
   if (d.assunto.replace(/\s+/g, ' ').trim().length > LIMITES_COMPROMISSO.assunto) return `O assunto pode ter no máximo ${LIMITES_COMPROMISSO.assunto} caracteres.`;
   if (d.demanda && !DEMANDA.test(d.demanda)) return 'O código da demanda deve ser como DEM-FIC-0003.';
+  if (d.dataFim) {
+    if (!dataValida(d.dataFim)) return 'Informe uma data de fim válida.';
+    if (d.dataFim < d.data) return 'A data de fim não pode ser antes da data de início.';
+    if (duracaoEmDias({ data: d.data, dataFim: d.dataFim }) >= MAXIMO_DE_DIAS_DO_EVENTO) return `O evento pode durar no máximo ${MAXIMO_DE_DIAS_DO_EVENTO} dias.`;
+  }
+  if (d.repeticao && !(REPETICOES as readonly string[]).includes(d.repeticao)) return 'Escolha uma repetição válida.';
+  const serie = d.repeticao && d.repeticao !== 'nenhuma';
+  if (serie && d.repetirAte) {
+    if (!dataValida(d.repetirAte)) return 'Informe uma data válida para "Repetir até".';
+    if (d.repetirAte < d.data) return 'O fim da repetição não pode ser antes da data de início.';
+  }
+  if (serie && d.hora && d.dataFim && d.dataFim > d.data) return 'Evento de vários dias com hora não pode se repetir. Deixe-o de dia inteiro ou sem repetição.';
   return null;
 }
 
 function dadosLimpos(d: DadosCompromisso): DadosCompromisso {
-  return { tipo: d.tipo, data: d.data, ...(d.hora ? { hora: d.hora } : {}), assunto: limparAssunto(d.assunto), ...(d.demanda ? { demanda: d.demanda } : {}) };
+  const serie = d.repeticao && (d.repeticao as string) !== 'nenhuma';
+  return {
+    tipo: d.tipo, data: d.data, ...(d.hora ? { hora: d.hora } : {}), assunto: limparAssunto(d.assunto), ...(d.demanda ? { demanda: d.demanda } : {}),
+    ...(d.dataFim && d.dataFim > d.data ? { dataFim: d.dataFim } : {}),
+    ...(serie ? { repeticao: d.repeticao } : {}),
+    ...(serie && d.repetirAte ? { repetirAte: d.repetirAte } : {}),
+  };
 }
 
 export function criarCompromisso(d: DadosCompromisso, agoraIso: string): { ok: true; id: string } | { ok: false; erro: string } {
@@ -181,9 +229,11 @@ export function editarCompromisso(id: string, d: DadosCompromisso): { ok: true }
   const erro = problemaDoCompromisso(d);
   if (erro) return { ok: false, erro };
   const novo = dadosLimpos(d);
-  const mudouQuando = novo.data !== antigo.data || novo.hora !== antigo.hora;
+  const mudouSerie = novo.data !== antigo.data || novo.dataFim !== antigo.dataFim || novo.repeticao !== antigo.repeticao || novo.repetirAte !== antigo.repetirAte;
+  const mudouQuando = mudouSerie || novo.hora !== antigo.hora;
   const mantidos = mudouQuando ? {} : { ...(antigo.cienteEm ? { cienteEm: antigo.cienteEm } : {}), ...(antigo.adiadoAte ? { adiadoAte: antigo.adiadoAte } : {}) };
-  const editado: Compromisso = { id, criadoEm: antigo.criadoEm, ...(antigo.concluido ? { concluido: true as const } : {}), ...novo, ...mantidos };
+  const concluidas = !mudouSerie && novo.repeticao && antigo.concluidasEm?.length ? { concluidasEm: antigo.concluidasEm } : {};
+  const editado: Compromisso = { id, criadoEm: antigo.criadoEm, ...(antigo.concluido ? { concluido: true as const } : {}), ...concluidas, ...novo, ...mantidos };
   lista.gravar(atuais.map((c) => (c.id === id ? editado : c)));
   return { ok: true };
 }
@@ -204,6 +254,39 @@ export function concluirCompromisso(id: string) {
 
 export function reabrirCompromisso(id: string) {
   alterar(id, ({ concluido: _concluido, ...c }) => c);
+}
+
+/**
+ * Conclui só a ocorrência que começa em `inicio`. Sem repetição é o mesmo que `concluirCompromisso`;
+ * em série, guarda a data e as demais ocorrências continuam abertas.
+ */
+export function concluirOcorrencia(id: string, inicio: string) {
+  alterar(id, (c) => {
+    if (!repete(c)) return { ...c, concluido: true };
+    const datas = [...new Set([...(c.concluidasEm ?? []), inicio])].sort().slice(-LIMITES_COMPROMISSO.concluidasEm);
+    return { ...c, concluidasEm: datas };
+  });
+}
+
+/** Desfaz "Concluído" de uma ocorrência (e reabre a série toda, se ela estava marcada como concluída). */
+export function reabrirOcorrencia(id: string, inicio: string) {
+  alterar(id, ({ concluido: _concluido, concluidasEm, ...c }) => {
+    const restantes = (concluidasEm ?? []).filter((x) => x !== inicio);
+    return restantes.length ? { ...c, concluidasEm: restantes } : c;
+  });
+}
+
+/**
+ * "Encerrar a série antes de `dia`": a repetição vale até o dia anterior. Se não sobrar nenhuma ocorrência
+ * (o dia é o início da série), o compromisso é excluído. Devolve o que aconteceu.
+ */
+export function encerrarSerieAntesDe(id: string, dia: string): 'encerrado' | 'excluido' | 'nada' {
+  const c = obterCompromissos().find((x) => x.id === id);
+  if (!c || !repete(c)) return 'nada';
+  const ate = somarDias(dia, -1);
+  if (ate < c.data) { excluirCompromisso(id); return 'excluido'; }
+  alterar(id, (x) => ({ ...x, repetirAte: ate, ...(x.concluidasEm ? { concluidasEm: x.concluidasEm.filter((d) => d <= ate) } : {}) }));
+  return 'encerrado';
 }
 
 /** "Ciente": some até o próximo horário de aviso (se houver hora marcada). */
