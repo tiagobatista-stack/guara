@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { ContextoArmazem, criarArmazem } from '../demandas/armazem.ts';
 import { Agenda } from './Agenda.tsx';
-import { gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
+import { chipsDoDia, gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 
 const op = (saida: string | undefined, situacao: 'planejado' | 'cancelado' = 'planejado'): Operacao => ({
@@ -84,5 +84,66 @@ describe('período da operação', () => {
     expect(screen.getByTestId('dia-2026-12-12').className).not.toContain('agenda-dia--operacao');
     fireEvent.click(screen.getByTestId('dia-2026-12-09'));
     expect(screen.getByText('Em operação: Op X')).toBeInTheDocument();
+  });
+});
+
+describe('operação de vários dias na grade mensal', () => {
+  // Período 01/12 a 05/12, mas só duas saídas planejadas (01/12 e 02/12): antes o chip só aparecia nesses dois dias.
+  const castanheira: Operacao = {
+    id: 'o9', nome: 'Operação Castanheira – dez/2026', inicio: '2026-12-01', fim: '2026-12-05', criadaEm: '2026-11-01T00:00:00Z',
+    viagens: [
+      { id: 'v1', equipe: 'A', integrantes: [], veiculos: [], saida: '2026-12-01', notas: '' },
+      { id: 'v2', equipe: 'B', integrantes: [], veiculos: [], saida: '2026-12-02', notas: '' },
+    ],
+    pontos: [
+      { id: 'p1', coordenada: { lat: -11, lon: -58 }, municipio: 'Cidade', viagem: 'v1', notas: '', demandas: [], situacao: 'planejado' },
+      { id: 'p2', coordenada: { lat: -11, lon: -58 }, municipio: 'Vila', viagem: 'v2', notas: '', demandas: [], situacao: 'planejado' },
+    ],
+  };
+
+  it('chipsDoDia: a operação do período vem primeiro, antes dos itens, e o resto vira "mais"', () => {
+    const itens = [{ data: '2026-12-01', tipo: 'saida' as const, texto: 'x' }, { data: '2026-12-01', tipo: 'vistoria' as const, texto: 'y' }];
+    expect(chipsDoDia([], ['Op'])).toEqual({ chips: [{ tipo: 'operacao', texto: 'Op' }], mais: 0 });
+    const r = chipsDoDia(itens, ['Op']);
+    expect(r.chips.map((c) => c.tipo)).toEqual(['operacao', 'saida']);
+    expect(r.mais).toBe(1);
+    expect(chipsDoDia(itens, [])).toMatchObject({ mais: 0 });
+  });
+
+  it('o chip aparece em TODOS os dias do período (e só neles), junto do destaque vermelho', () => {
+    localStorage.clear();
+    localStorage.setItem('guara:operacoes:v1', JSON.stringify([castanheira]));
+    const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [] });
+    render(<ContextoArmazem.Provider value={armazem}><Agenda agora={() => new Date('2026-12-01T10:00:00')} /></ContextoArmazem.Provider>);
+    for (const dia of ['01', '02', '03', '04', '05']) {
+      const celula = screen.getByTestId(`dia-2026-12-${dia}`);
+      expect(celula.className).toContain('agenda-dia--operacao');
+      expect(screen.getByTestId(`chip-operacao-2026-12-${dia}`)).toHaveTextContent('Operação: Operação Castanheira – dez/2026');
+      expect(celula).toHaveAttribute('aria-label', expect.stringContaining('em operação: Operação Castanheira'));
+    }
+    // Nos dias 01 e 02 a saída continua aparecendo, depois do chip da operação; o "+N" não se perde.
+    expect(screen.getByTestId('dia-2026-12-01')).toHaveTextContent('Operação: Operação Castanheira – dez/2026');
+    expect(screen.getByTestId('dia-2026-12-01')).toHaveTextContent('Cidade');
+    for (const dia of ['06', '30']) {
+      expect(screen.getByTestId(`dia-2026-12-${dia}`).className).not.toContain('agenda-dia--operacao');
+      expect(screen.queryByTestId(`chip-operacao-2026-12-${dia}`)).toBeNull();
+    }
+    // A lista do dia diz o mesmo, no dia sem saída.
+    fireEvent.click(screen.getByTestId('dia-2026-12-04'));
+    expect(screen.getByTestId('agenda-dia-escolhido')).toHaveTextContent('Em operação: Operação Castanheira – dez/2026');
+  });
+
+  it('com a operação mais dois compromissos, o chip da operação fica e o "+N" conta o excedente', () => {
+    localStorage.clear();
+    localStorage.setItem('guara:operacoes:v1', JSON.stringify([castanheira]));
+    localStorage.setItem('guara:compromissos:v1', JSON.stringify([
+      { id: 'a', tipo: 'reunião', data: '2026-12-04', assunto: 'um', criadoEm: '2026-11-21T10:00:00Z' },
+      { id: 'b', tipo: 'reunião', data: '2026-12-04', assunto: 'dois', criadoEm: '2026-11-21T10:00:00Z' },
+    ]));
+    const armazem = criarArmazem(localStorage, { gerarId: () => 'x', exemplos: () => [] });
+    render(<ContextoArmazem.Provider value={armazem}><Agenda agora={() => new Date('2026-12-01T10:00:00')} /></ContextoArmazem.Provider>);
+    const celula = screen.getByTestId('dia-2026-12-04');
+    expect(screen.getByTestId('chip-operacao-2026-12-04')).toBeInTheDocument();
+    expect(celula).toHaveTextContent('+1');
   });
 });

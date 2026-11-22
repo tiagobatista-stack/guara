@@ -44,3 +44,9 @@ Compromissos e lembretes que caem no período (`inicio` a `fim`) de uma operaç�
 - Agenda: o compromisso do dia escolhido, quando o dia está em operação, traz "Atenção: coincide com a operação …" (texto, não só cor; estilo `.aviso-coincidencia` em `estilos.css`).
 - Conversa: o "Vou anotar" ganha a linha "Atenção: Coincide com … Pode confirmar assim mesmo."; o assistente lê as operações de `guara:operacoes:v1` na hora (`obterOperacoes`).
 - Limitação: só considera o período da operação, não as saídas dos pontos. Vistorias não entram.
+
+## Chip da operação em todo o período (22/11/2026)
+
+**Defeito:** o destaque vermelho do dia vinha do período da operação (`operacoesNoDia`, `inicio` a `fim`), mas os chips da célula vinham só de `montarAgenda`, que só cria itens a partir das saídas das viagens (e vistorias e compromissos). Numa operação de 01/12 a 05/12 com saídas em 01/12 e 02/12, só esses dois dias tinham chip.
+
+**Correção:** `chipsDoDia` (`agenda/regras.ts`) põe um chip "Operação: nome" por operação cujo período cobre o dia, na frente dos itens, com a mesma regra do destaque. O limite de 2 chips por célula e o "+N" continuam, contando o chip da operação. `montarAgenda` não mudou (assistente, `.ics` e avisos seguem iguais: não há evento por dia de operação). A lista do dia já mostrava "Em operação: …". Abaixo de 600 px os chips seguem ocultos, como antes (o dia continua em vermelho e com `aria-label`).

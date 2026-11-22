@@ -79,3 +79,7 @@ Observação: o `vitest` pelo Bash falhou em massa neste ambiente; pelo PowerShe
 ### Aviso de coincidência com operações (22/11/2026)
 
 `npx tsc --noEmit` PASSOU; `npm test` PASSOU (80 arquivos, 1169 testes); `npm run build` PASSOU; Agenda + assistente repetidos 3 vezes: 22 arquivos, 489 testes, sem falha intermitente. Testes novos (10): função pura (1 dia, intervalo, série, fora do período, só um lado, texto), formulário (aviso muda com as datas e a repetição; salva mesmo assim), Agenda (aviso no dia em operação e ausente fora) e conversa (aviso no "Vou anotar"; Confirmar grava). Visual em 375 px e claro/escuro: NÃO TESTADO (sem navegador).
+
+### Chip da operação em todo o período (22/11/2026)
+
+3 testes novos em `Agenda.test.tsx` (função `chipsDoDia`; operação de 01/12 a 05/12 com saídas só em 01 e 02: chip e destaque nos 5 dias e em nenhum fora; operação mais 2 compromissos: chip fica e "+1"). `npx tsc --noEmit`, `npm test` (80 arquivos, 1172 testes), `npm run build` e Agenda + assistente 3 vezes (492/492): ver resultados do commit. Largura abaixo de 600 px e visual: NÃO TESTADO (sem navegador).

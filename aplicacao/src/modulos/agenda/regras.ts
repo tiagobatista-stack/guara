@@ -121,6 +121,19 @@ export function textoDeCoincidencia(lista: readonly Coincidencia[]): string {
   return `Coincide com ${lista.length > 1 ? 'as operações' : 'a operação'} ${partes.join('; ')}.`;
 }
 
+/** Um chip da célula do calendário: o período de uma operação ou um item do dia. */
+export type ChipDoDia = { tipo: 'operacao'; texto: string } | ItemAgenda;
+
+/**
+ * Chips de um dia do calendário: primeiro um por operação cujo PERÍODO cobre o dia (a mesma regra do destaque
+ * vermelho, `operacoesNoDia`; antes o chip só nascia da saída de uma viagem e sumia nos demais dias), depois os
+ * itens. Mostra no máximo `limite` e conta o resto em `mais`.
+ */
+export function chipsDoDia(itens: readonly ItemAgenda[], emOperacao: readonly string[], limite = 2): { chips: ChipDoDia[]; mais: number } {
+  const todos: ChipDoDia[] = [...emOperacao.map((texto) => ({ tipo: 'operacao' as const, texto })), ...itens];
+  return { chips: todos.slice(0, limite), mais: Math.max(0, todos.length - limite) };
+}
+
 /** Semanas (domingo a sábado, como no Google Agenda) que cobrem o mês; `mes` de 1 a 12. `doMes` é falso nos dias de folga. */
 export function gradeDoMes(ano: number, mes: number): { data: string; doMes: boolean }[][] {
   const dia = new Date(ano, mes - 1, 1);

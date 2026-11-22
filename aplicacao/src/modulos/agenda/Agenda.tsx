@@ -12,7 +12,7 @@ import { lerRotaDeCompromisso } from '../assistente/compromissoPelaConversa.ts';
 import { concluirOcorrencia, limparRascunho, reabrirOcorrencia, useCompromissos, type Compromisso } from './compromissos.ts';
 import { FormularioCompromisso, type InicialDoFormulario } from './FormularioCompromisso.tsx';
 import { descreverSemanaDoMes } from './recorrencia.ts';
-import { gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
+import { chipsDoDia, gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
 
 const paraFormulario = (c: Compromisso, ocorrencia: string): InicialDoFormulario => ({
   id: c.id, tipo: c.tipo, data: c.data, hora: c.hora, assunto: c.assunto, demanda: c.demanda,
@@ -101,6 +101,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
               {semana.map(({ data, doMes }) => {
                 const itens = porDia.get(data) ?? [];
                 const emOperacao = operacoesNoDia(operacoes, data);
+                const { chips, mais } = chipsDoDia(itens, emOperacao);
                 const nomeMes = new Date(`${data}T12:00:00`).toLocaleDateString('pt-BR', { month: 'long' });
                 return (
                   <button
@@ -112,12 +113,14 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
                     onClick={() => setEscolhido(data)}
                   >
                     <span className="agenda-numero">{Number(data.slice(8))}</span>
-                    {itens.slice(0, 2).map((i, n) => (
+                    {chips.map((i, n) => i.tipo === 'operacao' ? (
+                      <span key={n} className="agenda-evento agenda-evento--operacao" data-testid={`chip-operacao-${data}`}>Operação: {i.texto}</span>
+                    ) : (
                       <span key={n} className={`agenda-evento agenda-evento--${i.tipo}${i.concluido ? ' agenda-evento--concluido' : ''}${i.repete ? ' agenda-evento--repete' : ''}${i.total ? ' agenda-evento--continua' : ''}`}>
                         {i.hora ? `${i.hora} ` : ''}{i.repete ? '↻ ' : ''}{i.texto}{i.total ? ` (${i.numero}/${i.total})` : ''}
                       </span>
                     ))}
-                    {itens.length > 2 && <span className="texto-pequeno texto-suave">+{itens.length - 2}</span>}
+                    {mais > 0 && <span className="texto-pequeno texto-suave">+{mais}</span>}
                   </button>
                 );
               })}
