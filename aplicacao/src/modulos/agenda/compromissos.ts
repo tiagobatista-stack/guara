@@ -14,8 +14,11 @@ export const CHAVE_COMPROMISSOS = 'guara:compromissos:v1';
 export const CHAVE_RASCUNHO_COMPROMISSO = 'guara:compromissos:rascunho:v1';
 export const LIMITES_COMPROMISSO = { compromissos: 2000, assunto: 120, concluidasEm: 400 } as const;
 
-export const TIPOS_DE_COMPROMISSO = ['reunião', 'palestra', 'curso', 'compromisso', 'lembrete'] as const;
+export const TIPOS_DE_COMPROMISSO = ['reunião', 'palestra', 'curso', 'compromisso', 'viagem a serviço', 'compensação', 'licença premium', 'férias', 'lembrete'] as const;
 export type TipoDeCompromisso = (typeof TIPOS_DE_COMPROMISSO)[number];
+
+/** Folgas do analista: normalmente de dia inteiro, então a conversa não pergunta a hora. */
+export const TIPOS_DE_FOLGA: readonly TipoDeCompromisso[] = ['compensação', 'licença premium', 'férias'];
 
 /** Campos que a pessoa informa (ou o assistente entende), sem os de controle. */
 export interface DadosCompromisso {

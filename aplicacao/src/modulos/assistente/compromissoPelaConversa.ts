@@ -7,7 +7,7 @@ import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { dataLocal } from '../alertas/dias-uteis.ts';
 import {
-  criarCompromisso, diaCompleto, guardarRascunho, limparRascunho, obterEtapaDoRascunho, obterRascunho, tituloDoCompromisso,
+  criarCompromisso, diaCompleto, guardarRascunho, limparRascunho, obterEtapaDoRascunho, obterRascunho, tituloDoCompromisso, TIPOS_DE_COMPROMISSO, TIPOS_DE_FOLGA,
   type Compromisso, type DadosCompromisso, type EtapaDoRascunho, type TipoDeCompromisso,
 } from '../agenda/compromissos.ts';
 import { coincidenciasComOperacoes, montarAgenda, textoDeCoincidencia, type ItemAgenda } from '../agenda/regras.ts';
@@ -35,7 +35,7 @@ export function lerRotaDeCompromisso(valor: string | null, extras: ExtrasDaRota 
   if (!valor) return null;
   const [tipo, data, hora, demanda, ...assunto] = valor.split('|');
   const saida: Partial<DadosCompromisso> = {};
-  if (tipo === 'reunião' || tipo === 'palestra' || tipo === 'curso' || tipo === 'compromisso' || tipo === 'lembrete') saida.tipo = tipo;
+  if ((TIPOS_DE_COMPROMISSO as readonly string[]).includes(tipo)) saida.tipo = tipo as TipoDeCompromisso;
   if (/^\d{4}-\d{2}-\d{2}$/.test(data ?? '')) saida.data = data;
   if (/^([01]\d|2[0-3]):[0-5]\d$/.test(hora ?? '')) saida.hora = hora;
   if (/^DEM-FIC-\d{4}$/.test(demanda ?? '')) saida.demanda = demanda;
@@ -112,7 +112,7 @@ export function respostaDeCompromisso(
   };
   // Frase com só o dia (sem hora, intervalo nem repetição) deixa coisas em aberto: o mascote pergunta,
   // uma coisa por vez. Frase completa e lembrete (aviso às 8h) vão direto à confirmação.
-  if (dados.tipo !== 'lembrete' && !dados.hora && !dados.dataFim && !dados.repeticao) {
+  if (dados.tipo !== 'lembrete' && !TIPOS_DE_FOLGA.includes(dados.tipo) && !dados.hora && !dados.dataFim && !dados.repeticao) {
     guardarRascunho(dados, 'hora');
     return perguntar(obterRascunho() ?? dados, 'hora', avisoDoVinculo);
   }

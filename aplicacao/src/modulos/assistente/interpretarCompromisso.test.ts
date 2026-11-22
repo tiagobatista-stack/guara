@@ -229,3 +229,20 @@ describe('a frase parece compromisso? com intervalo e repetição', () => {
     expect(pareceCompromisso('curso 12/12 a 10/12/2026', SABADO)).toBe(true);
   });
 });
+
+describe('folgas do analista (compensação, licença premium, férias)', () => {
+  it('reconhece o tipo, com e sem acento, e o período', () => {
+    expect(ler('férias de 10/12 a 20/12', SABADO)).toMatchObject({ tipo: 'férias', data: '2026-12-10', dataFim: '2026-12-20' });
+    expect(ler('compensação dia 10/12', SABADO)).toMatchObject({ tipo: 'compensação', data: '2026-12-10' });
+    expect(ler('licença prêmio dia 10/12', SABADO).tipo).toBe('licença premium');
+    expect(ler('licenca premium dia 10/12', SABADO).tipo).toBe('licença premium');
+  });
+  it('parece compromisso quando há tipo de folga e data', () => {
+    expect(pareceCompromisso('férias dia 10/12', SABADO)).toBe(true);
+    expect(pareceCompromisso('lembrar dia 10/12', SABADO)).toBe(false);
+  });
+});
+
+it('reconhece "viagem a serviço"', () => {
+  expect(ler('viagem a serviço de 10/12 a 12/12', SABADO)).toMatchObject({ tipo: 'viagem a serviço', data: '2026-12-10', dataFim: '2026-12-12' });
+});

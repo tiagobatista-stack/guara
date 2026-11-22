@@ -43,6 +43,10 @@ const TIPOS: { tipo: TipoDeCompromisso; padrao: RegExp }[] = [
   { tipo: 'palestra', padrao: /\bpalestras?\b/ },
   { tipo: 'curso', padrao: /\bcursos?\b/ },
   { tipo: 'compromisso', padrao: /\bcompromissos?\b|\baudienc(?:ia|ias)\b/ },
+  { tipo: 'viagem a serviço', padrao: /\b(?:viagem|viagens)\s+(?:a|de)\s+servico\b/ },
+  { tipo: 'compensação', padrao: /\bcompensacao\b|\bcompensacoes\b/ },
+  { tipo: 'licença premium', padrao: /\blicencas?[\s-]+(?:premium|premio)\b/ },
+  { tipo: 'férias', padrao: /\bferias\b/ },
   { tipo: 'lembrete', padrao: /\blembr(?:ar|a|e|ete|etes)\b/ },
 ];
 
@@ -345,7 +349,7 @@ export function interpretarCompromisso(frase: string, agora: Date, tipoForcado?:
   if (marca) {
     texto = resto.slice(marca.index + marca[0].length);
   } else {
-    const COMANDO = /^[\s,;:.!?-]*(?:me|lembra|lembrar|lembre|lembrete|marcar|marca|marque|anotar|anota|anote|agendar|agende|tenho|temos|uma|um|que|tem|tipo|reuniao|reunioes|palestras?|cursos?|compromissos?|audiencias?)(?![a-z0-9])/;
+    const COMANDO = /^[\s,;:.!?-]*(?:me|lembra|lembrar|lembre|lembrete|marcar|marca|marque|anotar|anota|anote|agendar|agende|tenho|temos|uma|um|que|tem|tipo|reuniao|reunioes|palestras?|cursos?|compromissos?|audiencias?|(?:viagem|viagens)\s+(?:a|de)\s+servico|compensacao|compensacoes|ferias|licencas?[\s-]+(?:premium|premio))(?![a-z0-9])/;
     let inicio = 0;
     for (let m = COMANDO.exec(mascara.slice(inicio)); m; m = COMANDO.exec(mascara.slice(inicio))) inicio += m[0].length;
     texto = resto.slice(inicio);
@@ -376,7 +380,7 @@ export function interpretarCompromisso(frase: string, agora: Date, tipoForcado?:
  */
 export function pareceCompromisso(frase: string, agora: Date): boolean {
   const m = semAcento(frase.normalize('NFC'));
-  if (!TIPOS.slice(0, 4).some((t) => t.padrao.test(m))) return false;
+  if (!TIPOS.slice(0, -1).some((t) => t.padrao.test(m))) return false;
   const e = interpretarCompromisso(frase, agora);
   return e.data !== null || e.problema === 'data-invalida' || e.problema === 'data-passada' || e.problema === 'intervalo-invalido';
 }
