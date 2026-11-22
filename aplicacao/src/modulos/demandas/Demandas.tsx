@@ -16,6 +16,7 @@ import { textoFalta } from './essenciais.ts';
 import { formatarDecimal, formatarGms } from './coordenadas.ts';
 import { textoVistoria } from './vistoria.ts';
 import { VinculoOperacao } from './VinculoOperacao.tsx';
+import { ContextoDoRelatorio } from './ContextoDoRelatorio.tsx';
 import { useOperacoes } from '../operacoes/armazem.ts';
 import { demandasEncaixadas } from '../operacoes/regras.ts';
 import { historicoRecente, textoEvento } from './historico.ts';
@@ -263,6 +264,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             )}
           </dl>
           <VinculoOperacao demanda={emDetalhe} aoEditar={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }} />
+          <ContextoDoRelatorio key={`contexto-${emDetalhe.id}`} demanda={emDetalhe} />
           {emDetalhe.status !== 'Concluída' && (
             <BloqueioDoItem
               key={emDetalhe.id}
