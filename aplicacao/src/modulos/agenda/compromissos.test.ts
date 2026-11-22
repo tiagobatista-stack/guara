@@ -254,6 +254,70 @@ describe('compromissos na agenda', () => {
   });
 });
 
+describe('.ics de compromissos (séries)', () => {
+  const cmp = (extra: object) => ({ id: 'c1', criadoEm: AGORA, ...base, ...extra }) as never;
+  const ics = (lista: object[]) => gerarIcs(montarAgenda([], [], lista as never).flatMap((d) => d.itens), new Date('2026-11-21T13:00:00Z'), lista as never).replace(/\r\n /g, '');
+
+  it('dia inteiro de um dia: DTEND exclusivo no dia seguinte, UID estável por id', () => {
+    const s = ics([cmp({})]);
+    expect(s).toContain('UID:compromisso-c1@guara');
+    expect(s).toContain('DTSTART;VALUE=DATE:20261210');
+    expect(s).toContain('DTEND;VALUE=DATE:20261211');
+    expect(s).not.toContain('RRULE');
+    expect(s.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+  });
+
+  it('intervalo vira um só evento, com DTEND no dia seguinte ao último', () => {
+    const s = ics([cmp({ tipo: 'curso', assunto: 'Curso', dataFim: '2026-12-12' })]);
+    expect(s).toContain('DTSTART;VALUE=DATE:20261210');
+    expect(s).toContain('DTEND;VALUE=DATE:20261213');
+    expect(s.match(/BEGIN:VEVENT/g)).toHaveLength(1);
+  });
+
+  it('com hora: horário flutuante de 1 hora; vira a meia-noite quando precisa', () => {
+    expect(ics([cmp({ hora: '14:30' })])).toMatch(/DTSTART:20261210T143000\r\nDTEND:20261210T153000/);
+    expect(ics([cmp({ hora: '23:30' })])).toContain('DTEND:20261211T003000');
+  });
+
+  it.each([
+    ['diaria', 'RRULE:FREQ=DAILY'],
+    ['semanal', 'RRULE:FREQ=WEEKLY'],
+    ['mensal', 'RRULE:FREQ=MONTHLY'],
+    ['anual', 'RRULE:FREQ=YEARLY'],
+    ['mensal_semana', 'RRULE:FREQ=MONTHLY;BYDAY=2TH'],
+  ])('repetição %s gera %s', (repeticao, regra) => {
+    expect(ics([cmp({ repeticao })])).toContain(`\r\n${regra}\r\n`);
+  });
+
+  it('dias úteis: BYDAY de segunda a sexta, começando na primeira segunda a sexta', () => {
+    const s = ics([cmp({ data: '2026-12-12', repeticao: 'dias_uteis' })]);
+    expect(s).toContain('RRULE:FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR');
+    expect(s).toContain('DTSTART;VALUE=DATE:20261214');
+  });
+
+  it('UNTIL: AAAAMMDD no dia inteiro e AAAAMMDDT235959 com hora', () => {
+    expect(ics([cmp({ repeticao: 'semanal', repetirAte: '2027-01-31' })])).toContain('RRULE:FREQ=WEEKLY;UNTIL=20270131\r\n');
+    expect(ics([cmp({ repeticao: 'semanal', repetirAte: '2027-01-31', hora: '09:00' })])).toContain('RRULE:FREQ=WEEKLY;UNTIL=20270131T235959\r\n');
+  });
+
+  it('EXDATE: ocorrências concluídas, no formato do DTSTART', () => {
+    expect(ics([cmp({ repeticao: 'semanal', concluidasEm: ['2026-12-24', '2026-12-17', '2026-12-18'] })])).toContain('EXDATE;VALUE=DATE:20261217,20261224\r\n');
+    expect(ics([cmp({ repeticao: 'semanal', hora: '09:00', concluidasEm: ['2026-12-17'] })])).toContain('EXDATE:20261217T090000\r\n');
+  });
+
+  it('concluído de vez fica de fora; sem repetição não há RRULE nem EXDATE', () => {
+    expect(ics([cmp({ concluido: true, repeticao: 'semanal' })]).match(/BEGIN:VEVENT/g)).toBeNull();
+    expect(ics([cmp({ concluidasEm: ['2026-12-10'] })])).not.toContain('EXDATE');
+  });
+
+  it('dobra linhas longas em 75 caracteres', () => {
+    const bruto = gerarIcs([], new Date('2026-11-21T13:00:00Z'), [cmp({ assunto: 'x'.repeat(200) })] as never);
+    const linhas = bruto.split('\r\n');
+    expect(linhas.every((l) => l.length <= 75)).toBe(true);
+    expect(bruto.replace(/\r\n /g, '')).toContain(`SUMMARY:Reunião — ${'x'.repeat(200)}`);
+  });
+});
+
 describe('quando o compromisso pede aviso', () => {
   const c = (extra: object = {}) => ({ id: 'c1', criadoEm: AGORA, ...base, ...extra }) as ReturnType<typeof obterCompromissos>[number];
   const ids = (lista: ReturnType<typeof obterCompromissos>, agora: Date) => compromissosParaAvisar(lista, agora).map((x) => x.id);

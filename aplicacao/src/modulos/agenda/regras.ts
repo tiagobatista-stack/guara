@@ -5,7 +5,7 @@ import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { viagemDoPonto } from '../operacoes/regras.ts';
 import { tituloDoCompromisso, type Compromisso } from './compromissos.ts';
-import { descreverRepeticao, duracaoEmDias, ocorrenciaConcluida, ocorrenciasNoIntervalo, repete, somarDias } from './recorrencia.ts';
+import { descreverRepeticao, diaDaSemana, duracaoEmDias, ehInicioDeOcorrencia, ocorrenciaConcluida, ocorrenciasNoIntervalo, ordemDoDiaNoMes, repete, somarDias } from './recorrencia.ts';
 
 export interface ItemAgenda {
   /** AAAA-MM-DD: o dia em que o item aparece (num compromisso de vários dias ou de série, um item por dia coberto). */
@@ -100,10 +100,63 @@ const hash = (t: string) => [...t].reduce((h, c) => (Math.imul(h, 31) + c.charCo
 // Linhas do iCalendar têm no máximo 75 caracteres; a continuação começa com um espaço.
 const dobrar = (l: string) => (l.length <= 75 ? l : [l.slice(0, 75), ...(l.slice(75).match(/.{1,74}/g) ?? []).map((p) => ` ${p}`)].join('\r\n'));
 
-/** Arquivo iCalendar (RFC 5545) de eventos de dia inteiro, que o Google Agenda importa. Só texto das demandas; nada sai do navegador. */
-export function gerarIcs(itens: readonly ItemAgenda[], agora: Date): string {
+const DIAS_ICS = ['SU', 'MO', 'TU', 'WE', 'TH', 'FR', 'SA'];
+
+/** Regra de repetição do iCalendar (RRULE), sem o "UNTIL". */
+function regraDeRepeticao(c: Pick<Compromisso, 'data' | 'repeticao'>): string | null {
+  switch (c.repeticao) {
+    case 'diaria': return 'FREQ=DAILY';
+    case 'semanal': return 'FREQ=WEEKLY';
+    case 'mensal': return 'FREQ=MONTHLY';
+    case 'anual': return 'FREQ=YEARLY';
+    case 'dias_uteis': return 'FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR';
+    case 'mensal_semana': return `FREQ=MONTHLY;BYDAY=${ordemDoDiaNoMes(c.data)}${DIAS_ICS[diaDaSemana(c.data)]}`;
+    default: return null;
+  }
+}
+
+/** Horário "flutuante" (sem fuso) AAAAMMDDTHHMMSS. */
+const flutuante = (dia: string, minutos: number) => `${compacta(dia)}T${String(Math.floor(minutos / 60)).padStart(2, '0')}${String(minutos % 60).padStart(2, '0')}00`;
+
+/**
+ * Um VEVENT por compromisso, com a série inteira em RRULE: o Google Agenda e o Outlook repetem sozinhos.
+ *   Dia inteiro: DTSTART;VALUE=DATE e DTEND;VALUE=DATE no dia SEGUINTE ao último (o fim é exclusivo).
+ *   Com hora: horário flutuante de 1 hora. UNTIL em AAAAMMDD (dia inteiro) ou AAAAMMDDT235959 (com hora).
+ *   EXDATE: as ocorrências concluídas. UID fixo pelo id: importar de novo atualiza, não duplica.
+ */
+function eventoDoCompromisso(c: Compromisso, carimbo: string): string[] {
+  if (c.concluido) return [];
+  let inicio = c.data;
+  // Dias úteis: o evento começa na primeira segunda a sexta (o Google conta o DTSTART como 1ª ocorrência mesmo fora da regra).
+  if (c.repeticao === 'dias_uteis') while (!ehInicioDeOcorrencia({ data: inicio, repeticao: 'dias_uteis' }, inicio)) inicio = somarDias(inicio, 1);
+  if (c.repetirAte && repete(c) && c.repetirAte < inicio) return [];
+  const duracao = duracaoEmDias(c);
+  const comHora = Boolean(c.hora);
+  const [h, m] = (c.hora ?? '00:00').split(':').map(Number);
+  const minutos = h * 60 + m;
+  const data = (dia: string) => (comHora ? flutuante(dia, minutos) : compacta(dia));
+  const tipo = comHora ? '' : ';VALUE=DATE';
+  const linhas = ['BEGIN:VEVENT', `UID:compromisso-${c.id}@guara`, `DTSTAMP:${carimbo}`, `DTSTART${tipo}:${data(inicio)}`];
+  if (comHora) linhas.push(`DTEND:${minutos + 60 >= 1440 ? flutuante(somarDias(inicio, 1), minutos + 60 - 1440) : flutuante(inicio, minutos + 60)}`);
+  else linhas.push(`DTEND;VALUE=DATE:${compacta(somarDias(inicio, duracao + 1))}`);
+  linhas.push(`SUMMARY:${escapar(tituloDoCompromisso(c))}`);
+  const regra = regraDeRepeticao(c);
+  if (regra && repete(c)) {
+    const ate = c.repetirAte ? `;UNTIL=${compacta(c.repetirAte)}${comHora ? 'T235959' : ''}` : '';
+    linhas.push(`RRULE:${regra}${ate}`);
+    const feitas = (c.concluidasEm ?? []).filter((d) => ehInicioDeOcorrencia({ ...c, data: inicio }, d)).sort();
+    if (feitas.length) linhas.push(`EXDATE${tipo}:${feitas.map((d) => data(d)).join(',')}`);
+  }
+  linhas.push('END:VEVENT');
+  return linhas;
+}
+
+/** Arquivo iCalendar (RFC 5545), que o Google Agenda importa: vistorias e saídas (dia inteiro) e compromissos (com séries). Só texto das demandas; nada sai do navegador. */
+export function gerarIcs(itens: readonly ItemAgenda[], agora: Date, compromissos?: readonly Compromisso[]): string {
   const carimbo = agora.toISOString().replace(/[-:]/g, '').replace(/\.\d+/, '');
-  const eventos = itens.filter((i) => !i.concluido).flatMap((i) => {
+  // Com `compromissos`, eles saem inteiros (série em RRULE) e os itens de compromisso da lista são ignorados.
+  const doCompromisso = (compromissos ?? []).flatMap((c) => eventoDoCompromisso(c, carimbo));
+  const eventos = itens.filter((i) => !i.concluido && !(compromissos && i.tipo === 'compromisso')).flatMap((i) => {
     if (i.tipo === 'compromisso' && i.hora) {
       // Com hora marcada: horário "flutuante" (sem fuso), com uma hora de duração.
       const inicio = new Date(`${i.data}T${i.hora}:00`);
@@ -123,6 +176,6 @@ export function gerarIcs(itens: readonly ItemAgenda[], agora: Date): string {
       'END:VEVENT',
     ];
   });
-  const linhas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//GUARA//Agenda//PT-BR', 'CALSCALE:GREGORIAN', ...eventos, 'END:VCALENDAR'];
+  const linhas = ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//GUARA//Agenda//PT-BR', 'CALSCALE:GREGORIAN', ...eventos, ...doCompromisso, 'END:VCALENDAR'];
   return linhas.map(dobrar).join('\r\n') + '\r\n';
 }

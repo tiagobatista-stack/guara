@@ -64,8 +64,9 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
   };
 
   function exportar() {
-    const todos = montarAgenda(demandas, operacoes, compromissos);
-    const url = URL.createObjectURL(new Blob([gerarIcs(todos.flatMap((d) => d.itens), agora())], { type: 'text/calendar;charset=utf-8' }));
+    // Vistorias e saídas viram eventos de dia inteiro; os compromissos vão inteiros, com a série em RRULE.
+    const todos = montarAgenda(demandas, operacoes);
+    const url = URL.createObjectURL(new Blob([gerarIcs(todos.flatMap((d) => d.itens), agora(), compromissos)], { type: 'text/calendar;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
     a.download = 'guara-agenda.ics';
