@@ -48,6 +48,7 @@ const PERGUNTA: Record<ProblemaDaFrase, (e: Entendido) => string> = {
   'data-passada': (e) => `A data${e.trecho ? ` "${e.trecho}"` : ''} já passou. Diga uma data de hoje em diante, por exemplo: ${EXEMPLO}.`,
   'hora-invalida': (e) => `Não entendi a hora${e.trecho ? ` "${e.trecho}"` : ''}. Use de 0h a 23h59, por exemplo "às 14h" ou "14:30", ou deixe sem hora para o dia todo.`,
   'hora-passada': () => 'Esse horário de hoje já passou. Diga outra hora, ou outro dia, ou deixe sem hora para o dia todo.',
+  'intervalo-invalido': (e) => `O período${e.trecho ? ` "${e.trecho}"` : ''} não faz sentido: o fim precisa ser depois do início e caber em menos de um ano. Diga de novo, por exemplo: "curso de 10/12 a 12/12".`,
 };
 
 /** "Reunião — licenciamento · quinta, 10/12/2026 · dia todo" (o que a pessoa confere antes de gravar). */

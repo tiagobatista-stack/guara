@@ -131,3 +131,101 @@ describe('a frase parece compromisso?', () => {
     expect(pareceCompromisso('reunião 31/02', SABADO)).toBe(true);
   });
 });
+
+describe('interpretar compromisso: intervalo de datas', () => {
+  it.each([
+    ['curso de geoprocessamento de 10/12 a 12/12', { data: '2026-12-10', dataFim: '2026-12-12', assunto: 'geoprocessamento' }],
+    ['curso sobre SIG 10/12 até 12/12', { data: '2026-12-10', dataFim: '2026-12-12', assunto: 'SIG' }],
+    ['curso sobre SIG dias 10 a 12', { data: '2026-12-10', dataFim: '2026-12-12', assunto: 'SIG' }],
+    ['curso sobre SIG de 10 a 12 de dezembro', { data: '2026-12-10', dataFim: '2026-12-12', assunto: 'SIG' }],
+    ['viagem de 28/12 a 02/01', { data: '2026-12-28', dataFim: '2027-01-02' }],
+    ['curso sobre SIG de 10/12/2027 a 12/12/2027', { data: '2027-12-10', dataFim: '2027-12-12' }],
+  ])('%s', (frase, esperado) => expect(ler(frase, SABADO)).toMatchObject(esperado));
+
+  it('um dia só não ganha dataFim; hora vale com intervalo', () => {
+    expect(ler('curso 10/12 a 10/12', SABADO).dataFim).toBeUndefined();
+    expect(ler('curso de 10/12 a 12/12 às 8h', SABADO)).toMatchObject({ data: '2026-12-10', dataFim: '2026-12-12', hora: '08:00' });
+  });
+
+  it('fim antes do início, longo demais ou inexistente é problema', () => {
+    expect(ler('curso 12/12 a 10/12/2026', SABADO)).toMatchObject({ data: null, problema: 'intervalo-invalido' });
+    expect(ler('curso 10/12/2026 a 10/12/2028', SABADO)).toMatchObject({ data: null, problema: 'intervalo-invalido' });
+    expect(ler('curso 10/12 a 31/02', SABADO)).toMatchObject({ data: null, problema: 'data-invalida' });
+    expect(ler('curso 10/11/2026 a 12/12/2026', SABADO)).toMatchObject({ data: null, problema: 'data-passada' });
+  });
+});
+
+describe('interpretar compromisso: repetição', () => {
+  it.each([
+    ['reunião toda segunda às 9h sobre alinhamento', { repeticao: 'semanal', data: '2026-11-23', hora: '09:00', assunto: 'alinhamento' }],
+    ['reunião todas as segundas', { repeticao: 'semanal', data: '2026-11-23' }],
+    ['reunião toda semana', { repeticao: 'semanal', data: '2026-11-21' }],
+    ['reunião semanalmente', { repeticao: 'semanal', data: '2026-11-21' }],
+    ['reunião todos os dias às 14h', { repeticao: 'diaria', data: '2026-11-21', hora: '14:00' }],
+    ['reunião todo dia', { repeticao: 'diaria', data: '2026-11-21' }],
+    ['reunião diariamente', { repeticao: 'diaria', data: '2026-11-21' }],
+    ['reunião nos dias úteis', { repeticao: 'dias_uteis', data: '2026-11-23' }],
+    ['reunião de segunda a sexta', { repeticao: 'dias_uteis', data: '2026-11-23' }],
+    ['reunião todo dia 10 sobre contas', { repeticao: 'mensal', data: '2026-12-10', assunto: 'contas' }],
+    ['reunião todo mês', { repeticao: 'mensal', data: '2026-11-21' }],
+    ['reunião todo mês dia 10', { repeticao: 'mensal', data: '2026-12-10' }],
+    ['reunião mensalmente', { repeticao: 'mensal' }],
+    ['reunião toda 1ª segunda', { repeticao: 'mensal_semana', data: '2026-12-07' }],
+    ['reunião toda 2ª quinta do mês', { repeticao: 'mensal_semana', data: '2026-12-10' }],
+    ['reunião todo ano 10/12', { repeticao: 'anual', data: '2026-12-10' }],
+    ['reunião anualmente', { repeticao: 'anual' }],
+  ])('%s', (frase, esperado) => expect(ler(frase, SABADO)).toMatchObject(esperado));
+
+  it('hora de hoje que já passou empurra o início para a próxima ocorrência', () => {
+    expect(ler('reunião todos os dias às 8h', SABADO)).toMatchObject({ repeticao: 'diaria', data: '2026-11-22' });
+    expect(ler('reunião toda semana às 8h', SABADO)).toMatchObject({ repeticao: 'semanal', data: '2026-11-28' });
+    expect(ler('reunião toda sexta às 8h', SABADO)).toMatchObject({ repeticao: 'semanal', data: '2026-11-27' });
+  });
+
+  it('"até" vira repetirAte (não intervalo); o ano é o da primeira data depois do início', () => {
+    expect(ler('reunião toda segunda até 20/12', SABADO)).toMatchObject({ repeticao: 'semanal', data: '2026-11-23', repetirAte: '2026-12-20' });
+    expect(ler('reunião todo dia 10 até 10 de março', SABADO)).toMatchObject({ repeticao: 'mensal', data: '2026-12-10', repetirAte: '2027-03-10' });
+    expect(ler('reunião toda segunda até 20/12', SABADO).dataFim).toBeUndefined();
+    expect(ler('reunião toda segunda até 10/11/2026', SABADO)).toMatchObject({ problema: 'intervalo-invalido' });
+  });
+
+  it('com data explícita a repetição parte dela', () => {
+    expect(ler('reunião 25/11 toda semana', SABADO)).toMatchObject({ repeticao: 'semanal', data: '2026-11-25' });
+  });
+
+  it('sem repetição, nada de repeticao nem repetirAte', () => {
+    const e = ler('reunião dia 10/12', SABADO);
+    expect(e.repeticao).toBeUndefined();
+    expect(e.repetirAte).toBeUndefined();
+  });
+});
+
+describe('interpretar compromisso: semana do mês', () => {
+  it.each([
+    ['curso na 2ª semana de dezembro', { data: '2026-12-08', dataFim: '2026-12-14' }],
+    ['curso na 5ª semana de novembro', { data: '2026-11-29', dataFim: '2026-11-30' }],
+    ['reunião na 1ª segunda de dezembro', { data: '2026-12-07' }],
+    ['reunião na 1ª segunda do mês', { data: '2026-12-07' }],
+  ])('%s', (frase, esperado) => {
+    const e = ler(frase, SABADO);
+    expect(e).toMatchObject(esperado);
+    expect(e.repeticao).toBeUndefined();
+  });
+
+  it('semana que já começou parte de hoje; se hoje é o último dia, é um dia só', () => {
+    expect(ler('curso na 3ª semana do mês', SABADO)).toMatchObject({ data: '2026-11-21' });
+    expect(ler('curso na 3ª semana do mês', SABADO).dataFim).toBeUndefined();
+  });
+
+  it('5ª semana que não existe é problema', () => {
+    expect(ler('curso na 5ª semana de fevereiro de 2027', SABADO)).toMatchObject({ data: null, problema: 'intervalo-invalido' });
+  });
+});
+
+describe('a frase parece compromisso? com intervalo e repetição', () => {
+  it('reconhece as novas formas', () => {
+    expect(pareceCompromisso('curso de 10/12 a 12/12', SABADO)).toBe(true);
+    expect(pareceCompromisso('reunião toda segunda', SABADO)).toBe(true);
+    expect(pareceCompromisso('curso 12/12 a 10/12/2026', SABADO)).toBe(true);
+  });
+});
