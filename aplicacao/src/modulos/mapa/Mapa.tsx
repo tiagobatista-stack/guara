@@ -65,7 +65,7 @@ export function Mapa() {
       <div className="cartao">
         <h2 className="titulo-secao" data-testid="titulo-sem-local">Sem localização ({semLocal.length})</h2>
         {semLocal.length === 0 ? (
-          <EstadoVazio texto="Toda demanda tem coordenada." />
+          <EstadoVazio ocasiao="vazio-descoberta" texto="Toda demanda tem coordenada." />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio" data-testid="sem-local">
             {semLocal.map((d) => <li key={d.id}>{d.titulo} <a href="#/demandas" className="texto-pequeno">Abrir</a></li>)}

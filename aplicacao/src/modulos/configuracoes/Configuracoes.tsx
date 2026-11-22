@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { definirLimiteDeAvisos, OPCOES_LIMITE_AVISOS, useLimiteDeAvisos } from '../assistente/preferencias-avisos.ts';
 import { Mascote, MASCOTES, type EspecieMascote } from '../../compartilhado/Mascote.tsx';
 import {
+  definirConvidados,
   escolherPrincipal,
   nomearMascote,
   TAMANHO_MAXIMO_NOME,
@@ -88,6 +89,19 @@ export function Configuracoes() {
             );
           })}
         </ul>
+        <label className="campo-grupo--linha">
+          <input
+            type="checkbox"
+            checked={preferencias.convidados}
+            onChange={(e) => definirConvidados(e.target.checked)}
+          />
+          <span>Mascotes convidados</span>
+        </label>
+        <p className="texto-pequeno texto-suave" data-testid="explicacao-convidados">
+          Em ocasiões pontuais, outro mascote aparece no lugar do principal, conforme a personalidade: o lobo-guará (atento) nos
+          prazos e avisos, a capivara (acolhedora) nos estados vazios e a ariranha (curiosa) nas telas de contatos, atalhos,
+          agenda e mapa. Só muda o rosto e o nome; o principal continua sendo a base.
+        </p>
         <p className="texto-pequeno texto-suave">
           Sem nome, o mascote usa o nome da espécie. As mudanças são gravadas na hora (até {TAMANHO_MAXIMO_NOME} caracteres por nome).
         </p>

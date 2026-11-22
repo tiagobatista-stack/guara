@@ -54,7 +54,7 @@ it('o botão do assistente leva o rosto do mascote principal, atento com aviso e
   const flutuante = container.querySelector('.botao-flutuante')!;
   expect(flutuante).toHaveAccessibleName('Abrir assistente');
   expect(flutuante.querySelector('svg.mascote--vivo')).toHaveAttribute('data-humor', 'tranquilo');
-  expect(container.querySelector('.botao-assistente svg.mascote--vivo')).toHaveAttribute('data-especie', 'capivara');
+  expect(container.querySelector('.botao-assistente svg.mascote--vivo')).toHaveAttribute('data-especie', 'lobo-guara');
 
   act(() => {
     armazem.criar({ titulo: 'Prazo antigo (fictício)', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '2020-01-02' });

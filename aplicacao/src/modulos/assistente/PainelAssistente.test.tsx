@@ -43,17 +43,17 @@ afterEach(() => vi.restoreAllMocks());
 describe('painel do assistente: mascote', () => {
   it('com demanda que pede atenção, o mascote fica atento e resume os avisos em texto', () => {
     montar();
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Atento: 1 com prazo próximo.');
     const aviso = screen.getByTestId('aviso-DEM-1');
-    expect(aviso).toHaveTextContent('Capivara: Revisar parecer FIC-0001: vence hoje.');
+    expect(aviso).toHaveTextContent('Lobo-guará: Revisar parecer FIC-0001: vence hoje.');
     expect(aviso).toHaveTextContent('fato · fonte: demandas deste navegador · 13/11/2026');
     expect(aviso.querySelector('svg.mascote[aria-hidden="true"]')).not.toBeNull();
   });
 
   it('sem nada pedindo atenção, fica tranquilo; o aviso aparece quando os dados mudam', () => {
     const { armazem } = montar([entrada('Atualizar manual (fictício)', '2026-11-30')]);
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), tranquilo' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.');
     expect(screen.getByText('Nenhum aviso.')).toBeInTheDocument();
 
@@ -138,7 +138,7 @@ describe('painel do assistente: mascote', () => {
       ['curioso', 'sugestão'],
     ]);
     enviar('prazos');
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), pensativo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), pensativo' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Pensativo: a última resposta é uma inferência; confira antes de agir.');
   });
 
@@ -282,10 +282,10 @@ describe('painel do assistente: mascote', () => {
   it('comando não reconhecido deixa o mascote curioso; um comando conhecido devolve ao estado dos avisos', () => {
     montar();
     enviar('xyz');
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), curioso' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), curioso' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Curioso');
     enviar('ajuda');
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
   });
 
   it('cada fala do assistente leva o rosto do mascote e o nome para o leitor de tela; a do usuário, não', () => {
@@ -295,7 +295,7 @@ describe('painel do assistente: mascote', () => {
     expect(falas).toHaveLength(2);
     falas.forEach((fala) => {
       expect(fala.querySelector('svg.mascote[aria-hidden="true"]')).not.toBeNull();
-      expect(fala).toHaveTextContent('Capivara:');
+      expect(fala).toHaveTextContent('Lobo-guará:');
     });
     const doUsuario = container.querySelector('li.mensagem--usuario')!;
     expect(doUsuario.querySelector('svg')).toBeNull();
@@ -354,7 +354,7 @@ describe('painel do assistente: mascote', () => {
     fireEvent.click(within(screen.getByRole('group', { name: 'Lembrete de DEM-1' })).getByRole('button', { name: 'Ciente' }));
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(screen.getByText('Nenhum aviso novo.')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), tranquilo' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: 1 aviso(s) ciente(s) ou adiado(s)');
 
     fireEvent.click(screen.getByRole('button', { name: '1 ciente(s) e 0 adiado(s)' }));
@@ -362,7 +362,7 @@ describe('painel do assistente: mascote', () => {
 
     act(() => { armazem.mudarStatus('DEM-1', 'Em Andamento'); });
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
   });
 
   it('adiar esconde o lembrete até a hora escolhida; "Mostrar de novo" desfaz', () => {

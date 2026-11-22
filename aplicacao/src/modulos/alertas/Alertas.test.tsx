@@ -159,13 +159,13 @@ describe('tela Alertas', () => {
     vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
     fireEvent.click(screen.getByRole('button', { name: /Exportar/ }));
     const conteudo = await (baixar.mock.calls[0][0] as Blob).text();
-    expect(JSON.parse(conteudo).mascote).toEqual({ principal: 'lobo-guara', nomes: { 'lobo-guara': 'Tobias' } });
+    expect(JSON.parse(conteudo).mascote).toEqual({ principal: 'lobo-guara', nomes: { 'lobo-guara': 'Tobias' }, convidados: true });
 
     const novo = JSON.stringify({ ...JSON.parse(exportarDados([{ ...ANTIGA, id: 'nova1' }], 3, AGORA)), mascote: { principal: 'ariranha', nomes: { ariranha: 'Nina', capivara: 42 } } });
     vi.spyOn(window, 'confirm').mockReturnValueOnce(true);
     fireEvent.change(screen.getByLabelText('Arquivo JSON para importar'), { target: { files: [arquivo(novo)] } });
     await waitFor(() => expect(screen.getByRole('status')).toHaveTextContent('Importadas 1'));
-    expect(obterPreferencias()).toEqual({ principal: 'ariranha', nomes: { ariranha: 'Nina' } });
+    expect(obterPreferencias()).toEqual({ principal: 'ariranha', nomes: { ariranha: 'Nina' }, convidados: true });
     expect(armazem.obter().demandas.map((d) => d.id)).toEqual(['nova1']);
   });
 

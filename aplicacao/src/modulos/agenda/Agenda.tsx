@@ -134,7 +134,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
         <h2 className="titulo-secao">{escolhido.split('-').reverse().join('/')} <span className="texto-pequeno texto-suave" data-testid="agenda-semana-do-mes">· {descreverSemanaDoMes(escolhido)}</span></h2>
         {emOperacao.map((n) => <p key={n} className="texto-medio texto--falha">Em operação: {n}</p>)}
         {doDia.length === 0 ? (
-          <EstadoVazio texto="Nada marcado neste dia." />
+          <EstadoVazio ocasiao="vazio-descoberta" texto="Nada marcado neste dia." />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio">
             {doDia.map((i, n) => {
@@ -175,7 +175,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Demandas de campo sem data nem operação</h2>
         {semVistoria.length === 0 ? (
-          <EstadoVazio texto="Nenhuma demanda de campo aguardando encaixe." />
+          <EstadoVazio ocasiao="vazio-descoberta" texto="Nenhuma demanda de campo aguardando encaixe." />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio" data-testid="agenda-sem-vistoria">
             {semVistoria.map((d) => <li key={d.id}>{d.titulo}</li>)}

@@ -151,7 +151,7 @@ export function Contatos() {
 
       {contatos.length === 0 ? (
         <div className="cartao">
-          <EstadoVazio texto="Nenhum contato por aqui." dica="Inclua o primeiro no formulário abaixo." />
+          <EstadoVazio ocasiao="vazio-descoberta" texto="Nenhum contato por aqui." dica="Inclua o primeiro no formulário abaixo." />
         </div>
       ) : (
         <>

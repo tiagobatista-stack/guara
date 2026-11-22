@@ -3,13 +3,15 @@
 // porque uma tela pode ter vários estados vazios ao mesmo tempo (as colunas do Kanban, por exemplo).
 
 import { Mascote } from './Mascote.tsx';
-import { usePreferenciasMascote } from './preferencias-mascote.ts';
+import type { Ocasiao } from './especies-mascote.ts';
+import { especiePara, usePreferenciasMascote } from './preferencias-mascote.ts';
 
 export function EstadoVazio({
   texto,
   dica,
   compacto = false,
   cartao = false,
+  ocasiao,
 }: {
   texto: string;
   /** Próximo passo possível, em uma frase curta. */
@@ -18,8 +20,10 @@ export function EstadoVazio({
   compacto?: boolean;
   /** Mostra o estado vazio dentro de um cartão próprio (quando não há cartão em volta). */
   cartao?: boolean;
+  /** Quando informada, um mascote convidado (pela personalidade) pode aparecer no lugar do principal. */
+  ocasiao?: Ocasiao;
 }) {
-  const { principal } = usePreferenciasMascote();
+  const principal = especiePara(usePreferenciasMascote(), ocasiao);
   const classes = ['estado-vazio', compacto ? 'estado-vazio--compacto' : '', cartao ? 'cartao' : ''].filter(Boolean).join(' ');
   return (
     <div className={classes} data-testid="estado-vazio" data-especie={principal}>

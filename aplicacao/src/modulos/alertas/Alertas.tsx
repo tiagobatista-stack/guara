@@ -159,7 +159,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Demandas inativas ({inativas.length})</h2>
         {inativas.length === 0 ? (
-          <EstadoVazio texto={`Nenhuma demanda inativa com o limiar de ${diasInatividade} dia(s).`} />
+          <EstadoVazio ocasiao="prazo" texto={`Nenhuma demanda inativa com o limiar de ${diasInatividade} dia(s).`} />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio" aria-label="Demandas inativas">
             {inativas.map((d) => (
@@ -193,7 +193,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Triagem: demandas sem prazo ({semPrazo.length})</h2>
         {semPrazo.length === 0 ? (
-          <EstadoVazio texto="Toda demanda em aberto tem prazo." />
+          <EstadoVazio ocasiao="prazo" texto="Toda demanda em aberto tem prazo." />
         ) : (
           <>
             <p className="texto-pequeno texto-suave">

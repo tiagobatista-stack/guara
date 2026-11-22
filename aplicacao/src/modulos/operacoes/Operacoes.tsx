@@ -13,7 +13,7 @@ import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
 import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
 import { htmlDoRoteiro } from './roteiro.ts';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
-import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
+import { especiePara, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
 import { MOTIVOS_BLOQUEIO } from '../demandas/modelo.ts';
 import { formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
@@ -51,7 +51,7 @@ function baixar(nome: string, conteudo: string, tipo: string) {
 
 /** Pergunta do mascote. A decisão é do analista: o sistema não troca o período sozinho. */
 function FalaMascote({ id, children }: { id: string; children: ReactNode }) {
-  const { principal } = usePreferenciasMascote();
+  const principal = especiePara(usePreferenciasMascote(), 'aviso');
   return (
     <div className="aviso fala-mascote" role="group" aria-labelledby={`${id}-titulo`} data-testid={id}>
       <Mascote especie={principal} humor="cauteloso" tamanho={40} decorativo />
@@ -1283,9 +1283,9 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
       )}
 
       {operacao.pontos.length === 0 ? (
-        <EstadoVazio cartao texto="Nenhum ponto nesta operação." dica="Importe um CSV em “Importar e exportar pontos” para trazer a lista." />
+        <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhum ponto nesta operação." dica="Importe um CSV em “Importar e exportar pontos” para trazer a lista." />
       ) : visiveis.length === 0 ? (
-        <EstadoVazio cartao texto="Nenhum ponto corresponde aos filtros." dica="Mude ou limpe os filtros." />
+        <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhum ponto corresponde aos filtros." dica="Mude ou limpe os filtros." />
       ) : secoes.length === 0 ? (
         <ul className="lista-limpa grade grade--2 grade--topo" aria-label="Pontos da operação">{visiveis.map(cartao)}</ul>
       ) : (
@@ -1510,7 +1510,7 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
           <NovaOperacao operacoes={operacoes} agora={agora} aoCriar={setAberta} />
 
           {operacoes.length === 0 ? (
-            <EstadoVazio cartao texto="Nenhuma operação cadastrada." dica="Importe a planilha de pontos ou crie a operação sem planilha." />
+            <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhuma operação cadastrada." dica="Importe a planilha de pontos ou crie a operação sem planilha." />
           ) : (
             <ul className="lista-limpa grade grade--2" aria-label="Lista de operações">
               {ordenadas.map(({ o, progresso: pr }) => (

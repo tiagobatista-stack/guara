@@ -316,7 +316,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           {(() => {
             const resumos = resumosEmAberto(demandas, agora(), ajuste);
             return resumos.length === 0 ? (
-              <EstadoVazio cartao texto="Nenhuma demanda em aberto." />
+              <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhuma demanda em aberto." />
             ) : (
               <ul className="lista-limpa grade grade--2" aria-label="Resumo das demandas em aberto">
                 {resumos.map((r) => (
@@ -407,9 +407,9 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
 
           {visiveis.length === 0 ? (
             demandas.length === 0 ? (
-              <EstadoVazio cartao texto="Nenhuma demanda cadastrada." dica="Use “Nova demanda” para registrar a primeira." />
+              <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhuma demanda cadastrada." dica="Use “Nova demanda” para registrar a primeira." />
             ) : (
-              <EstadoVazio cartao texto="Nenhuma demanda corresponde aos filtros." dica="Mude ou limpe os filtros para ver as outras." />
+              <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhuma demanda corresponde aos filtros." dica="Mude ou limpe os filtros para ver as outras." />
             )
           ) : (
             <ul className="lista-limpa grade grade--2" aria-label="Lista de demandas">
