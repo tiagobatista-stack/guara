@@ -90,6 +90,53 @@ describe('Agenda: compromissos', () => {
     expect(obterCompromissos()[0].concluido).toBeUndefined();
   });
 
+  it('evento de vários dias aparece em todos os dias do intervalo, com "Dia n de total"', () => {
+    criarCompromisso({ tipo: 'curso', data: '2026-11-24', dataFim: '2026-11-26', assunto: 'geoprocessamento' }, instante.toISOString());
+    montarAgenda();
+    expect(screen.getByTestId('dia-2026-11-23')).not.toHaveTextContent('geoprocessamento');
+    expect(screen.getByTestId('dia-2026-11-24')).toHaveTextContent('Curso — geoprocessamento (1/3)');
+    expect(screen.getByTestId('dia-2026-11-25')).toHaveTextContent('(2/3)');
+    expect(screen.getByTestId('dia-2026-11-26')).toHaveTextContent('(3/3)');
+    expect(screen.getByTestId('dia-2026-11-27')).not.toHaveTextContent('geoprocessamento');
+    fireEvent.click(screen.getByTestId('dia-2026-11-25'));
+    expect(screen.getByTestId('agenda-dia-escolhido')).toHaveTextContent('Dia todo · Curso — geoprocessamento · Dia 2 de 3');
+  });
+
+  it('série semanal aparece em cada semana, e concluir uma ocorrência não conclui as outras', () => {
+    criarCompromisso({ tipo: 'reunião', data: '2026-11-23', hora: '09:00', assunto: 'alinhamento', repeticao: 'semanal' }, instante.toISOString());
+    montarAgenda();
+    expect(screen.getByTestId('dia-2026-11-23')).toHaveTextContent('09:00 ↻ Reunião — alinhamento');
+    expect(screen.getByTestId('dia-2026-11-30')).toHaveTextContent('↻ Reunião — alinhamento');
+    expect(screen.getByTestId('dia-2026-11-24')).not.toHaveTextContent('alinhamento');
+    fireEvent.click(screen.getByTestId('dia-2026-11-30'));
+    expect(screen.getByTestId('agenda-dia-escolhido')).toHaveTextContent('↻ toda segunda');
+    fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
+    expect(obterCompromissos()[0]).toMatchObject({ concluidasEm: ['2026-11-30'] });
+    expect(obterCompromissos()[0].concluido).toBeUndefined();
+    expect(screen.getByTestId('agenda-dia-escolhido')).toHaveTextContent('(concluído)');
+    fireEvent.click(screen.getByTestId('dia-2026-11-23'));
+    expect(screen.getByTestId('agenda-dia-escolhido')).not.toHaveTextContent('(concluído)');
+    fireEvent.click(screen.getByTestId('dia-2026-11-30'));
+    fireEvent.click(screen.getByRole('button', { name: 'Reabrir' }));
+    expect(obterCompromissos()[0].concluidasEm).toBeUndefined();
+  });
+
+  it('a série respeita "repetir até" e continua nos meses seguintes ao navegar', () => {
+    criarCompromisso({ tipo: 'lembrete', data: '2026-11-23', assunto: 'ponto', repeticao: 'semanal', repetirAte: '2026-12-07' }, instante.toISOString());
+    montarAgenda();
+    expect(screen.getByTestId('dia-2026-11-30')).toHaveTextContent('ponto');
+    fireEvent.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    expect(screen.getByTestId('dia-2026-12-07')).toHaveTextContent('ponto');
+    expect(screen.getByTestId('dia-2026-12-14')).not.toHaveTextContent('ponto');
+  });
+
+  it('mostra a semana do mês do dia escolhido', () => {
+    montarAgenda();
+    expect(screen.getByTestId('agenda-semana-do-mes')).toHaveTextContent('3ª semana de nov');
+    fireEvent.click(screen.getByTestId('dia-2026-11-30'));
+    expect(screen.getByTestId('agenda-semana-do-mes')).toHaveTextContent('5ª semana de nov');
+  });
+
   it('"Corrigir" do assistente abre o formulário já preenchido e limpa o endereço e o rascunho', () => {
     montarPainel();
     enviar('reunião dia 10/12 às 9h sobre licenciamento');

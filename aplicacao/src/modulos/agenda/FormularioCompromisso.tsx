@@ -4,10 +4,15 @@
 import { useState, type FormEvent } from 'react';
 import {
   criarCompromisso, editarCompromisso, excluirCompromisso, LIMITES_COMPROMISSO, problemaDoCompromisso, rotuloDoTipo, TIPOS_DE_COMPROMISSO,
-  type DadosCompromisso, type TipoDeCompromisso,
+  type DadosCompromisso, type Repeticao, type TipoDeCompromisso,
 } from './compromissos.ts';
 
-export interface InicialDoFormulario { id?: string; tipo?: TipoDeCompromisso; data?: string; hora?: string; assunto?: string; demanda?: string }
+export interface InicialDoFormulario {
+  id?: string; tipo?: TipoDeCompromisso; data?: string; hora?: string; assunto?: string; demanda?: string;
+  dataFim?: string; repeticao?: Exclude<Repeticao, 'nenhuma'>; repetirAte?: string;
+  /** Dia (início da ocorrência) em que a pessoa abriu o compromisso: base de "Encerrar a série antes de…". */
+  ocorrencia?: string;
+}
 
 export function FormularioCompromisso({ inicial, hoje, agora, aoFechar }: { inicial: InicialDoFormulario; hoje: string; agora: () => Date; aoFechar: (mensagem?: string) => void }) {
   const [tipo, setTipo] = useState<string>(inicial.tipo ?? 'reunião');

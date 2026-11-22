@@ -5,9 +5,10 @@ import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { viagemDoPonto } from '../operacoes/regras.ts';
 import { tituloDoCompromisso, type Compromisso } from './compromissos.ts';
+import { descreverRepeticao, duracaoEmDias, ocorrenciaConcluida, ocorrenciasNoIntervalo, repete, somarDias } from './recorrencia.ts';
 
 export interface ItemAgenda {
-  /** AAAA-MM-DD. */
+  /** AAAA-MM-DD: o dia em que o item aparece (num compromisso de vários dias ou de série, um item por dia coberto). */
   data: string;
   tipo: 'vistoria' | 'saida' | 'compromisso';
   texto: string;
@@ -15,13 +16,29 @@ export interface ItemAgenda {
   hora?: string;
   /** Só de compromisso: permite editar, concluir e excluir pela Agenda. */
   id?: string;
+  /** Concluído neste dia (em série, só aquela ocorrência). */
   concluido?: true;
+  /** Só de compromisso: data de início da ocorrência que cobre o dia (chave de "Concluir" em série). */
+  ocorrencia?: string;
+  /** Só de compromisso de vários dias: "Dia 2 de 3" = numero 2, total 3. */
+  numero?: number;
+  total?: number;
+  /** Só de compromisso com repetição: "toda segunda". */
+  repete?: string;
 }
 
+/** Período (inclusive) em que as séries de compromissos são expandidas. */
+export interface JanelaDaAgenda { de: string; ate: string }
+
+/**
+ * Junta o que cai em cada dia. Compromisso de vários dias aparece em todos os dias que cobre e série em todas as
+ * ocorrências da `janela`. Sem janela, a série entra só com a primeira ocorrência (não existe "todas").
+ */
 export function montarAgenda(
   demandas: readonly Pick<Demanda, 'titulo' | 'status' | 'vistoria'>[],
   operacoes: readonly Operacao[],
   compromissos: readonly Compromisso[] = [],
+  janela?: JanelaDaAgenda,
 ): { dia: string; itens: ItemAgenda[] }[] {
   const itens: ItemAgenda[] = [];
   for (const d of demandas) {
@@ -36,7 +53,17 @@ export function montarAgenda(
     }
   }
   for (const c of compromissos) {
-    itens.push({ data: c.data, tipo: 'compromisso', texto: tituloDoCompromisso(c), id: c.id, ...(c.hora ? { hora: c.hora } : {}), ...(c.concluido ? { concluido: true as const } : {}) });
+    const de = janela?.de ?? c.data;
+    const ate = janela?.ate ?? somarDias(c.data, duracaoEmDias(c));
+    for (const o of ocorrenciasNoIntervalo(c, de, ate)) {
+      itens.push({
+        data: o.dia, tipo: 'compromisso', texto: tituloDoCompromisso(c), id: c.id, ocorrencia: o.inicio,
+        ...(c.hora ? { hora: c.hora } : {}),
+        ...(ocorrenciaConcluida(c, o.inicio) ? { concluido: true as const } : {}),
+        ...(o.total > 1 ? { numero: o.numero, total: o.total } : {}),
+        ...(repete(c) ? { repete: descreverRepeticao(c) } : {}),
+      });
+    }
   }
   const dias = new Map<string, ItemAgenda[]>();
   for (const i of itens) dias.set(i.data, [...(dias.get(i.data) ?? []), i]);

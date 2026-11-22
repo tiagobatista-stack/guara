@@ -9,11 +9,15 @@ import { listarSemVistoria } from '../demandas/vistoria.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { parametrosDaRota } from '../../nucleo/registro-modulos.ts';
 import { lerRotaDeCompromisso } from '../assistente/compromissoPelaConversa.ts';
-import { concluirCompromisso, limparRascunho, reabrirCompromisso, useCompromissos, type Compromisso } from './compromissos.ts';
+import { concluirOcorrencia, limparRascunho, reabrirOcorrencia, useCompromissos, type Compromisso } from './compromissos.ts';
 import { FormularioCompromisso, type InicialDoFormulario } from './FormularioCompromisso.tsx';
+import { descreverSemanaDoMes } from './recorrencia.ts';
 import { gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
 
-const paraFormulario = (c: Compromisso): InicialDoFormulario => ({ id: c.id, tipo: c.tipo, data: c.data, hora: c.hora, assunto: c.assunto, demanda: c.demanda });
+const paraFormulario = (c: Compromisso, ocorrencia: string): InicialDoFormulario => ({
+  id: c.id, tipo: c.tipo, data: c.data, hora: c.hora, assunto: c.assunto, demanda: c.demanda,
+  dataFim: c.dataFim, repeticao: c.repeticao, repetirAte: c.repetirAte, ocorrencia,
+});
 
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
@@ -46,10 +50,12 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
     window.addEventListener('hashchange', aplicar);
     return () => window.removeEventListener('hashchange', aplicar);
   }, []);
-  const dias = montarAgenda(demandas, operacoes, compromissos);
+  const grade = gradeDoMes(mes.ano, mes.mes);
+  // As séries só são expandidas nas semanas que estão na tela (e o dia escolhido, que pode estar fora do mês).
+  const janela = { de: [grade[0][0].data, escolhido].sort()[0], ate: [grade[grade.length - 1][6].data, escolhido].sort()[1] };
+  const dias = montarAgenda(demandas, operacoes, compromissos, janela);
   const porDia = new Map(dias.map((d) => [d.dia, d.itens]));
   const semVistoria = listarSemVistoria(demandas, demandasEncaixadas(operacoes));
-  const grade = gradeDoMes(mes.ano, mes.mes);
   const titulo = new Date(mes.ano, mes.mes - 1, 1).toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' });
   const mover = (n: number) => {
     const d = new Date(mes.ano, mes.mes - 1 + n, 1);
@@ -57,7 +63,8 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
   };
 
   function exportar() {
-    const url = URL.createObjectURL(new Blob([gerarIcs(dias.flatMap((d) => d.itens), agora())], { type: 'text/calendar;charset=utf-8' }));
+    const todos = montarAgenda(demandas, operacoes, compromissos);
+    const url = URL.createObjectURL(new Blob([gerarIcs(todos.flatMap((d) => d.itens), agora())], { type: 'text/calendar;charset=utf-8' }));
     const a = document.createElement('a');
     a.href = url;
     a.download = 'guara-agenda.ics';
@@ -80,7 +87,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
           <h2 className="titulo-secao" data-testid="agenda-mes" aria-live="polite">{titulo}</h2>
           <button type="button" className="botao" onClick={() => mover(1)} aria-label="Próximo mês">›</button>
           <button type="button" className="botao" onClick={() => { setMes({ ano: instante.getFullYear(), mes: instante.getMonth() + 1 }); setEscolhido(hoje); }}>Hoje</button>
-          <button type="button" className="botao" onClick={exportar} disabled={dias.length === 0}>Exportar para o Google Agenda (.ics)</button>
+          <button type="button" className="botao" onClick={exportar} disabled={dias.length === 0 && compromissos.length === 0}>Exportar para o Google Agenda (.ics)</button>
         </div>
         <div className="agenda-grade" role="grid" aria-label={`Calendário de ${titulo}`}>
           <div role="row" className="agenda-linha">
@@ -102,7 +109,11 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
                     onClick={() => setEscolhido(data)}
                   >
                     <span className="agenda-numero">{Number(data.slice(8))}</span>
-                    {itens.slice(0, 2).map((i, n) => <span key={n} className={`agenda-evento agenda-evento--${i.tipo}${i.concluido ? ' agenda-evento--concluido' : ''}`}>{i.hora ? `${i.hora} ` : ''}{i.texto}</span>)}
+                    {itens.slice(0, 2).map((i, n) => (
+                      <span key={n} className={`agenda-evento agenda-evento--${i.tipo}${i.concluido ? ' agenda-evento--concluido' : ''}${i.repete ? ' agenda-evento--repete' : ''}${i.total ? ' agenda-evento--continua' : ''}`}>
+                        {i.hora ? `${i.hora} ` : ''}{i.repete ? '↻ ' : ''}{i.texto}{i.total ? ` (${i.numero}/${i.total})` : ''}
+                      </span>
+                    ))}
                     {itens.length > 2 && <span className="texto-pequeno texto-suave">+{itens.length - 2}</span>}
                   </button>
                 );
@@ -114,7 +125,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
       </div>
 
       <div className="cartao" data-testid="agenda-dia-escolhido">
-        <h2 className="titulo-secao">{escolhido.split('-').reverse().join('/')}</h2>
+        <h2 className="titulo-secao">{escolhido.split('-').reverse().join('/')} <span className="texto-pequeno texto-suave" data-testid="agenda-semana-do-mes">· {descreverSemanaDoMes(escolhido)}</span></h2>
         {operacoesNoDia(operacoes, escolhido).map((n) => <p key={n} className="texto-medio texto--falha">Em operação: {n}</p>)}
         {doDia.length === 0 ? (
           <EstadoVazio texto="Nada marcado neste dia." />
@@ -125,11 +136,14 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
               const c = compromissos.find((x) => x.id === i.id);
               return (
                 <li key={n} data-testid={`compromisso-do-dia-${i.id}`}>
-                  <span className={i.concluido ? 'agenda-evento--concluido' : undefined}>{i.hora ? `${i.hora} · ` : 'Dia todo · '}{i.texto}{i.concluido ? ' (concluído)' : ''}</span>
+                  <span className={i.concluido ? 'agenda-evento--concluido' : undefined}>
+                    {i.hora ? `${i.hora} · ` : 'Dia todo · '}{i.texto}
+                    {i.total ? ` · Dia ${i.numero} de ${i.total}` : ''}{i.repete ? ` · ↻ ${i.repete}` : ''}{i.concluido ? ' (concluído)' : ''}
+                  </span>
                   {c && (
                     <span className="acoes-aviso" role="group" aria-label={`Compromisso: ${i.texto}`}>
-                      <button type="button" className="botao botao--pequeno" onClick={() => { setRecado(''); setFormulario(paraFormulario(c)); }}>Editar</button>
-                      <button type="button" className="botao botao--pequeno" onClick={() => (c.concluido ? reabrirCompromisso(c.id) : concluirCompromisso(c.id))}>{c.concluido ? 'Reabrir' : 'Concluir'}</button>
+                      <button type="button" className="botao botao--pequeno" onClick={() => { setRecado(''); setFormulario(paraFormulario(c, escolhido)); }}>Editar</button>
+                      <button type="button" className="botao botao--pequeno" onClick={() => (i.concluido ? reabrirOcorrencia(c.id, i.ocorrencia ?? c.data) : concluirOcorrencia(c.id, i.ocorrencia ?? c.data))}>{i.concluido ? 'Reabrir' : 'Concluir'}</button>
                     </span>
                   )}
                 </li>
@@ -143,7 +157,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
 
       {formulario && (
         <div className="cartao">
-          <FormularioCompromisso key={`${formulario.id ?? 'novo'}-${formulario.data ?? ''}-${formulario.assunto ?? ''}`} inicial={formulario} hoje={hoje} agora={agora} aoFechar={(m) => { setFormulario(null); if (m) setRecado(m); }} />
+          <FormularioCompromisso key={`${formulario.id ?? 'novo'}-${formulario.data ?? ''}-${formulario.dataFim ?? ''}-${formulario.repeticao ?? ''}-${formulario.assunto ?? ''}`} inicial={formulario} hoje={hoje} agora={agora} aoFechar={(m) => { setFormulario(null); if (m) setRecado(m); }} />
         </div>
       )}
 

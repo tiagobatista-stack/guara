@@ -142,7 +142,7 @@ const MAXIMO_DE_LINHAS = 14;
 function rotuloDoItem(i: ItemAgenda): string {
   if (i.tipo === 'vistoria') return `Vistoria: ${i.texto}`;
   if (i.tipo === 'saida') return `Saída: ${i.texto}`;
-  return `${i.hora ? `${i.hora} ` : ''}${i.texto}`;
+  return `${i.hora ? `${i.hora} ` : ''}${i.texto}${i.total ? ` (dia ${i.numero} de ${i.total})` : ''}${i.repete ? ` (↻ ${i.repete})` : ''}`;
 }
 
 export function respostaDeAgenda(
@@ -157,8 +157,10 @@ export function respostaDeAgenda(
   const periodo = ps.includes('hoje') ? { de: dia(0), ate: dia(0), nome: 'hoje' }
     : ps.includes('amanha') ? { de: dia(1), ate: dia(1), nome: 'amanhã' }
       : { de: dia(0), ate: dia(6), nome: 'nos próximos 7 dias' };
-  // Compromisso concluído não entra na lista; vistoria e saída seguem as mesmas regras da Agenda.
-  const dias = montarAgenda(demandas, operacoes, compromissos.filter((c) => !c.concluido)).filter((d) => d.dia >= periodo.de && d.dia <= periodo.ate);
+  // Ocorrência concluída não entra na lista; vistoria e saída seguem as mesmas regras da Agenda.
+  const dias = montarAgenda(demandas, operacoes, compromissos, { de: periodo.de, ate: periodo.ate })
+    .map((d) => ({ dia: d.dia, itens: d.itens.filter((i) => !i.concluido) }))
+    .filter((d) => d.dia >= periodo.de && d.dia <= periodo.ate && d.itens.length > 0);
   const origem = `agenda deste navegador · ${agora.toLocaleDateString('pt-BR')}`;
   if (dias.length === 0) return fato(`Nada marcado ${periodo.nome}.`, origem, [ABRIR_AGENDA]);
   const linhas: string[] = [];

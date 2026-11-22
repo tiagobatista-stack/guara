@@ -227,6 +227,24 @@ describe('compromissos na agenda', () => {
     expect(dias[0].itens.some((i) => i.tipo === 'vistoria')).toBe(true);
   });
 
+  it('vários dias: um item por dia coberto, com "dia n de total"; sem janela a série só traz a primeira ocorrência', () => {
+    const curso = montarAgenda([], [], [cmp({ tipo: 'curso', assunto: 'Curso', dataFim: '2026-12-12' })]);
+    expect(curso.map((d) => d.dia)).toEqual(['2026-12-10', '2026-12-11', '2026-12-12']);
+    expect(curso.map((d) => [d.itens[0].numero, d.itens[0].total])).toEqual([[1, 3], [2, 3], [3, 3]]);
+    expect(curso[1].itens[0]).toMatchObject({ id: 'c1', ocorrencia: '2026-12-10', texto: 'Curso' });
+    const serie = montarAgenda([], [], [cmp({ repeticao: 'semanal' })]);
+    expect(serie.map((d) => d.dia)).toEqual(['2026-12-10']);
+  });
+
+  it('série na janela: só os dias da janela, com a repetição descrita e a conclusão por ocorrência', () => {
+    const c = cmp({ repeticao: 'semanal', concluidasEm: ['2026-12-17'] });
+    const dias = montarAgenda([], [], [c], { de: '2026-12-14', ate: '2027-01-03' });
+    expect(dias.map((d) => d.dia)).toEqual(['2026-12-17', '2026-12-24', '2026-12-31']);
+    expect(dias.map((d) => Boolean(d.itens[0].concluido))).toEqual([true, false, false]);
+    expect(dias[0].itens[0].repete).toBe('toda quinta');
+    expect(montarAgenda([], [], [cmp({ concluido: true, repeticao: 'diaria' })], { de: '2026-12-10', ate: '2026-12-11' }).every((d) => d.itens[0].concluido)).toBe(true);
+  });
+
   it('.ics: compromisso com hora tem horário; concluído fica de fora', () => {
     const dias = montarAgenda([], [], [cmp({ hora: '14:30' }), cmp({ id: 'c2', concluido: true })]);
     const ics = gerarIcs(dias.flatMap((d) => d.itens), new Date(2026, 10, 21));
