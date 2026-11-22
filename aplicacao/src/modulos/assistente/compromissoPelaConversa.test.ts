@@ -361,3 +361,25 @@ describe('perguntas do mascote no cadastro', () => {
     expect(JSON.parse(localStorage.getItem('guara:compromissos:rascunho:v1')!)[1]).toEqual({ etapa: 'hora' });
   });
 });
+
+describe('aviso de coincidência com operação na confirmação', () => {
+  const operacao = { id: 'o1', nome: 'Operação Norte', inicio: '2026-12-10', fim: '2026-12-12', criadaEm: '2026-11-01T00:00:00Z', viagens: [], pontos: [] };
+
+  it('com operação no período, o "Vou anotar" ganha a linha de aviso; sem, fica igual', () => {
+    localStorage.setItem('guara:operacoes:v1', JSON.stringify([operacao]));
+    const [m] = pedir('curso de 11/12 a 13/12 sobre solo');
+    expect(m.texto).toContain('Vou anotar:');
+    expect(m.texto).toContain('\nAtenção: Coincide com a operação Operação Norte (11/12/2026 a 12/12/2026). Pode confirmar assim mesmo.');
+    expect(m.acoes?.map((a) => a.rotulo)).toEqual(['Confirmar', 'Corrigir', 'Cancelar']);
+    localStorage.clear();
+    expect(pedir('curso de 11/12 a 13/12 sobre solo')[0].texto).not.toContain('Atenção');
+  });
+
+  it('série que cai na operação também avisa, e confirmar grava', () => {
+    localStorage.setItem('guara:operacoes:v1', JSON.stringify([operacao]));
+    const [m] = pedir('reunião toda quinta às 9h');
+    expect(m.texto).toContain('Coincide com a operação Operação Norte (10/12/2026)');
+    respostaDeDecisao('confirmar compromisso', SABADO);
+    expect(obterCompromissos()).toHaveLength(1);
+  });
+});

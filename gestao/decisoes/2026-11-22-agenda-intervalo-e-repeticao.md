@@ -34,3 +34,13 @@ Nenhum padrão GoF foi introduzido. A recorrência é um conjunto de funções p
 - A semana do mês aparece no cabeçalho do dia da Agenda, no resumo, no formulário e no aviso; saídas e viagens de `operacoes` não a mostram.
 - "toda segunda", dito na pergunta de repetição, segue o dia da semana da data já informada.
 - O `.ics` não foi importado em Google Agenda ou Outlook reais: os testes conferem o texto, não a leitura pelo aplicativo.
+
+## Aviso de coincidência com operações (22/11/2026)
+
+Compromissos e lembretes que caem no período (`inicio` a `fim`) de uma operação mostram um aviso **informativo, que nunca bloqueia** o salvamento.
+
+- `coincidenciasComOperacoes`, `resumirDias` e `textoDeCoincidencia` (`agenda/regras.ts`): funções puras. Expandem as ocorrências (um dia, intervalo ou série até `repetirAte`; série sem fim, 400 dias) e cruzam com `operacoesNoDia`. Operação sem `inicio` nem `fim` não coincide.
+- Formulário: aviso com `role="status"`, borda tracejada e o texto "Atenção:", recalculado ao mudar início, fim, repetição ou "repetir até".
+- Agenda: o compromisso do dia escolhido, quando o dia está em operação, traz "Atenção: coincide com a operação …" (texto, não só cor; estilo `.aviso-coincidencia` em `estilos.css`).
+- Conversa: o "Vou anotar" ganha a linha "Atenção: Coincide com … Pode confirmar assim mesmo."; o assistente lê as operações de `guara:operacoes:v1` na hora (`obterOperacoes`).
+- Limitação: só considera o período da operação, não as saídas dos pontos. Vistorias não entram.

@@ -75,3 +75,7 @@ Observação: o `vitest` pelo Bash falhou em massa neste ambiente; pelo PowerShe
 - Formulário e conversa em 375 px e desktop, tema claro e escuro: NÃO TESTADO (sem navegador).
 - Roteiro manual com cliques físicos: NÃO TESTADO.
 - Push e publicação: não feitos (exigem autorização).
+
+### Aviso de coincidência com operações (22/11/2026)
+
+`npx tsc --noEmit` PASSOU; `npm test` PASSOU (80 arquivos, 1169 testes); `npm run build` PASSOU; Agenda + assistente repetidos 3 vezes: 22 arquivos, 489 testes, sem falha intermitente. Testes novos (10): função pura (1 dia, intervalo, série, fora do período, só um lado, texto), formulário (aviso muda com as datas e a repetição; salva mesmo assim), Agenda (aviso no dia em operação e ausente fora) e conversa (aviso no "Vou anotar"; Confirmar grava). Visual em 375 px e claro/escuro: NÃO TESTADO (sem navegador).

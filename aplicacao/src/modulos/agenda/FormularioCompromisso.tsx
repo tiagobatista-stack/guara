@@ -6,6 +6,8 @@ import {
   criarCompromisso, editarCompromisso, encerrarSerieAntesDe, excluirCompromisso, LIMITES_COMPROMISSO, problemaDoCompromisso, rotuloDoTipo, TIPOS_DE_COMPROMISSO,
   type DadosCompromisso, type Repeticao, type TipoDeCompromisso,
 } from './compromissos.ts';
+import type { Operacao } from '../operacoes/modelo.ts';
+import { coincidenciasComOperacoes, textoDeCoincidencia } from './regras.ts';
 import { descreverOrdemDoDia, descreverSemanaDoMes, ROTULOS_DA_REPETICAO, todoDiaDaSemana, diaDaSemana } from './recorrencia.ts';
 
 export interface InicialDoFormulario {
@@ -17,7 +19,7 @@ export interface InicialDoFormulario {
 
 const dataBr = (iso: string) => iso.split('-').reverse().join('/');
 
-export function FormularioCompromisso({ inicial, hoje, agora, aoFechar }: { inicial: InicialDoFormulario; hoje: string; agora: () => Date; aoFechar: (mensagem?: string) => void }) {
+export function FormularioCompromisso({ inicial, hoje, agora, aoFechar, operacoes = [] }: { inicial: InicialDoFormulario; hoje: string; agora: () => Date; aoFechar: (mensagem?: string) => void; operacoes?: readonly Pick<Operacao, 'nome' | 'inicio' | 'fim'>[] }) {
   const [tipo, setTipo] = useState<string>(inicial.tipo ?? 'reunião');
   const [data, setData] = useState(inicial.data ?? hoje);
   const [dataFim, setDataFim] = useState(inicial.dataFim ?? inicial.data ?? hoje);
@@ -76,6 +78,11 @@ export function FormularioCompromisso({ inicial, hoje, agora, aoFechar }: { inic
     aoFechar(r === 'excluido' ? 'Série excluída (não restou nenhuma ocorrência).' : r === 'encerrado' ? `Série encerrada antes de ${dataBr(inicial.ocorrencia)}.` : 'Nada a encerrar.');
   }
 
+  // Aviso informativo, recalculado a cada mudança de início, fim, repetição ou "repetir até"; nunca impede o envio.
+  const coincide = data ? textoDeCoincidencia(coincidenciasComOperacoes({
+    data, dataFim: dataFim && dataFim > data ? dataFim : undefined,
+    repeticao: seRepete ? (repeticao as Exclude<Repeticao, 'nenhuma'>) : undefined, repetirAte: seRepete && repetirAte ? repetirAte : undefined,
+  }, operacoes)) : '';
   const dow = data ? diaDaSemana(data) : 0;
   const opcoesDeRepeticao: Array<[string, string]> = [
     ['nenhuma', ROTULOS_DA_REPETICAO.nenhuma],
@@ -128,6 +135,11 @@ export function FormularioCompromisso({ inicial, hoje, agora, aoFechar }: { inic
         <label className="campo-grupo">Repetir até (opcional)
           <input className="campo" type="date" value={repetirAte} min={data} onChange={(e) => setRepetirAte(e.target.value)} />
         </label>
+      )}
+      {coincide && (
+        <p role="status" className="aviso-coincidencia campo-grupo--largo texto-medio" data-testid="aviso-coincidencia">
+          <strong>Atenção:</strong> {coincide} Você pode salvar assim mesmo ou ajustar as datas.
+        </p>
       )}
       {erro && <p role="alert" className="texto--falha texto-medio campo-grupo--largo">{erro}</p>}
       <div className="acoes-aviso campo-grupo--largo">

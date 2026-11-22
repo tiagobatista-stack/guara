@@ -5,7 +5,7 @@ import {
   reabrirCompromisso, tituloDoCompromisso, validarCompromissos,
 } from './compromissos.ts';
 import { compromissosParaAvisar, horariosDeAviso, textoDoCompromisso } from './avisosDeCompromissos.ts';
-import { gerarIcs, montarAgenda } from './regras.ts';
+import { coincidenciasComOperacoes, gerarIcs, montarAgenda, resumirDias, textoDeCoincidencia } from './regras.ts';
 
 const AGORA = '2026-11-21T13:00:00.000Z';
 const base = { tipo: 'reunião', data: '2026-12-10', assunto: 'licenciamento' } as const;
@@ -423,5 +423,41 @@ describe('avisos de vários dias e de séries', () => {
 
   it('com concluído geral, nada avisa', () => {
     expect(avisar([s({ repeticao: 'diaria', concluido: true })], new Date(2026, 11, 17, 9))).toEqual([]);
+  });
+});
+
+describe('coincidência com operações (aviso, não bloqueia)', () => {
+  const op = (nome: string, inicio?: string, fim?: string) => ({ nome, inicio, fim });
+  const OP = [op('Operação Norte', '2026-12-10', '2026-12-12')];
+
+  it('evento de 1 dia: coincide dentro do período e não coincide fora', () => {
+    expect(coincidenciasComOperacoes({ data: '2026-12-11' }, OP)).toEqual([{ operacao: 'Operação Norte', dias: ['2026-12-11'] }]);
+    expect(coincidenciasComOperacoes({ data: '2026-12-13' }, OP)).toEqual([]);
+    expect(coincidenciasComOperacoes({ data: '2026-12-09' }, OP)).toEqual([]);
+  });
+
+  it('operação com só um lado vale naquele dia; sem período não coincide', () => {
+    expect(coincidenciasComOperacoes({ data: '2026-12-10' }, [op('Só início', '2026-12-10')])).toHaveLength(1);
+    expect(coincidenciasComOperacoes({ data: '2026-12-10' }, [op('Sem datas')])).toEqual([]);
+  });
+
+  it('intervalo de vários dias: só os dias que se encontram', () => {
+    expect(coincidenciasComOperacoes({ data: '2026-12-08', dataFim: '2026-12-10' }, OP)).toEqual([{ operacao: 'Operação Norte', dias: ['2026-12-10'] }]);
+    expect(coincidenciasComOperacoes({ data: '2026-12-01', dataFim: '2026-12-09' }, OP)).toEqual([]);
+    expect(coincidenciasComOperacoes({ data: '2026-12-11', dataFim: '2026-12-20' }, OP)[0].dias).toEqual(['2026-12-11', '2026-12-12']);
+  });
+
+  it('série: acha as ocorrências que caem na operação e respeita "repetir até"', () => {
+    const op2 = [op('Operação Leste', '2026-12-14', '2026-12-18')];
+    expect(coincidenciasComOperacoes({ data: '2026-12-07', repeticao: 'semanal' }, op2)[0].dias).toEqual(['2026-12-14']);
+    expect(coincidenciasComOperacoes({ data: '2026-12-07', repeticao: 'semanal', repetirAte: '2026-12-10' }, op2)).toEqual([]);
+    expect(coincidenciasComOperacoes({ data: '2026-12-01', repeticao: 'diaria' }, op2)[0].dias).toHaveLength(5);
+  });
+
+  it('texto: dias seguidos viram período; várias operações no plural', () => {
+    expect(textoDeCoincidencia(coincidenciasComOperacoes({ data: '2026-12-10', dataFim: '2026-12-12' }, OP))).toBe('Coincide com a operação Operação Norte (10/12/2026 a 12/12/2026).');
+    expect(textoDeCoincidencia(coincidenciasComOperacoes({ data: '2026-12-11' }, [...OP, op('Operação Sul', '2026-12-11', '2026-12-11')]))).toBe('Coincide com as operações Operação Norte (11/12/2026); Operação Sul (11/12/2026).');
+    expect(textoDeCoincidencia([])).toBe('');
+    expect(resumirDias(['2026-12-01', '2026-12-03', '2026-12-05', '2026-12-07', '2026-12-09', '2026-12-11'])).toBe('01/12/2026, 03/12/2026, 05/12/2026, 07/12/2026 e mais 2');
   });
 });

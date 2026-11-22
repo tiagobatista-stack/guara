@@ -480,6 +480,9 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .agenda-evento--continua { border-left: 3px double var(--guara-500); border-radius: 0 4px 4px 0; }
 @media (max-width: 600px) { .agenda-dia { min-height: 48px; } .agenda-evento { display: none; } }
 
+/* Aviso de coincidência com operação: borda tracejada e texto "Atenção:", sem depender só da cor. */
+.aviso-coincidencia { margin: 0; padding: .5rem .75rem; border: 1px dashed #b45309; border-left-width: 4px; border-radius: 6px; background: rgba(245, 158, 11, .12); color: inherit; }
+.aviso-coincidencia--item { display: block; margin-top: .25rem; font-size: .875rem; }
 .agenda-dia--operacao { background: rgba(220, 38, 38, .16); border-color: #dc2626; }
 
 /* Mapa */

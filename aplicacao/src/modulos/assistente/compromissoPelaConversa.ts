@@ -10,7 +10,8 @@ import {
   criarCompromisso, diaCompleto, guardarRascunho, limparRascunho, obterEtapaDoRascunho, obterRascunho, tituloDoCompromisso,
   type Compromisso, type DadosCompromisso, type EtapaDoRascunho, type TipoDeCompromisso,
 } from '../agenda/compromissos.ts';
-import { montarAgenda, type ItemAgenda } from '../agenda/regras.ts';
+import { coincidenciasComOperacoes, montarAgenda, textoDeCoincidencia, type ItemAgenda } from '../agenda/regras.ts';
+import { obterOperacoes } from '../operacoes/armazem.ts';
 import { descreverRepeticao, REPETICOES } from '../agenda/recorrencia.ts';
 import { interpretarCompromisso, pareceCompromisso, type Entendido, type ProblemaDaFrase } from './interpretarCompromisso.ts';
 import { palavras } from './normalizar.ts';
@@ -124,11 +125,13 @@ const PULAR: AcaoDaFala = { rotulo: 'Pular, está bom assim', comando: 'pular', 
 
 /** "Vou anotar: …" com Confirmar, Corrigir e Cancelar. */
 function confirmacao(anotado: DadosCompromisso, aviso = ''): Mensagem[] {
+  // Coincidência com o período de uma operação: só informa, o Confirmar continua valendo.
+  const coincide = textoDeCoincidencia(coincidenciasComOperacoes(anotado, obterOperacoes()));
   return [{
     autor: 'assistente',
     natureza: 'inferência',
     fonte: FONTE_DO_ENTENDIMENTO,
-    texto: `Vou anotar: ${descreverEntendimento(anotado)}.${aviso}`,
+    texto: `Vou anotar: ${descreverEntendimento(anotado)}.${aviso}${coincide ? `\nAtenção: ${coincide} Pode confirmar assim mesmo.` : ''}`,
     acoes: [
       { rotulo: 'Confirmar', comando: 'confirmar compromisso', acao: { tipo: 'confirmar-compromisso', dados: anotado } },
       { rotulo: 'Corrigir', comando: 'corrigir compromisso', rota: rotaParaCorrigirCompromisso(anotado) },

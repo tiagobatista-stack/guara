@@ -75,6 +75,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
   }
 
   const doDia = porDia.get(escolhido) ?? [];
+  const emOperacao = operacoesNoDia(operacoes, escolhido);
 
   return (
     <section aria-labelledby="titulo-agenda" className="pagina">
@@ -128,7 +129,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
 
       <div className="cartao" data-testid="agenda-dia-escolhido">
         <h2 className="titulo-secao">{escolhido.split('-').reverse().join('/')} <span className="texto-pequeno texto-suave" data-testid="agenda-semana-do-mes">· {descreverSemanaDoMes(escolhido)}</span></h2>
-        {operacoesNoDia(operacoes, escolhido).map((n) => <p key={n} className="texto-medio texto--falha">Em operação: {n}</p>)}
+        {emOperacao.map((n) => <p key={n} className="texto-medio texto--falha">Em operação: {n}</p>)}
         {doDia.length === 0 ? (
           <EstadoVazio texto="Nada marcado neste dia." />
         ) : (
@@ -142,6 +143,11 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
                     {i.hora ? `${i.hora} · ` : 'Dia todo · '}{i.texto}
                     {i.total ? ` · Dia ${i.numero} de ${i.total}` : ''}{i.repete ? ` · ↻ ${i.repete}` : ''}{i.concluido ? ' (concluído)' : ''}
                   </span>
+                  {!i.concluido && emOperacao.length > 0 && (
+                    <span className="aviso-coincidencia aviso-coincidencia--item" data-testid={`coincidencia-${i.id}`}>
+                      <strong>Atenção:</strong> coincide com {emOperacao.length > 1 ? 'as operações' : 'a operação'} {emOperacao.join(', ')}.
+                    </span>
+                  )}
                   {c && (
                     <span className="acoes-aviso" role="group" aria-label={`Compromisso: ${i.texto}`}>
                       <button type="button" className="botao botao--pequeno" onClick={() => { setRecado(''); setFormulario(paraFormulario(c, escolhido)); }}>Editar</button>
@@ -159,7 +165,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
 
       {formulario && (
         <div className="cartao">
-          <FormularioCompromisso key={`${formulario.id ?? 'novo'}-${formulario.data ?? ''}-${formulario.dataFim ?? ''}-${formulario.repeticao ?? ''}-${formulario.assunto ?? ''}`} inicial={formulario} hoje={hoje} agora={agora} aoFechar={(m) => { setFormulario(null); if (m) setRecado(m); }} />
+          <FormularioCompromisso key={`${formulario.id ?? 'novo'}-${formulario.data ?? ''}-${formulario.dataFim ?? ''}-${formulario.repeticao ?? ''}-${formulario.assunto ?? ''}`} inicial={formulario} hoje={hoje} agora={agora} operacoes={operacoes} aoFechar={(m) => { setFormulario(null); if (m) setRecado(m); }} />
         </div>
       )}
 

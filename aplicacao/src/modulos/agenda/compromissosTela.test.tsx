@@ -331,3 +331,59 @@ describe('aviso no dia (relógio controlado)', () => {
     expect(screen.getByTestId(/^compromisso-/)).toBeInTheDocument();
   });
 });
+
+describe('aviso de coincidência com operação (não bloqueia)', () => {
+  const operacao = {
+    id: 'o1', nome: 'Operação Norte', inicio: '2026-12-10', fim: '2026-12-12', criadaEm: '2026-11-01T00:00:00Z', viagens: [], pontos: [],
+  };
+  const comOperacao = () => localStorage.setItem('guara:operacoes:v1', JSON.stringify([operacao]));
+
+  it('formulário: avisa conforme as datas e a repetição mudam, e salva mesmo assim', () => {
+    comOperacao();
+    montarAgenda();
+    fireEvent.click(screen.getByRole('button', { name: 'Novo compromisso ou lembrete' }));
+    expect(screen.queryByTestId('aviso-coincidencia')).toBeNull();
+    preencher(/^Data de início/, '2026-12-11');
+    expect(screen.getByTestId('aviso-coincidencia')).toHaveTextContent('Coincide com a operação Operação Norte (11/12/2026)');
+    expect(screen.getByTestId('aviso-coincidencia')).toHaveTextContent('Atenção:');
+    preencher(/^Data de fim/, '2026-12-20');
+    expect(screen.getByTestId('aviso-coincidencia')).toHaveTextContent('11/12/2026 a 12/12/2026');
+    preencher(/^Data de início/, '2026-12-20');
+    expect(screen.queryByTestId('aviso-coincidencia')).toBeNull();
+    preencher(/^Data de início/, '2026-12-03');
+    preencher(/^Data de fim/, '2026-12-03');
+    preencher(/^Repetição/, 'semanal');
+    expect(screen.getByTestId('aviso-coincidencia')).toHaveTextContent('Operação Norte');
+    preencher(/^Repetir até/, '2026-12-09');
+    expect(screen.queryByTestId('aviso-coincidencia')).toBeNull();
+    preencher(/^Repetir até/, '2026-12-31');
+    preencher(/^Repetição/, 'nenhuma');
+    preencher(/^Data de início/, '2026-12-11');
+    preencher(/^Assunto/, 'reunião no campo');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(obterCompromissos()).toMatchObject([{ data: '2026-12-11', assunto: 'reunião no campo' }]);
+  });
+
+  it('Agenda: o compromisso do dia em operação traz o texto "Atenção"; fora da operação, não', () => {
+    comOperacao();
+    criarCompromisso({ tipo: 'reunião', data: '2026-12-11', assunto: 'licenciamento' }, instante.toISOString());
+    criarCompromisso({ tipo: 'reunião', data: '2026-12-15', assunto: 'depois' }, instante.toISOString());
+    montarAgenda();
+    fireEvent.click(screen.getByRole('button', { name: 'Próximo mês' }));
+    fireEvent.click(screen.getByTestId('dia-2026-12-11'));
+    expect(screen.getByTestId(/^coincidencia-/)).toHaveTextContent('Atenção: coincide com a operação Operação Norte.');
+    fireEvent.click(screen.getByTestId('dia-2026-12-15'));
+    expect(screen.queryByTestId(/^coincidencia-/)).toBeNull();
+  });
+
+  it('conversa: o "Vou anotar" traz o aviso e o Confirmar grava normalmente', () => {
+    comOperacao();
+    montarPainel();
+    enviar('reunião dia 11/12 sobre licenciamento');
+    fireEvent.click(screen.getByRole('button', { name: 'Dia todo' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Só nesse dia' }));
+    expect(screen.getByText(/Vou anotar:/)).toHaveTextContent('Atenção: Coincide com a operação Operação Norte (11/12/2026). Pode confirmar assim mesmo.');
+    fireEvent.click(screen.getByRole('button', { name: 'Confirmar' }));
+    expect(obterCompromissos()).toMatchObject([{ data: '2026-12-11', assunto: 'licenciamento' }]);
+  });
+});

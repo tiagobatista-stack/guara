@@ -5,7 +5,7 @@ import type { Demanda } from '../demandas/modelo.ts';
 import type { Operacao } from '../operacoes/modelo.ts';
 import { viagemDoPonto } from '../operacoes/regras.ts';
 import { tituloDoCompromisso, type Compromisso } from './compromissos.ts';
-import { descreverRepeticao, diaDaSemana, duracaoEmDias, ehInicioDeOcorrencia, ocorrenciaConcluida, ocorrenciasNoIntervalo, ordemDoDiaNoMes, repete, somarDias } from './recorrencia.ts';
+import { descreverRepeticao, diaDaSemana, duracaoEmDias, ehInicioDeOcorrencia, MAXIMO_DA_JANELA, ocorrenciaConcluida, ocorrenciasNoIntervalo, ordemDoDiaNoMes, repete, somarDias } from './recorrencia.ts';
 
 export interface ItemAgenda {
   /** AAAA-MM-DD: o dia em que o item aparece (num compromisso de vários dias ou de série, um item por dia coberto). */
@@ -76,6 +76,49 @@ export function operacoesNoDia(operacoes: readonly Pick<Operacao, 'nome' | 'inic
   return operacoes
     .filter((o) => (o.inicio || o.fim) && dia >= (o.inicio ?? o.fim!) && dia <= (o.fim ?? o.inicio!))
     .map((o) => o.nome);
+}
+
+/** Operação cujo período cobre dias de um compromisso: `dias` em ordem, sem repetir (AAAA-MM-DD). */
+export interface Coincidencia { operacao: string; dias: string[] }
+
+/**
+ * Aviso de coincidência (não bloqueia nada): em quais dias o compromisso (de um dia, de vários dias ou em série,
+ * até `repetirAte`; sem ele, nos próximos 400 dias) cai no período de uma operação. Só olha operações com `inicio`
+ * ou `fim`. Não lê nem grava armazenamento.
+ */
+export function coincidenciasComOperacoes(
+  c: Pick<Compromisso, 'data' | 'dataFim' | 'repeticao' | 'repetirAte'>,
+  operacoes: readonly Pick<Operacao, 'nome' | 'inicio' | 'fim'>[],
+): Coincidencia[] {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(c.data) || !operacoes.some((o) => o.inicio || o.fim)) return [];
+  const ate = repete(c) && c.repetirAte ? somarDias(c.repetirAte, duracaoEmDias(c)) : somarDias(c.data, repete(c) ? MAXIMO_DA_JANELA : duracaoEmDias(c));
+  const dias = [...new Set(ocorrenciasNoIntervalo(c, c.data, ate).map((o) => o.dia))];
+  const saida: Coincidencia[] = [];
+  for (const o of operacoes) {
+    const em = dias.filter((d) => operacoesNoDia([o], d).length > 0);
+    if (em.length) saida.push({ operacao: o.nome, dias: em });
+  }
+  return saida;
+}
+
+/** "10/12/2026 a 12/12/2026, 20/12/2026" (dias seguidos viram um período; mais de 4 trechos viram "e mais n"). */
+export function resumirDias(dias: readonly string[]): string {
+  const trechos: string[] = [];
+  const br = (d: string) => d.split('-').reverse().join('/');
+  for (let i = 0; i < dias.length; ) {
+    let j = i;
+    while (j + 1 < dias.length && somarDias(dias[j], 1) === dias[j + 1]) j++;
+    trechos.push(j > i ? `${br(dias[i])} a ${br(dias[j])}` : br(dias[i]));
+    i = j + 1;
+  }
+  return trechos.length > 4 ? `${trechos.slice(0, 4).join(', ')} e mais ${trechos.length - 4}` : trechos.join(', ');
+}
+
+/** Frase curta para o aviso: "Coincide com a operação Op (10/12/2026 a 12/12/2026)." */
+export function textoDeCoincidencia(lista: readonly Coincidencia[]): string {
+  if (!lista.length) return '';
+  const partes = lista.map((c) => `${c.operacao} (${resumirDias(c.dias)})`);
+  return `Coincide com ${lista.length > 1 ? 'as operações' : 'a operação'} ${partes.join('; ')}.`;
 }
 
 /** Semanas (domingo a sábado, como no Google Agenda) que cobrem o mês; `mes` de 1 a 12. `doMes` é falso nos dias de folga. */
