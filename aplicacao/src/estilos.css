@@ -449,6 +449,14 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .item-contato-dados { display: grid; gap: 2px; min-width: 0; }
 .item-contato-dados a { overflow-wrap: anywhere; }
 .observacoes-contato { white-space: pre-wrap; overflow-wrap: anywhere; }
+.conjunto-campos { border: 1px solid var(--guara-200, #ccc); border-radius: 8px; padding: 12px; display: grid; gap: 12px; margin: 0; min-width: 0; }
+.conjunto-campos legend { font-size: 14px; font-weight: 600; padding: 0 4px; }
+@media (min-width: 640px) {
+  .formulario--compromisso { grid-template-columns: 1fr 1fr; }
+  .formulario--compromisso .campo-grupo--largo { grid-column: 1 / -1; }
+  .conjunto-campos { grid-template-columns: 1fr 1fr; }
+  .conjunto-campos > .campo-grupo--linha, .conjunto-campos > p { grid-column: 1 / -1; }
+}
 @media (min-width: 768px) {
   .formulario-contato { grid-template-columns: 1fr 1fr; }
   .campo-grupo--largo { grid-column: 1 / -1; }

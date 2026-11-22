@@ -49,7 +49,8 @@ describe('Agenda: compromissos', () => {
     expect(screen.getByRole('alert')).toHaveTextContent('Informe o assunto.');
     expect(obterCompromissos()).toEqual([]);
     preencher(/^Tipo/, 'palestra');
-    preencher(/^Data/, '2026-11-25');
+    preencher(/^Data de início/, '2026-11-25');
+    fireEvent.click(screen.getByLabelText('Dia inteiro'));
     preencher(/^Hora/, '09:15');
     preencher(/^Assunto/, 'fiscalização');
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
@@ -130,6 +131,63 @@ describe('Agenda: compromissos', () => {
     expect(screen.getByTestId('dia-2026-12-14')).not.toHaveTextContent('ponto');
   });
 
+  it('formulário: a data de fim acompanha a de início até ser editada; dia inteiro esconde a hora', () => {
+    montarAgenda();
+    fireEvent.click(screen.getByRole('button', { name: 'Novo compromisso ou lembrete' }));
+    expect(screen.queryByLabelText(/^Hora/)).toBeNull();
+    preencher(/^Data de início/, '2026-12-01');
+    expect(screen.getByLabelText(/^Data de fim/)).toHaveValue('2026-12-01');
+    preencher(/^Data de fim/, '2026-12-03');
+    preencher(/^Data de início/, '2026-12-02');
+    expect(screen.getByLabelText(/^Data de fim/)).toHaveValue('2026-12-03');
+    expect(screen.getByTestId('formulario-semana-do-mes')).toHaveTextContent('1ª semana de dez');
+    preencher(/^Assunto/, 'curso');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(obterCompromissos()).toMatchObject([{ data: '2026-12-02', dataFim: '2026-12-03', assunto: 'curso' }]);
+  });
+
+  it('formulário: repetição semanal com "repetir até"; fim antes do início dá erro', () => {
+    montarAgenda();
+    fireEvent.click(screen.getByRole('button', { name: 'Novo compromisso ou lembrete' }));
+    preencher(/^Assunto/, 'ponto');
+    preencher(/^Data de início/, '2026-12-07');
+    preencher(/^Repetição/, 'semanal');
+    preencher(/^Repetir até/, '2026-12-28');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(obterCompromissos()).toMatchObject([{ data: '2026-12-07', repeticao: 'semanal', repetirAte: '2026-12-28' }]);
+  });
+
+  it('formulário: vários dias com hora e repetição é recusado', () => {
+    montarAgenda();
+    fireEvent.click(screen.getByRole('button', { name: 'Novo compromisso ou lembrete' }));
+    preencher(/^Assunto/, 'x');
+    preencher(/^Data de início/, '2026-12-07');
+    preencher(/^Data de fim/, '2026-12-09');
+    fireEvent.click(screen.getByLabelText('Dia inteiro'));
+    preencher(/^Hora/, '09:00');
+    preencher(/^Repetição/, 'diaria');
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+    expect(screen.getByRole('alert')).toHaveTextContent('vários dias com hora não pode se repetir');
+    expect(obterCompromissos()).toEqual([]);
+  });
+
+  it('série: "Excluir a série" e "Encerrar a série antes de" pedem confirmação', () => {
+    criarCompromisso({ tipo: 'reunião', data: '2026-11-23', assunto: 'alinhamento', repeticao: 'semanal' }, instante.toISOString());
+    montarAgenda();
+    fireEvent.click(screen.getByTestId('dia-2026-11-30'));
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    vi.spyOn(window, 'confirm').mockReturnValue(false);
+    fireEvent.click(screen.getByRole('button', { name: 'Encerrar a série antes de 30/11/2026' }));
+    expect(obterCompromissos()[0].repetirAte).toBeUndefined();
+    vi.spyOn(window, 'confirm').mockReturnValue(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Encerrar a série antes de 30/11/2026' }));
+    expect(obterCompromissos()[0]).toMatchObject({ repetirAte: '2026-11-29' });
+    fireEvent.click(screen.getByTestId('dia-2026-11-23'));
+    fireEvent.click(screen.getByRole('button', { name: /Editar/ }));
+    fireEvent.click(screen.getByRole('button', { name: 'Excluir a série' }));
+    expect(obterCompromissos()).toEqual([]);
+  });
+
   it('mostra a semana do mês do dia escolhido', () => {
     montarAgenda();
     expect(screen.getByTestId('agenda-semana-do-mes')).toHaveTextContent('3ª semana de nov');
@@ -148,7 +206,7 @@ describe('Agenda: compromissos', () => {
     window.location.hash = `#/agenda?novo=${encodeURIComponent(partes)}`;
     montarAgenda();
     expect(screen.getByTestId('formulario-compromisso')).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Data/)).toHaveValue('2026-12-10');
+    expect(screen.getByLabelText(/^Data de início/)).toHaveValue('2026-12-10');
     expect(screen.getByLabelText(/^Hora/)).toHaveValue('09:00');
     expect(screen.getByLabelText(/^Assunto/)).toHaveValue('licenciamento');
     expect(window.location.hash).toBe('#/agenda');
@@ -204,7 +262,7 @@ describe('conversa: do pedido à gravação (cliques reais nos botões)', () => 
     cleanup();
     montarAgenda();
     expect(screen.getByTestId('formulario-compromisso')).toBeInTheDocument();
-    expect(screen.getByLabelText(/^Data/)).toHaveValue('2026-12-10');
+    expect(screen.getByLabelText(/^Data de início/)).toHaveValue('2026-12-10');
     expect(screen.getByLabelText(/^Hora/)).toHaveValue('09:00');
     expect(screen.getByLabelText(/^Assunto/)).toHaveValue('licenciamento');
     expect(obterCompromissos()).toEqual([]);
