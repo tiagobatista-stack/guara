@@ -1,6 +1,7 @@
 // Tela Demandas (P04): criar → editar → recarregar → conferir → excluir com confirmação.
 
 import { act, fireEvent, render, screen, within } from '@testing-library/react';
+import { confirmarSaida, MENSAGEM_PENDENTE } from '../../compartilhado/alteracoes-pendentes.ts';
 import { ContextoArmazem, criarArmazem } from './armazem.ts';
 import { Demandas } from './Demandas.tsx';
 import { criarOperacao, incluirPontos, obterOperacoes } from '../operacoes/armazem.ts';
@@ -96,9 +97,10 @@ describe('tela Demandas', () => {
     act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0004', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
     act(() => { armazem.mudarStatus('id-1', 'Em Andamento'); });
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0004' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Travar' }));
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'documento' } });
     fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: 'Aguardando certidão (fictícia).' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     const itens = within(screen.getByTestId('historico')).getAllByRole('listitem').map((li) => li.textContent);
     expect(itens).toHaveLength(3);
     expect(itens[0]).toContain('travou: falta documento · “Aguardando certidão (fictícia).”');
@@ -180,11 +182,12 @@ describe('tela Demandas', () => {
     const armazem = montar();
     act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0003', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '' }); });
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0003' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Travar' }));
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'setor' } });
     fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: 'Aguardando ofício do setor de cadastro (fictício).' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByTestId('bloqueio-detalhe-livre')).toHaveTextContent('Aguardando ofício do setor de cadastro (fictício).');
-    expect(screen.getByLabelText('Detalhe do bloqueio (opcional)')).toHaveValue('');
+    expect(screen.queryByLabelText('Detalhe do bloqueio (opcional)')).toBeNull(); // salvar volta para a leitura
     expect(armazem.obter().demandas[0].bloqueio?.detalhe).toBe('Aguardando ofício do setor de cadastro (fictício).');
 
     fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
@@ -195,14 +198,17 @@ describe('tela Demandas', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Sair da tela compartilhada' }));
 
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0003' }));
-    // A caixa abre em branco; em branco, atualizar o motivo mantém o detalhe gravado.
-    expect(screen.getByLabelText('Detalhe do bloqueio (opcional)')).toHaveValue('');
+    // Editar bloqueio abre a caixa com o que está gravado; mudar só o motivo mantém o detalhe.
+    fireEvent.click(screen.getByRole('button', { name: 'Editar bloqueio' }));
+    expect(screen.getByLabelText('Detalhe do bloqueio (opcional)')).toHaveValue('Aguardando ofício do setor de cadastro (fictício).');
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'documento' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Atualizar bloqueio' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByRole('status')).toHaveTextContent('Bloqueio atualizado.');
     expect(armazem.obter().demandas[0].bloqueio?.detalhe).toBe('Aguardando ofício do setor de cadastro (fictício).');
-    // Apagar o detalhe é ação explícita.
-    fireEvent.click(screen.getByRole('button', { name: 'Apagar detalhe' }));
+    // Esvaziar o detalhe apaga.
+    fireEvent.click(screen.getByRole('button', { name: 'Editar bloqueio' }));
+    fireEvent.change(screen.getByLabelText('Detalhe do bloqueio (opcional)'), { target: { value: '' } });
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByRole('status')).toHaveTextContent('Detalhe do bloqueio apagado.');
     expect(screen.queryByTestId('bloqueio-detalhe-livre')).toBeNull();
     expect(armazem.obter().demandas[0].bloqueio).not.toHaveProperty('detalhe');
@@ -213,11 +219,12 @@ describe('tela Demandas', () => {
     act(() => { armazem.criar({ titulo: 'Analisar processo FIC-0002', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'Em Andamento', prazo: '' }); });
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0002' }));
     expect(screen.getByTestId('bloqueio-detalhe')).toHaveTextContent('não está travada');
+    fireEvent.click(screen.getByRole('button', { name: 'Travar' }));
     fireEvent.change(screen.getByLabelText('Motivo do bloqueio'), { target: { value: 'campo' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Marcar como travada' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(screen.getByRole('status')).toHaveTextContent('Demanda marcada como travada.');
     expect(screen.getByTestId('bloqueio-detalhe')).toHaveTextContent('⛔ travada hoje: depende de campo');
-    expect(screen.getByRole('button', { name: 'Atualizar bloqueio' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Editar bloqueio' })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole('button', { name: 'Voltar à lista' }));
     expect(screen.getByTestId('bloqueio-id-1')).toHaveTextContent('depende de campo');
@@ -226,7 +233,7 @@ describe('tela Demandas', () => {
     fireEvent.change(screen.getByLabelText('Bloqueio'), { target: { value: 'travadas' } });
 
     fireEvent.click(screen.getByRole('button', { name: 'Detalhes de Analisar processo FIC-0002' }));
-    fireEvent.click(screen.getByRole('button', { name: 'Destravou' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Destravar' }));
     expect(screen.getByRole('status')).toHaveTextContent('Demanda destravada.');
     expect(screen.getByTestId('bloqueio-detalhe')).toHaveTextContent('não está travada');
     expect(armazem.obter().demandas[0]).not.toHaveProperty('bloqueio');
@@ -267,7 +274,9 @@ describe('tela Demandas', () => {
       expect(screen.queryByTestId('aviso-parecida')).toBeNull();
       fireEvent.change(screen.getByLabelText(/^Título/), { target: { value: 'Relatório mensal' } });
       fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
+      const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(true);
       fireEvent.click(screen.getByRole('button', { name: 'Ver a existente (descarta este cadastro)' }));
+      expect(confirmar).toHaveBeenCalledTimes(1); // o formulário tinha alteração não salva
       expect(screen.getByRole('heading', { name: 'Entregar relatório mensal' })).toBeInTheDocument();
       expect(total()).toBe(1);
     });
@@ -278,6 +287,7 @@ describe('tela Demandas', () => {
       preencher('ab');
       expect(screen.getByText(/pelo menos 3 caracteres/)).toBeInTheDocument();
       expect(screen.queryByTestId('aviso-parecida')).toBeNull();
+      vi.spyOn(window, 'confirm').mockReturnValue(true); // 'ab' é alteração não salva
       fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
 
       fireEvent.click(screen.getByRole('button', { name: 'Editar Resposta ofício 2' }));
@@ -522,6 +532,66 @@ describe('vínculo com operação, na ficha da demanda', () => {
   });
 });
 
+describe('edição com proteção (leitura por padrão)', () => {
+  const demanda = { titulo: 'Revisar parecer técnico', descricao: '', responsavel: '', prioridade: 'Média' as const, status: 'A Fazer' as const, prazo: '' };
+  const abrirEdicao = () => {
+    const armazem = montar();
+    act(() => { armazem.criar(demanda); });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar Revisar parecer técnico' }));
+    return armazem;
+  };
+  const titulo = () => screen.getByLabelText(/^Título/) as HTMLInputElement;
+  const guardado = (a: ReturnType<typeof montar>) => a.obter().demandas[0].titulo;
+
+  it('o detalhe é texto: nenhum campo digitável antes de Editar; vazio mostra "—"', () => {
+    const armazem = montar();
+    act(() => { armazem.criar(demanda); });
+    fireEvent.click(screen.getByRole('button', { name: 'Editar Revisar parecer técnico' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' })); // sem alteração: volta ao detalhe
+    const detalhe = screen.getByRole('article');
+    expect(within(detalhe).queryByLabelText(/^Título/)).toBeNull();
+    expect(within(detalhe).getByText('Responsável').nextElementSibling).toHaveTextContent('—');
+  });
+
+  it('editar → cancelar não altera o armazenado; Cancelar com alteração pergunta', () => {
+    const armazem = abrirEdicao();
+    fireEvent.change(titulo(), { target: { value: 'Outro título qualquer' } });
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValueOnce(false).mockReturnValueOnce(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(titulo().value).toBe('Outro título qualquer'); // recusou: continua editando
+    fireEvent.click(screen.getByRole('button', { name: 'Cancelar' }));
+    expect(confirmar).toHaveBeenCalledTimes(2);
+    expect(guardado(armazem)).toBe('Revisar parecer técnico');
+    expect(screen.getByRole('heading', { level: 2, name: 'Revisar parecer técnico' })).toBeInTheDocument();
+  });
+
+  it('editar → salvar grava e volta para a leitura; Ctrl+Enter salva; Esc sem alteração cancela sem perguntar', () => {
+    const armazem = abrirEdicao();
+    const confirmar = vi.spyOn(window, 'confirm');
+    fireEvent.keyDown(titulo(), { key: 'Escape' });
+    expect(confirmar).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole('button', { name: /^Editar$/ }));
+    fireEvent.change(titulo(), { target: { value: 'Parecer técnico revisado' } });
+    fireEvent.keyDown(titulo(), { key: 'Enter', ctrlKey: true });
+    expect(guardado(armazem)).toBe('Parecer técnico revisado');
+    expect(screen.queryByLabelText(/^Título/)).toBeNull();
+  });
+
+  it('sair com alteração pendente pede confirmação: trocar de tela e fechar a aba', () => {
+    abrirEdicao();
+    fireEvent.change(titulo(), { target: { value: 'Mudei e não salvei' } });
+    const aba = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(aba);
+    expect(aba.defaultPrevented).toBe(true);
+    const confirmar = vi.spyOn(window, 'confirm').mockReturnValue(false);
+    expect(confirmarSaida()).toBe(false);
+    expect(confirmar).toHaveBeenCalledWith(MENSAGEM_PENDENTE);
+    fireEvent.change(titulo(), { target: { value: 'Revisar parecer técnico' } }); // voltou ao original: nada pendente
+    const livre = new Event('beforeunload', { cancelable: true });
+    window.dispatchEvent(livre);
+    expect(livre.defaultPrevented).toBe(false);
+  });
+});
 describe('tela Demandas: rota "abrir" (botão do assistente)', () => {
   afterEach(() => { window.location.hash = ''; });
 

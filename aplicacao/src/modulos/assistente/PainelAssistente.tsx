@@ -7,7 +7,7 @@ import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascot
 import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
-import { avisosDoDia, naturezaDoAviso, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
+import { avisoDeBackup, avisosDoDia, naturezaDoAviso, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
@@ -28,8 +28,10 @@ import { priorizarDemandas } from './priorizar.ts';
 import { nomeDaDemanda } from './rotuloDaDemanda.ts';
 import { useLimiteDeAvisos } from './preferencias-avisos.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, useLembretes } from './lembretes.ts';
+import { DIAS_LEMBRETE_BACKUP, useUltimoBackup } from '../../compartilhado/ultimo-backup.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
-const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas' };
+const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas', backup: 'Backup' };
 
 /** Os mesmos avisos do painel, agrupados por tipo, com o id de cada demanda. */
 function textoDosPrazos(avisos: readonly Aviso[]): string {
@@ -123,7 +125,7 @@ function humorDoPainel(mensagens: Mensagem[], avisos: readonly Aviso[]): HumorMa
 
 const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[], ocultos: number) => string> = {
   tranquilo: (_avisos, ocultos) => ocultos
-    ? `Tranquilo: ${ocultos} aviso(s) ciente(s) ou adiado(s); nada novo pede atenção.`
+    ? `Tranquilo: ${plural(ocultos, 'aviso ciente ou adiado', 'avisos cientes ou adiados')}; nada novo pede atenção.`
     : 'Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.',
   atento: (avisos) => `Atento: ${resumoDosAvisos(avisos)}.`,
   curioso: () => 'Curioso: não entendi o último comando.',
@@ -135,7 +137,10 @@ const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[], ocultos: n
 export function useAvisosDoDia(instante: Date): Aviso[] {
   const { demandas, diasInatividade } = useEstadoDemandas();
   const ajuste = useAjusteFeriados(instante);
-  return avisosDoDia(demandas, instante, diasInatividade, ajuste);
+  const ultimoBackup = useUltimoBackup();
+  const operacoes = useOperacoes();
+  const backup = avisoDeBackup(ultimoBackup, operacoes.length > 0 || ultimoBackup !== null, instante, DIAS_LEMBRETE_BACKUP) // demandas de exemplo não contam;
+  return [...avisosDoDia(demandas, instante, diasInatividade, ajuste), ...(backup ? [backup] : [])];
 }
 
 /**
@@ -327,8 +332,8 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         {ocultos.length > 0 && (
           <div className="avisos-ocultos">
             <button type="button" className="botao botao--pequeno" aria-expanded={mostrandoOcultos} onClick={() => setMostrandoOcultos((v) => !v)}>
-              {ocultos.filter((o) => o.motivo === 'ciente').length} ciente(s) e {ocultos.filter((o) => o.motivo === 'adiado').length} adiado(s)
-              {ocultos.some((o) => o.motivo === 'silenciado') && ` e ${ocultos.filter((o) => o.motivo === 'silenciado').length} silenciada(s)`}
+              {plural(ocultos.filter((o) => o.motivo === 'ciente').length, 'ciente', 'cientes')} e {plural(ocultos.filter((o) => o.motivo === 'adiado').length, 'adiado', 'adiados')}
+              {ocultos.some((o) => o.motivo === 'silenciado') && ` e ${plural(ocultos.filter((o) => o.motivo === 'silenciado').length, 'silenciada', 'silenciadas')}`}
             </button>
             {mostrandoOcultos && (
               <ul className="lista-limpa avisos-assistente">

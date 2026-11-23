@@ -6,8 +6,11 @@
 
 import { coordenadaValida, formatarDecimal, formatarGms } from '../demandas/coordenadas.ts';
 import { SITUACOES_CAR, type Operacao, type Ponto, type Viagem } from './modelo.ts';
-import { blocoPopAtivo, FONTE_POP, ITENS_POP, sugestoesPop, type ItemPop } from './pop-supressao.ts';
+import { blocoPopAtivo, FONTE_GEO, FONTE_POP, ITENS_POP, popGeo, sugestoesPop, type ItemPop } from './pop-supressao.ts';
 import { textoViagem } from './regras.ts';
+import { inspecaoAtiva, ITENS_INSPECAO, SECOES_INSPECAO } from './inspecao-agrotoxicos.ts';
+import { marcadas, respondido } from './pop-supressao.ts';
+import { FONTE_CURTA, ROTULO_CAMPO, ROTULO_PREVIA } from './rotulos-impressos.ts';
 
 /** Link do ponto no Google Maps (6 casas, ponto decimal, lat,lon). */
 export const urlDoMapa = ({ lat, lon }: { lat: number; lon: number }) =>
@@ -27,53 +30,106 @@ function desvios(it: ItemPop): string[] {
   return (it.opcoes ?? []).filter((op) => op.vai && POSICAO.get(op.vai)! > i + 1).map((op) => `Se "${esc(op.texto)}", pule para ${esc(op.vai!)}.`);
 }
 
-function itemPop(it: ItemPop, sugestao?: string): string {
+function itemPop(it: ItemPop, sugeridas: readonly string[] = []): string {
   const titulo = `<b>${esc(it.id)}.</b> ${esc(it.texto)}${it.tipo === 'multipla' ? ' <i>(pode marcar mais de um)</i>' : ''}`;
   if (it.tipo === 'texto') return `<div class="it"><p>${titulo}</p><p>${linha(60)}</p></div>`;
-  return `<div class="it"><p>${titulo}</p><p class="ops">${it.opcoes!.map((o) => `<span class="op">${CAIXA} ${esc(o.texto)}${o.texto === sugestao ? ' <i class="sug">(sugerido — conferir)</i>' : ''}</span>`).join(' ')}</p>${desvios(it).map((d) => `<p class="desvio">${d}</p>`).join('')}</div>`;
+  return `<div class="it"><p>${titulo}</p><p class="ops">${it.opcoes!.map((o) => `<span class="op">${CAIXA} ${sugeridas.includes(o.texto) ? `<b>${esc(o.texto)}</b> <i class="sug">(sugerido — conferir)</i>` : esc(o.texto)}</span>`).join(' ')}</p>${desvios(it).map((d) => `<p class="desvio">${d}</p>`).join('')}</div>`;
 }
 
-/** Formulário A em duas páginas, divididas pelo peso (texto das perguntas e opções) para não deixar uma cheia e a outra vazia. */
-function paginasPop(): ItemPop[][] {
-  const itens = ITENS_POP.filter((i) => i.formulario === 'A');
-  const peso = (it: ItemPop) => it.texto.length + (it.opcoes ?? []).reduce((s, o) => s + o.texto.length + 6, 0);
-  const total = itens.reduce((s, it) => s + peso(it), 0);
-  let acum = 0;
-  const corte = itens.findIndex((it) => (acum += peso(it)) >= total / 2) + 1;
-  return [itens.slice(0, corte), itens.slice(corte)];
-}
-
+/** Formulário A numa página só (A4, 2 colunas, 8 pt), sem quebra dentro de uma questão. */
 function versoPop(p: Ponto, rotuloPonto: string): string {
-  return paginasPop().map((itens, k) => `<article class="folha folha--pop"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Caracterização do dano (POP) · ${k + 1}/2</p></header>
-${k === 0 ? `<p class="peq">Formulário A, preencher em campo. Fonte: ${esc(FONTE_POP)}. Transcreva depois no ponto do GUARÁ. Não anote CPF, endereço ou nome do autuado.</p>` : ''}
-<div class="col">${itens.map((it) => itemPop(it, sugestoesPop(p)[it.id])).join('')}</div></article>`).join('');
+  const geo = popGeo(p);
+  const sug = sugestoesPop(p);
+  // A-2 só com as fitofisionomias do bioma sugerido (lista completa se o bioma for desconhecido); a caixa nunca vem marcada.
+  const itens = ITENS_POP.filter((i) => i.formulario === 'A').map((i) => (i.id === 'A-2' ? { ...i, opcoes: geo.opcoes } : i));
+  const sugeridas = (id: string) => (id === 'A-2' ? geo.fitos : sug[id] ? [sug[id]] : []);
+  return `<article class="folha folha--pop"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Caracterização do dano (POP)</p></header>
+<p class="peq">Formulário A, preencher em campo. Fonte: ${esc(FONTE_POP)}. Transcreva depois no ponto do GUARÁ. Não anote CPF, endereço ou nome do autuado.${geo.bioma || geo.fitos.length ? ` ${esc(FONTE_GEO)}` : ''}</p>
+<div class="col">${itens.map((it) => itemPop(it, sugeridas(it.id))).join('')}</div></article>`;
 }
+
+
+// ---------- Inspeção de agrotóxicos (depois do POP) ----------
+// Formato FIXO de 2 páginas (A4), sem estimar tamanho: seções 1 a 3 na primeira e 4 a 7 na segunda. Tabela compacta (fonte mínima de 8 pt):
+// pergunta | Sim | Não | N.A. | nº / obs. Pergunta condicional = linha marcada "(se aplicável: C-x = Sim)". Perguntas de texto, número e data usam a
+// coluna de respostas inteira; as de escolha listam as opções sob a pergunta. A conferência prévia entra como um parágrafo corrido.
+// O bloco do ponto fecha sempre com 4 páginas (ficha + POP + 2, ou ficha + 2 + anotações), então fica par.
+const MAX_EMBARGOS_IMPRESSOS = 3;
+/** Itens de campo na primeira página; o resto vai na segunda. Fixo (medido no PDF do Edge, prévia com as 37 respostas e fonte), não estimado. Folga medida em linhas simples de 8 pt: 12 na página 1 e 16 na 2. Mudou o questionário ou os rótulos (rotulos-impressos.ts)? Meça de novo. */
+const ITENS_NA_PAGINA_1 = 52;
+export const PAGINAS_INSPECAO = 2;
+
+function itemInspecao(it: ItemPop): string {
+  const cond = it.se ? ` <i class="sa">(se ${esc(it.se.item)}=${esc(it.se.vale.join('/'))})</i>` : '';
+  const multi = it.tipo === 'multipla' ? ' <i>(mais de um)</i>' : it.tipo === 'data' ? ' <i>(dd/mm/aaaa)</i>' : '';
+  const pergunta = `<b>${esc(it.id)}</b> ${esc(ROTULO_CAMPO[it.id] ?? it.texto)}${multi}${cond}`;
+  const classe = it.se ? ' class="se"' : '';
+  if (it.tipo === 'simnao') return `<tr${classe}><td>${pergunta}</td><td class="c">${CAIXA}</td><td class="c">${CAIXA}</td><td class="c">${CAIXA}</td><td></td></tr>`;
+  if (it.opcoes) return `<tr${classe}><td>${pergunta}<br>${it.opcoes.map((o) => `${CAIXA} ${esc(o.texto)}`).join(' &nbsp; ')}</td><td colspan="4"></td></tr>`;
+  return `<tr${classe}><td>${pergunta}</td><td colspan="4"></td></tr>`;
+}
+
+const camposDaInspecao = () => ITENS_INSPECAO.filter((it) => it.fase === 'campo' && !(/^C-2\.13\.(\d+)\./.test(it.id) && Number(/^C-2\.13\.(\d+)\./.exec(it.id)![1]) > MAX_EMBARGOS_IMPRESSOS));
+
+/** Resumo do que foi conferido antes (fase prévia), num parágrafo só: o respondido, com a fonte; vazio, uma frase dizendo isso. */
+function resumoDaPrevia(p: Ponto): string {
+  const prev = p.conferenciaPrevia ?? {};
+  const partes = ITENS_INSPECAO.filter((it) => it.fase === 'previa' && !it.id.includes('@') && respondido(prev[it.id])).map((it) => {
+    const f = marcadas(prev[`${it.id}@fonte`])[0];
+    const fonte = f ? ` (${f === 'Outra (especificar)' ? marcadas(prev[`${it.id}@fonte.outra`])[0] ?? f : FONTE_CURTA[f] ?? f})` : '';
+    return `${esc(it.id)} ${esc(ROTULO_PREVIA[it.id] ?? it.texto.replace(/\?$/, ''))}: <b>${esc(marcadas(prev[it.id]).join('; '))}</b>${esc(fonte)}`;
+  });
+  return `<p class="resumo"><b>Conferido antes:</b> ${partes.length ? partes.join(' · ') : 'conferência prévia não registrada no GUARÁ.'}</p>`;
+}
+
+/** Sempre 2 páginas. */
+function paginasInspecao(p: Ponto, rotuloPonto: string): string[] {
+  const paginas: string[][] = [[], []];
+  let secao = 0;
+  camposDaInspecao().forEach((it, i) => {
+    const pg = i < ITENS_NA_PAGINA_1 ? 0 : 1;
+    if (it.secao !== secao || i === ITENS_NA_PAGINA_1) {
+      const continua = it.secao === secao;
+      secao = it.secao!;
+      paginas[pg].push(`<tr class="sec"><th colspan="5">${secao}. ${esc(SECOES_INSPECAO[secao])}${continua ? ' (continuação)' : ''}${secao === 6 || it.se?.item === 'C-5.2' ? ' (aplicação aérea)' : ''}</th></tr>`);
+    }
+    paginas[pg].push(itemInspecao(it));
+  });
+  paginas[1].push(`<tr class="sec"><th colspan="5">Observações da inspeção</th></tr>${'<tr class="obs"><td colspan="5"></td></tr>'.repeat(3)}`);
+  const cabecalho = '<thead><tr><th>Pergunta</th><th class="c">Sim</th><th class="c">Não</th><th class="c">N.A.</th><th>nº / obs.</th></tr></thead>';
+  return paginas.map((linhas, i) => `<article class="folha folha--pop folha--insp"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Inspeção de agrotóxicos, em campo (${i + 1}/${PAGINAS_INSPECAO})</p></header>
+${i === 0 ? `<p class="peq">Marque em campo e transcreva depois no ponto do GUARÁ. Não anote nome, CPF/CNPJ, telefone, e-mail nem endereço de pessoas.</p>${resumoDaPrevia(p)}` : ''}<table class="tab-insp"><colgroup><col class="q"><col class="r"><col class="r"><col class="r"><col class="o"></colgroup>${cabecalho}<tbody>${linhas.join('')}</tbody></table></article>`);
+}
+
+/** O ponto tem bloco após a ficha (POP e/ou inspeção)? Então ele começa em página ímpar e fecha par. */
+export const temBlocoApos = (p: Ponto) => blocoPopAtivo(p) || inspecaoAtiva(p);
 
 /** Constatação de embargo só em ponto com demanda de embargo ligada. */
 export const temDemandaDeEmbargo = (ligadas: readonly { titulo: string }[]) => ligadas.some((d) => /embargo/.test(d.titulo.normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase()));
 
-function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly DemandaDoRoteiro[], nomeOperacao: string, rotuloViagem: string, qrSvg?: (texto: string) => string): string {
+function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly DemandaDoRoteiro[], nomeOperacao: string, rotuloViagem: string, qrSvg?: (texto: string) => string): { html: string; paginas: number } {
   const rotuloPonto = `Ponto ${String(p.numero ?? n).padStart(2, '0')}`;
   const ligadas = p.demandas.map((id) => demandas.find((d) => d.id === id)).filter((d): d is DemandaDoRoteiro => !!d);
-  const dados: [string, string][] = [
-    ['Demanda', ligadas.map((d) => d.titulo).join('; ') || '—'],
-    ['Processo', ligadas.map((d) => d.processo).filter(Boolean).join('; ') || '—'],
+  // Vazio some (demanda, processo, imóvel, desmate, CAR, etiquetas); código, tipo de dano, coordenadas e observações sempre aparecem.
+  const dados: [string, string, boolean?][] = [
+    ['Demanda', ligadas.map((d) => d.titulo).join('; '), true],
+    ['Processo', ligadas.map((d) => d.processo).filter(Boolean).join('; ')],
     ['Código', p.codigo ?? '—'],
-    ['Imóvel / local', p.imovel ?? '—'],
-    ['Desmate (ha)', p.areaHa !== undefined ? String(p.areaHa).replace('.', ',') : '—'],
-    ['CAR estadual', p.car ?? '—'],
-    ['CAR federal', '—'],
-    ['Situação do CAR', p.situacaoCar ? SITUACOES_CAR[p.situacaoCar] : '—'],
     ['Tipo de dano', p.tipoDano ?? '—'],
-    ['Etiquetas', p.etiquetas?.join(', ') || '—'],
-    ['Coordenadas', formatarGms(p.coordenada)],
-    ['', `${formatarDecimal(p.coordenada)} (graus decimais, EPSG:4674)`],
-    ['Observações / planejamento', p.notas || '—'],
+    ['Imóvel / local', p.imovel ?? ''],
+    ['Desmate (ha)', p.areaHa !== undefined ? String(p.areaHa).replace('.', ',') : ''],
+    ['CAR estadual', p.car ?? ''],
+    ['Situação do CAR', p.situacaoCar ? SITUACOES_CAR[p.situacaoCar] : ''],
+    ['Etiquetas', p.etiquetas?.join(', ') ?? '', true],
+    ['Coordenadas', `${formatarGms(p.coordenada)} · ${formatarDecimal(p.coordenada)} (graus decimais, EPSG:4674)`, true],
+    ['Observações / planejamento', p.notas || '—', true],
   ];
   const qr = qrSvg && coordenadaValida(p.coordenada) ? `<div class="qr" data-testid="qr">${qrSvg(urlDoMapa(p.coordenada))}<p>Abrir no Google Maps</p></div>` : '';
-  const frente = `<article class="folha"><header class="topo"><div class="topo-texto"><div class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>${n} de ${total} · ${esc(nomeOperacao)}</p></div>
+  const comPop = blocoPopAtivo(p);
+  const comBloco = temBlocoApos(p);
+  const frente = `<article class="folha ficha${comBloco ? ' ficha--pop' : ''}"><header class="topo"><div class="topo-texto"><div class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>${n} de ${total} · ${esc(nomeOperacao)}</p></div>
 <p class="sub">${esc(rotuloViagem)}</p></div>${qr}</header>
-<dl>${dados.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${esc(v)}</dd>`).join('')}</dl>
+<dl>${dados.filter(([, v]) => v).map(([k, v, larga]) => `<div class="par${larga ? ' larga' : ''}"><dt>${esc(k)}</dt><dd>${esc(v)}</dd></div>`).join('')}</dl>
 <h3>Campo · preencher à mão</h3>
 <p>Data/hora de chegada: ${linha(10)}/${linha(10)}/${linha(14)} ${linha(8)}:${linha(8)}</p>
 <p>Coordenada aferida: S ${linha(8)}° ${linha(8)}' ${linha(14)}" W ${linha(8)}° ${linha(8)}' ${linha(14)}" · Waypoint nº: ${linha(22)}</p>
@@ -81,24 +137,28 @@ function folhaPonto(p: Ponto, n: number, total: number, demandas: readonly Deman
 <p>Auto / notificação lavrado: ${caixas('auto de infração', 'notificação', 'termo de embargo')} nº ${linha(34)}</p>
 <p>Fotos nº ${linha(14)} a ${linha(14)} (12 a 30) · Voo de drone: ${caixas('sim', 'não')} Arquivo: ${linha(40)}</p>
 <p>Pessoa contatada (nome e função, sem CPF): ${linha(80)}</p>
-<p>Observações de campo:</p><div class="obsbox">${'<p class="obs"><span class="ln"></span></p>'.repeat(30)}</div>
+<p>Observações de campo:</p>${'<p class="obs"><span class="ln"></span></p>'.repeat(5)}
 <p class="ass"><span>Fiscal ${linha(60)}</span><span>Acompanhante ${linha(60)}</span></p></article>`;
-  return frente + (blocoPopAtivo(p) ? versoPop(p, rotuloPonto) : '');
+  const inspecao = inspecaoAtiva(p) ? paginasInspecao(p, rotuloPonto) : [];
+  // Sem POP, a inspeção (ficha + 2) ficaria com 3 páginas: uma de anotações fecha o par.
+  const notas = inspecao.length && !comPop ? [`<article class="folha folha--pop folha--insp"><header class="cab"><h2>${esc(rotuloPonto)} · ${esc(p.municipio)}</h2><p>Anotações</p></header>${'<p class="obs"><span class="ln"></span></p>'.repeat(30)}</article>`] : [];
+  return { html: frente + (comPop ? versoPop(p, rotuloPonto) : '') + inspecao.join('') + notas.join(''), paginas: 1 + (comPop ? 1 : 0) + inspecao.length + notas.length };
 }
 
-const ESTILO = `@page{size:A4;margin:12mm;@bottom-right{content:"pág. " counter(page);font:10.5pt system-ui,sans-serif}}*{box-sizing:border-box}
-body{font:10.5pt/1.35 system-ui,sans-serif;color:#000;background:#fff;margin:0;padding:8px}
-h1{font-size:14pt;margin:0}h2{font-size:13pt;margin:0}h3{font-size:11pt;margin:8px 0 3px;border-bottom:1px solid #000}p{margin:3px 0}.peq{font-size:8.5pt}.sub{margin:0 0 6px;font-size:10.5pt}
-.cab{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;margin-bottom:6px}
-dl{display:grid;grid-template-columns:42mm 1fr;gap:2px 8px;margin:0}dt{font-weight:600}dd{margin:0;overflow-wrap:anywhere}
+const ESTILO = `@page{size:A4;margin:12mm;@bottom-right{content:"pág. " counter(page);font:10.5pt system-ui,sans-serif}}@page pop{margin:8mm 10mm}*{box-sizing:border-box}
+body{font:10pt/1.3 system-ui,sans-serif;color:#000;background:#fff;margin:0;padding:8px}
+h1{font-size:14pt;margin:0}h2{font-size:13pt;margin:0}h3{font-size:10.5pt;margin:6px 0 2px;border-bottom:1px solid #000}p{margin:2px 0}.peq{font-size:8.5pt}.sub{margin:0 0 4px;font-size:10pt}
+.cab{display:flex;justify-content:space-between;align-items:baseline;border-bottom:2px solid #000;margin-bottom:4px}
+dl{display:grid;grid-template-columns:1fr 1fr;gap:1px 12px;margin:0}.par{display:flex;gap:4px;min-width:0}.par.larga{grid-column:1/-1}dt{font-weight:600;white-space:nowrap}dt::after{content:":"}dd{margin:0;overflow-wrap:anywhere}
 table{border-collapse:collapse;width:100%}th,td{border:1px solid #000;padding:2px 4px;text-align:left;font-size:10pt}
 .cx{display:inline-block;width:10px;height:10px;border:1px solid #000;vertical-align:-1px}.op{white-space:nowrap;margin-right:6px}
-.ln{display:inline-block;border-bottom:1px solid #000;height:1em;vertical-align:baseline}.obs{height:1.9em}.obs .ln{display:block;width:100%}
-.folha{display:flex;flex-direction:column;break-after:page;page-break-after:always;min-height:260mm}.folha:last-child{break-after:auto;page-break-after:auto}
-.topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:6px}.topo-texto{flex:1;min-width:0}.topo-texto .cab{margin-bottom:2px}
-.qr{width:28mm;text-align:center;font-size:8pt;line-height:1.1}.qr svg{display:block;width:28mm;height:28mm}.qr p{margin:1px 0 0}
-.obsbox{flex:1;overflow:hidden;min-height:20mm}.ass{display:flex;justify-content:space-between;margin-top:14px}
-.folha--pop{min-height:0}.col{column-count:2;column-gap:10px;font-size:8.5pt;line-height:1.25}.it{break-inside:avoid;margin-bottom:5px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
+.ln{display:inline-block;border-bottom:1px solid #000;height:1em;vertical-align:baseline}.obs{height:1.8em}.obs .ln{display:block;width:100%}
+.folha{break-inside:avoid;page-break-inside:avoid}.capa{break-after:page;page-break-after:always}.branca{break-before:page;page-break-before:always;height:1px}.folha:last-child{break-after:auto;page-break-after:auto}.cel{max-height:2.7em;overflow:hidden}
+.ficha{padding-bottom:6px;border-bottom:1px dashed #666;margin-bottom:6px}.ficha--pop{break-before:right;page-break-before:right;break-after:page;page-break-after:always;border-bottom:0}
+.topo{display:flex;justify-content:space-between;align-items:flex-start;gap:8px;margin-bottom:4px}.topo-texto{flex:1;min-width:0}.topo-texto .cab{margin-bottom:2px}
+.qr{width:22mm;text-align:center;font-size:7pt;line-height:1.1}.qr svg{display:block;width:22mm;height:22mm}.qr p{margin:1px 0 0}
+.ass{display:flex;justify-content:space-between;margin-top:12px}
+.resumo p{margin:0 0 1px}.folha--pop{page:pop;break-after:page;page-break-after:always}.col{column-count:2;column-gap:10px;font-size:8pt;line-height:1.15}@page insp{margin:5mm 7mm}.folha--insp{page:insp}.folha--insp .peq{font-size:8pt;margin:1px 0}.folha--insp .resumo{font-size:8pt;line-height:1.1;margin:1px 0 2px}.folha--insp .cab{margin-bottom:2px}.tab-insp{table-layout:fixed;border-collapse:collapse;width:100%;font-size:8pt;line-height:1}.tab-insp th,.tab-insp td{border:1px solid #000;padding:0 2px;font-size:8pt;vertical-align:top;overflow-wrap:anywhere}.tab-insp col.q{width:72%}.tab-insp col.r{width:4.3%}.tab-insp col.o{width:15.1%}.tab-insp tr{break-inside:avoid}.tab-insp .c{text-align:center}.tab-insp .sec th{background:#ddd;text-align:left}.tab-insp tr.se td:first-child{padding-left:8px}.tab-insp tr.obs td{height:3.4mm}.tab-insp .cx{vertical-align:-1px}.it{break-inside:avoid;margin-bottom:2px;overflow-wrap:anywhere}.it p{margin:0}.it .ops{margin-left:2px}.col .it{margin-bottom:1px}.sa{font-weight:600}.col h3{font-size:8.5pt;margin:3px 0 1px;break-after:avoid}.col .op{white-space:normal}.desvio,.sug{font-style:italic}.sug{font-weight:600}
 .barra{margin:0 0 8px}@media screen{body{max-width:190mm;margin:0 auto}}@media print{.barra{display:none}body{padding:0}}`;
 
 /** Página completa do roteiro. `geradoEm` é AAAA-MM-DD. */
@@ -108,20 +168,60 @@ export function htmlDoRoteiro(o: { operacao: Operacao; viagem: Viagem; pontos: r
   const rotuloViagem = textoViagem(viagem);
   const municipios = [...new Set(pontos.map((p) => p.municipio).filter(Boolean))];
   const gerado = geradoEm.split('-').reverse().join('/');
-  const capa = `<article class="folha"><header class="cab"><h1>Roteiro de vistoria</h1><p>Motorista: ${viagem.motorista ? `<b>${esc(viagem.motorista)}</b>` : linha(60)}</p></header>
+  // Capa: SEMPRE um número par de páginas (frente e verso, e cresce em blocos de 2), então as fichas começam em página ímpar.
+  // shortcut: a capa conta linhas, não mede a página; cabem LINHAS_CAPA por página e a célula de demanda/etiquetas é cortada em 2 linhas.
+  // Equipe, integrantes ou municípios que passem de ~4 linhas na frente podem estourar a página; nesse caso, imprima sem frente e verso.
+  const LINHAS_CAPA = { frente: 18, ultima: 14, meio: 22 };
+  const linhas = pontos.map((p, i) => {
+    const ligadas = p.demandas.map((id) => demandas.find((d) => d.id === id)).filter((d): d is DemandaDoRoteiro => !!d);
+    return `<tr><td>${i + 1}</td><td>${String(p.numero ?? i + 1).padStart(2, '0')}</td><td>${esc(p.municipio)}</td><td>${esc(formatarGms(p.coordenada))}</td><td><div class="cel">${esc(ligadas.map((d) => d.titulo + (d.processo ? ` · ${d.processo}` : '')).join('; ') || '—')}${p.etiquetas?.length ? `<br><i>${esc(p.etiquetas.join(', '))}</i>` : ''}</div></td><td>${CAIXA}</td><td>${linha(18)}</td></tr>`;
+  });
+  const tabela = (rows: string[]) => rows.length ? `<table><thead><tr><th>Nº</th><th>Ponto</th><th>Município</th><th>Coordenadas</th><th>Demanda / etiquetas</th><th>Visitado</th><th>Data</th></tr></thead><tbody>${rows.join('')}</tbody></table>` : '';
+  const resto = [...linhas];
+  const frente = resto.splice(0, LINHAS_CAPA.frente);
+  const meio: string[][] = [];
+  while (resto.length > LINHAS_CAPA.ultima) meio.push(resto.splice(0, LINHAS_CAPA.meio));
+  const diario = `<h3>Diário de bordo da viagem</h3>
+<p>Km de saída: ${linha(30)} Km de chegada: ${linha(30)}</p>
+<p>Abastecimentos:</p><table><thead><tr><th>Data</th><th>Litros</th><th>Local</th></tr></thead><tbody>${'<tr><td>&nbsp;</td><td></td><td></td></tr>'.repeat(3)}</tbody></table>
+<p>Ocorrências / anotações gerais:</p>${'<p class="obs"><span class="ln"></span></p>'.repeat(6)}
+<p class="ass"><span>Motorista${viagem.motorista ? ` <b>${esc(viagem.motorista)}</b>` : ''} ${linha(50)}</span></p>
+<p class="peq">Gerado em ${gerado} pelo GUARÁ, com dados do seu navegador. Apoio ao trabalho; decisões e registros oficiais são humanos.</p>`;
+  const paginasCapa = [
+    `<article class="folha capa"><header class="cab"><h1>Roteiro de vistoria</h1><p>Motorista: ${viagem.motorista ? `<b>${esc(viagem.motorista)}</b>` : linha(60)}</p></header>
 <h2>${esc(operacao.nome)}</h2><p>${esc(rotuloViagem)}</p>
 ${municipios.length ? `<p>Municípios: ${esc(municipios.join(', '))}</p>` : ''}
 <p>Equipe: ${esc(viagem.equipe || '—')}${viagem.integrantes.length ? ` · Integrantes: ${esc(viagem.integrantes.join(', '))}` : ''}${viagem.veiculos.length ? ` · Veículos: ${esc(viagem.veiculos.join(', '))}` : ''}</p>
-<h3>Pontos na ordem</h3>
-${pontos.length ? `<table><thead><tr><th>Nº</th><th>Ponto</th><th>Município</th><th>Coordenadas</th><th>Demanda / etiquetas</th></tr></thead><tbody>${pontos.map((p, i) => {
-    const ligadas = p.demandas.map((id) => demandas.find((d) => d.id === id)).filter((d): d is DemandaDoRoteiro => !!d);
-    return `<tr><td>${i + 1}</td><td>${String(p.numero ?? i + 1).padStart(2, '0')}</td><td>${esc(p.municipio)}</td><td>${esc(formatarGms(p.coordenada))}</td><td>${esc(ligadas.map((d) => d.titulo + (d.processo ? ` · ${d.processo}` : '')).join('; ') || '—')}${p.etiquetas?.length ? `<br><i>${esc(p.etiquetas.join(', '))}</i>` : ''}</td></tr>`;
-  }).join('')}</tbody></table>` : '<p>Nenhum ponto nesta viagem.</p>'}
-<h3>Checklist: o que levar</h3><p>${caixas('Pontos e coordenadas', 'Mapa', 'Documentos', 'GPS', 'Drone', 'Câmera')}</p>
-<p class="peq">Gerado em ${gerado} pelo GUARÁ, com dados do seu navegador. Apoio ao trabalho; decisões e registros oficiais são humanos.</p></article>`;
+<p>Checklist: ${caixas('Pontos e coordenadas', 'Mapa', 'Documentos', 'GPS', 'Drone', 'Câmera')}</p>
+${pontos.some(inspecaoAtiva) ? `<p>Inspeção de agrotóxicos, levar: ${caixas('EPI da equipe', 'Material de coleta de amostra', 'Lacres', 'Termo de apreensão/depósito')}</p>` : ''}
+<!-- TODO: mapa estático dos pontos na capa; o app só tem mapa interativo (Leaflet com WMS), sem imagem estática. -->
+<h3>Pontos na ordem</h3>${pontos.length ? tabela(frente) : '<p>Nenhum ponto nesta viagem.</p>'}</article>`,
+    ...meio.map((rows) => `<article class="folha capa"><h3>Pontos na ordem (continuação)</h3>${tabela(rows)}</article>`),
+  ];
+  // Com meio ímpar, a capa teria páginas ímpares: entra uma página de anotações para fechar o par.
+  if (meio.length % 2 === 1) paginasCapa.push(`<article class="folha capa"><h3>Anotações da viagem</h3>${'<p class="obs"><span class="ln"></span></p>'.repeat(28)}</article>`);
+  paginasCapa.push(`<article class="folha capa">${resto.length ? `<h3>Pontos na ordem (continuação)</h3>${tabela(resto)}` : ''}${diario}</article>`);
+  const capa = paginasCapa.join('');
+
+  // Cada ponto com POP ocupa 2 páginas e começa em página ímpar (frente e verso = 1 folha). O Chrome/Edge ignoram `break-before: right`,
+  // então a página em branco é calculada aqui. Fichas sem POP dividem a folha, 2 por página (shortcut: supõe que cabem duas; se uma ficha
+  // crescer demais e ocupar a página sozinha, o verso/frente desalinha, e o jeito é imprimir esse ponto à parte).
+  let paginas = paginasCapa.length;
+  let metade = false; // há uma ficha sem POP esperando a segunda da folha
+  const folhas = pontos.map((p, i) => {
+    const { html, paginas: doPonto } = folhaPonto(p, i + 1, pontos.length, demandas, operacao.nome, rotuloViagem, o.qrSvg);
+    if (temBlocoApos(p)) {
+      const branca = paginas % 2 === 1; // a próxima página seria par
+      metade = false;
+      paginas += (branca ? 1 : 0) + doPonto;
+      return (branca ? '<div class="branca"></div>' : '') + html;
+    }
+    if (metade) metade = false; else { metade = true; paginas++; }
+    return html;
+  }).join('');
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>Roteiro de vistoria · ${esc(operacao.nome)} · ${esc(rotuloViagem)}</title><style>${ESTILO}</style></head><body>
 <div class="barra"><button type="button" onclick="window.print()">Imprimir ou salvar em PDF</button></div>
-${capa}${pontos.map((p, i) => folhaPonto(p, i + 1, pontos.length, demandas, operacao.nome, rotuloViagem, o.qrSvg)).join('')}
+${capa}${folhas}
 </body></html>`;
 }

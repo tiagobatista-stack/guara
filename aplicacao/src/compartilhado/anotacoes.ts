@@ -1,3 +1,4 @@
+import { plural } from './plural.ts';
 // Anotações em checklist (demanda e ponto de operação): "coisas que aparecem ao longo da análise, que precisam ser
 // lembradas e resolvidas, mas que não fazem parte do sistema" (pedido do responsável, 18/11/2026).
 // Regra única, em funções puras; o componente é AnotacoesDoItem.tsx. Não vão para planilha da SEMA, CSV nem GeoJSON.
@@ -54,7 +55,7 @@ export const excluirAnotacao = (lista: readonly Anotacao[] | undefined, id: stri
 
 export const anotacoesAbertas = (lista: readonly Anotacao[] | undefined) => (lista ?? []).filter((a) => !a.feita);
 export const contarAbertas = (lista: readonly Anotacao[] | undefined) => anotacoesAbertas(lista).length;
-export const textoAnotacoesAbertas = (n: number) => `${n} anotação(ões) aberta(s)`;
+export const textoAnotacoesAbertas = (n: number) => plural(n, 'anotação aberta', 'anotações abertas');
 
 /** Abertas em cima, na ordem de criação; feitas embaixo, também na ordem de criação. */
 export const ordenarAnotacoes = (lista: readonly Anotacao[] | undefined): Anotacao[] =>

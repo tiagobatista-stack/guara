@@ -13,6 +13,7 @@ import { ROTULOS_TIPO } from '../demandas/classificacao.ts';
 import { comemorarMascotes } from '../../compartilhado/Mascote.tsx';
 import { ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
 const data = (aaaammdd?: string) => (aaaammdd ? new Date(`${aaaammdd}T00:00:00`).toLocaleDateString('pt-BR') : 'sem prazo');
 
@@ -61,7 +62,7 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
           return (
             <section key={status} className="kanban-coluna" aria-labelledby={`coluna-${status}`} data-testid={`coluna-${status}`}>
               <h2 id={`coluna-${status}`} className="kanban-titulo">
-                {status} <span className="kanban-contagem" aria-label={`${cartoes.length} demanda(s)`}>{cartoes.length}</span>
+                {status} <span className="kanban-contagem" aria-label={plural(cartoes.length, 'demanda', 'demandas')}>{cartoes.length}</span>
               </h2>
               {cartoes.length === 0 ? (
                 <EstadoVazio compacto texto="Nenhuma demanda." />

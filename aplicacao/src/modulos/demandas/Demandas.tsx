@@ -26,6 +26,8 @@ import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import type { EntradaDemanda } from './modelo.ts';
+import { confirmarSaida } from '../../compartilhado/alteracoes-pendentes.ts';
+import { plural } from '../../compartilhado/plural.ts';
 import { parametrosDaRota } from '../../nucleo/registro-modulos.ts';
 
 type Modo = { tipo: 'lista' } | { tipo: 'nova' } | { tipo: 'editar'; id: string } | { tipo: 'detalhe'; id: string };
@@ -58,6 +60,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const [aviso, setAviso] = useState<Aviso>(null);
   const [focoInicial, setFocoInicial] = useState<'prazo' | undefined>(undefined);
   const abrirDetalhe = (_d: Demanda | undefined, id: string) => {
+    if (!confirmarSaida()) return; // vindo de um formulário com alteração não salva
     setAviso(null);
     setModo({ tipo: 'detalhe', id });
   };
@@ -154,7 +157,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
         <div>
           <h1 id="titulo-demandas" className="titulo-pagina">Demandas</h1>
           <p className="texto-suave texto-medio">
-            {demandas.length} demanda(s) neste navegador. Os dados ficam no localStorage e não são compartilhados.
+            {plural(demandas.length, 'demanda', 'demandas')} neste navegador. Os dados ficam no localStorage e não são compartilhados.
           </p>
         </div>
         {modo.tipo === 'lista' && !erroArmazenamento && (
@@ -241,8 +244,8 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             <dt>Status</dt><dd>{emDetalhe.status}</dd>
             {textoEmAndamento(emDetalhe, agora()) && <><dt>Andamento</dt><dd>{textoEmAndamento(emDetalhe, agora())}</dd></>}
             <dt>Prioridade</dt><dd>{emDetalhe.prioridade}</dd>
-            <dt>Tipo</dt><dd>{emDetalhe.tipo ? ROTULOS_TIPO[emDetalhe.tipo] : 'não definido'}</dd>
-            <dt>Natureza</dt><dd>{emDetalhe.natureza ? ROTULOS_NATUREZA[emDetalhe.natureza] : 'não definida'}</dd>
+            <dt>Tipo</dt><dd>{emDetalhe.tipo ? ROTULOS_TIPO[emDetalhe.tipo] : '—'}</dd>
+            <dt>Natureza</dt><dd>{emDetalhe.natureza ? ROTULOS_NATUREZA[emDetalhe.natureza] : '—'}</dd>
             <dt>Responsável</dt><dd>{emDetalhe.responsavel || '—'}</dd>
             <dt>Prazo</dt><dd>{comSituacao(emDetalhe, agora(), ajuste)}</dd>
             {NUMEROS.map((c) => <Fragment key={c}><dt>{ROTULOS_NUMERO[c]}</dt><dd className="mono">{emDetalhe[c] ?? '—'}</dd></Fragment>)}
@@ -297,9 +300,9 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             )}
           </section>
           <div className="acoes acoes--rodape">
-            <button type="button" className="botao" onClick={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }}>Editar</button>
+            <button type="button" className="botao" onClick={() => { if (!confirmarSaida()) return; setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }}>Editar</button>
             <button type="button" className="botao botao--perigo" onClick={() => excluir(emDetalhe)}>Excluir</button>
-            <button type="button" className="botao" onClick={() => setModo({ tipo: 'lista' })}>Voltar à lista</button>
+            <button type="button" className="botao" onClick={() => { if (confirmarSaida()) setModo({ tipo: 'lista' }); }}>Voltar à lista</button>
           </div>
         </article>
       )}

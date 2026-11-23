@@ -21,7 +21,7 @@ describe('avisos do dia: um por demanda, com todos os sinais', () => {
     const lista = avisos(demanda({ prazo: '2026-11-11', ultimaAcaoRelevante: iso(2026, 11, 6) }));
     expect(lista).toHaveLength(1);
     expect(lista[0].tipo).toBe('vencida');
-    expect(lista[0].texto).toBe('Demanda fictícia: vencido há 2 dias úteis; parada há 7 dia(s) sem ação relevante.');
+    expect(lista[0].texto).toBe('Demanda fictícia: vencido há 2 dias úteis; parada há 7 dias sem ação relevante.');
     expect(lista[0].situacao).toBe('vencida+parada|Em Andamento');
   });
 
@@ -54,5 +54,17 @@ describe('naturezaDoAviso', () => {
     expect(naturezaDoAviso({ situacao: 'prazo-proximo|A Fazer' })).toBe('fato');
     expect(naturezaDoAviso({ situacao: 'parada|Em Andamento' })).toBe('inferência');
     expect(naturezaDoAviso({ situacao: 'vencida+parada|Em Andamento' })).toBe('fato (prazo) e inferência (parada)');
+  });
+});
+
+describe('avisos: texto da parada e natureza do backup', () => {
+  it('parada de um dia usa o singular; de mais dias, o plural', () => {
+    expect(avisos(demanda({ ultimaAcaoRelevante: iso(2026, 11, 12) }))).toEqual([]); // ainda dentro do limiar de 3 dias
+    expect(avisosDoDia([demanda({ ultimaAcaoRelevante: iso(2026, 11, 12) })], AGORA, 0)[0].texto).toBe('Demanda fictícia: parada há 1 dia sem ação relevante.');
+    expect(avisos(demanda({ ultimaAcaoRelevante: iso(2026, 11, 6) }))[0].texto).toBe('Demanda fictícia: parada há 7 dias sem ação relevante.');
+  });
+
+  it('o lembrete de backup tem natureza "fato"', () => {
+    expect(naturezaDoAviso({ situacao: 'backup' })).toBe('fato');
   });
 });

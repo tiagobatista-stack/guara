@@ -8,6 +8,7 @@ import { CHAVE_CONVERSA, limparConversa, MAXIMO_DE_FALAS } from './conversa.ts';
 import { definirDemandaEmFoco } from './demanda-em-foco.ts';
 import { mostrarDeNovo, obterLembretes } from './lembretes.ts';
 import { pedirAba } from './abas.ts';
+import { registrarBackup } from '../../compartilhado/ultimo-backup.ts';
 
 // Sexta, 13/11/2026.
 const AGORA = () => new Date('2026-11-13T12:00:00.000Z');
@@ -355,9 +356,9 @@ describe('painel do assistente: mascote', () => {
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(screen.getByText('Nenhum aviso novo.')).toBeInTheDocument();
     expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
-    expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: 1 aviso(s) ciente(s) ou adiado(s)');
+    expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: 1 aviso ciente ou adiado');
 
-    fireEvent.click(screen.getByRole('button', { name: '1 ciente(s) e 0 adiado(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: '1 ciente e 0 adiados' }));
     expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent('(ciente)');
 
     act(() => { armazem.mudarStatus('DEM-1', 'Em Andamento'); });
@@ -375,7 +376,7 @@ describe('painel do assistente: mascote', () => {
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(new Date(obterLembretes()['DEM-1'].adiadoAte!).getTime()).toBeGreaterThan(AGORA().getTime());
 
-    fireEvent.click(screen.getByRole('button', { name: '0 ciente(s) e 1 adiado(s)' }));
+    fireEvent.click(screen.getByRole('button', { name: '0 cientes e 1 adiado' }));
     expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent(/adiado até (hoje|amanhã) às (8|14)h/);
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
@@ -395,7 +396,7 @@ describe('painel do assistente: mascote', () => {
     irParaAba('Avisos');
     fireEvent.click(screen.getByRole('button', { name: 'Não mostrar para esta demanda' }));
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
-    fireEvent.click(screen.getByRole('button', { name: /1 silenciada\(s\)$/ }));
+    fireEvent.click(screen.getByRole('button', { name: /1 silenciada$/ }));
     expect(screen.getByTestId('oculto-DEM-1')).toHaveTextContent('(silenciada)');
     fireEvent.click(screen.getByRole('button', { name: 'Mostrar de novo' }));
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
@@ -545,5 +546,17 @@ describe('painel do assistente: mascote', () => {
       fireEvent.click(within(falas[falas.length - 1] as HTMLElement).getByRole('button', { name: 'Ver a fila do dia' }));
       expect(screen.getByRole('tab', { name: /^Fila/ })).toHaveAttribute('aria-selected', 'true');
     });
+  });
+});
+
+describe('aba Avisos: lembrete de backup', () => {
+  it('o lembrete de backup aparece na aba Avisos, com natureza "fato"', () => {
+    registrarBackup(new Date('2026-11-01T12:00:00.000Z')); // 12 dias antes de AGORA
+    montar([entrada('Atualizar manual (fictício)', '2026-11-30')]);
+    irParaAba('Avisos');
+    const aviso = screen.getByTestId('aviso-backup');
+    expect(aviso).toBeVisible();
+    expect(aviso).toHaveTextContent('O último backup tem 12 dias. Em Configurações, use "Exportar backup".');
+    expect(aviso).toHaveTextContent('fato · fonte:');
   });
 });

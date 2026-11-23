@@ -2,6 +2,26 @@
 
 **Atualizado em:** 20/11/2026. A situação de cada entrega fica em `STATUS.md`; aqui fica só o que falta fazer, em ordem.
 
+## Inspeção de agrotóxicos e operações (19/11/2026, branch `integracao-operacoes`)
+
+**Feito** (decisões 1 a 35 em `decisoes/2026-11-19-inspecao-agrotoxicos.md`; evidências em `metodologia/evidencias/2026-11-19-inspecao-agrotoxicos.md`; 824 testes, build ok; commits locais, sem push):
+
+- Lavrados do ponto como lista {tipo, número, data}, tipos em `tipos-lavrados.ts`; formato antigo migrado, não vai para a quarentena (`234cc21`, `d6aa2ee`).
+- Providências com desfecho (Autuado, Não autuado, Não aplicável); só "Autuado" exige auto, e notificação do CTF "feita" exige notificação.
+- Seção "Formulários e relatório" no ponto, com selo de estado, "N de M", data de edição e botão "Gerar texto do relatório" (`d27b9e5`).
+- Painel "Dados para o SIGA": coordenada no formato do SIGA, atividade e objetivo editáveis, equipe sem lotação; texto exportado só com constatações (`cfeba6b`).
+- Roteiro impresso: inspeção em tabela de 2 páginas fixas, bloco do ponto com 4 páginas, folga medida de 12 e 16 linhas (`385d30c`, `d6aa2ee`).
+
+**A fazer, em ordem:**
+
+1. **Bloco D: exemplos.** Depende do arquivo `documentacao/exemplos/operacao-alertas-setembro-2026.csv`, que não existe no repositório. Com ele: importar, informar o total de páginas da Equipe B, gerar os textos dos pontos 03, 05 e 06 (lavrados fictícios em um) em `documentacao/exemplos/relatorios-inspecao-exemplo.md`.
+2. **Reproduzir "registrar resultado não salva as respostas".** Relato do responsável, sem causa encontrada; faltam os passos exatos.
+3. **Conferir no navegador:** a seção Formulários e relatório, o painel "Dados para o SIGA" e os botões Copiar (só há testes de interface, nenhum clique em navegador real).
+4. **Conferir o PDF do roteiro** fora do Edge (outro navegador ou sistema, fonte padrão diferente). Mudou o questionário ou `rotulos-impressos.ts`? Medir a folga de novo.
+5. **Completar a lista de tipos de lavrados** (`tipos-lavrados.ts`) com a nomenclatura do SIGA, a cargo do responsável.
+6. **Aviso de rascunho** ainda aparece antes de CONSTATAÇÕES quando o ponto não tem resultado; decidir se fica.
+7. **Push e publicação:** o branch está só local; qualquer push exige autorização do responsável.
+
 ## Próxima sessão (em ordem)
 
 **Pendências de 20/11/2026 (recomendações do relatório de formação), antes dos itens abaixo:**

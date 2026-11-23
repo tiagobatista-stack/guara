@@ -2,16 +2,24 @@
 // (cada viagem com equipe, integrantes, veículos, saída e retorno).
 // Coordenadas podem identificar imóvel: os dados ficam só neste navegador.
 
+import { createPortal } from 'react-dom';
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
+import { confirmarSaida, usePendente } from '../../compartilhado/alteracoes-pendentes.ts';
+import { plural } from '../../compartilhado/plural.ts';
 import { parametrosDaRota } from '../../nucleo/registro-modulos.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
 import { AnotacoesDoItem, ConfirmaConclusao, SeloAnotacoes } from '../../compartilhado/AnotacoesDoItem.tsx';
 import { contarAbertas } from '../../compartilhado/anotacoes.ts';
-import { CaracterizacaoDoPonto } from './CaracterizacaoDoPonto.tsx';
+import { FormulariosDoPonto } from './FormulariosDoPonto.tsx';
+import { inspecaoAtiva, TIPOS_DANO_AGROTOXICO } from './inspecao-agrotoxicos.ts';
+import { MAX_LAVRADOS, NOMES_LAVRADOS } from './tipos-lavrados.ts';
+import { QuarentenaDoPonto } from './QuarentenaDoPonto.tsx';
+import { useQuarentena } from './quarentena.ts';
 import { blocoPopAtivo, itensDeCampoSemResposta } from './pop-supressao.ts';
-import { htmlDoRoteiro } from './roteiro.ts';
+import { htmlDoRoteiro, type DemandaDoRoteiro } from './roteiro.ts';
+import { Gaveta } from '../../compartilhado/Gaveta.tsx';
 import { textoBloqueio } from '../alertas/bloqueio.ts';
 import { usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { useArmazem, useEstadoDemandas } from '../demandas/armazem.ts';
@@ -21,16 +29,16 @@ import { decodificarCsv, importarPontosCsv, type LinhaImportada, type ResultadoC
 import { ehXlsx, xlsxParaCsv } from './ler-xlsx.ts';
 import {
   ETIQUETAS_SUGERIDAS, LIMITES_OPERACAO, MOTIVOS_PERIODO, SITUACOES_CAR, type SituacaoCar, MOTIVOS_SUGERIDOS, RESULTADOS, RESULTADOS_COM_MOTIVO, SITUACOES_ACOMPANHAMENTO,
-  type MotivoPeriodo, type Operacao, type Ponto, type PontoNovo, type ResultadoPonto, type SituacaoAcompanhamento, type Viagem,
+  ORIGENS_ALERTA, type MotivoPeriodo, type Operacao, type Ponto, type TipoOrigemAlerta, type PontoNovo, type ResultadoPonto, type SituacaoAcompanhamento, type Viagem,
 } from './modelo.ts';
 import {
-  alterarPeriodo, alterarPonto, alterarViagem, aplicarAtualizacoes, conflitoDeCodigo, definirSetor, criarOperacao, criarOperacaoComPontos, criarViagem, definirGrupo, definirViagem, excluirOperacao, excluirPonto,
-  excluirViagem, definirDiasPadraoElaboracao, destravarPonto, gerarCodigos, incluirPontos, lerDiasPadraoElaboracao, prazosDeElaboracao, registrarRelatorio, registrarResultado, salvarAnotacoesPonto, travarPonto, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
+  alterarPeriodo, alterarPonto, alterarViagem, aplicarAtualizacoes, conflitoDeCodigo, consultarBasesDoPonto, definirOrigemEApoio, definirSetor, criarOperacao, criarOperacaoComPontos, criarViagem, definirGrupo, definirViagem, excluirOperacao, excluirPonto,
+  conferirCronograma, consultarPontos, excluirViagem, definirDiasPadraoElaboracao, destravarPonto, gerarCodigos, incluirPontos, lerDiasPadraoElaboracao, prazosDeElaboracao, registrarRelatorio, registrarResultado, salvarAnotacoesPonto, travarPonto, reprogramarPonto, useOperacoes, useOperacoesSoNaMemoria, type DadosResultado, type DadosViagem,
 } from './armazem.ts';
 import { exportarCsv, exportarGeoJson, exportarPlanilhaSema, nomeDoArquivo, SRC_EXPORTACAO } from './exportar.ts';
 import { planejarImportacao, rotuloAtualizacao } from './reimportar.ts';
 import {
-  agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
+  cronogramaDesatualizado, faseDaOperacao, progressoDeCampo, podeGerarRoteiro, type FaseDaOperacao, agruparPontos, chaveAgenda, conflitosDeAgenda, dataLocal, dentroDoPeriodo, limparNomes, pendenciasDeCampo, rotuloDoPonto, situacaoDoPonto, faltasDaViagem, periodoDosPontos, textoDoPeriodo, unirPeriodos, type Periodo, nomesDeGrupos, ordenarViagens, pontoPendente, pontosPorViagem, pontosProximos, pontosSemViagem,
   campoEncerrado, diasParado, faseDoPonto, pontoTravado, ROTULO_FASE, planejarCodigos, prazoDaElaboracao, pontoVencido, progressoDaOperacao, textoParado, type PendenciaDeCampo, type PrazosDeElaboracao, type ProgressoDaOperacao, diasDaViagem, dataForaDaViagem, textoPeriodoViagem, sugerirNomeOperacao, sugestoesDeViagem, textoLocalProximo, textoViagem, viagemDoPonto, type ConflitoAgenda,
 } from './regras.ts';
 
@@ -158,8 +166,8 @@ function ResumoDaPrevia({ validos, comErro, comAviso = [], periodo, setor }: { v
   return (
     <>
       <p>
-        <strong>{validos}</strong> ponto(s) pronto(s) para importar
-        {comErro.length > 0 && <> e <strong className="texto--atencao">{comErro.length}</strong> linha(s) com problema (não entram; corrija o arquivo e confira de novo)</>}.
+        <strong>{plural(validos, 'ponto pronto', 'pontos prontos')}</strong> para importar
+        {comErro.length > 0 && <> e <strong className="texto--atencao">{plural(comErro.length, 'linha com problema', 'linhas com problema')}</strong> ({comErro.length === 1 ? 'não entra' : 'não entram'}; corrija o arquivo e confira de novo)</>}.
       </p>
       {setor && <p className="texto-pequeno" data-testid="setor-do-arquivo">Setor tirado do arquivo: {setor}.</p>}
       {periodo && <p data-testid="periodo-do-arquivo">Período tirado do arquivo: {textoPeriodo(periodo)}. Ele será gravado na operação ao importar.</p>}
@@ -242,7 +250,7 @@ function ImportarCsv({ operacao, todas }: { operacao: Operacao; todas: readonly 
       if (problema) return setMensagem(problema);
     }
     if (!operacao.setor && resultado?.setor) definirSetor(operacao.id, resultado.setor);
-    setMensagem(`${pontos.length} ponto(s) importado(s)${atualizacoes.length ? ` e ${aPreencher.length} atualizado(s)` : ''}. A operação mudou: exporte a lista atualizada abaixo, se precisar.`);
+    setMensagem(`${plural(pontos.length, 'ponto importado', 'pontos importados')}${atualizacoes.length ? ` e ${plural(aPreencher.length, 'atualizado', 'atualizados')}` : ''}. A operação mudou: exporte a lista atualizada abaixo, se precisar.`);
     setResultado(null);
     setResposta(null);
     setTexto('');
@@ -272,9 +280,9 @@ function ImportarCsv({ operacao, todas }: { operacao: Operacao; todas: readonly 
       {resultado && !resultado.erro && (
         <div data-testid="previa-importacao">
           <p>
-            <strong>{validos.length}</strong> ponto(s) pronto(s) para importar
+            <strong>{plural(validos.length, 'ponto pronto', 'pontos prontos')}</strong> para importar
             {atualizacoes.length > 0 && <>, <strong>{atualizacoes.length}</strong> já na operação (atualização)</>}
-            {comErro.length > 0 && <> e <strong className="texto--atencao">{comErro.length}</strong> linha(s) com problema (não entram; corrija o arquivo e confira de novo)</>}.
+            {comErro.length > 0 && <> e <strong className="texto--atencao">{plural(comErro.length, 'linha com problema', 'linhas com problema')}</strong> ({comErro.length === 1 ? 'não entra' : 'não entram'}; corrija o arquivo e confira de novo)</>}.
           </p>
           {atualizacoes.length > 0 && (
             <div data-testid="previa-atualizacoes">
@@ -304,7 +312,7 @@ function ImportarCsv({ operacao, todas }: { operacao: Operacao; todas: readonly 
                 As datas da planilha (<strong>{textoDoPeriodo(doArquivo)}</strong>) são diferentes do período cadastrado na operação
                 (<strong>{textoDoPeriodo(janela)}</strong>). A operação mudou de data?
               </p>
-              <p className="texto-pequeno">{fora.length} de {validos.length} linha(s) ficam fora do período cadastrado.</p>
+              <p className="texto-pequeno">{fora.length} de {plural(validos.length, 'linha', 'linhas')} {fora.length === 1 ? 'fica' : 'ficam'} fora do período cadastrado.</p>
               <div className="acoes">
                 <button type="button" className={`botao botao--pequeno${resposta === 'atualizar' ? ' botao--primario' : ''}`} aria-pressed={resposta === 'atualizar'} onClick={() => setResposta('atualizar')}>Sim, atualizar o período</button>
                 <button type="button" className={`botao botao--pequeno${resposta === 'manter' ? ' botao--primario' : ''}`} aria-pressed={resposta === 'manter'} onClick={() => setResposta('manter')}>Não, manter {textoDoPeriodo(janela)}</button>
@@ -312,7 +320,7 @@ function ImportarCsv({ operacao, todas }: { operacao: Operacao; todas: readonly 
               {resposta === 'atualizar' && <MudarPeriodo operacao={operacao} outro={doArquivo} aoMudar={() => setResposta(null)} />}
               {resposta === 'manter' && (
                 <p className="texto-pequeno" data-testid="aviso-manter-periodo">
-                  O período não muda. As {fora.length} linha(s) fora dele entram <strong>sem as datas</strong>: a viagem fica sem datas até você lançar o cronograma certo.
+                  O período não muda. {fora.length === 1 ? 'A linha fora dele entra' : `As ${fora.length} linhas fora dele entram`} <strong>sem as datas</strong>: a viagem fica sem datas até você lançar o cronograma certo.
                 </p>
               )}
             </FalaMascote>
@@ -327,7 +335,7 @@ function ImportarCsv({ operacao, todas }: { operacao: Operacao; todas: readonly 
           )}
           <div className="acoes">
             <button type="button" className="botao botao--primario" disabled={(validos.length === 0 && atualizacoes.length === 0) || pendente} onClick={importar}>
-              Importar {validos.length} ponto(s){atualizacoes.length > 0 && ` e atualizar ${atualizacoes.length}`}
+              Importar {plural(validos.length, 'ponto', 'pontos')}{atualizacoes.length > 0 && ` e atualizar ${atualizacoes.length}`}
             </button>
             {pendente && <span className="texto-pequeno texto-suave">Responda à pergunta sobre o período para importar.</span>}
           </div>
@@ -380,8 +388,35 @@ function CampoLista({ rotulo, itens, sugestoes, max, aoMudar }: { rotulo: string
 
 type Sugestoes = ReturnType<typeof sugestoesDeViagem>;
 
+/** Quem entrou na lista leva cargo e lotação do último uso; sem histórico, a lotação padrão é a unidade (setor) da operação. */
+function pessoasDaLista(nomes: readonly string[], atuais: NonNullable<Viagem['pessoas']>, historico: Sugestoes['pessoas'], unidade?: string): NonNullable<Viagem['pessoas']> {
+  return Object.fromEntries(nomes.map((n) => [n, atuais[n] ?? { ...historico[n], ...(historico[n]?.lotacao || !unidade ? {} : { lotacao: unidade }) }]));
+}
+
+/** Ficha do integrante: clicar abre cargo e lotação. O motorista não entra na equipe técnica do relatório. */
+function FichaIntegrante({ nome, dados, motorista, aoMudar }: { nome: string; dados: { cargo?: string; lotacao?: string }; motorista: boolean; aoMudar: (d: { cargo?: string; lotacao?: string }) => void }) {
+  const [aberta, setAberta] = useState(false);
+  const id = useId();
+  return (
+    <li>
+      <button type="button" className="botao botao--pequeno botao--sutil" aria-expanded={aberta} aria-controls={`${id}-ficha`} aria-label={`Cargo e lotação de ${nome}`} onClick={() => setAberta(!aberta)}>
+        {nome}: {dados.cargo || <span className="texto--atencao">cargo?</span>} · {dados.lotacao || <span className="texto--atencao">lotação?</span>}
+      </button>
+      {aberta && (
+        <div id={`${id}-ficha`} className="grade grade--2">
+          <label className="campo-grupo"><span>Cargo de {nome}</span>
+            <input className="campo" value={dados.cargo ?? ''} maxLength={LIMITES_OPERACAO.cargo} autoComplete="off" onChange={(e) => aoMudar({ ...dados, cargo: e.target.value })} /></label>
+          <label className="campo-grupo"><span>Lotação de {nome}</span>
+            <input className="campo" value={dados.lotacao ?? ''} maxLength={LIMITES_OPERACAO.lotacao} autoComplete="off" onChange={(e) => aoMudar({ ...dados, lotacao: e.target.value })} /></label>
+          {motorista && <p className="texto-pequeno texto-suave grade-linha-inteira">Motorista: não entra na equipe técnica do relatório.</p>}
+        </div>
+      )}
+    </li>
+  );
+}
+
 const dadosDaViagem = (v?: Viagem): DadosViagem => ({
-  equipe: v?.equipe ?? '', integrantes: v?.integrantes ?? [], veiculos: v?.veiculos ?? [], motorista: v?.motorista ?? '', saida: v?.saida ?? '', retorno: v?.retorno ?? '', notas: v?.notas ?? '',
+  equipe: v?.equipe ?? '', integrantes: v?.integrantes ?? [], pessoas: v?.pessoas ?? {}, veiculos: v?.veiculos ?? [], motorista: v?.motorista ?? '', saida: v?.saida ?? '', retorno: v?.retorno ?? '', notas: v?.notas ?? '',
 });
 
 function FormularioViagem({ operacao, viagem, sugestoes, aoTerminar }: { operacao: Operacao; viagem?: Viagem; sugestoes: Sugestoes; aoTerminar: () => void }) {
@@ -418,7 +453,15 @@ function FormularioViagem({ operacao, viagem, sugestoes, aoTerminar }: { operaca
           <input className="campo" type="date" value={form.retorno} onChange={(e) => setForm({ ...form, retorno: e.target.value })} /></label>
       </div>
       <CampoLista rotulo="Integrantes" itens={[...form.integrantes]} sugestoes={sugestoes.integrantes} max={LIMITES_OPERACAO.integrante}
-        aoMudar={(integrantes) => setForm({ ...form, integrantes })} />
+        aoMudar={(integrantes) => setForm({ ...form, integrantes, pessoas: pessoasDaLista(integrantes, form.pessoas ?? {}, sugestoes.pessoas, operacao.setor) })} />
+      {form.integrantes.length > 0 && (
+        <ul className="lista-limpa" aria-label="Cargo e lotação dos integrantes">
+          {form.integrantes.map((n) => (
+            <FichaIntegrante key={n} nome={n} dados={form.pessoas?.[n] ?? {}} motorista={n === form.motorista}
+              aoMudar={(d) => setForm({ ...form, pessoas: { ...form.pessoas, [n]: d } })} />
+          ))}
+        </ul>
+      )}
       {form.integrantes.length > 0 && (
         <label className="campo-grupo"><span>Motorista</span>
           <select className="campo" value={form.integrantes.includes(form.motorista ?? '') ? form.motorista : ''} onChange={(e) => setForm({ ...form, motorista: e.target.value })}>
@@ -455,16 +498,19 @@ function FormularioViagem({ operacao, viagem, sugestoes, aoTerminar }: { operaca
 const textoConflito = (c: ConflitoAgenda) =>
   `${[...c.pessoas, ...c.veiculos].join(', ')} também ${c.pessoas.length + c.veiculos.length > 1 ? 'estão' : 'está'} em ${textoViagem(c.viagem)} (operação ${c.operacao})`;
 
+// O roteiro abre numa aba nova (endereço blob:); lá o navegador imprime ou salva em PDF.
+async function abrirRoteiroDaViagem(operacao: Operacao, v: Viagem, demandas: readonly DemandaDoRoteiro[]) {
+  const { qrSvg } = await import('./qr.ts'); // fora do pacote principal: só carrega ao gerar o roteiro
+  const html = htmlDoRoteiro({ operacao, viagem: v, pontos: operacao.pontos.filter((p) => p.viagem === v.id), demandas, geradoEm: dataLocal(new Date()), qrSvg });
+  window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
+}
+
 function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; conflitos: Map<string, ConflitoAgenda[]>; sugestoes: Sugestoes }) {
   const [editando, setEditando] = useState<string | 'nova' | null>(null);
   const { demandas } = useEstadoDemandas();
   const viagens = ordenarViagens(operacao.viagens);
   // O roteiro abre numa aba nova (endereço blob:); lá o navegador imprime ou salva em PDF.
-  const abrirRoteiro = async (v: Viagem) => {
-    const { qrSvg } = await import('./qr.ts'); // fora do pacote principal: só carrega ao gerar o roteiro
-    const html = htmlDoRoteiro({ operacao, viagem: v, pontos: operacao.pontos.filter((p) => p.viagem === v.id), demandas, geradoEm: dataLocal(new Date()), qrSvg });
-    window.open(URL.createObjectURL(new Blob([html], { type: 'text/html;charset=utf-8' })), '_blank');
-  };
+  const abrirRoteiro = (v: Viagem) => abrirRoteiroDaViagem(operacao, v, demandas);
   return (
     <section className="cartao" aria-labelledby="titulo-viagens" data-testid="viagens">
       <h3 id="titulo-viagens" className="titulo-secao">Viagens (cronograma)</h3>
@@ -481,7 +527,7 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
           const qtd = operacao.pontos.filter((p) => p.viagem === v.id).length;
           return (
             <li key={v.id} className="cartao" data-testid={`viagem-${v.id}`}>
-              <p><strong>{textoViagem(v)}</strong> <span className="texto-pequeno texto-suave sem-quebra">· {qtd} ponto(s)</span></p>
+              <p><strong>{textoViagem(v)}</strong> <span className="texto-pequeno texto-suave sem-quebra">· {plural(qtd, 'ponto', 'pontos')}</span></p>
               <dl className="dados-definicao">
                 <dt>Integrantes</dt><dd>{v.integrantes.length ? v.integrantes.join(', ') : <span className="texto--atencao">nenhum</span>}</dd>
                 <dt>Veículos</dt><dd>{v.veiculos.length ? v.veiculos.join(', ') : <span className="texto--atencao">nenhum</span>}</dd>
@@ -500,7 +546,7 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
                 <button type="button" className="botao botao--pequeno" aria-label={`Editar viagem ${textoViagem(v)}`} onClick={() => setEditando(v.id)}>Editar</button>
                 <button
                   type="button" className="botao botao--pequeno botao--discreto" aria-label={`Excluir viagem ${textoViagem(v)}`}
-                  onClick={() => { if (window.confirm(`Excluir a viagem ${textoViagem(v)}? ${qtd} ponto(s) ficam sem viagem; os pontos não são apagados.`)) excluirViagem(operacao.id, v.id); }}
+                  onClick={() => { if (window.confirm(`Excluir a viagem ${textoViagem(v)}? ${plural(qtd, 'ponto fica', 'pontos ficam')} sem viagem; os pontos não são apagados.`)) excluirViagem(operacao.id, v.id); }}
                 >Excluir</button>
               </div>
             </li>
@@ -518,6 +564,8 @@ function Viagens({ operacao, conflitos, sugestoes }: { operacao: Operacao; confl
 
 // ---------- Um ponto ----------
 
+const dataCurta = (iso: string) => iso.split('-').reverse().join('/');
+
 const rotuloDoDia = (iso: string) => `${['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'][new Date(`${iso}T00:00:00Z`).getUTCDay()]} ${iso.slice(8)}/${iso.slice(5, 7)}`;
 
 /** Resultado e pós-campo do ponto (FISCALIZADO_AUTUADO, motivo, protocolo, data da vistoria, observação). */
@@ -527,6 +575,9 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   const [form, setForm] = useState<DadosResultado>({
     resultado: ponto.resultado ?? '', motivo: ponto.motivo ?? '', protocolo: ponto.protocolo ?? '', observacao: ponto.observacao ?? '', dataVistoria: ponto.dataVistoria ?? '',
   });
+  const [lav, setLav] = useState<{ tipo: string; numero: string; data: string }[]>((ponto.lavrados ?? []).map((d) => ({ tipo: d.tipo, numero: d.numero, data: d.data ?? '' })));
+  const original = useRef(JSON.stringify([form, lav]));
+  usePendente(JSON.stringify([form, lav]) !== original.current);
   const [erro, setErro] = useState<string | null>(null);
   const id = useId();
   const viagem = viagemDoPonto(operacao, ponto);
@@ -534,7 +585,7 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
   const exigeMotivo = !!form.resultado && RESULTADOS_COM_MOTIVO.includes(form.resultado);
   const salvar = (e: FormEvent) => {
     e.preventDefault();
-    const problema = registrarResultado(operacao.id, ponto.id, form, hoje);
+    const problema = registrarResultado(operacao.id, ponto.id, { ...form, lavrados: lav.map((d) => ({ tipo: d.tipo, numero: d.numero, ...(d.data ? { data: d.data } : {}) })) }, hoje);
     setErro(problema);
     if (!problema) aoTerminar();
   };
@@ -568,6 +619,23 @@ function FormularioResultado({ operacao, ponto, rotulo, hoje, protocolosSugerido
           <input className="campo" list={`${id}-protocolos`} value={form.protocolo} maxLength={LIMITES_OPERACAO.protocolo} autoComplete="off" onChange={(e) => setForm({ ...form, protocolo: e.target.value })} />
           <datalist id={`${id}-protocolos`}>{protocolosSugeridos.map((x) => <option key={x} value={x} />)}</datalist></label>
       </div>
+      <fieldset>
+        <legend className="texto-pequeno texto-suave">Documentos lavrados no ponto (tipo, número e data; sem enquadramento nem valor)</legend>
+        {lav.map((d, i) => (
+          <div key={i} className="grade grade--2 grade--topo">
+            <label className="campo-grupo"><span>Tipo do documento {i + 1}</span>
+              <select className="campo" value={d.tipo} onChange={(e) => setLav(lav.map((x, j) => (j === i ? { ...x, tipo: e.target.value } : x)))}>
+                {NOMES_LAVRADOS.map((n) => <option key={n} value={n}>{n}</option>)}
+              </select></label>
+            <label className="campo-grupo"><span>Número do documento {i + 1}</span>
+              <input className="campo" value={d.numero} maxLength={50} autoComplete="off" onChange={(e) => setLav(lav.map((x, j) => (j === i ? { ...x, numero: e.target.value } : x)))} /></label>
+            <label className="campo-grupo"><span>Data do documento {i + 1}</span>
+              <input className="campo" type="date" max={hoje} value={d.data} onChange={(e) => setLav(lav.map((x, j) => (j === i ? { ...x, data: e.target.value } : x)))} /></label>
+            <div className="acoes"><button type="button" className="botao botao--pequeno botao--sutil" aria-label={`Remover documento ${i + 1}`} onClick={() => setLav(lav.filter((_, j) => j !== i))}>Remover</button></div>
+          </div>
+        ))}
+        <button type="button" className="botao botao--pequeno" disabled={lav.length >= MAX_LAVRADOS} onClick={() => setLav([...lav, { tipo: NOMES_LAVRADOS[0], numero: '', data: '' }])}>+ Adicionar documento lavrado</button>
+      </fieldset>
       <label className="campo-grupo"><span>Observação</span>
         <textarea className="campo campo--area" rows={2} value={form.observacao} maxLength={LIMITES_OPERACAO.observacao} onChange={(e) => setForm({ ...form, observacao: e.target.value })} /></label>
       {form.resultado === 'nao' && <p className="texto-pequeno texto-suave">"Não" = não fiscalizado: o ponto fica a reprogramar até entrar em outra operação.</p>}
@@ -596,6 +664,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   const [relatorio, setRelatorio] = useState({ enviadoEm: '', protocoloSiga: '', notas: '' });
   const [form, setForm] = useState({ viagem: '', grupo: '', notas: '', numero: '', municipio: '', tipoDano: '', imovel: '', areaHa: '', car: '', situacaoCar: '' as SituacaoCar | '', etiquetas: [] as string[] });
   const [erro, setErro] = useState<string | null>(null);
+  const [avisoTipo, setAvisoTipo] = useState<string | null>(null);
+  const inicialPlanejamento = useRef('');
+  usePendente(modo === 'editar' && JSON.stringify(form) !== inicialPlanejamento.current);
   const [ligar, setLigar] = useState('');
   const [motivoCancelamento, setMotivoCancelamento] = useState('');
   const idCampos = useId();
@@ -615,8 +686,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 
   // O formulário parte do ponto como está agora (agrupar em lote ou mudar de viagem não pode ser desfeito por um "Salvar" antigo).
   const abrirEdicao = () => {
-    setForm({ viagem: ponto.viagem ?? '', grupo: ponto.grupo ?? '', notas: ponto.notas, numero: ponto.numero !== undefined ? String(ponto.numero) : '', municipio: ponto.municipio, tipoDano: ponto.tipoDano ?? '', imovel: ponto.imovel ?? '', areaHa: ponto.areaHa !== undefined ? String(ponto.areaHa).replace('.', ',') : '', car: ponto.car ?? '', situacaoCar: ponto.situacaoCar ?? '', etiquetas: ponto.etiquetas ?? [] });
+    const novo = { viagem: ponto.viagem ?? '', grupo: ponto.grupo ?? '', notas: ponto.notas, numero: ponto.numero !== undefined ? String(ponto.numero) : '', municipio: ponto.municipio, tipoDano: ponto.tipoDano ?? '', imovel: ponto.imovel ?? '', areaHa: ponto.areaHa !== undefined ? String(ponto.areaHa).replace('.', ',') : '', car: ponto.car ?? '', situacaoCar: (ponto.situacaoCar ?? '') as SituacaoCar | '', etiquetas: ponto.etiquetas ?? [] };
     setErro(null);
+    inicialPlanejamento.current = JSON.stringify(novo);
+    setForm(novo);
     setModo('editar');
   };
   const salvar = (e: FormEvent) => {
@@ -632,7 +705,10 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       ...(numero ? { numero: Number(numero) } : {}),
     });
     setErro(problema);
-    if (!problema) setModo('ver');
+    if (!problema) {
+      setModo('ver');
+      setAvisoTipo(!inspecaoAtiva(ponto) && inspecaoAtiva({ tipoDano: form.tipoDano.trim() }) ? 'Este tipo de dano acrescenta ao ponto o POP e a Inspeção de agrotóxicos.' : null);
+    }
   };
   const reativar = () => setErro(alterarPonto(operacao.id, ponto.id, { situacao: 'planejado', motivoCancelamento: '' }));
   // Cancelar a vistoria pede o motivo (campo próprio do ponto).
@@ -699,14 +775,16 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
   };
 
   return (
-    <li className={`cartao ponto-cartao${aberto ? ' grade-linha-inteira' : ''}`} data-testid={`ponto-${ponto.id}`}>
+    <li id={`ponto-${ponto.id}`} className={`cartao ponto-cartao${aberto ? ' grade-linha-inteira' : ''}`} data-testid={`ponto-${ponto.id}`}>
       <div className="ponto-linha">
         <input type="checkbox" checked={selecionado} aria-label={`Selecionar ${rotulo}`} onChange={(e) => aoSelecionar(e.target.checked)} />
         <button type="button" className="ponto-gatilho" aria-expanded={aberto} aria-controls={`${idCampos}-corpo`} onClick={() => aoDefinirAberto(!aberto)}>
-          <span aria-hidden="true">{aberto ? '▾' : '▸'}</span> <strong>{rotulo}</strong>{ponto.municipio && <> · {ponto.municipio}</>}
-          {ponto.codigo && <span className="mono texto-pequeno"> · {ponto.codigo}</span>}
+          <span aria-hidden="true" className="ponto-seta">{aberto ? '▾' : '▸'}</span>
+          <span className="ponto-titulo"><strong>{rotulo}</strong>{ponto.municipio && <> · {ponto.municipio}</>}</span>
+          {ponto.codigo && <span className="ponto-codigo mono texto-pequeno" title={ponto.codigo}>{ponto.codigo}</span>}
         </button>
-        <span className="ponto-selos">
+      </div>
+      <div className="ponto-selos">
           <span className={fase === 'concluido' ? 'selo-situacao selo-situacao--ok' : fase === 'elaboracao' ? 'selo-situacao' : CLASSE_SITUACAO[situacao] ?? 'texto-pequeno texto-suave'} data-testid={`situacao-${ponto.id}`}>
             {fase === 'elaboracao' || fase === 'concluido' ? ROTULO_FASE[fase] : SITUACOES_ACOMPANHAMENTO[situacao]}
           </span>
@@ -714,22 +792,8 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
           {pontoTravado(ponto) && <span className="selo-situacao selo-situacao--atencao" data-testid={`selo-travado-${ponto.id}`}>travado</span>}
           <SeloAnotacoes anotacoes={ponto.anotacoes} testid={`anotacoes-${ponto.id}`} />
           {cancelado && ponto.motivoCancelamento && <span className="texto-pequeno texto-suave" data-testid={`motivo-cancelamento-${ponto.id}`}>· {ponto.motivoCancelamento}</span>}
-        </span>
-        <span className="ponto-principal">
-          {pontoTravado(ponto) && (
-            <button type="button" className="botao botao--pequeno" aria-label={`Destravar ${rotulo}`} onClick={() => setErro(destravarPonto(operacao.id, ponto.id))}>Destravar</button>
-          )}
-          {modo === 'ver' && fase === 'campo' && (
-            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Registrar resultado</button>
-          )}
-          {modo === 'ver' && situacao === 'a-reprogramar' && (
-            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Reprogramar ${rotulo}`} onClick={() => { setErro(null); setDestinoReprog(''); setModo('reprogramar'); }}>Reprogramar</button>
-          )}
-          {modo === 'ver' && fase === 'elaboracao' && (
-            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Registrar relatório no SIGA</button>
-          )}
-        </span>
       </div>
+      <QuarentenaDoPonto operacao={operacao} ponto={ponto} rotulo={rotulo} />
       <div id={`${idCampos}-corpo`} hidden={!aberto} className="ponto-corpo">
       <dl className="dados-definicao">
         <dt>Código</dt><dd className="mono" data-testid={`codigo-${ponto.id}`}>{ponto.codigo ?? <span className="texto--atencao">sem código</span>}</dd>
@@ -744,6 +808,9 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         {ponto.notas && <><dt>Notas</dt><dd>{ponto.notas}</dd></>}
         {ponto.resultado && (
           <><dt>Resultado</dt><dd data-testid={`resultado-${ponto.id}`}>{RESULTADOS[ponto.resultado]}{ponto.motivo && <> · {ponto.motivo}</>}</dd></>
+        )}
+        {ponto.lavrados && (
+          <><dt>Documentos lavrados</dt><dd data-testid={`lavrados-${ponto.id}`}>{ponto.lavrados.map((d) => `${d.tipo} ${d.numero}${d.data ? ` (${dataCurta(d.data)})` : ''}`).join(' · ')}</dd></>
         )}
         {ponto.bloqueio && (
           <><dt>Bloqueio</dt><dd data-testid={`bloqueio-${ponto.id}`}>
@@ -787,15 +854,14 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
 
       {conflito && <p className="texto-pequeno texto--atencao" data-testid={`conflito-codigo-${ponto.id}`}>{conflito}</p>}
       {erro && <p role="alert" className="erro-campo">{erro}</p>}
+      {avisoTipo && modo === 'ver' && <p role="status" className="texto-pequeno" data-testid={`aviso-tipo-${ponto.id}`}>{avisoTipo}</p>}
 
       {modo === 'ver' && (
         <AnotacoesDoItem item="ponto" anotacoes={ponto.anotacoes} aoMudar={(lista) => setErro(salvarAnotacoesPonto(operacao.id, ponto.id, lista))} />
       )}
-      {modo === 'ver' && !supressao && (
-        <div className="acoes"><button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { popAtivo: true }))}>Caracterizar dano (POP)</button></div>
-      )}
-      {modo === 'ver' && supressao && (
-        <CaracterizacaoDoPonto ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))} />
+      {modo === 'ver' && !cancelado && (
+        <FormulariosDoPonto operacao={operacao} ponto={ponto} rotulo={rotulo} aoMudar={(m) => setErro(alterarPonto(operacao.id, ponto.id, m))}
+          aoReconsultarGeo={() => consultarPontos(operacao.id, [ponto.id])} aoConsultarBases={() => consultarBasesDoPonto(operacao.id, ponto.id)} aoBaixar={baixar} />
       )}
 
       {modo === 'resultado' ? (
@@ -821,7 +887,7 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
         </form>
       ) : modo === 'bloqueio' ? (
         <>
-          <BloqueioDoItem item="ponto" bloqueio={ponto.bloqueio}
+          <BloqueioDoItem item="ponto" bloqueio={ponto.bloqueio} abrirEditor aoCancelar={() => setModo('ver')}
             aoDestravar={() => { const p = destravarPonto(operacao.id, ponto.id); setErro(p); if (!p) setModo('ver'); }}
             aoTravar={(motivo, detalhe) => { const p = travarPonto(operacao.id, ponto.id, motivo, detalhe, new Date().toISOString()); setErro(p); if (!p) setModo('ver'); }} />
           <div className="acoes"><button type="button" className="botao" onClick={() => setModo('ver')}>Fechar</button></div>
@@ -893,56 +959,76 @@ function CartaoPonto({ operacao, ponto, todas, hoje, tiposDeDano, selecionado, a
       ) : (
         <>
           {!cancelado && (
-            <div className="acoes acoes--base" role="group" aria-label={`Ações do ${rotulo}`}>
-              {!ponto.reprogramado && ponto.resultado && (
-                <button type="button" className="botao botao--pequeno" aria-label={`Editar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Editar resultado</button>
+            <div className="ponto-demanda bloco-detalhe" role="group" aria-label={`Demanda do ${rotulo}`}>
+              <span className="ponto-demanda__rotulo">Demanda</span>
+              {livres.length > 0 && (
+                <>
+                  <select className="campo ponto-demanda__select" aria-label={`Ligar a uma demanda existente (${rotulo})`} value={ligar} onChange={(e) => setLigar(e.target.value)}>
+                    <option value="">Ligar a uma demanda existente…</option>
+                    {livres.map((d) => <option key={d.id} value={d.id}>{d.titulo}</option>)}
+                  </select>
+                  <button type="button" className="botao botao--pequeno" disabled={!ligar} aria-label={`Ligar demanda ao ${rotulo}`} onClick={ligarDemanda}>Ligar</button>
+                  <span className="texto-pequeno texto-suave">ou</span>
+                </>
               )}
-              {fase === 'concluido' && (
-                <button type="button" className="botao botao--pequeno" aria-label={`Editar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Editar relatório no SIGA</button>
-              )}
-              <button type="button" className="botao botao--pequeno" aria-label={`Editar planejamento do ${rotulo}`} onClick={abrirEdicao}>Editar planejamento</button>
-              {!ponto.reprogramado && (
+              <button type="button" className="botao botao--pequeno" disabled={jaCriada} aria-label={`Converter ${rotulo} em demanda`} onClick={criarDemanda}>
+                {jaCriada ? 'Demanda já criada' : 'Converter em demanda'}
+              </button>
+            </div>
+          )}
+          <div className="ponto-barra bloco-detalhe">
+            {!cancelado && (
+              <div className="ponto-barra__grupo" role="group" aria-label={`Ações do ${rotulo}`}>
+                {!supressao && (
+                  <button type="button" className="botao botao--pequeno" onClick={() => setErro(alterarPonto(operacao.id, ponto.id, { popAtivo: true }))}>Caracterizar dano (POP)</button>
+                )}
+                {!ponto.reprogramado && ponto.resultado && (
+                  <button type="button" className="botao botao--pequeno" aria-label={`Editar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Editar resultado</button>
+                )}
+                {fase === 'concluido' && (
+                  <button type="button" className="botao botao--pequeno" aria-label={`Editar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Editar relatório no SIGA</button>
+                )}
+                <button type="button" className="botao botao--pequeno" aria-label={`Editar planejamento do ${rotulo}`} onClick={abrirEdicao}>Editar planejamento</button>
+              </div>
+            )}
+            <div className="ponto-barra__grupo ponto-barra__fim">
+              {!cancelado && !ponto.reprogramado && (
                 <button type="button" className="botao botao--pequeno" aria-label={ponto.bloqueio ? `Editar bloqueio do ${rotulo}` : `Travar ${rotulo}`} onClick={() => { setErro(null); setModo('bloqueio'); }}>
                   {ponto.bloqueio ? 'Editar bloqueio' : 'Travar'}
                 </button>
               )}
+              <details className="mais-acoes">
+                <summary aria-label={`Mais ações do ${rotulo}`} title="Mais ações">⋯</summary>
+                <div className="acoes acoes--base">
+                  {cancelado && <button type="button" className="botao botao--pequeno" aria-label={`Reativar ${rotulo}`} onClick={reativar}>Reativar</button>}
+                  {!cancelado && !ponto.reprogramado && !ponto.resultado && (
+                    <button type="button" className="botao botao--pequeno" aria-label={`Cancelar vistoria do ${rotulo}`} onClick={() => { setErro(null); setMotivoCancelamento(''); setModo('cancelar'); }}>Cancelar vistoria</button>
+                  )}
+                  <button
+                    type="button" className="botao botao--pequeno botao--perigo" aria-label={`Excluir ${rotulo}`}
+                    onClick={() => { if (window.confirm(`Excluir o ${rotulo}? Esta ação não pode ser desfeita. Para tirar o ponto da operação sem perder o histórico, prefira "Cancelar vistoria".`)) excluirPonto(operacao.id, ponto.id); }}
+                  >Excluir ponto</button>
+                </div>
+              </details>
             </div>
-          )}
-          {!cancelado && (
-            <div className="acoes acoes--base ponto-demanda" role="group" aria-label={`Demanda do ${rotulo}`}>
-              <span className="texto-pequeno">Demanda:</span>
-              <button type="button" className="botao botao--pequeno" disabled={jaCriada} aria-label={`Converter ${rotulo} em demanda`} onClick={criarDemanda}>
-                {jaCriada ? 'Demanda já criada' : 'Converter em demanda'}
-              </button>
-              {livres.length > 0 && (
-                <>
-                  <label className="campo-inline texto-pequeno">ou ligar a
-                    <select className="campo" aria-label={`Ligar a uma demanda existente (${rotulo})`} value={ligar} onChange={(e) => setLigar(e.target.value)}>
-                      <option value="">Escolha…</option>
-                      {livres.map((d) => <option key={d.id} value={d.id}>{d.titulo}</option>)}
-                    </select>
-                  </label>
-                  <button type="button" className="botao botao--pequeno" disabled={!ligar} aria-label={`Ligar demanda ao ${rotulo}`} onClick={ligarDemanda}>Ligar</button>
-                </>
-              )}
-            </div>
-          )}
-          <details className="mais-acoes">
-            <summary>Mais</summary>
-            <div className="acoes acoes--base">
-              {cancelado && <button type="button" className="botao botao--pequeno" aria-label={`Reativar ${rotulo}`} onClick={reativar}>Reativar</button>}
-              {!cancelado && !ponto.reprogramado && !ponto.resultado && (
-                <button type="button" className="botao botao--pequeno" aria-label={`Cancelar vistoria do ${rotulo}`} onClick={() => { setErro(null); setMotivoCancelamento(''); setModo('cancelar'); }}>Cancelar vistoria</button>
-              )}
-              <button
-                type="button" className="botao botao--pequeno botao--discreto" aria-label={`Excluir ${rotulo}`}
-                onClick={() => { if (window.confirm(`Excluir o ${rotulo}? Esta ação não pode ser desfeita. Para tirar o ponto da operação sem perder o histórico, prefira "Cancelar vistoria".`)) excluirPonto(operacao.id, ponto.id); }}
-              >Excluir ponto</button>
-            </div>
-          </details>
+          </div>
         </>
       )}
 
+      </div>
+      <div className="ponto-rodape">
+          {pontoTravado(ponto) && (
+            <button type="button" className="botao botao--pequeno" aria-label={`Destravar ${rotulo}`} onClick={() => setErro(destravarPonto(operacao.id, ponto.id))}>Destravar</button>
+          )}
+          {modo === 'ver' && fase === 'campo' && (
+            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar resultado do ${rotulo}`} onClick={() => { setErro(null); setModo('resultado'); }}>Registrar resultado</button>
+          )}
+          {modo === 'ver' && situacao === 'a-reprogramar' && (
+            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Reprogramar ${rotulo}`} onClick={() => { setErro(null); setDestinoReprog(''); setModo('reprogramar'); }}>Reprogramar</button>
+          )}
+          {modo === 'ver' && fase === 'elaboracao' && (
+            <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Registrar relatório no SIGA do ${rotulo}`} onClick={abrirRelatorio}>Registrar relatório no SIGA</button>
+          )}
       </div>
     </li>
   );
@@ -976,12 +1062,13 @@ function PeriodoOperacao({ operacao }: { operacao: Operacao }) {
 
 // ---------- Pendências de campo (não deixar acumular) ----------
 
+// TODO: este aviso (dentro da operação aberta) ainda usa o texto longo antigo; alinhar ao formato da lista (título + linhas) quando for pedido.
 function textoPendencias(semResultado: number, aReprogramar: number, relatorioAtrasado = 0, travados = 0): string {
   const partes = [
-    semResultado ? `${semResultado} ponto(s) sem resultado depois do retorno da viagem` : '',
-    relatorioAtrasado ? `${relatorioAtrasado} ponto(s) com o relatório (SIGA-MT) atrasado` : '',
-    aReprogramar ? `${aReprogramar} ponto(s) não fiscalizado(s) a reprogramar` : '',
-    travados ? `${travados} ponto(s) travado(s)` : '',
+    semResultado ? `${plural(semResultado, 'ponto sem resultado', 'pontos sem resultado')} depois do retorno da viagem` : '',
+    relatorioAtrasado ? `${plural(relatorioAtrasado, 'ponto com o relatório (SIGA-MT) atrasado', 'pontos com o relatório (SIGA-MT) atrasado')}` : '',
+    aReprogramar ? `${plural(aReprogramar, 'ponto não fiscalizado a reprogramar', 'pontos não fiscalizados a reprogramar')}` : '',
+    travados ? `${plural(travados, 'ponto travado', 'pontos travados')}` : '',
   ].filter(Boolean);
   return `Há ${partes.join(' e ')}. O bloqueio não suspende o prazo: resolva o motivo, registre o resultado, envie o relatório ou reprograme para não acumular.`;
 }
@@ -989,35 +1076,78 @@ function textoPendencias(semResultado: number, aReprogramar: number, relatorioAt
 const temPendencia = (p: { semResultado: unknown[]; relatorioAtrasado: unknown[]; aReprogramar: unknown[]; travados: unknown[] }) =>
   p.semResultado.length + p.relatorioAtrasado.length + p.aReprogramar.length + p.travados.length > 0;
 
-/** Pontos travados, do bloqueio mais antigo ao mais recente, com o motivo e há quantos dias; agrupados por operação quando `agrupar`. */
-function PontosTravados({ travados, hoje, agrupar }: { travados: readonly PendenciaDeCampo[]; hoje: string; agrupar: boolean }) {
+/** Pontos travados da operação aberta, do bloqueio mais antigo ao mais recente, com o motivo e há quantos dias. */
+function PontosTravados({ travados, hoje }: { travados: readonly PendenciaDeCampo[]; hoje: string }) {
   if (travados.length === 0) return null;
-  const linha = (x: PendenciaDeCampo) => (
-    <li key={x.ponto.id} className="texto-pequeno" data-testid={`travado-${x.ponto.id}`}>
-      {rotuloDoPonto(x.ponto)} — {MOTIVOS_BLOQUEIO[x.ponto.bloqueio!.motivo]} · {textoParado(diasParado(x.ponto.bloqueio!, hoje))}
-    </li>
-  );
-  const grupos = [...new Map(travados.map((x) => [x.operacao.id, x.operacao.nome])).entries()];
   return (
     <div data-testid="pontos-travados">
       <p className="texto-pequeno"><strong>Travados</strong> (parados desde a data do bloqueio):</p>
-      {agrupar ? (
-        <ul className="lista-limpa" aria-label="Pontos travados">
-          {grupos.map(([id, nome]) => (
-            <li key={id} className="texto-pequeno" data-testid={`travados-${id}`}>
-              Operação {nome}
-              <ul className="lista-limpa">{travados.filter((x) => x.operacao.id === id).map(linha)}</ul>
+      <ul className="lista-limpa" aria-label="Pontos travados">
+        {travados.map((x) => (
+          <li key={x.ponto.id} className="texto-pequeno" data-testid={`travado-${x.ponto.id}`}>
+            {rotuloDoPonto(x.ponto)} — {MOTIVOS_BLOQUEIO[x.ponto.bloqueio!.motivo]} · {textoParado(diasParado(x.ponto.bloqueio!, hoje))}
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+/** Aviso do mascote na lista: uma linha por operação (nome | contagens | Abrir), as 3 com mais pendências primeiro, e os travados com Abrir direto no ponto. */
+function PendenciasDoMascote({ operacoes, pendencias, hoje, aoAbrir }: {
+  operacoes: readonly Operacao[]; pendencias: ReturnType<typeof pendenciasDeCampo>; hoje: string; aoAbrir: (operacaoId: string, pontoId?: string) => void;
+}) {
+  const [todas, setTodas] = useState(false);
+  const linhas = operacoes
+    .map((o) => {
+      const de = (l: readonly PendenciaDeCampo[]) => l.filter((x) => x.operacao.id === o.id).length;
+      const partes = ([
+        [de(pendencias.semResultado), 'sem resultado', 'sem resultado'], [de(pendencias.relatorioAtrasado), 'relatório atrasado', 'relatórios atrasados'], [de(pendencias.aReprogramar), 'a reprogramar', 'a reprogramar'],
+      ] as const).filter(([n]) => n > 0);
+      return { o, partes, n: partes.reduce((t, [n]) => t + n, 0) };
+    })
+    .filter((x) => x.n > 0)
+    .sort((a, b) => b.n - a.n || a.o.nome.localeCompare(b.o.nome, 'pt-BR'));
+  const visiveis = todas ? linhas : linhas.slice(0, 3);
+  return (
+    <FalaMascote id="pendencias-campo">
+      <p id="pendencias-campo-titulo"><strong>Pendências pós-campo</strong> · O bloqueio não suspende o prazo. Resolva o motivo, registre o resultado ou reprograme.</p>
+      {linhas.length > 0 && (
+        <ul className="lista-limpa pendencias-lista" aria-label="Operações com pendências">
+          {visiveis.map(({ o, partes }) => (
+            <li key={o.id} className="pendencia-linha texto-pequeno" data-testid={`pendencia-${o.id}`}>
+              <strong>{o.nome}</strong>
+              <span>{partes.map(([n, um, varios], i) => <span key={um} className="sem-quebra">{i > 0 && ' · '}{plural(n, um, varios)}</span>)}</span>
+              <button type="button" className="botao botao--pequeno" aria-label={`Abrir ${o.nome} (pendências)`} onClick={() => aoAbrir(o.id)}>Abrir</button>
             </li>
           ))}
         </ul>
-      ) : <ul className="lista-limpa" aria-label="Pontos travados">{travados.map(linha)}</ul>}
-    </div>
+      )}
+      {linhas.length > 3 && <button type="button" className="botao botao--pequeno" onClick={() => setTodas(!todas)}>{todas ? 'Ver só as 3 primeiras' : `Ver todas (${linhas.length})`}</button>}
+      {pendencias.travados.length > 0 && (
+        <div data-testid="pontos-travados">
+          <p className="texto-pequeno"><strong>Travados</strong></p>
+          <ul className="lista-limpa pendencias-lista" aria-label="Pontos travados">
+            {pendencias.travados.map((x) => {
+              const dias = diasParado(x.ponto.bloqueio!, hoje);
+              return (
+                <li key={x.ponto.id} className="pendencia-linha texto-pequeno" data-testid={`travado-${x.ponto.id}`}>
+                  <span>{rotuloDoPonto(x.ponto)} · {x.operacao.nome} · {MOTIVOS_BLOQUEIO[x.ponto.bloqueio!.motivo]}</span>
+                  <span className="sem-quebra">{dias === 0 ? 'hoje' : `há ${plural(dias, 'dia', 'dias')}`}</span>
+                  <button type="button" className="botao botao--pequeno" aria-label={`Abrir ${rotuloDoPonto(x.ponto)} em ${x.operacao.nome}`} onClick={() => aoAbrir(x.operacao.id, x.ponto.id)}>Abrir</button>
+                </li>
+              );
+            })}
+          </ul>
+        </div>
+      )}
+    </FalaMascote>
   );
 }
 
 const textoSelo = (pr: ProgressoDaOperacao) =>
   pr.selo === 'campo-encerrado'
-    ? `Campo encerrado${pr.emElaboracao ? ` · ${pr.emElaboracao} em elaboração` : ''}${pr.travados ? ` · ${pr.travados} travado(s)` : ''}`
+    ? `Campo encerrado${pr.emElaboracao ? ` · ${pr.emElaboracao} em elaboração` : ''}${pr.travados ? ` · ${plural(pr.travados, 'travado', 'travados')}` : ''}`
     : ROTULO_SELO[pr.selo];
 
 function Reprogramar({ operacoes, item }: { operacoes: readonly Operacao[]; item: { operacao: Operacao; ponto: Ponto } }) {
@@ -1064,6 +1194,38 @@ function SetorOperacao({ operacao, todas }: { operacao: Operacao; todas: readonl
   );
 }
 
+// ---------- Origem do alerta e apoio (texto do relatório; a unidade é o setor) ----------
+
+function OrigemEApoio({ operacao }: { operacao: Operacao }) {
+  const [tipo, setTipo] = useState<TipoOrigemAlerta | ''>(operacao.origemAlerta?.tipo ?? '');
+  const [detalhe, setDetalhe] = useState(operacao.origemAlerta?.detalhe ?? '');
+  const [apoio, setApoio] = useState(operacao.apoio ?? '');
+  const [erro, setErro] = useState<string | null>(null);
+  const alterado = tipo !== (operacao.origemAlerta?.tipo ?? '') || (tipo ? detalhe.trim() : '') !== (operacao.origemAlerta?.detalhe ?? '') || apoio.trim() !== (operacao.apoio ?? '');
+  usePendente(alterado);
+  const salvar = (e: FormEvent) => {
+    e.preventDefault();
+    setErro(definirOrigemEApoio(operacao.id, tipo ? { tipo, ...(detalhe.trim() ? { detalhe } : {}) } : undefined, apoio));
+  };
+  return (
+    <form onSubmit={salvar} className="acoes acoes--base" noValidate aria-label="Origem do alerta e apoio">
+      <label className="campo-grupo campo-grupo--curto"><span>Origem do alerta</span>
+        <select className="campo" value={tipo} onChange={(e) => setTipo(e.target.value as TipoOrigemAlerta | '')}>
+          <option value="">Não informada</option>
+          {(Object.keys(ORIGENS_ALERTA) as TipoOrigemAlerta[]).map((k) => <option key={k} value={k}>{ORIGENS_ALERTA[k]}</option>)}
+        </select></label>
+      {(tipo === 'requisicao' || tipo === 'outra') && (
+        <label className="campo-grupo campo-grupo--curto"><span>{tipo === 'requisicao' ? 'Órgão que requisitou' : 'Especificar a origem'}</span>
+          <input className="campo" value={detalhe} maxLength={LIMITES_OPERACAO.apoio} autoComplete="off" onChange={(e) => setDetalhe(e.target.value)} /></label>
+      )}
+      <label className="campo-grupo campo-grupo--curto"><span>Apoio (opcional)</span>
+        <input className="campo" value={apoio} maxLength={LIMITES_OPERACAO.apoio} autoComplete="off" placeholder="Ex.: Polícia Militar" onChange={(e) => setApoio(e.target.value)} /></label>
+      <button type="submit" className="botao botao--pequeno" disabled={!alterado}>Salvar origem e apoio</button>
+      {erro && <span role="alert" className="erro-campo">{erro}</span>}
+    </form>
+  );
+}
+
 // ---------- Histórico do pedido ----------
 
 const dataHora = (iso: string) => new Date(iso).toLocaleString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit' });
@@ -1090,7 +1252,7 @@ function HistoricoDoPedido({ operacao }: { operacao: Operacao }) {
 
 // ---------- Uma operação ----------
 
-function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Operacao; todas: readonly Operacao[]; aoVoltar: () => void; agora: () => Date }) {
+function DetalheOperacao({ operacao, todas, aoVoltar, agora, pontoAlvo }: { operacao: Operacao; todas: readonly Operacao[]; aoVoltar: () => void; agora: () => Date; pontoAlvo?: string }) {
   const [viagemFiltro, setViagemFiltro] = useState('');
   const [situacao, setSituacao] = useState<'' | SituacaoAcompanhamento>('');
   const [soPendentes, setSoPendentes] = useState(false);
@@ -1102,14 +1264,15 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
   const [erroLote, setErroLote] = useState<string | null>(null);
   const [avisoLote, setAvisoLote] = useState<string | null>(null);
   // Cartões dos pontos recolhidos por padrão.
-  const [expandidos, setExpandidos] = useState<ReadonlySet<string>>(new Set());
+  const [expandidos, setExpandidos] = useState<ReadonlySet<string>>(new Set(pontoAlvo ? [pontoAlvo] : []));
+  useEffect(() => { if (pontoAlvo) document.getElementById(`ponto-${pontoAlvo}`)?.scrollIntoView?.(); }, [pontoAlvo]);
   const definirAbertos = (ids: readonly string[], aberto: boolean) =>
     setExpandidos((s) => { const n = new Set(s); for (const id of ids) { if (aberto) n.add(id); else n.delete(id); } return n; });
 
   // Sem pontos, a importação já vem aberta (valor fixo: o React não fecha o bloco depois de importar).
   const [importacaoAberta] = useState(operacao.pontos.length === 0);
   const hoje = dataLocal(agora());
-  const tiposDeDano = useMemo(() => limparNomes(todas.flatMap((o) => o.pontos.map((p) => p.tipoDano ?? '')), LIMITES_OPERACAO.tipoDano).sort((a, b) => a.localeCompare(b, 'pt-BR')), [todas]);
+  const tiposDeDano = useMemo(() => limparNomes([...TIPOS_DANO_AGROTOXICO, ...todas.flatMap((o) => o.pontos.map((p) => p.tipoDano ?? ''))], LIMITES_OPERACAO.tipoDano).sort((a, b) => a.localeCompare(b, 'pt-BR')), [todas]);
   const { demandas: todasDemandas } = useEstadoDemandas();
   const prazos = prazosDeElaboracao(todasDemandas);
   const pendencias = pendenciasDeCampo([operacao], hoje, prazos);
@@ -1132,12 +1295,12 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
   const secoes = organizar === 'grupo'
     ? agruparPontos(visiveis, (p) => viagemDoPonto(operacao, p)?.equipe).map((g) => ({
         chave: `grupo-${g.nome || 'sem'}`, titulo: g.nome || 'Sem grupo',
-        detalhe: `${g.pontos.length} ponto(s)${g.equipes.length ? ` · ${g.equipes.join(', ')}` : ''}`, pontos: g.pontos,
+        detalhe: `${plural(g.pontos.length, 'ponto', 'pontos')}${g.equipes.length ? ` · ${g.equipes.join(', ')}` : ''}`, pontos: g.pontos,
         rotulo: g.nome ? `Grupo ${g.nome}` : 'Pontos sem grupo',
       }))
     : operacao.viagens.length === 0 ? [] : pontosPorViagem(operacao, visiveis).map((s) => ({
         chave: `viagem-${s.viagem?.id ?? 'sem'}`, titulo: s.viagem ? textoViagem(s.viagem) : 'Sem viagem',
-        detalhe: `${s.pontos.length} ponto(s)${s.viagem ? ` · ${[...new Set(s.pontos.map((p) => p.municipio).filter(Boolean))].join(', ')}` : ''}`, pontos: s.pontos,
+        detalhe: `${plural(s.pontos.length, 'ponto', 'pontos')}${s.viagem ? ` · ${[...new Set(s.pontos.map((p) => p.municipio).filter(Boolean))].join(', ')}` : ''}`, pontos: s.pontos,
         rotulo: s.viagem ? `Viagem ${textoViagem(s.viagem)}` : 'Pontos sem viagem',
       }));
   // Só o que ainda existe e está visível continua selecionado.
@@ -1152,25 +1315,26 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
 
   return (
     <article aria-labelledby="titulo-operacao">
-      <div className="acoes"><button type="button" className="botao" onClick={aoVoltar}>Voltar às operações</button></div>
+      <div className="acoes"><button type="button" className="botao" onClick={() => { if (confirmarSaida()) aoVoltar(); }}>Voltar às operações</button></div>
       <h2 id="titulo-operacao" className="titulo-secao">{operacao.nome}</h2>
       <p className="texto-suave texto-medio">
         <span data-testid="periodo-operacao">{textoPeriodo(operacao)}</span>{operacao.origem && <> · encaminhada por {operacao.origem}</>}
       </p>
       <PeriodoOperacao key={`${operacao.inicio ?? ''}|${operacao.fim ?? ''}`} operacao={operacao} />
       <SetorOperacao key={operacao.setor ?? ''} operacao={operacao} todas={todas} />
+      <OrigemEApoio key={`${operacao.origemAlerta?.tipo ?? ''}|${operacao.origemAlerta?.detalhe ?? ''}|${operacao.apoio ?? ''}`} operacao={operacao} />
       <HistoricoDoPedido operacao={operacao} />
       <p data-testid="resumo-operacao">
-        {operacao.pontos.length} ponto(s) · <span className={semViagem ? 'texto--atencao' : ''}>{semViagem} sem viagem</span> ·{' '}
-        {operacao.viagens.length} viagem(ns){incompletas > 0 && <> · <span className="texto--atencao">{incompletas} incompleta(s)</span></>} ·{' '}
-        {finalizados} finalizado(s)
+        {plural(operacao.pontos.length, 'ponto', 'pontos')} · {semViagem > 0 && <><span className="texto--atencao">{semViagem} sem viagem</span> · </>}
+        {plural(operacao.viagens.length, 'viagem', 'viagens')}{incompletas > 0 && <> · <span className="texto--atencao">{plural(incompletas, 'incompleta', 'incompletas')}</span></>} ·{' '}
+        {plural(finalizados, 'finalizado', 'finalizados')}
         {pendencias.aReprogramar.length > 0 && <> · <span className="texto--atencao">{pendencias.aReprogramar.length} a reprogramar</span></>}
         {progresso.selo === 'encerrada' && <> · <strong className="selo-situacao selo-situacao--ok" data-testid="operacao-encerrada">operação encerrada</strong></>}
         {progresso.selo === 'campo-encerrado' && <> · <strong className="selo-situacao selo-situacao--atencao" data-testid="campo-encerrado">{textoSelo(progresso)}</strong></>}
       </p>
       {semCodigo > 0 && (
         <div className="aviso" data-testid="sem-codigo">
-          <p>{semCodigo} ponto(s) sem código {!previaCodigos && <button type="button" className="botao botao--pequeno" onClick={() => setPreviaCodigos(true)}>Gerar códigos</button>}</p>
+          <p>{plural(semCodigo, 'ponto sem código', 'pontos sem código')} {!previaCodigos && <button type="button" className="botao botao--pequeno" onClick={() => setPreviaCodigos(true)}>Gerar códigos</button>}</p>
           {previaCodigos && (
             <>
               <ul className="lista-limpa" aria-label="Códigos a gerar">
@@ -1178,7 +1342,7 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
                 {planoCodigos.fora.map((f) => <li key={f.pontoId} className="texto-pequeno texto--atencao">{f.rotulo}: não entra — {f.motivo}.</li>)}
               </ul>
               <div className="acoes">
-                {planoCodigos.gerar.length > 0 && <button type="button" className="botao botao--primario botao--pequeno" onClick={() => { gerarCodigos(operacao.id); setPreviaCodigos(false); }}>Confirmar {planoCodigos.gerar.length} código(s)</button>}
+                {planoCodigos.gerar.length > 0 && <button type="button" className="botao botao--primario botao--pequeno" onClick={() => { gerarCodigos(operacao.id); setPreviaCodigos(false); }}>Confirmar {plural(planoCodigos.gerar.length, 'código', 'códigos')}</button>}
                 <button type="button" className="botao botao--pequeno" onClick={() => setPreviaCodigos(false)}>Cancelar</button>
               </div>
             </>
@@ -1190,7 +1354,7 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
           <p id="pendencias-operacao-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length, pendencias.relatorioAtrasado.length, pendencias.travados.length)}</p>
           {pendencias.semResultado.length > 0 && <p className="texto-pequeno">Sem resultado: {pendencias.semResultado.map((x) => rotuloDoPonto(x.ponto)).join(', ')}.</p>}
           {pendencias.relatorioAtrasado.length > 0 && <p className="texto-pequeno">Relatório atrasado: {pendencias.relatorioAtrasado.map((x) => rotuloDoPonto(x.ponto)).join(', ')}.</p>}
-          <PontosTravados travados={pendencias.travados} hoje={hoje} agrupar={false} />
+          <PontosTravados travados={pendencias.travados} hoje={hoje} />
           {pendencias.aReprogramar.length > 0 && (
             <ul className="lista-limpa" aria-label="Pontos a reprogramar">
               {pendencias.aReprogramar.map((x) => <Reprogramar key={x.ponto.id} operacoes={todas} item={x} />)}
@@ -1241,7 +1405,7 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
             (por exemplo, vários pontos da mesma fazenda); viagem e grupo são independentes.
           </p>
           <div className="acoes">
-            <span data-testid="contagem-selecionados">{marcados.length} ponto(s) selecionado(s)</span>
+            <span data-testid="contagem-selecionados">{plural(marcados.length, 'ponto selecionado', 'pontos selecionados')}</span>
             <button type="button" className="botao botao--pequeno" disabled={visiveis.length === 0} onClick={() => setSelecionados(new Set(visiveis.map((p) => p.id)))}>Selecionar todos os visíveis</button>
             <button type="button" className="botao botao--pequeno" disabled={marcados.length === 0} onClick={() => setSelecionados(new Set())}>Limpar seleção</button>
           </div>
@@ -1287,16 +1451,22 @@ function DetalheOperacao({ operacao, todas, aoVoltar, agora }: { operacao: Opera
       ) : visiveis.length === 0 ? (
         <EstadoVazio cartao texto="Nenhum ponto corresponde aos filtros." dica="Mude ou limpe os filtros." />
       ) : secoes.length === 0 ? (
-        <ul className="lista-limpa grade grade--2 grade--topo" aria-label="Pontos da operação">{visiveis.map(cartao)}</ul>
+        <ul className="lista-limpa grade grade--2 grade--pontos" aria-label="Pontos da operação">{visiveis.map(cartao)}</ul>
       ) : (
         secoes.map((s) => (
           <section key={s.chave} aria-label={s.rotulo} data-testid={`secao-${s.chave}`}>
             <h3 className="titulo-secao">{s.titulo} <span className="texto-pequeno texto-suave">· {s.detalhe}</span></h3>
             <div className="acoes acoes--sem-margem">
-              <button type="button" className="botao botao--pequeno botao--icone" aria-label={`Expandir pontos da ${s.rotulo}`} title="Expandir pontos" onClick={() => definirAbertos(s.pontos.map((p) => p.id), true)}><span aria-hidden="true">▾</span></button>
-              <button type="button" className="botao botao--pequeno botao--icone" aria-label={`Recolher pontos da ${s.rotulo}`} title="Recolher pontos" onClick={() => definirAbertos(s.pontos.map((p) => p.id), false)}><span aria-hidden="true">▴</span></button>
+              {(() => {
+                const tudo = s.pontos.every((p) => expandidos.has(p.id));
+                return (
+                  <button type="button" className="botao botao--pequeno" aria-expanded={tudo} aria-label={`${tudo ? 'Recolher' : 'Expandir'} pontos da ${s.rotulo}`} onClick={() => definirAbertos(s.pontos.map((p) => p.id), !tudo)}>
+                    <span aria-hidden="true">{tudo ? '▾' : '▸'}</span> {tudo ? 'Recolher' : 'Expandir'} pontos
+                  </button>
+                );
+              })()}
             </div>
-            <ul className="lista-limpa grade grade--2 grade--topo" aria-label={s.rotulo}>{s.pontos.map(cartao)}</ul>
+            <ul className="lista-limpa grade grade--2 grade--pontos" aria-label={s.rotulo}>{s.pontos.map(cartao)}</ul>
           </section>
         ))
       )}
@@ -1384,7 +1554,7 @@ function NovaOperacao({ operacoes, agora, aoCriar }: { operacoes: readonly Opera
           )}
           {erro && <span role="alert" className="erro-campo">{erro}</span>}
           <div className="acoes">
-            {validos.length > 0 && <button type="submit" className="botao botao--primario">Criar operação com {validos.length} ponto(s)</button>}
+            {validos.length > 0 && <button type="submit" className="botao botao--primario">Criar operação com {plural(validos.length, 'ponto', 'pontos')}</button>}
             <button type="button" className="botao" onClick={() => { setPrevia(null); setErro(null); }}>Cancelar</button>
           </div>
         </form>
@@ -1438,21 +1608,115 @@ function PrazoDoRelatorio({ aoMudar }: { aoMudar: () => void }) {
 
 // ---------- Lista ----------
 
-const ROTULO_SELO = { planejada: 'planejada', 'em-andamento': 'em andamento', pendente: 'pendente', 'campo-encerrado': 'campo encerrado', encerrada: 'encerrada' } as const;
-const CLASSE_SELO = { planejada: '', 'em-andamento': '', pendente: ' selo-situacao--atencao', 'campo-encerrado': ' selo-situacao--atencao', encerrada: ' selo-situacao--ok' } as const;
-const ORDEM_SELO = ['pendente', 'campo-encerrado', 'em-andamento', 'planejada', 'encerrada'] as const;
+const ROTULO_FASE_OPERACAO: Record<FaseDaOperacao, string> = { planejada: 'Planejada', 'em-campo': 'Em campo', 'pos-campo': 'Pós-campo', concluida: 'Concluída' };
+const CLASSE_FASE: Record<FaseDaOperacao, string> = { planejada: '', 'em-campo': '', 'pos-campo': ' selo-situacao--atencao', concluida: ' selo-situacao--ok' };
 
-/** Pendente, em andamento, planejada, encerrada; dentro de cada uma, pelo início (sem início por último). */
+/** Duas linhas com barra: "Campo" (resolvidos em campo, vencidos, a reprogramar) e "Relatório" (encerrados, em elaboração, travados). Só contagens maiores que zero. */
+function ProgressoDoCard({ operacao, pr, hoje }: { operacao: Operacao; pr: ProgressoDaOperacao; hoje: string }) {
+  const c = progressoDeCampo(operacao, hoje);
+  const linha = (rotulo: string, valor: number, alertas: [number, string, string, boolean][]) => (
+    <div className="linha-progresso">
+      <span className="rotulo-progresso">{rotulo}</span>
+      <progress max={pr.total} value={valor} aria-label={`${rotulo} de ${operacao.nome}`} />
+      <span className="sem-quebra">{valor} de {pr.total}</span>
+      {alertas.filter(([n]) => n > 0).map(([n, um, varios, atencao]) => <span key={um} className={`sem-quebra${atencao ? ' texto--atencao' : ''}`}>· {plural(n, um, varios)}</span>)}
+    </div>
+  );
+  return (
+    <div className="texto-pequeno" data-testid={`progresso-${operacao.id}`}>
+      {linha('Campo', c.feitos, [[c.vencidos, 'vencido', 'vencidos', true], [c.aReprogramar, 'a reprogramar', 'a reprogramar', true]])}
+      {linha('Relatório', pr.encerrados, [[pr.emElaboracao, 'em elaboração', 'em elaboração', false], [pr.travados, 'travado', 'travados', true]])}
+    </div>
+  );
+}
+
+const ROTULO_SELO = { planejada: 'planejada', 'em-andamento': 'em andamento', pendente: 'pendente', 'campo-encerrado': 'campo encerrado', encerrada: 'encerrada' } as const;
+const ORDEM_FASE: readonly FaseDaOperacao[] = ['pos-campo', 'em-campo', 'planejada', 'concluida'];
+
+/** Pós-campo, em campo, planejada, concluída (a fase do selo do card); dentro de cada uma, pelo início (sem início por último). */
 function ordenarOperacoes(operacoes: readonly Operacao[], hoje: string, prazos: PrazosDeElaboracao) {
   return operacoes
     .map((o) => ({ o, progresso: progressoDaOperacao(o, hoje, prazos) }))
-    .sort((a, b) => ORDEM_SELO.indexOf(a.progresso.selo) - ORDEM_SELO.indexOf(b.progresso.selo) || (a.o.inicio ?? '9999').localeCompare(b.o.inicio ?? '9999'));
+    .sort((a, b) => ORDEM_FASE.indexOf(faseDaOperacao(a.o, hoje)) - ORDEM_FASE.indexOf(faseDaOperacao(b.o, hoje)) || (a.o.inicio ?? '9999').localeCompare(b.o.inicio ?? '9999'));
+}
+
+/** Botão "Gerar roteiro" do card: avisa de cronograma antigo e pendências, mas nunca bloqueia; várias viagens pedem a escolha de uma. */
+function GerarRoteiroDoCard({ operacao, pr, demandas, hoje, aoAtualizarCronograma }: { operacao: Operacao; pr: ProgressoDaOperacao; demandas: readonly DemandaDoRoteiro[]; hoje: string; aoAtualizarCronograma: () => void }) {
+  const viagens = ordenarViagens(operacao.viagens);
+  const [aberto, setAberto] = useState(false);
+  // Pré-seleciona a próxima viagem (saída mais próxima de hoje, daqui para a frente); sem nenhuma, a primeira.
+  const [viagemId, setViagemId] = useState((viagens.find((v) => (v.saida ?? '') >= hoje) ?? viagens[0])?.id ?? '');
+  const antigo = cronogramaDesatualizado(operacao);
+  const desde = operacao.cronogramaAtualizadoEm ?? operacao.criadaEm;
+  const dica = viagens.length === 0 ? 'Cronograma ainda não preenchido' : `Cronograma não atualizado desde ${dataLocal(new Date(desde)).split('-').reverse().join('/')}`;
+  const pendencias = [
+    pr.travados > 0 && plural(pr.travados, 'travado', 'travados'),
+    pr.vencidos > 0 && plural(pr.vencidos, 'vencido', 'vencidos'),
+    pr.porSituacao['a-reprogramar'] > 0 && `${pr.porSituacao['a-reprogramar']} a reprogramar`,
+  ].filter(Boolean).join(' · ');
+  const gerar = () => {
+    setAberto(false);
+    const v = viagens.find((x) => x.id === viagemId) ?? viagens[0];
+    if (v) void abrirRoteiroDaViagem(operacao, v, demandas);
+  };
+  const aoClicar = () => { if (antigo || pendencias || viagens.length > 1) setAberto(true); else gerar(); };
+  const idCampo = `viagem-roteiro-${operacao.id}`;
+  const qtdPontos = (id: string) => operacao.pontos.filter((p) => p.viagem === id && p.situacao !== 'cancelado').length;
+  return (
+    <>
+      <button type="button" className="botao botao--pequeno" aria-label={`Gerar roteiro de ${operacao.nome}`} title={antigo ? dica : undefined} onClick={aoClicar}>
+        {antigo && <span aria-hidden="true">⚠ </span>}Gerar roteiro
+      </button>
+      {aberto && createPortal(
+        <Gaveta rotulo="Gerar roteiro" rotuloFechar="Cancelar" aoFechar={() => setAberto(false)} dialogo topo={<strong>Gerar roteiro</strong>}>
+          <form onSubmit={(e) => { e.preventDefault(); if (viagens.length > 0) gerar(); }}>
+            <div className="gaveta-corpo">
+            {antigo && (
+              <p role="alert" className="aviso">
+                {viagens.length === 0 ? 'O cronograma ainda não foi preenchido: não há viagem para o roteiro.' : 'O cronograma não foi atualizado após as últimas alterações nas viagens. O roteiro pode sair com informações antigas.'}
+              </p>
+            )}
+            {pendencias && <p className="texto-pequeno texto--atencao">{pendencias}</p>}
+            {viagens.length > 1 && (
+              <>
+                <p className="texto-pequeno">Esta operação tem {viagens.length} viagens. Escolha qual roteiro gerar.</p>
+                <div className="campo-grupo">
+                  <label htmlFor={idCampo}>Viagem</label>
+                  <select id={idCampo} className="campo" value={viagemId} onChange={(e) => setViagemId(e.target.value)}>
+                    {viagens.map((v) => <option key={v.id} value={v.id}>{textoViagem(v)} · {qtdPontos(v.id)} {qtdPontos(v.id) === 1 ? 'ponto' : 'pontos'}</option>)}
+                  </select>
+                </div>
+              </>
+            )}
+            </div>
+            <div className="gaveta-rodape"><div className="acoes acoes--rodape acoes--fim">
+              {antigo ? (
+                <>
+                  <button type="button" className="botao" onClick={() => { setAberto(false); aoAtualizarCronograma(); }}>Atualizar cronograma</button>
+                  {viagens.length > 0 && <button type="button" className="botao" onClick={() => { conferirCronograma(operacao.id); gerar(); }}>O cronograma está certo</button>}
+                  {viagens.length > 0 && <button type="submit" className="botao botao--primario" data-foco>Gerar mesmo assim</button>}
+                </>
+              ) : (
+                <>
+                  <button type="button" className="botao" onClick={() => setAberto(false)}>Cancelar</button>
+                  <button type="submit" className="botao botao--primario" data-foco>Gerar roteiro</button>
+                </>
+              )}
+            </div></div>
+          </form>
+        </Gaveta>,
+        document.body,
+      )}
+    </>
+  );
 }
 
 export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) {
   const operacoes = useOperacoes();
   const soNaMemoria = useOperacoesSoNaMemoria();
+  const naQuarentena = useQuarentena().length;
   const [aberta, setAberta] = useState<string | null>(null);
+  const [alvo, setAlvo] = useState<string | null>(null); // ponto a abrir direto (vindo dos Travados)
   // Rota "#/operacoes?abrir=<id>" (botão "Abrir <operação>" do assistente): abre o detalhe e limpa o endereço.
   useEffect(() => {
     const abrirDaRota = () => {
@@ -1471,9 +1735,6 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
   const [, setVersaoPrazo] = useState(0);
   const prazos = prazosDeElaboracao(demandas);
   const pendencias = pendenciasDeCampo(operacoes, hoje, prazos);
-  const porOperacao = operacoes
-    .map((operacao) => ({ operacao, n: [...pendencias.semResultado, ...pendencias.relatorioAtrasado, ...pendencias.aReprogramar].filter((x) => x.operacao.id === operacao.id).length }))
-    .filter((x) => x.n > 0);
   const ordenadas = ordenarOperacoes(operacoes, hoje, prazos);
 
   return (
@@ -1484,28 +1745,21 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
           Este navegador não deixou gravar as operações (armazenamento bloqueado, cheio ou em modo privado). As mudanças valem só até fechar a página.
         </p>
       )}
+      {naQuarentena > 0 && (
+        <p role="alert" className="aviso" data-testid="aviso-quarentena-global">
+          {plural(naQuarentena, 'conteúdo de operação não pôde ser lido e está guardado', 'conteúdos de operações não puderam ser lidos e estão guardados')}, sem apagar.{' '}
+          <a href="#/configuracoes">Ver em Configurações</a>
+        </p>
+      )}
       {emDetalhe ? (
-        <DetalheOperacao operacao={emDetalhe} todas={operacoes} aoVoltar={() => setAberta(null)} agora={agora} />
+        <DetalheOperacao operacao={emDetalhe} todas={operacoes} aoVoltar={() => { setAberta(null); setAlvo(null); }} agora={agora} pontoAlvo={alvo ?? undefined} />
       ) : (
         <>
           <p className="texto-suave texto-medio">
             Fiscalizações encaminhadas por terceiros, com lista de pontos para vistoria. Os dados ficam só neste navegador:
             use dados reais apenas depois de classificação e autorização institucional.
           </p>
-          {temPendencia(pendencias) && (
-            <FalaMascote id="pendencias-campo">
-              <p id="pendencias-campo-titulo">{textoPendencias(pendencias.semResultado.length, pendencias.aReprogramar.length, pendencias.relatorioAtrasado.length, pendencias.travados.length)}</p>
-              <ul className="lista-limpa" aria-label="Operações com pendências">
-                {porOperacao.map(({ operacao, n }) => (
-                  <li key={operacao.id} className="texto-pequeno" data-testid={`pendencia-${operacao.id}`}>
-                    Operação {operacao.nome}: {n} ponto(s){' '}
-                    <button type="button" className="botao botao--pequeno" aria-label={`Abrir ${operacao.nome} (pendências)`} onClick={() => setAberta(operacao.id)}>Abrir</button>
-                  </li>
-                ))}
-              </ul>
-              <PontosTravados travados={pendencias.travados} hoje={hoje} agrupar />
-            </FalaMascote>
-          )}
+          {temPendencia(pendencias) && <PendenciasDoMascote operacoes={operacoes} pendencias={pendencias} hoje={hoje} aoAbrir={(op, ponto) => { setAlvo(ponto ?? null); setAberta(op); }} />}
           <PrazoDoRelatorio aoMudar={() => setVersaoPrazo((v) => v + 1)} />
           <NovaOperacao operacoes={operacoes} agora={agora} aoCriar={setAberta} />
 
@@ -1514,29 +1768,24 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
           ) : (
             <ul className="lista-limpa grade grade--2" aria-label="Lista de operações">
               {ordenadas.map(({ o, progresso: pr }) => (
-                <li key={o.id} className="cartao" data-testid={`operacao-${o.id}`}>
+                <li key={o.id} className="cartao cartao--operacao" data-testid={`operacao-${o.id}`}>
                   <p className="acoes acoes--entre">
                     <strong>{o.nome}</strong>
-                    <span className={`selo-situacao${CLASSE_SELO[pr.selo]}`} data-testid={`selo-${o.id}`}>{textoSelo(pr)}</span>
+                    <span className={`selo-situacao${CLASSE_FASE[faseDaOperacao(o, hoje)]}`} data-testid={`selo-${o.id}`}>{ROTULO_FASE_OPERACAO[faseDaOperacao(o, hoje)]}</span>
                   </p>
                   <p className="texto-pequeno texto-suave">{textoPeriodo(o)}</p>
-                  <p className="texto-pequeno">{o.viagens.length} viagem(ns) · {pontosSemViagem(o).length} sem viagem</p>
-                  {pr.total > 0 && (
-                    <div data-testid={`progresso-${o.id}`}>
-                      <progress max={pr.total} value={pr.encerrados} aria-label={`Progresso de ${o.nome}`} />
-                      <p className="texto-pequeno">{pr.encerrados} de {pr.total} encerrados · {pr.aFinalizar} a finalizar{pr.emElaboracao > 0 && ` · ${pr.emElaboracao} em elaboração`}{pr.travados > 0 && <span className="texto--atencao"> · {pr.travados} travado(s)</span>}</p>
-                      <p className="texto-pequeno">
-                        {(Object.keys(SITUACOES_ACOMPANHAMENTO) as SituacaoAcompanhamento[]).filter((s) => pr.porSituacao[s] > 0).map((s, i) => (
-                          <span key={s} className={s === 'a-reprogramar' ? 'texto--atencao' : ''}>{i > 0 && ' · '}{pr.porSituacao[s]} {SITUACOES_ACOMPANHAMENTO[s]}</span>
-                        ))}
-                        {pr.vencidos > 0 && <span className="texto--atencao"> · {pr.vencidos} vencido(s)</span>}
-                      </p>
-                    </div>
-                  )}
-                  <div className="acoes">
-                    <button type="button" className="botao botao--pequeno" aria-label={`Abrir ${o.nome}`} onClick={() => setAberta(o.id)}>Abrir</button>
+                  <p className="texto-pequeno">
+                    {plural(o.viagens.length, 'viagem', 'viagens')}
+                    {pontosSemViagem(o).length > 0 && <span className="texto--atencao"> · {pontosSemViagem(o).length} sem viagem</span>}
+                  </p>
+                  {pr.total > 0 && <ProgressoDoCard operacao={o} pr={pr} hoje={hoje} />}
+                  <div className="acoes cartao-rodape">
+                    <button type="button" className="botao botao--pequeno botao--primario" aria-label={`Abrir ${o.nome}`} onClick={() => setAberta(o.id)}>Abrir</button>
+                    {podeGerarRoteiro(o, hoje) && (
+                      <GerarRoteiroDoCard operacao={o} pr={pr} demandas={demandas} hoje={hoje} aoAtualizarCronograma={() => { setAberta(o.id); setTimeout(() => document.getElementById('titulo-viagens')?.scrollIntoView?.(), 0); }} />
+                    )}
                     <button
-                      type="button" className="botao botao--pequeno botao--perigo" aria-label={`Excluir ${o.nome}`}
+                      type="button" className="botao botao--pequeno botao--perigo acoes__fim" aria-label={`Excluir ${o.nome}`}
                       onClick={() => { if (window.confirm(`Excluir a operação "${o.nome}" e seus pontos? Esta ação não pode ser desfeita.`)) excluirOperacao(o.id); }}
                     >Excluir</button>
                   </div>

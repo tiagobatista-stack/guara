@@ -193,7 +193,7 @@ describe('tela do ponto', () => {
     };
     const faltam = itensDeCampoSemResposta({}).length;
     enviar(1);
-    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent(`Há ${faltam} item(ns) de campo do POP sem resposta. Concluir mesmo assim?`);
+    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent(`Há ${faltam} ${faltam === 1 ? "item" : "itens"} de campo do POP sem resposta. Concluir mesmo assim?`);
     fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
     expect(obterOperacoes()[0].pontos[0].relatorio).toBeUndefined();
     fireEvent.click(screen.getByRole('button', { name: 'Salvar envio' }));

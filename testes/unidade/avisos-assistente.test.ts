@@ -41,16 +41,16 @@ describe('avisosDoDia', () => {
       ['E', 'parada'],
     ]);
     // A também está parada: o aviso junta os dois sinais em vez de esconder o menos urgente.
-    expect(avisos[0].texto).toBe('Demanda A: vencido há 3 dias úteis; parada há 12 dia(s) sem ação relevante.');
+    expect(avisos[0].texto).toBe('Demanda A: vencido há 3 dias úteis; parada há 12 dias sem ação relevante.');
     expect(avisos[2].texto).toBe('Demanda C: vence hoje.');
     expect(avisos[3].texto).toBe('Demanda D: faltam 3 dias úteis.');
-    expect(avisos[4].texto).toBe('Demanda E: parada há 10 dia(s) sem ação relevante.');
+    expect(avisos[4].texto).toBe('Demanda E: parada há 10 dias sem ação relevante.');
   });
 
   it('usa os feriados locais e o limiar de inatividade gravado', () => {
     // Com 17/11 como feriado local, 19/11 fica a 3 dias úteis: E passa de parada a prazo próximo (e continua parada).
     const comFeriado = avisosDoDia(demandas, AGORA, 3, { extras: ['2026-11-17'] });
-    expect(comFeriado.find((a) => a.id === 'E')).toMatchObject({ tipo: 'prazo-proximo', texto: 'Demanda E: faltam 3 dias úteis; parada há 10 dia(s) sem ação relevante.' });
+    expect(comFeriado.find((a) => a.id === 'E')).toMatchObject({ tipo: 'prazo-proximo', texto: 'Demanda E: faltam 3 dias úteis; parada há 10 dias sem ação relevante.' });
     // Com limiar de 15 dias, E não está parada.
     expect(avisosDoDia(demandas, AGORA, 15).some((a) => a.id === 'E')).toBe(false);
   });

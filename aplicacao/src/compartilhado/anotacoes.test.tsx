@@ -78,8 +78,9 @@ describe('anotações na demanda', () => {
     const campo = screen.getByLabelText('Nova anotação');
     fireEvent.change(campo, { target: { value: 'pedir croqui' } });
     fireEvent.submit(campo.closest('form')!); // Enter
+    fireEvent.click(screen.getByRole('button', { name: '+ Anotação' })); // salvar fecha o campo
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'ligar para o município' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     const gravada = () => armazem.obter().demandas[0];
     expect(gravada().anotacoes?.map((a) => a.texto)).toEqual(['pedir croqui', 'ligar para o município']);
     expect(gravada().ultimaAcaoRelevante).toBe('2026-11-13T09:00:00.000Z');
@@ -111,21 +112,21 @@ describe('anotações na demanda', () => {
     confirmar.mockRestore();
   });
 
-  it('selo "N anotação(ões) aberta(s)" no cartão da lista e no Kanban', () => {
+  it('selo "N anotações abertas" no cartão da lista e no Kanban', () => {
     montarDemandas([demanda({ anotacoes: [an('a', 'x'), an('b', 'y'), an('c', 'z', { feita: true, feitaEm: T0 })] })]);
-    expect(screen.getByTestId('anotacoes-d1')).toHaveTextContent('2 anotação(ões) aberta(s)');
+    expect(screen.getByTestId('anotacoes-d1')).toHaveTextContent('2 anotações abertas');
   });
 
   it('selo no Kanban, e sem selo quando não há aberta', () => {
     montarDemandas([demanda({ anotacoes: [an('a', 'x')] }), demanda({ id: 'd2', titulo: 'Outra', anotacoes: [an('b', 'y', { feita: true, feitaEm: T0 })] })], 'kanban');
-    expect(screen.getByTestId('anotacoes-d1')).toHaveTextContent('1 anotação(ões) aberta(s)');
+    expect(screen.getByTestId('anotacoes-d1')).toHaveTextContent('1 anotação aberta');
     expect(screen.queryByTestId('anotacoes-d2')).toBeNull();
   });
 
   it('Kanban: concluir com aberta pergunta (Voltar não muda; Concluir conclui); sem aberta conclui direto', () => {
     const armazem = montarDemandas([demanda({ anotacoes: [an('a', 'x'), an('b', 'y')] }), demanda({ id: 'd2', titulo: 'Outra' })], 'kanban');
     fireEvent.change(screen.getByLabelText('Mover "Vistoria fictícia" para'), { target: { value: 'Concluída' } });
-    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent('Há 2 anotação(ões) aberta(s). Concluir mesmo assim?');
+    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent('Há 2 anotações abertas. Concluir mesmo assim?');
     fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
     expect(armazem.obter().demandas[0].status).toBe('Em Andamento');
     expect(screen.queryByTestId('confirma-conclusao')).toBeNull();
@@ -142,7 +143,7 @@ describe('anotações na demanda', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Editar Vistoria fictícia' }));
     fireEvent.change(screen.getByLabelText('Status'), { target: { value: 'Concluída' } });
     fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
-    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent('Há 1 anotação(ões) aberta(s). Concluir mesmo assim?');
+    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent('Há 1 anotação aberta. Concluir mesmo assim?');
     expect(armazem.obter().demandas[0].status).toBe('Em Andamento');
     fireEvent.click(screen.getByRole('button', { name: 'Concluir' }));
     expect(armazem.obter().demandas[0]).toMatchObject({ status: 'Concluída' });
@@ -168,10 +169,10 @@ describe('anotações no ponto de operação', () => {
     const { ponto: p } = montarPonto();
     fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'confirmar coordenada com o CAR' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
-    expect(screen.getAllByText(/Não registre CPF, endereço ou nome do autuado aqui\./).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Não registre CPF, endereço ou nome do autuado aqui\./).length).toBeGreaterThan(0); // campo aberto
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     expect(obterOperacoes()[0].pontos[0].anotacoes?.[0]).toMatchObject({ texto: 'confirmar coordenada com o CAR', feita: false });
-    expect(screen.getByTestId(`anotacoes-${p.id}`)).toHaveTextContent('1 anotação(ões) aberta(s)');
+    expect(screen.getByTestId(`anotacoes-${p.id}`)).toHaveTextContent('1 anotação aberta');
     fireEvent.click(screen.getByRole('checkbox', { name: 'confirmar coordenada com o CAR' }));
     expect(obterOperacoes()[0].pontos[0].anotacoes?.[0].feitaEm).toBeTruthy();
     expect(screen.queryByTestId(`anotacoes-${p.id}`)).toBeNull();
@@ -182,14 +183,14 @@ describe('anotações no ponto de operação', () => {
     act(() => { registrarResultado(id, p.id, { resultado: 'sim', motivo: '', protocolo: '', observacao: '', dataVistoria: '' }, '2026-11-15'); });
     fireEvent.click(screen.getByRole('button', { name: '+ Anotação' }));
     fireEvent.change(screen.getByLabelText('Nova anotação'), { target: { value: 'juntar croqui' } });
-    fireEvent.click(screen.getByRole('button', { name: 'Anotar' }));
+    fireEvent.click(screen.getByRole('button', { name: 'Salvar' }));
     const enviar = () => {
       fireEvent.click(screen.getByRole('button', { name: 'Registrar relatório no SIGA do Ponto 1' }));
       fireEvent.change(screen.getByLabelText('Data de envio no SIGA-MT'), { target: { value: '2026-11-17' } });
       fireEvent.click(screen.getByRole('button', { name: 'Salvar envio' }));
     };
     enviar();
-    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent('Há 1 anotação(ões) aberta(s). Concluir mesmo assim?');
+    expect(screen.getByTestId('confirma-conclusao')).toHaveTextContent('Há 1 anotação aberta. Concluir mesmo assim?');
     fireEvent.click(screen.getByRole('button', { name: 'Voltar' }));
     expect(obterOperacoes()[0].pontos[0].relatorio).toBeUndefined();
     fireEvent.click(screen.getByRole('button', { name: 'Salvar envio' }));

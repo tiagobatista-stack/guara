@@ -14,16 +14,18 @@ interface Props {
   /** Conteúdo à esquerda do botão de fechar (por exemplo, o título). */
   topo?: ReactNode;
   inferior?: boolean;
+  /** Diálogo centrado (480px, com margem de 16px); o corpo rola e o cabeçalho e o rodapé ficam à vista. */
+  dialogo?: boolean;
   children: ReactNode;
 }
 
-export function Gaveta({ rotulo, rotuloFechar, aoFechar, topo, inferior = false, children }: Props) {
+export function Gaveta({ rotulo, rotuloFechar, aoFechar, topo, inferior = false, dialogo = false, children }: Props) {
   const caixa = useRef<HTMLDivElement>(null);
   const botaoFechar = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     const anterior = document.activeElement as HTMLElement | null;
-    botaoFechar.current?.focus();
+    (caixa.current?.querySelector<HTMLElement>('[data-foco]') ?? botaoFechar.current)?.focus(); // o botão principal do diálogo, se houver
     return () => {
       if (anterior && typeof anterior.focus === 'function' && document.contains(anterior)) anterior.focus();
     };
@@ -56,13 +58,13 @@ export function Gaveta({ rotulo, rotuloFechar, aoFechar, topo, inferior = false,
 
   return (
     <div
-      className="gaveta-fundo"
+      className={dialogo ? 'gaveta-fundo gaveta-fundo--centro' : 'gaveta-fundo'}
       role="dialog"
       aria-modal="true"
       aria-label={rotulo}
       onClick={(e) => { if (e.target === e.currentTarget) aoFechar(); }}
     >
-      <div ref={caixa} className={inferior ? 'gaveta gaveta--inferior' : 'gaveta'}>
+      <div ref={caixa} className={`gaveta${inferior ? ' gaveta--inferior' : ''}${dialogo ? ' gaveta--dialogo' : ''}`}>
         <div className="gaveta-topo">
           {topo ?? <span />}
           <button ref={botaoFechar} type="button" className="botao-icone" onClick={aoFechar} aria-label={rotuloFechar}>

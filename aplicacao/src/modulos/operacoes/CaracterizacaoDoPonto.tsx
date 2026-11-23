@@ -4,12 +4,12 @@
 import { Fragment, useId, useState } from 'react';
 import type { Ponto } from './modelo.ts';
 import {
-  FONTE_POP, itensAplicaveis, marcadas, sugestoesPop, itensDeCampoSemResposta, ITENS_POP, LIMITE_TEXTO_POP, respondido, textoCaracterizacao, type Caracterizacao, type ItemPop, type Resposta,
+  FONTE_GEO, FONTE_POP, itensAplicaveis, marcadas, popGeo, sugestoesPop, itensDeCampoSemResposta, ITENS_POP, LIMITE_TEXTO_POP, respondido, textoCaracterizacao, type Caracterizacao, type ItemPop, type Resposta,
 } from './pop-supressao.ts';
 
 type Mudancas = Partial<Pick<Ponto, 'caracterizacao' | 'coordenadaAferida' | 'waypoint' | 'fotos' | 'drone' | 'pessoaContatada'>>;
 
-function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undefined; aoMudar: (v: Resposta | undefined) => void }) {
+export function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undefined; aoMudar: (v: Resposta | undefined) => void }) {
   const id = useId();
   const nome = `${item.id}. ${item.texto}`;
   if (item.tipo === 'texto') {
@@ -18,7 +18,14 @@ function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undef
         <input className="campo" value={typeof valor === 'string' ? valor : ''} maxLength={LIMITE_TEXTO_POP} autoComplete="off" onChange={(e) => aoMudar(e.target.value || undefined)} /></label>
     );
   }
-  if (item.tipo === 'unica') {
+  if (item.tipo === 'numero' || item.tipo === 'data') {
+    return (
+      <label className="campo-grupo" data-testid={`pop-${item.id}`}><span>{nome}</span>
+        <input className="campo" type={item.tipo === 'data' ? 'date' : 'text'} inputMode={item.tipo === 'numero' ? 'decimal' : undefined} value={typeof valor === 'string' ? valor : ''} autoComplete="off"
+          onChange={(e) => aoMudar(item.tipo === 'numero' ? (/^\d{0,9}([.,]\d{0,4})?$/.test(e.target.value) ? e.target.value || undefined : valor) : e.target.value || undefined)} /></label>
+    );
+  }
+  if (item.tipo === 'unica' || item.tipo === 'simnao') {
     return (
       <label className="campo-grupo" data-testid={`pop-${item.id}`}><span>{nome}</span>
         <select className="campo" value={typeof valor === 'string' ? valor : ''} onChange={(e) => aoMudar(e.target.value || undefined)}>
@@ -43,8 +50,9 @@ function Item({ item, valor, aoMudar }: { item: ItemPop; valor: Resposta | undef
   );
 }
 
-export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto; rotulo: string; aoMudar: (m: Mudancas) => void }) {
+export function CaracterizacaoDoPonto({ ponto, rotulo, aberto, aoMudar, aoReconsultar }: { ponto: Ponto; rotulo: string; aberto: boolean; aoMudar: (m: Mudancas) => void; aoReconsultar?: () => Promise<string | null> }) {
   const sugestoes = sugestoesPop(ponto);
+  const geo = popGeo(ponto);
   const [aviso, setAviso] = useState<string | null>(null);
   const resp: Caracterizacao = ponto.caracterizacao ?? {};
   const aplicaveis = itensAplicaveis(resp);
@@ -72,12 +80,18 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto
   );
 
   return (
-    <details className="mais-acoes" data-testid={`caracterizacao-${ponto.id}`}>
-      <summary>Caracterização do dano ({semResposta} de campo sem resposta)</summary>
+    <div className={aberto ? 'painel-form' : 'painel-form recolhido'} data-testid={`caracterizacao-${ponto.id}`}>
       <section aria-label={`Caracterização do dano do ${rotulo}`}>
+        <h4 className="titulo-secao titulo-secao--bloco">Caracterização do dano (POP) · {semResposta} de campo sem resposta</h4>
         <p className="texto-pequeno texto-suave">
           Fonte: {FONTE_POP}. Itens e opções copiados do formulário; a adoção pela SEMA-MT depende de confirmação do responsável. Não registre CPF, endereço ou nome do autuado.
         </p>
+        {aoReconsultar && (
+          <p className="texto-pequeno" data-testid={`geo-${ponto.id}`}>
+            {ponto.geo ? (ponto.geo.erro ? `Sem sugestão de bioma e vegetação: ${ponto.geo.erro}.` : `${FONTE_GEO}`) : 'Bioma e vegetação ainda não consultados.'}{' '}
+            <button type="button" className="botao botao--pequeno" onClick={async () => setAviso((await aoReconsultar()) ?? 'Consulta feita.')}>Reconsultar</button>
+          </p>
+        )}
         <h4 className="titulo-secao titulo-secao--bloco">Dados de campo</h4>
         <div className="grade grade--2" key={`${ponto.coordenadaAferida}|${ponto.waypoint}|${ponto.fotos}|${ponto.pessoaContatada}`}>
           {campo('Coordenada aferida', 'coordenadaAferida')}
@@ -103,7 +117,8 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto
                 const jaMarcada = marcadas(resp[it.id]).includes(sug);
                 return (
                   <Fragment key={it.id}>
-                    <Item item={it} valor={resp[it.id]} aoMudar={(v) => mudar(it, v)} />
+                    <Item item={it.id === 'A-2' ? { ...it, opcoes: [...geo.opcoes, ...(typeof resp[it.id] === 'string' && !geo.opcoes.some((op) => op.texto === resp[it.id]) ? [{ texto: resp[it.id] as string }] : [])] } : it} valor={resp[it.id]} aoMudar={(v) => mudar(it, v)} />
+                    {it.id === 'A-2' && geo.fitos.length > 1 && <p className="texto-pequeno" data-testid="sugestao-A-2-varias">Sugerido — conferir (A-2): {geo.fitos.join('; ')}.</p>}
                     {sug && !jaMarcada && (
                       <p className="texto-pequeno" data-testid={`sugestao-${it.id}`}>
                         Sugerido — conferir ({it.id}): {sug}.{' '}
@@ -122,6 +137,6 @@ export function CaracterizacaoDoPonto({ ponto, rotulo, aoMudar }: { ponto: Ponto
         </div>
         {aviso && <p role="status" className="texto-pequeno">{aviso}</p>}
       </section>
-    </details>
+    </div>
   );
 }

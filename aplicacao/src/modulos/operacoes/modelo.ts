@@ -8,6 +8,7 @@ import type { Coordenada } from '../demandas/coordenadas.ts';
 import type { Bloqueio } from '../demandas/modelo.ts';
 import type { Anotacao } from '../../compartilhado/anotacoes.ts';
 import type { Caracterizacao } from './pop-supressao.ts';
+import type { SugestaoGeo } from './sugestao-vegetacao.ts';
 
 export const CHAVE_OPERACOES = 'guara:operacoes:v1';
 
@@ -30,6 +31,8 @@ export interface Viagem {
   veiculos: string[];
   /** Um dos integrantes, que dirige; o roteiro imprime o nome. */
   motorista?: string;
+  /** Cargo e lotação por integrante (chave = nome em `integrantes`). Vazio = a pessoa ainda não preencheu; o motorista não entra na equipe técnica do relatório. */
+  pessoas?: Record<string, { cargo?: string; lotacao?: string }>;
   /** AAAA-MM-DD. */
   saida?: string;
   retorno?: string;
@@ -65,6 +68,8 @@ export type SituacaoAcompanhamento = keyof typeof SITUACOES_ACOMPANHAMENTO;
 
 export interface Ponto {
   id: string;
+  /** Conteúdo digitado que não pôde ser lido ao carregar (campo → valor bruto). Nunca é descartado sozinho: a tela oferece ver, baixar e descartar. */
+  quarentena?: Record<string, unknown>;
   /** Número do ponto na lista recebida, quando houver; sem ele, o próximo livre da operação. */
   numero?: number;
   /** Código do ponto (CODIGO_PONTO): o da planilha ou MUNICIPIO+AAAAMM-NN. Fixo depois de criado e único entre as operações. */
@@ -92,8 +97,24 @@ export interface Ponto {
   situacaoCar?: SituacaoCar;
   /** Etiquetas livres (até 10, 30 caracteres cada), com sugestões em ETIQUETAS_SUGERIDAS. */
   etiquetas?: string[];
+  /** Bioma e vegetação sugeridos pelo GeoServer da SEMA-MT (consultados uma vez; ver sugestao-vegetacao.ts). */
+  geo?: SugestaoGeo;
+  /** Consulta às bases (CAR, embargos, TI/UC…): o que foi consultado, quando e o que achou. Bioma e vegetação vêm de `geo` quando não há registro aqui. */
+  consultas?: Partial<Record<BaseConsulta, ConsultaBase>>;
   /** Ativa o bloco da caracterização (POP) num ponto cujo tipo de dano não o traz sozinho. */
   popAtivo?: boolean;
+  /** Inspeção de agrotóxicos (inspecao-agrotoxicos.ts): respostas de campo, conferência prévia (escritório) e ativação manual. Sem dado pessoal. */
+  inspecao?: Caracterizacao;
+  conferenciaPrevia?: Caracterizacao;
+  inspecaoAtiva?: boolean;
+  /** Providências sugeridas (providencias.ts) que o fiscal marcou: feito ou não aplicável. */
+  providencias?: Record<string, 'feito' | 'autuado' | 'nao-autuado' | 'nao-aplicavel'>;
+  /** Documentos lavrados no ponto: tipo (tipos-lavrados.ts), número e data (só isso; enquadramento e multa ficam no SIGA Autuação). */
+  /** Data/hora (ISO) da última alteração de cada formulário; só muda quando uma resposta muda. */
+  editadoEm?: { pop?: string; inspecao?: string };
+  /** Capa do relatório do SIGA: atividade e objetivo, gravados só quando o usuário edita (senão vale a sugestão). */
+  siga?: { atividade?: string; objetivo?: string };
+  lavrados?: { tipo: string; numero: string; data?: string }[];
   /** Dados de campo do roteiro de vistoria (texto curto; sem CPF). */
   coordenadaAferida?: string;
   waypoint?: string;
@@ -162,10 +183,17 @@ export interface Operacao {
   origem?: string;
   /** Setor que fiscaliza (AG_FISCALIZACAO da planilha da SEMA, ex.: DUDJUINA). */
   setor?: string;
+  /** Origem do alerta (lista fechada) e apoio (opcional), para o texto do relatório. A unidade é o `setor`. */
+  origemAlerta?: OrigemAlerta;
+  apoio?: string;
   viagens: Viagem[];
   pontos: Ponto[];
   /** ISO 8601. */
   criadaEm: string;
+  /** ISO 8601: última mudança nas viagens (criar, editar, excluir) ou conferência manual do cronograma. Ausente em operações antigas: vale `criadaEm`. */
+  cronogramaAtualizadoEm?: string;
+  /** ISO 8601: última mudança estrutural dos pontos (criar, excluir, trocar de viagem, reprogramar). */
+  operacaoAlteradaEm?: string;
   /** Histórico do pedido, do mais antigo ao mais novo. Ausente em operações anteriores ao histórico. */
   historico?: EventoOperacao[];
 }
@@ -200,7 +228,43 @@ export const LIMITES_OPERACAO = {
   protocolo: 120,
   observacao: 500,
   setor: 40,
+  cargo: 80,
+  lotacao: 80,
+  apoio: 80,
+  detalheConsulta: 200,
 } as const;
 
 /** Mínimos para a viagem ficar completa (sem eles, aviso; nada é bloqueado). */
 export const MINIMOS_VIAGEM = { integrantes: 2, veiculos: 1 } as const;
+
+/** Bases do Geoportal da SEMA-MT que o relatório cita. Os textos estão em relatorio-frases.ts. */
+export const BASES_CONSULTA = ['bioma', 'vegetacao', 'car', 'embargos', 'autos', 'ti', 'uc', 'amortecimento'] as const;
+export type BaseConsulta = (typeof BASES_CONSULTA)[number];
+
+export const ESTADOS_CONSULTA = { encontrado: 'encontrado', vazio: 'nada encontrado', 'nao-consultado': 'não consultado', falha: 'falhou' } as const;
+export type EstadoConsulta = keyof typeof ESTADOS_CONSULTA;
+
+/** Registro de uma consulta: só `encontrado` e `vazio` contam como consultada com sucesso. */
+export interface ConsultaBase {
+  estado: EstadoConsulta;
+  /** ISO 8601. */
+  quando: string;
+  fonte: 'automatica' | 'manual';
+  /** O que achou (nº do CAR, nome da TI…) ou o motivo da falha. */
+  detalhe?: string;
+  /** Registros pontuais (camadas _PONTO) a até ~500 m, do mais perto ao mais longe. Só embargos e autos. */
+  proximidade?: { m: number; texto: string }[];
+  /** Quantos registros pontuais próximos ficaram de fora da lista (acima do máximo). */
+  maisProximos?: number;
+}
+
+export const ORIGENS_ALERTA = {
+  planet: 'Planet',
+  deter: 'DETER',
+  denuncia: 'Denúncia',
+  requisicao: 'Requisição (MP, Judiciário ou outro órgão)',
+  outra: 'Outra',
+} as const;
+export type TipoOrigemAlerta = keyof typeof ORIGENS_ALERTA;
+/** `detalhe`: o órgão (requisição) ou o texto (outra). */
+export interface OrigemAlerta { tipo: TipoOrigemAlerta; detalhe?: string }

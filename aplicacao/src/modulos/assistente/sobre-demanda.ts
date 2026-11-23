@@ -7,6 +7,7 @@ import { situacaoDaDemanda, type AjusteFeriados } from '../alertas/dias-uteis.ts
 import { diasParado, estaInativa } from '../alertas/inatividade.ts';
 import type { Mensagem } from './conversa.ts';
 import { codigoLegivel } from './rotuloDaDemanda.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
 export const METODO_DETERMINISTICO = 'método: determinístico (regras locais, sem modelo de IA)';
 
@@ -36,11 +37,11 @@ export function respostaSobreDemanda(
   };
   const prazo = situacaoDaDemanda(d, agora, ajuste);
   const parada = estaInativa(d, limiarDias, agora);
-  const sinais = [prazo ? `prazo: ${prazo.texto}` : null, parada ? `parada há ${diasParado(d, agora)} dia(s) sem ação relevante` : null].filter(Boolean);
+  const sinais = [prazo ? `prazo: ${prazo.texto}` : null, parada ? `parada há ${plural(diasParado(d, agora), 'dia', 'dias')} sem ação relevante` : null].filter(Boolean);
   const falta = camposQueFaltam(d).map((c) => ROTULOS_ESSENCIAL[c]);
   const saida: Mensagem[] = [fato];
   if (sinais.length) {
-    saida.push({ autor: 'assistente', natureza: 'inferência', fonte: `regras de dias úteis e de inatividade (limiar ${limiarDias} dia(s)); confira antes de agir`, texto: `Pelas regras: ${sinais.join('; ')}.` });
+    saida.push({ autor: 'assistente', natureza: 'inferência', fonte: `regras de dias úteis e de inatividade (limiar ${plural(limiarDias, 'dia', 'dias')}); confira antes de agir`, texto: `Pelas regras: ${sinais.join('; ')}.` });
   }
   if (falta.length) {
     saida.push({ autor: 'assistente', natureza: 'sugestão', fonte: 'regra de campos essenciais', texto: `Falta preencher: ${falta.join(', ')}. A decisão de preencher e de encaminhar é sua.` });

@@ -4,6 +4,7 @@
 // Smartphone: barra inferior com os módulos principais, menu completo em gaveta
 // e botão flutuante para a conversa. Regras de layout em estilos.css.
 
+import { confirmarSaida } from '../compartilhado/alteracoes-pendentes.ts';
 import { lazy, Suspense, useCallback, useEffect, useState } from 'react';
 import { Icone } from '../compartilhado/Icone.tsx';
 import { modulos, moduloDaRota } from './registro-modulos.ts';
@@ -24,6 +25,7 @@ import { EmConstrucao } from '../compartilhado/EmConstrucao.tsx';
 import { Gaveta } from '../compartilhado/Gaveta.tsx';
 import { resumoDosAvisos } from '../modulos/assistente/avisos.ts';
 import { CHAVE_MENU, CHAVE_PAINEL, useRecolhido } from './recolhimento.ts';
+import { plural } from '../compartilhado/plural.ts';
 
 // O mapa (Leaflet e a malha municipal) só é baixado quando a tela abre.
 const Mapa = lazy(() => import('../modulos/mapa/Mapa.tsx').then((m) => ({ default: m.Mapa })));
@@ -35,7 +37,7 @@ function useRota(): [string, (id: string) => void] {
     window.addEventListener('hashchange', aoMudar);
     return () => window.removeEventListener('hashchange', aoMudar);
   }, []);
-  return [rota, (id) => { window.location.hash = `/${id}`; setRota(id); }];
+  return [rota, (id) => { if (!confirmarSaida()) return; window.location.hash = `/${id}`; setRota(id); }];
 }
 
 function Conteudo({ rota }: { rota: string }) {
@@ -125,7 +127,7 @@ export function Aplicacao() {
             type="button"
             className="sino"
             onClick={() => navegar('alertas')}
-            aria-label={`Alertas: ${totalAlertas} demanda(s) inativa(s)`}
+            aria-label={`Alertas: ${plural(totalAlertas, 'demanda inativa', 'demandas inativas')}`}
             title={`Alertas: ${totalAlertas} demanda(s) inativa(s). Os avisos do dia ficam no assistente.`}
           >
             <Icone nome="sino" />

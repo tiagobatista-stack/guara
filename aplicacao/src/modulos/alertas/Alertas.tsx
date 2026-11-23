@@ -14,6 +14,7 @@ import { obterDemandaEmFoco } from '../assistente/demanda-em-foco.ts';
 import { exportarDados, NOME_ARQUIVO, validarImportacao } from './dados-portaveis.ts';
 import { definirDiasPadraoElaboracao, lerDiasPadraoElaboracao } from '../operacoes/armazem.ts';
 import { definirPreferencias, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
 
@@ -46,7 +47,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   const salvarDias = (e: FormEvent) => {
     e.preventDefault();
     const r = armazem.definirDiasInatividade(Number(dias));
-    setAviso(r.ok ? { tipo: 'sucesso', texto: `Limiar de inatividade gravado: ${dias} dia(s) corridos.` } : { tipo: 'erro', texto: r.mensagem });
+    setAviso(r.ok ? { tipo: 'sucesso', texto: `Limiar de inatividade gravado: ${plural(Number(dias), 'dia corrido', 'dias corridos')}.` } : { tipo: 'erro', texto: r.mensagem });
   };
 
   const gravarPrazo = (d: Demanda, prazo: string) => {
@@ -62,7 +63,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
 
   const exportar = () => {
     baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote, lerDiasPadraoElaboracao(), obterDemandaEmFoco()));
-    setAviso({ tipo: 'sucesso', texto: `Arquivo ${NOME_ARQUIVO} gerado com ${demandas.length} demanda(s).` });
+    setAviso({ tipo: 'sucesso', texto: `Arquivo ${NOME_ARQUIVO} gerado com ${plural(demandas.length, 'demanda', 'demandas')}.` });
   };
 
   const importar = async (e: ChangeEvent<HTMLInputElement>) => {
@@ -79,10 +80,10 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       ? '\nATENÇÃO: o backup atual contém demandas ilegíveis e esta importação vai SOBRESCREVER esse backup. Use "Baixar conteúdo do backup" antes, se quiser guardá-lo.'
       : '';
     const ok = window.confirm(erroArmazenamento
-      ? `Importar ${r.dados.demandas.length} demanda(s) no lugar dos dados atuais, que estão corrompidos?\n` +
+      ? `Importar ${plural(r.dados.demandas.length, 'demanda', 'demandas')} no lugar dos dados atuais, que estão corrompidos?\n` +
           'O conteúdo corrompido será guardado no backup, mas NÃO poderá ser restaurado por "Desfazer última importação". ' +
           'Se quiser guardá-lo, cancele e use antes "Baixar conteúdo bruto" na tela Demandas.' + avisoBackupIlegivel
-      : `Importar ${r.dados.demandas.length} demanda(s) e SUBSTITUIR as ${demandas.length} atuais?\n` +
+      : `Importar ${plural(r.dados.demandas.length, 'demanda', 'demandas')} e SUBSTITUIR ${demandas.length === 1 ? 'a atual' : `as ${demandas.length} atuais`}?\n` +
           'Um backup dos dados atuais será gravado antes e poderá ser restaurado.' + avisoBackupIlegivel,
     );
     if (!ok) {
@@ -91,7 +92,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
     }
     const g = armazem.importar(r.dados);
     setAviso(g.ok
-      ? { tipo: 'sucesso', texto: `Importadas ${r.dados.demandas.length} demanda(s). Backup anterior gravado.` }
+      ? { tipo: 'sucesso', texto: `${plural(r.dados.demandas.length, 'demanda importada', 'demandas importadas')}. Backup anterior gravado.` }
       : { tipo: 'erro', texto: g.mensagem });
     if (g.ok) {
       setDias(String(r.dados.configuracao.diasInatividade));
@@ -140,14 +141,14 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Demandas inativas ({inativas.length})</h2>
         {inativas.length === 0 ? (
-          <EstadoVazio texto={`Nenhuma demanda inativa com o limiar de ${diasInatividade} dia(s).`} />
+          <EstadoVazio texto={`Nenhuma demanda inativa com o limiar de ${plural(diasInatividade, 'dia', 'dias')}.`} />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio" aria-label="Demandas inativas">
             {inativas.map((d) => (
               <li key={d.id} data-testid={`inativa-${d.id}`}>
                 <strong>{d.titulo}</strong>{' '}
                 <span className="texto-pequeno texto--atencao">
-                  · {d.status} · sem ação relevante há {diasParado(d, instante)} dia(s)
+                  · {d.status} · sem ação relevante há {plural(diasParado(d, instante), 'dia', 'dias')}
                 </span>
                 {d.bloqueio && (
                   <>

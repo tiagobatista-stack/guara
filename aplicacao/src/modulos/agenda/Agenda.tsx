@@ -8,6 +8,7 @@ import { demandasEncaixadas } from '../operacoes/regras.ts';
 import { listarSemVistoria } from '../demandas/vistoria.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { gerarIcs, gradeDoMes, montarAgenda, operacoesNoDia } from './regras.ts';
+import { plural } from '../../compartilhado/plural.ts';
 
 const SEMANA = ['dom', 'seg', 'ter', 'qua', 'qui', 'sex', 'sáb'];
 
@@ -69,7 +70,7 @@ export function Agenda({ agora = () => new Date() }: { agora?: () => Date }) {
                     type="button" role="gridcell" key={data} data-testid={`dia-${data}`}
                     className={`agenda-dia${doMes ? '' : ' agenda-dia--fora'}${emOperacao.length ? ' agenda-dia--operacao' : ''}${data === hoje ? ' agenda-dia--hoje' : ''}${data === escolhido ? ' agenda-dia--escolhido' : ''}`}
                     aria-selected={data === escolhido}
-                    aria-label={`${Number(data.slice(8))} de ${nomeMes}${itens.length ? `, ${itens.length} evento(s)` : ''}${emOperacao.length ? `, em operação: ${emOperacao.join(', ')}` : ''}`}
+                    aria-label={`${Number(data.slice(8))} de ${nomeMes}${itens.length ? `, ${plural(itens.length, 'evento', 'eventos')}` : ''}${emOperacao.length ? `, em operação: ${emOperacao.join(', ')}` : ''}`}
                     title={emOperacao.length ? `Operação: ${emOperacao.join(', ')}` : undefined}
                     onClick={() => setEscolhido(data)}
                   >
