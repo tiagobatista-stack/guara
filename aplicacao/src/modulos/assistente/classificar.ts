@@ -9,6 +9,7 @@
 
 import { INTENCOES, INTENCOES_SOCIAIS, type Intencao } from './frases.ts';
 import { palavras } from './normalizar.ts';
+import { pareceCompromisso } from './interpretarCompromisso.ts';
 
 const GATILHOS = [...INTENCOES, ...INTENCOES_SOCIAIS].flatMap((intencao) =>
   intencao.gatilhos
@@ -25,10 +26,12 @@ function contem(frase: readonly string[], trecho: readonly string[]): boolean {
 }
 
 /** Intenção da frase, ou null quando nenhum gatilho aparece nela. */
-export function classificar(texto: string): Intencao | null {
+export function classificar(texto: string, agora: Date = new Date()): Intencao | null {
   const frase = palavras(texto);
   // Só um "?" (ou "??"): a pessoa está perguntando o que pode fazer.
   if (frase.length === 0) return /\?/.test(texto) ? (INTENCOES.find((i) => i.id === 'ajuda') ?? null) : null;
+  // "reunião dia 10/12 sobre prazos": tipo + data é compromisso, mesmo com gatilho de outro comando no assunto.
+  if (pareceCompromisso(texto, agora)) return INTENCOES.find((i) => i.id === 'compromisso') ?? null;
   // Frase que COMEÇA com buscar/procurar/achar/cadê é uma busca, mesmo que o termo seja outro gatilho
   // ("buscar parada" procura "parada" nas demandas; não pede a lista de prazos).
   const busca = INTENCOES.find((i) => i.id === 'buscar');

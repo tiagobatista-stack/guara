@@ -41,3 +41,6 @@ documentacao/planilha_operacao_anonima.csv
 # Planilha de operação enviada pela equipe (dados de campo, não versionar)
 Tabela_Op_*.xlsx
 *.xlsx
+
+# Entregas locais (videos, materiais de aula): nao versionadas
+entregas/

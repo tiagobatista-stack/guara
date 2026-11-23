@@ -1,6 +1,6 @@
 # BACKLOG — GUARÁ
 
-**Atualizado em:** 20/11/2026. A situação de cada entrega fica em `STATUS.md`; aqui fica só o que falta fazer, em ordem.
+**Atualizado em:** 22/11/2026. A situação de cada entrega fica em `STATUS.md`; aqui fica só o que falta fazer, em ordem.
 
 ## Inspeção de agrotóxicos e operações (19/11/2026, branch `integracao-operacoes`)
 
@@ -23,6 +23,14 @@
 7. **Push e publicação:** o branch está só local; qualquer push exige autorização do responsável.
 
 ## Próxima sessão (em ordem)
+
+**Pendências de 22/11/2026 (Agenda: intervalo, repetição, .ics, coincidência e chip da operação):**
+
+- **Branch melhoria-agenda-intervalo-repeticao sem push.** 11 commits sobre operacoes-campo (8f3501 a 2181f75; 1172/1172, build ok), nenhum enviado. Push, PR e merge são do responsável (o hook bloqueia o push do Claude). Ela parte de operacoes-campo, então depende do PR #8 abaixo.
+- **Conferir no navegador (NÃO TESTADO):** formulário com intervalo e repetição, aviso de coincidência, chip da operação em todo o período e pergunta do mascote; em 375 px (abaixo de 600 px os chips da grade ficam ocultos, o dia segue em vermelho), desktop, tema claro e escuro, e o botão Confirmar real.
+- **Importar o .ics no Google Agenda ou Outlook reais:** os testes só conferem o texto (RRULE, UNTIL, EXDATE, DTEND exclusivo).
+- **Limitações aceitas, a decidir se valem trabalho:** dias úteis sem feriados; editar altera a série inteira (sem "só esta ocorrência"); semana do mês não aparece nas saídas e viagens de operações; o aviso de coincidência só olha o período da operação (não as saídas dos pontos nem as vistorias); lembretes não têm perguntas do mascote.
+- **Mascotes convidados (22/11/2026, commit `9892f6a`; 1175/1175, build ok).** Pendências: (1) conferir no navegador, em 375 px e desktop, tema claro e escuro, o rosto da capivara, da ariranha e do lobo-guará nos estados vazios e o interruptor "Mascotes convidados" (NÃO CONFERIDO VISUALMENTE); (2) frases com tom próprio por personalidade (hoje só mudam rosto e nome; os textos dos módulos são os mesmos); (3) rosto convidado na comemoração do Kanban (`comemorarMascotes`, ocasião `marco` já existe no mapa); (4) teste dedicado da `FalaMascote` de Operações com o convidado; (5) investigar o teste lento "a conversa guardada tem um teto de falas" em `PainelAssistente.test.tsx` (estourou o tempo em 2 rodadas; passou nas completas); (6) decidir se a Saúde do sistema (capivara se OK, lobo-guará nos outros) deve seguir a preferência ou o mapa de ocasiões.
 
 **Pendências de 20/11/2026 (recomendações do relatório de formação), antes dos itens abaixo:**
 
@@ -58,6 +66,7 @@
 - Teste da navegação até Configurações pelo menu lateral e pelo "Mais" (321/321).
 - Saúde do sistema com o nome dado ao mascote (322/322).
 - Etapa 6: estados vazios com o rosto do principal em Demandas, Kanban, Dashboard, Alertas e módulos não implementados (265/265; falta conferir no navegador).
+- Padrão lobo-guará e mascotes convidados por personalidade em estados vazios e na pergunta de Operações, com interruptor nas Configurações (1175/1175; falta conferir no navegador). Decisão em `gestao/decisoes/2026-11-22-mascotes-convidados.md`.
 - Preferências do mascote no backup: campo opcional `mascote` em `guara-dados.json` (306/306). O desfazer da importação não restaura a preferência.
 - Notificações com "Ciente" (até a demanda mudar de situação), adiar para 8h ou 14h do próximo dia útil (pula fim de semana e feriado), lista dos ocultos e seção recolhível (318/318; falta conferir no celular).
 - Da avaliação de UX do chat (14/11/2026): conversa guardada no navegador (`guara:conversa:v1`), gaveta com foco, Esc, toque no fundo e Tab preso; atalhos "Ver prazos" e "O que você faz?"; campo com teclado de enviar (304/304; falta conferir no navegador e com leitor de tela).
@@ -107,5 +116,7 @@
 - **Roteiro: listas de A-1 e A-2 (18/11/2026).** Aguarda decisão do responsável: reduzir às opções que ocorrem em MT + "Outra: ____". Hoje o roteiro traz as listas completas do POP.
 - **Lacunas do roteiro: o que ficou de fora (18/11/2026).** Imóvel, área, CAR e etiquetas não entram nas exportações CSV/planilha da SEMA nem na reimportação (só na importação inicial, e só as etiquetas, pela coluna ETIQUETAS); CAR federal e responsável/contato/documento seguem fora (contato de pessoa não é guardado). A etiqueta digitada e não confirmada com "Incluir" se perde ao salvar. A sugestão de B-3 só aparece no cartão (o Formulário B não vai no roteiro).
 - **Croqui do ponto (18/11/2026).** Removido do roteiro de vistoria até existir o módulo de croqui; quando houver, decidir se o roteiro leva o croqui impresso ou um espaço para desenhar.
-- **Lembretes próprios (item 8, registrado em 21/11/2026; NÃO feito).** Armazenamento separado (`guara:lembretes:v1`) com demanda opcional, texto da ação, data e hora; destaque visual com cor própria; aparecem na Agenda; "lembrar" pela conversa passa a criar esse lembrete para qualquer demanda. Motivo: hoje "lembrar" é soneca de aviso (`adiarLembrete`) e some se o aviso deixar de existir; demanda sem aviso não recebe lembrete ("Lembretes livres ainda não existem").
+- **Compromissos e lembretes próprios (item 14, substitui o item 8; FEITO em 21/11/2026, 1034/1034, build ok).** `guara:compromissos:v1`, conversa por regras com confirmação, Agenda, aviso às 8h e na hora, comando "agenda". Evidência em `metodologia/evidencias/2026-11-21-compromissos-e-lembretes.md`. **Evolução em 22/11/2026 (FEITA, 1172/1172, build ok):** intervalo de datas, repetição (diária, semanal, mensal, anual, dias úteis, semana do mês), perguntas do mascote, `.ics` com séries, aviso de coincidência com operações e chip da operação em todo o período; decisões em `gestao/decisoes/2026-11-22-agenda-intervalo-e-repeticao.md`. **Pendências:** ver "Pendências de 22/11/2026" no topo (navegador NÃO TESTADO, `.ics` real) e o aviso antecipado (não feito).
 - **Buscar também em operações (item 9b, registrado em 21/11/2026; NÃO feito).** O comando "buscar" do assistente só acha demandas (`filtrarDemandas`: título, descrição, processo, SIMP e nº judicial). Falta buscar em operações (nome), municípios e pontos (código); a busca por município ou código de ponto fica para depois do comando "operações" (item 10).
+- **Caracterização: salvamento e cópia (itens 12 e 13, 21/11/2026; feitos, com pendências).** (1) Teste manual da cópia no ponto JUINA202610-01 NÃO TESTADO (sem navegador); roteiro em `metodologia/evidencias/2026-11-21-caracterizacao-salva-e-copia.md`. (2) A linha "Salvo às HH:MM" aparece mesmo se a gravação do ponto devolver erro (`alterarPonto` mostra o erro em outro lugar): ligar a linha ao resultado da gravação. (3) A linha fixa no topo da ficha (`position: sticky`, fundo `Canvas`) não foi vista em tela, nem no celular nem no tema escuro. (4) Os avisos da cópia cobrem só A-12, A-21.1 e A-5/A-5.2; outras incoerências do POP não são checadas. (5) Os lembretes (A-22 e coerência) aparecem depois da cópia, não antes; só os itens faltando perguntam antes.
+- **Testes: falha intermitente (21/11/2026; hipótese, não confirmada).** "Invalid Chai property: toBeInTheDocument" em 38 arquivos (168 testes) em algumas execuções do `npm test`, inclusive sem alterações no código; no diagnóstico o `expect` global era outro que o importado de `vitest`. Sumiu sozinha (920/920 pelo PowerShell e pelo Git Bash). Se voltar: rodar pelo PowerShell em `F:\claude\guara\aplicacao`, conferir outro vitest ou outra sessão no mesmo diretório e repetir até 73 arquivos / 920 testes.

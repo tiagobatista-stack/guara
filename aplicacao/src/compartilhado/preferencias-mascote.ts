@@ -3,7 +3,7 @@
 // Fica no localStorage deste navegador; com o armazenamento bloqueado, vale só até fechar a página.
 
 import { useSyncExternalStore } from 'react';
-import { MASCOTES, type EspecieMascote } from './especies-mascote.ts';
+import { ESPECIE_DA_OCASIAO, MASCOTES, type EspecieMascote, type Ocasiao } from './especies-mascote.ts';
 
 export const CHAVE_MASCOTE = 'guara:mascote:v1';
 export const TAMANHO_MAXIMO_NOME = 20;
@@ -12,9 +12,11 @@ export interface PreferenciasMascote {
   principal: EspecieMascote;
   /** Nome dado pelo analista; espécie sem nome usa o nome da espécie. */
   nomes: Partial<Record<EspecieMascote, string>>;
+  /** Outros mascotes entram em ocasiões pontuais, conforme a personalidade, e o principal volta em seguida. */
+  convidados: boolean;
 }
 
-export const PREFERENCIAS_PADRAO: PreferenciasMascote = { principal: 'capivara', nomes: {} };
+export const PREFERENCIAS_PADRAO: PreferenciasMascote = { principal: 'lobo-guara', nomes: {}, convidados: true };
 
 const ESPECIES = Object.keys(MASCOTES) as EspecieMascote[];
 const ehEspecie = (x: unknown): x is EspecieMascote => typeof x === 'string' && (ESPECIES as string[]).includes(x);
@@ -27,7 +29,7 @@ export function limparNome(nome: string): string {
 /** Preferências gravadas válidas; qualquer parte inválida (gravação corrompida ou alterada à mão) volta ao padrão. */
 export function validarPreferencias(x: unknown): PreferenciasMascote {
   if (typeof x !== 'object' || x === null) return PREFERENCIAS_PADRAO;
-  const bruto = x as { principal?: unknown; nomes?: unknown };
+  const bruto = x as { principal?: unknown; nomes?: unknown; convidados?: unknown };
   const nomes: PreferenciasMascote['nomes'] = {};
   if (typeof bruto.nomes === 'object' && bruto.nomes !== null) {
     for (const especie of ESPECIES) {
@@ -35,7 +37,16 @@ export function validarPreferencias(x: unknown): PreferenciasMascote {
       if (typeof nome === 'string' && limparNome(nome)) nomes[especie] = limparNome(nome);
     }
   }
-  return { principal: ehEspecie(bruto.principal) ? bruto.principal : PREFERENCIAS_PADRAO.principal, nomes };
+  return {
+    principal: ehEspecie(bruto.principal) ? bruto.principal : PREFERENCIAS_PADRAO.principal,
+    nomes,
+    convidados: typeof bruto.convidados === 'boolean' ? bruto.convidados : PREFERENCIAS_PADRAO.convidados,
+  };
+}
+
+/** Espécie que aparece na ocasião: o convidado da personalidade, se estiver ligado; senão, o principal. */
+export function especiePara(p: PreferenciasMascote, ocasiao?: Ocasiao): EspecieMascote {
+  return ocasiao && p.convidados ? ESPECIE_DA_OCASIAO[ocasiao] : p.principal;
 }
 
 /** Nome mostrado na tela: o escolhido pelo analista ou, sem ele, o da espécie. */
@@ -102,6 +113,10 @@ export function nomearMascote(especie: EspecieMascote, nome: string) {
   if (limpo) nomes[especie] = limpo;
   else delete nomes[especie];
   gravar({ ...p, nomes });
+}
+
+export function definirConvidados(ligado: boolean) {
+  gravar({ ...obterPreferencias(), convidados: ligado });
 }
 
 /** Substitui as preferências inteiras (importação de backup). */

@@ -9,6 +9,8 @@ import type { AjusteFeriados } from '../alertas/dias-uteis.ts';
 import type { Aviso } from './avisos.ts';
 import type { Mensagem } from './conversa.ts';
 import { extrairQuando } from './extrair.ts';
+import { respostaDeCompromisso } from './compromissoPelaConversa.ts';
+import { interpretarCompromisso } from './interpretarCompromisso.ts';
 import { adiarLembrete, obterLembretes, opcoesDeAdiamento } from './lembretes.ts';
 
 const DIAS = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -42,14 +44,15 @@ export function respostaDeLembrete(
   ajuste: AjusteFeriados,
   origem: string,
 ): Mensagem[] {
+  // Sem código de demanda: lembrete próprio ("lembrar de ligar para o João amanhã às 9h"), com confirmação.
+  if (!id && interpretarCompromisso(frase, agora, 'lembrete').problema !== 'sem-data') return respostaDeCompromisso(frase, demandas, agora, 'lembrete');
   if (!id) {
     return [{ autor: 'assistente', natureza: 'sugestão', fonte: 'regra: lembrete sem código de demanda', texto: 'Diga qual demanda e quando, por exemplo: "lembrar DEM-FIC-0003 segunda às 8h" ou "me lembra de DEM-FIC-0003 em 2 horas".' }];
   }
   if (!demandas.some((d) => d.id === id)) return nao(`Não encontrei ${id} nas demandas deste navegador. Nada foi gravado.`, origem);
   const aviso = avisos.find((a) => a.id === id);
-  if (!aviso) {
-    return nao(`${id} não tem aviso hoje. Por enquanto só consigo adiar avisos de demandas atrasadas ou paradas. Lembretes livres ainda não existem. Nada foi gravado.`, origem);
-  }
+  // Sem aviso ativo, não há o que adiar: vira lembrete próprio na Agenda (com confirmação).
+  if (!aviso) return respostaDeCompromisso(frase, demandas, agora, 'lembrete');
   if (obterLembretes()[id]?.silenciada) {
     return nao(`${id} está silenciada no painel. Use "Mostrar de novo" nas notificações antes de combinar um lembrete. Nada foi gravado.`, 'lembretes deste navegador');
   }

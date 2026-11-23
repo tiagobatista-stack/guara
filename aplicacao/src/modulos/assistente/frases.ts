@@ -3,7 +3,7 @@
 // novo entra aqui e aparece na ajuda sem mais nada. Gatilhos são escritos em português comum;
 // a comparação acontece depois de normalizar os dois lados (`normalizar.ts`).
 
-export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'lembrete' | 'prorrogar' | 'buscar' | 'operacoes' | 'cumprimento';
+export type IdIntencao = 'prazos' | 'prioridades' | 'demanda' | 'ajuda' | 'lembrete' | 'prorrogar' | 'buscar' | 'operacoes' | 'compromisso' | 'agenda' | 'cumprimento';
 
 export interface Intencao {
   id: IdIntencao;
@@ -88,6 +88,25 @@ export const INTENCOES: readonly Intencao[] = [
     descricao: 'mostra o que falta do campo: pontos sem resultado, travados, a reprogramar e as operações em andamento',
     exemplo: 'o que falta das operações?',
     gatilhos: ['operacoes', 'operacao', 'pontos', 'campo', 'viagens', 'o que falta das operacoes', 'pontos pendentes'],
+  },
+  {
+    id: 'compromisso',
+    comando: 'anotar compromisso',
+    rotulo: 'Anotar um compromisso',
+    descricao: 'anota reunião, palestra, curso ou compromisso na Agenda, depois de você confirmar (precisa do tipo e do dia)',
+    exemplo: 'reunião dia 10/12 sobre licenciamento',
+    gatilhos: ['anotar compromisso', 'marcar compromisso', 'marcar reuniao', 'agendar reuniao', 'novo compromisso'],
+  },
+  {
+    id: 'agenda',
+    comando: 'agenda',
+    rotulo: 'Ver a agenda',
+    descricao: 'lista compromissos, vistorias e saídas de hoje, de amanhã ou dos próximos 7 dias',
+    exemplo: 'o que tenho amanhã?',
+    gatilhos: [
+      'agenda', 'compromissos', 'compromisso', 'minha agenda', 'o que tenho hoje', 'o que tenho amanha', 'o que tenho na semana',
+      'o que tenho essa semana', 'o que tenho esta semana', 'o que tenho de compromisso', 'agenda de hoje', 'agenda de amanha', 'agenda da semana',
+    ],
   },
   {
     id: 'ajuda',

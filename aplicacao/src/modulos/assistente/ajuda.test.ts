@@ -17,7 +17,7 @@ describe('resposta da ajuda', () => {
   it('lista todos os comandos da tabela, um por linha, com descrição e exemplo', () => {
     const r = respostaDeAjuda(TODOS);
     const linhas = r.texto.split('\n');
-    expect(linhas[0]).toBe('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar", "prorrogar", "buscar", "operações" e "ajuda".');
+    expect(linhas[0]).toBe('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar", "prorrogar", "buscar", "operações", "anotar compromisso", "agenda" e "ajuda".');
     expect(linhas).toContain('• prazos — lista as demandas vencidas, com prazo próximo e paradas (ou "o que tá vencido?")');
     expect(linhas).toHaveLength(INTENCOES.length + 2);
     expect(r.natureza).toBe('fato');
@@ -30,9 +30,9 @@ describe('resposta da ajuda', () => {
   });
 
   it('comando fora dos atalhos ganha botão, e só ele', () => {
-    const extra: Intencao = { id: 'ajuda', comando: 'agenda', rotulo: 'Ver agenda', descricao: 'mostra a agenda', exemplo: 'o que tenho hoje?', gatilhos: ['agenda'] };
+    const extra: Intencao = { id: 'ajuda', comando: 'relatórios', rotulo: 'Ver relatórios', descricao: 'mostra os relatórios', exemplo: 'quais relatórios?', gatilhos: ['relatorios'] };
     const r = respostaDeAjuda(TODOS, [...INTENCOES, extra]);
-    expect(r.acoes).toEqual([{ rotulo: 'Ver agenda', comando: 'agenda' }]);
+    expect(r.acoes).toEqual([{ rotulo: 'Ver relatórios', comando: 'relatórios' }]);
     expect(r.texto).toContain('Toque num comando abaixo para usá-lo.');
   });
 });

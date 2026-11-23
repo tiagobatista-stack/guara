@@ -54,7 +54,7 @@ it('o botão do assistente leva o rosto do mascote principal, atento com aviso e
   const flutuante = container.querySelector('.botao-flutuante')!;
   expect(flutuante).toHaveAccessibleName('Abrir assistente');
   expect(flutuante.querySelector('svg.mascote--vivo')).toHaveAttribute('data-humor', 'tranquilo');
-  expect(container.querySelector('.botao-assistente svg.mascote--vivo')).toHaveAttribute('data-especie', 'capivara');
+  expect(container.querySelector('.botao-assistente svg.mascote--vivo')).toHaveAttribute('data-especie', 'lobo-guara');
 
   act(() => {
     armazem.criar({ titulo: 'Prazo antigo (fictício)', descricao: '', responsavel: '', prioridade: 'Média', status: 'A Fazer', prazo: '2020-01-02' });
@@ -200,4 +200,19 @@ describe('menu e painel recolhíveis', () => {
     fireEvent.click(screen.getByRole('button', { name: 'Recolher menu' }));
     expect(container.querySelector('.app')).toHaveClass('app--menu-recolhido');
   });
+});
+
+// Rodapé (21/11/2026): autoria e versão do programa em todas as telas.
+it('o rodapé mostra o autor e a versão do programa', () => {
+  localStorage.clear();
+  const armazem = criarArmazem(criarArmazenamentoEmMemoria(), { exemplos: () => [] });
+  const { container } = render(
+    <ContextoArmazem.Provider value={armazem}>
+      <Aplicacao />
+    </ContextoArmazem.Provider>,
+  );
+  const rodape = container.querySelector('footer.rodape-app') as HTMLElement;
+  expect(rodape).toHaveTextContent('Desenvolvido por Tiago Alexandre Batista');
+  expect(rodape).toHaveTextContent(`GUARÁ v${__VERSAO_GUARA__}`);
+  expect(__VERSAO_GUARA__).toMatch(/^\d+\.\d+\.\d+/);
 });

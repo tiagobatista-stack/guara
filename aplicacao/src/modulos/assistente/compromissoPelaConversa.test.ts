@@ -1,0 +1,385 @@
+import { beforeEach, describe, expect, it } from 'vitest';
+import { criarCompromisso, obterCompromissos, obterEtapaDoRascunho, obterRascunho } from '../agenda/compromissos.ts';
+import { classificar } from './classificar.ts';
+import { lerRotaDeCompromisso, respostaDeAgenda, respostaDeCompromisso, respostaDeDecisao, rotaParaCorrigirCompromisso } from './compromissoPelaConversa.ts';
+import { respostaDeLembrete } from './lembrarPelaConversa.ts';
+import { validarMensagem } from './conversa.ts';
+import type { Demanda } from '../demandas/modelo.ts';
+
+// Sábado, 21/11/2026, 10h.
+const SABADO = new Date(2026, 10, 21, 10);
+const demandas = [{ id: 'DEM-FIC-0003', titulo: 'Licença de Sinop' }] as unknown as Demanda[];
+const pedir = (frase: string) => respostaDeCompromisso(frase, demandas, SABADO);
+
+beforeEach(() => localStorage.clear());
+
+describe('confirmação antes de gravar', () => {
+  it('"reunião dia 10/12 sobre licenciamento" mostra o que entendeu e NÃO grava', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    const [m] = respostaDeDecisao('pular', SABADO)!;
+    expect(m.natureza).toBe('inferência');
+    expect(m.fonte).toBe('interpretação da frase por regras; confira');
+    expect(m.texto).toBe('Vou anotar: Reunião — licenciamento · quinta, 10/12/2026 · dia todo.');
+    expect(m.acoes?.map((a) => a.rotulo)).toEqual(['Confirmar', 'Corrigir', 'Cancelar']);
+    expect(obterCompromissos()).toEqual([]);
+    expect(obterRascunho()).toMatchObject({ tipo: 'reunião', data: '2026-12-10', assunto: 'licenciamento' });
+  });
+
+  it('mostra hora e demanda vinculada', () => {
+    const [m] = pedir('palestra amanhã às 14h sobre DEM-FIC-0003');
+    expect(m.texto).toContain('Palestra — Licença de Sinop · domingo, 22/11/2026 · às 14:00 · demanda DEM-FIC-0003');
+  });
+
+  it('código de demanda inexistente: avisa e segue sem vínculo', () => {
+    const [m] = pedir('reunião amanhã sobre DEM-FIC-0099');
+    expect(m.texto).toContain('Não encontrei DEM-FIC-0099');
+    expect(obterRascunho()?.demanda).toBeUndefined();
+  });
+
+  it('Confirmar grava; a resposta é fato e some o rascunho', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    const [m] = respostaDeDecisao('confirmar compromisso', SABADO)!;
+    expect(m.natureza).toBe('fato');
+    expect(m.texto).toContain('Anotado: Reunião — licenciamento');
+    expect(obterCompromissos()).toHaveLength(1);
+    expect(obterRascunho()).toBeNull();
+    // Confirmar de novo não grava duas vezes.
+    expect(respostaDeDecisao('confirmar compromisso', SABADO)![0].texto).toContain('nenhum compromisso esperando');
+    expect(obterCompromissos()).toHaveLength(1);
+  });
+
+  it('Cancelar não grava nada; "sim" e "não" digitados valem só com algo pendente', () => {
+    expect(respostaDeDecisao('sim', SABADO)).toBeNull();
+    pedir('curso amanhã');
+    expect(respostaDeDecisao('cancelar compromisso', SABADO)![0].texto).toBe('Cancelado. Nada foi gravado.');
+    expect(obterCompromissos()).toEqual([]);
+    pedir('curso amanhã');
+    respostaDeDecisao('sim', SABADO);
+    expect(obterCompromissos()).toHaveLength(1);
+    pedir('curso 25/11');
+    respostaDeDecisao('não', SABADO);
+    expect(obterCompromissos()).toHaveLength(1);
+  });
+
+  it('"Corrigir" leva à Agenda com o formulário preenchido, em rota aceita pela conversa', () => {
+    const [m] = pedir('reunião dia 10/12 às 9h sobre licenciamento | x');
+    const corrigir = m.acoes!.find((a) => a.rotulo === 'Corrigir')!;
+    expect(corrigir.rota).toMatch(/^#\/agenda\?novo=/);
+    const url = new URL(corrigir.rota!.replace('#', 'http://x/'));
+    void url;
+    const valor = decodeURIComponent(corrigir.rota!.split('?novo=')[1]);
+    expect(lerRotaDeCompromisso(valor)).toEqual({ tipo: 'reunião', data: '2026-12-10', hora: '09:00', assunto: 'licenciamento | x' });
+    // A conversa guardada só aceita rotas conhecidas: a do "Corrigir" passa.
+    const guardada = validarMensagem({ autor: 'assistente', texto: 't', natureza: 'inferência', fonte: 'f', acoes: [corrigir] });
+    expect(guardada?.acoes?.[0].rota).toBe(corrigir.rota);
+  });
+
+  it('os botões Confirmar e Cancelar levam a ação direta, que sobrevive à conversa guardada e é validada', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    const [m] = respostaDeDecisao('pular', SABADO)!;
+    const [confirmar, , cancelar] = m.acoes!;
+    expect(confirmar.acao).toMatchObject({ tipo: 'confirmar-compromisso', dados: { tipo: 'reunião', data: '2026-12-10', assunto: 'licenciamento' } });
+    expect(cancelar.acao).toEqual({ tipo: 'cancelar-compromisso' });
+    const guardada = validarMensagem(JSON.parse(JSON.stringify(m)));
+    expect(guardada?.acoes?.[0].acao).toEqual(confirmar.acao);
+    const adulterada = validarMensagem({ ...m, acoes: [{ ...confirmar, acao: { tipo: 'confirmar-compromisso', dados: { tipo: 'reunião', data: '2026-02-31', assunto: 'x' } } }] });
+    expect(adulterada?.acoes?.[0].acao).toBeUndefined();
+    expect(validarMensagem({ ...m, acoes: [{ ...confirmar, acao: { tipo: 'apagar-tudo' } }] })?.acoes?.[0].acao).toBeUndefined();
+  });
+
+  it('a leitura da rota descarta o que não cabe nos campos', () => {
+    expect(lerRotaDeCompromisso('festa|ontem|99:99|x|texto')).toEqual({ assunto: 'texto' });
+    expect(lerRotaDeCompromisso(null)).toBeNull();
+    expect(rotaParaCorrigirCompromisso({ tipo: 'curso', data: '2026-12-01', assunto: 'a b' })).toBe('#/agenda?novo=curso%7C2026-12-01%7C%7C%7Ca%20b');
+  });
+});
+
+describe('intervalo e repetição na conversa', () => {
+  it('intervalo: mostra "10/12/2026 a 12/12/2026" e grava dataFim ao confirmar', () => {
+    const [m] = pedir('curso de geoprocessamento de 10/12 a 12/12');
+    expect(m.texto).toBe('Vou anotar: Curso — geoprocessamento · 10/12/2026 a 12/12/2026 · dia todo.');
+    expect(obterRascunho()).toMatchObject({ data: '2026-12-10', dataFim: '2026-12-12' });
+    const [ok] = respostaDeDecisao('confirmar compromisso', SABADO)!;
+    expect(ok.texto).toContain('aviso vem às 8h de cada dia');
+    expect(obterCompromissos()[0]).toMatchObject({ data: '2026-12-10', dataFim: '2026-12-12' });
+  });
+
+  it('repetição: mostra "toda segunda a partir de 23/11/2026" e grava a série', () => {
+    const [m] = pedir('reunião toda segunda às 9h sobre alinhamento');
+    expect(m.texto).toBe('Vou anotar: Reunião — alinhamento · toda segunda a partir de 23/11/2026 · às 09:00.');
+    const [ok] = respostaDeDecisao('sim', SABADO)!;
+    expect(ok.texto).toContain('aviso vem às 8h de cada ocorrência');
+    expect(obterCompromissos()[0]).toMatchObject({ data: '2026-11-23', hora: '09:00', repeticao: 'semanal' });
+  });
+
+  it('repetição com fim mostra "até"', () => {
+    const [m] = pedir('reunião toda segunda até 20/12 sobre alinhamento');
+    expect(m.texto).toContain('toda segunda a partir de 23/11/2026, até 20/12/2026');
+    expect(obterRascunho()).toMatchObject({ repeticao: 'semanal', repetirAte: '2026-12-20' });
+  });
+
+  it('o botão Confirmar sobrevive à conversa guardada com os campos novos', () => {
+    const [m] = pedir('reunião toda segunda até 20/12 sobre alinhamento');
+    const guardada = validarMensagem(JSON.parse(JSON.stringify(m)));
+    expect(guardada?.acoes?.[0].acao).toEqual(m.acoes![0].acao);
+    expect(guardada?.acoes?.[0].acao).toMatchObject({ dados: { repeticao: 'semanal', repetirAte: '2026-12-20' } });
+    const adulterada = validarMensagem({ ...m, acoes: [{ ...m.acoes![0], acao: { tipo: 'confirmar-compromisso', dados: { tipo: 'reunião', data: '2026-11-23', assunto: 'x', repeticao: 'quinzenal' } } }] });
+    expect(adulterada?.acoes?.[0].acao).toBeUndefined();
+  });
+
+  it('"Corrigir" leva intervalo e repetição na rota, e a leitura os valida de novo', () => {
+    const [m] = pedir('reunião toda segunda até 20/12 sobre alinhamento');
+    const corrigir = m.acoes!.find((a) => a.rotulo === 'Corrigir')!;
+    expect(corrigir.rota).toMatch(/&rep=semanal&ate=2026-12-20$/);
+    expect(validarMensagem({ autor: 'assistente', texto: 't', natureza: 'inferência', fonte: 'f', acoes: [corrigir] })?.acoes?.[0].rota).toBe(corrigir.rota);
+    const [curso] = pedir('curso de 10/12 a 12/12 sobre SIG');
+    const rotaCurso = curso.acoes!.find((a) => a.rotulo === 'Corrigir')!.rota!;
+    expect(rotaCurso).toMatch(/&fim=2026-12-12$/);
+    expect(validarMensagem({ autor: 'assistente', texto: 't', natureza: 'inferência', fonte: 'f', acoes: [{ rotulo: 'Corrigir', comando: 'x', rota: rotaCurso }] })?.acoes?.[0].rota).toBe(rotaCurso);
+    expect(lerRotaDeCompromisso('curso|2026-12-10|||SIG', { fim: '2026-12-12', rep: 'semanal', ate: '2026-12-20' })).toEqual({ tipo: 'curso', data: '2026-12-10', assunto: 'SIG', dataFim: '2026-12-12', repeticao: 'semanal', repetirAte: '2026-12-20' });
+    expect(lerRotaDeCompromisso('curso|2026-12-10|||SIG', { fim: 'ontem', rep: 'quinzenal', ate: '20/12' })).toEqual({ tipo: 'curso', data: '2026-12-10', assunto: 'SIG' });
+  });
+
+  it('intervalo inválido pergunta e não grava', () => {
+    const [m] = pedir('curso 12/12 a 10/12/2026');
+    expect(m.natureza).toBe('sugestão');
+    expect(m.texto).toContain('O período');
+    expect(obterRascunho()).toBeNull();
+    expect(obterCompromissos()).toEqual([]);
+  });
+
+  it('"toda segunda reunião ..." é compromisso para o classificador', () => {
+    expect(classificar('toda segunda reunião de alinhamento', SABADO)?.id).toBe('compromisso');
+    expect(classificar('curso de 10/12 a 12/12', SABADO)?.id).toBe('compromisso');
+  });
+});
+
+describe('perguntas quando falta ou está errado', () => {
+  it.each([
+    ['reunião sobre licenciamento', 'Não entendi a data'],
+    ['reunião 31/02', 'não existe'],
+    ['reunião 10/11/2026', 'já passou'],
+    ['reunião amanhã às 25h', 'Não entendi a hora'],
+    ['reunião hoje às 9h', 'já passou'],
+  ])('%s → pergunta e não grava', (frase, trecho) => {
+    const [m] = pedir(frase);
+    expect(m.natureza).toBe('sugestão');
+    expect(m.texto).toContain(trecho);
+    expect(m.acoes?.map((a) => a.rotulo)).toEqual(['Abrir formulário']);
+    expect(obterRascunho()).toBeNull();
+    expect(obterCompromissos()).toEqual([]);
+  });
+});
+
+describe('classificação: tipo + data vence gatilho de outro comando', () => {
+  it('"reunião dia 10/12 sobre prazos" é compromisso, não o comando prazos', () => {
+    expect(classificar('reunião dia 10/12 sobre prazos', SABADO)?.id).toBe('compromisso');
+    expect(classificar('prazos', SABADO)?.id).toBe('prazos');
+  });
+  it('agenda e variações', () => {
+    for (const f of ['agenda', 'compromissos', 'o que tenho hoje?', 'o que tenho amanhã', 'o que tenho na semana']) expect(classificar(f, SABADO)?.id, f).toBe('agenda');
+  });
+});
+
+describe('comando agenda', () => {
+  const cmp = (data: string, tipo: 'reunião' | 'lembrete', assunto: string, hora?: string) => criarCompromisso({ tipo, data, assunto, ...(hora ? { hora } : {}) }, SABADO.toISOString());
+  const listar = (frase: string) => respostaDeAgenda(frase, obterCompromissos(), [], [], SABADO)[0];
+
+  it('hoje, amanhã e próximos 7 dias, com hora e tipo; concluído fica de fora', () => {
+    cmp('2026-11-21', 'reunião', 'licenciamento', '14:30');
+    cmp('2026-11-22', 'lembrete', 'ligar para o João');
+    cmp('2026-11-30', 'reunião', 'longe');
+    expect(listar('o que tenho hoje?').texto).toBe('Agenda hoje:\n• 14:30 Reunião — licenciamento');
+    expect(listar('o que tenho amanhã').texto).toBe('Agenda amanhã:\n• Lembrete — ligar para o João');
+    const semana = listar('agenda').texto;
+    expect(semana).toContain('sábado, 21/11/2026:');
+    expect(semana).toContain('domingo, 22/11/2026:');
+    expect(semana).not.toContain('longe');
+    expect(listar('agenda').natureza).toBe('fato');
+  });
+
+  it('sem nada marcado, diz isso', () => {
+    expect(listar('o que tenho hoje').texto).toBe('Nada marcado hoje.');
+  });
+});
+
+describe('lembrete próprio x soneca (precedência)', () => {
+  const avisos: Parameters<typeof respostaDeLembrete>[2] = [{ id: 'DEM-FIC-0003', titulo: 'x', tipo: 'vencida', texto: 'x', situacao: 'v' }] as never;
+  const lembrar = (frase: string, id: string | null, av = avisos) => respostaDeLembrete(frase, id, av, demandas, SABADO, {}, 'origem');
+
+  it('com aviso ativo, "lembrar DEM-FIC-0003 amanhã" continua sendo a soneca (grava direto, sem confirmação)', () => {
+    const [m] = lembrar('lembrar DEM-FIC-0003 amanhã', 'DEM-FIC-0003');
+    expect(m.fonte).toBe('lembrete criado agora');
+    expect(obterRascunho()).toBeNull();
+  });
+
+  it('sem aviso ativo, vira lembrete próprio com confirmação (corrige a limitação do item 3)', () => {
+    const [m] = lembrar('lembrar DEM-FIC-0003 amanhã às 9h', 'DEM-FIC-0003', []);
+    expect(m.texto).toBe('Vou anotar: Lembrete — Licença de Sinop · domingo, 22/11/2026 · às 09:00 · demanda DEM-FIC-0003.');
+    respostaDeDecisao('confirmar compromisso', SABADO);
+    expect(obterCompromissos()[0]).toMatchObject({ tipo: 'lembrete', demanda: 'DEM-FIC-0003', hora: '09:00' });
+  });
+
+  it('lembrete livre, sem código: "lembrar de ligar para o João amanhã"', () => {
+    const [m] = lembrar('lembrar de ligar para o João amanhã', null, []);
+    expect(m.texto).toContain('Vou anotar: Lembrete — ligar para o João');
+  });
+
+  it('"lembrar" sem quando continua perguntando', () => {
+    expect(lembrar('lembrar', null)[0].natureza).toBe('sugestão');
+    expect(obterRascunho()).toBeNull();
+  });
+});
+
+describe('perguntas do mascote no cadastro', () => {
+  const dizer = (t: string) => respostaDeDecisao(t, SABADO)!;
+  const botoes = (m: { acoes?: { rotulo: string }[] }) => m.acoes!.map((a) => a.rotulo);
+
+  it('frase só com o dia pergunta "É o dia todo ou tem hora?", sem gravar, e guarda a etapa no rascunho', () => {
+    const [m] = pedir('reunião dia 10/12 sobre licenciamento');
+    expect(m.natureza).toBe('sugestão');
+    expect(m.texto).toContain('Entendi: Reunião — licenciamento · quinta, 10/12/2026 · dia todo.');
+    expect(m.texto).toContain('É o dia todo ou tem hora?');
+    expect(botoes(m)).toEqual(['Dia todo', 'Pular, está bom assim', 'Cancelar']);
+    expect(obterEtapaDoRascunho()).toBe('hora');
+    expect(obterCompromissos()).toEqual([]);
+  });
+
+  it('frase completa não pergunta nada: com hora, com intervalo, com repetição e lembrete', () => {
+    for (const f of ['reunião dia 10/12 às 14h', 'curso de 10/12 a 12/12', 'reunião toda segunda', 'lembrar de ligar amanhã']) {
+      localStorage.clear();
+      const [m] = f.startsWith('lembrar') ? respostaDeCompromisso(f, demandas, SABADO, 'lembrete') : pedir(f);
+      expect(m.texto, f).toContain('Vou anotar:');
+      expect(obterEtapaDoRascunho(), f).toBeNull();
+    }
+  });
+
+  it('botão "Dia todo" leva à 2ª pergunta (até quando) e "Só nesse dia" fecha em "Vou anotar"', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    const [q2] = dizer('dia todo');
+    expect(q2.texto).toContain('É só nesse dia ou vai até quando?');
+    expect(botoes(q2)).toEqual(['Só nesse dia', 'Pular, está bom assim', 'Cancelar']);
+    expect(obterEtapaDoRascunho()).toBe('fim');
+    const [fim] = dizer('só nesse dia');
+    expect(fim.texto).toBe('Vou anotar: Reunião — licenciamento · quinta, 10/12/2026 · dia todo.');
+    expect(obterEtapaDoRascunho()).toBeNull();
+    expect(obterRascunho()).toMatchObject({ data: '2026-12-10' });
+  });
+
+  it('texto livre de hora ("às 14h") vai à pergunta "Isso se repete?"; o máximo é de 2 perguntas', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    const [q2] = dizer('às 14h');
+    expect(q2.texto).toContain('Entendi: Reunião — licenciamento · quinta, 10/12/2026 · às 14:00.');
+    expect(q2.texto).toContain('Isso se repete?');
+    expect(botoes(q2)).toEqual(['Não repete', 'Pular, está bom assim', 'Cancelar']);
+    const [fim] = dizer('não');
+    expect(fim.texto).toBe('Vou anotar: Reunião — licenciamento · quinta, 10/12/2026 · às 14:00.');
+    expect(obterEtapaDoRascunho()).toBeNull();
+  });
+
+  it('"até 12/12" e "até dia 12" no lugar do intervalo', () => {
+    pedir('curso dia 10/12');
+    dizer('dia todo');
+    expect(dizer('até 12/12')[0].texto).toBe('Vou anotar: Curso · 10/12/2026 a 12/12/2026 · dia todo.');
+    localStorage.clear();
+    pedir('curso dia 10/12');
+    dizer('não');
+    expect(dizer('até dia 12')[0].texto).toBe('Vou anotar: Curso · 10/12/2026 a 12/12/2026 · dia todo.');
+    expect(obterRascunho()).toMatchObject({ data: '2026-12-10', dataFim: '2026-12-12' });
+  });
+
+  it('semana do mês como resposta de "até quando"', () => {
+    pedir('curso dia 10/12');
+    dizer('dia todo');
+    const [m] = dizer('2ª semana de dezembro');
+    expect(m.texto).toContain('08/12/2026 a 14/12/2026');
+    expect(obterRascunho()).toMatchObject({ data: '2026-12-08', dataFim: '2026-12-14' });
+  });
+
+  it('"toda semana até 20/12" na pergunta de repetição; o botão "Não repete" também fecha', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    dizer('às 9h');
+    const [m] = dizer('toda semana até 20/12');
+    expect(m.texto).toContain('quinta a partir de 10/12/2026, até 20/12/2026');
+    expect(obterRascunho()).toMatchObject({ repeticao: 'semanal', repetirAte: '2026-12-20', hora: '09:00' });
+    localStorage.clear();
+    pedir('reunião dia 10/12 sobre licenciamento');
+    dizer('às 9h');
+    expect(dizer('não repete')[0].texto).toContain('Vou anotar:');
+    expect(obterRascunho()?.repeticao).toBeUndefined();
+  });
+
+  it('"Pular, está bom assim" encerra as perguntas em qualquer etapa e mantém o que já havia', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    dizer('às 9h');
+    const [m] = dizer('pular, está bom assim');
+    expect(m.texto).toBe('Vou anotar: Reunião — licenciamento · quinta, 10/12/2026 · às 09:00.');
+    expect(obterEtapaDoRascunho()).toBeNull();
+    expect(botoes(m)).toEqual(['Confirmar', 'Corrigir', 'Cancelar']);
+  });
+
+  it('resposta inválida repete a mesma pergunta, com os mesmos botões, sem avançar', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    const [m] = dizer('banana');
+    expect(m.texto).toContain('Não entendi.');
+    expect(m.texto).toContain('É o dia todo ou tem hora?');
+    expect(botoes(m)).toEqual(['Dia todo', 'Pular, está bom assim', 'Cancelar']);
+    expect(obterEtapaDoRascunho()).toBe('hora');
+    const [h] = dizer('às 25h');
+    expect(h.texto).toContain('Não entendi a hora');
+    expect(obterEtapaDoRascunho()).toBe('hora');
+    dizer('dia todo');
+    const [f] = dizer('talvez');
+    expect(f.texto).toContain('É só nesse dia ou vai até quando?');
+    expect(obterEtapaDoRascunho()).toBe('fim');
+    expect(dizer('até 05/12')[0].texto).toContain('O período');
+    expect(obterEtapaDoRascunho()).toBe('fim');
+  });
+
+  it('"Cancelar" no meio das perguntas descarta tudo; "Confirmar" no meio grava como está', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    dizer('dia todo');
+    expect(dizer('cancelar')[0].texto).toBe('Cancelado. Nada foi gravado.');
+    expect(obterRascunho()).toBeNull();
+    expect(obterEtapaDoRascunho()).toBeNull();
+    expect(obterCompromissos()).toEqual([]);
+    pedir('reunião dia 10/12 sobre licenciamento');
+    dizer('confirmar compromisso');
+    expect(obterCompromissos()).toHaveLength(1);
+  });
+
+  it('uma frase nova de compromisso no meio substitui a pergunta pendente', () => {
+    pedir('reunião dia 10/12 sobre licenciamento');
+    expect(respostaDeDecisao('palestra amanhã às 14h', SABADO)).toBeNull();
+    pedir('palestra amanhã às 14h');
+    expect(obterEtapaDoRascunho()).toBeNull();
+    expect(obterRascunho()).toMatchObject({ tipo: 'palestra', hora: '14:00' });
+  });
+
+  it('a etapa fica gravada no localStorage, junto do rascunho', () => {
+    pedir('curso dia 10/12');
+    expect(JSON.parse(localStorage.getItem('guara:compromissos:rascunho:v1')!)[1]).toEqual({ etapa: 'hora' });
+  });
+});
+
+describe('aviso de coincidência com operação na confirmação', () => {
+  const operacao = { id: 'o1', nome: 'Operação Norte', inicio: '2026-12-10', fim: '2026-12-12', criadaEm: '2026-11-01T00:00:00Z', viagens: [], pontos: [] };
+
+  it('com operação no período, o "Vou anotar" ganha a linha de aviso; sem, fica igual', () => {
+    localStorage.setItem('guara:operacoes:v1', JSON.stringify([operacao]));
+    const [m] = pedir('curso de 11/12 a 13/12 sobre solo');
+    expect(m.texto).toContain('Vou anotar:');
+    expect(m.texto).toContain('\nAtenção: Coincide com a operação Operação Norte (11/12/2026 a 12/12/2026). Pode confirmar assim mesmo.');
+    expect(m.acoes?.map((a) => a.rotulo)).toEqual(['Confirmar', 'Corrigir', 'Cancelar']);
+    localStorage.clear();
+    expect(pedir('curso de 11/12 a 13/12 sobre solo')[0].texto).not.toContain('Atenção');
+  });
+
+  it('série que cai na operação também avisa, e confirmar grava', () => {
+    localStorage.setItem('guara:operacoes:v1', JSON.stringify([operacao]));
+    const [m] = pedir('reunião toda quinta às 9h');
+    expect(m.texto).toContain('Coincide com a operação Operação Norte (10/12/2026)');
+    respostaDeDecisao('confirmar compromisso', SABADO);
+    expect(obterCompromissos()).toHaveLength(1);
+  });
+});

@@ -16,6 +16,7 @@ import { textoFalta } from './essenciais.ts';
 import { formatarDecimal, formatarGms } from './coordenadas.ts';
 import { textoVistoria } from './vistoria.ts';
 import { VinculoOperacao } from './VinculoOperacao.tsx';
+import { ContextoDoRelatorio } from './ContextoDoRelatorio.tsx';
 import { useOperacoes } from '../operacoes/armazem.ts';
 import { demandasEncaixadas } from '../operacoes/regras.ts';
 import { historicoRecente, textoEvento } from './historico.ts';
@@ -266,6 +267,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
             )}
           </dl>
           <VinculoOperacao demanda={emDetalhe} aoEditar={() => { setAviso(null); setModo({ tipo: 'editar', id: emDetalhe.id }); }} />
+          <ContextoDoRelatorio key={`contexto-${emDetalhe.id}`} demanda={emDetalhe} />
           {emDetalhe.status !== 'Concluída' && (
             <BloqueioDoItem
               key={emDetalhe.id}
@@ -317,7 +319,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
           {(() => {
             const resumos = resumosEmAberto(demandas, agora(), ajuste);
             return resumos.length === 0 ? (
-              <EstadoVazio cartao texto="Nenhuma demanda em aberto." />
+              <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhuma demanda em aberto." />
             ) : (
               <ul className="lista-limpa grade grade--2" aria-label="Resumo das demandas em aberto">
                 {resumos.map((r) => (
@@ -408,9 +410,9 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
 
           {visiveis.length === 0 ? (
             demandas.length === 0 ? (
-              <EstadoVazio cartao texto="Nenhuma demanda cadastrada." dica="Use “Nova demanda” para registrar a primeira." />
+              <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhuma demanda cadastrada." dica="Use “Nova demanda” para registrar a primeira." />
             ) : (
-              <EstadoVazio cartao texto="Nenhuma demanda corresponde aos filtros." dica="Mude ou limpe os filtros para ver as outras." />
+              <EstadoVazio ocasiao="vazio-acolhedor" cartao texto="Nenhuma demanda corresponde aos filtros." dica="Mude ou limpe os filtros para ver as outras." />
             )
           ) : (
             <ul className="lista-limpa grade grade--2" aria-label="Lista de demandas">

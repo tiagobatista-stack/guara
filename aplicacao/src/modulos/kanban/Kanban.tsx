@@ -65,7 +65,7 @@ export function Kanban({ agora = () => new Date() }: { agora?: () => Date }) {
                 {status} <span className="kanban-contagem" aria-label={plural(cartoes.length, 'demanda', 'demandas')}>{cartoes.length}</span>
               </h2>
               {cartoes.length === 0 ? (
-                <EstadoVazio compacto texto="Nenhuma demanda." />
+                <EstadoVazio ocasiao="vazio-acolhedor" compacto texto="Nenhuma demanda." />
               ) : (
                 <ul className="lista-limpa kanban-lista">
                   {cartoes.map((d) => {

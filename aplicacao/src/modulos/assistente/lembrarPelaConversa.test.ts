@@ -43,8 +43,11 @@ describe('lembrete pela conversa', () => {
 
   it('id inexistente, sem id, sem aviso e silenciada não gravam nada', () => {
     expect(pedir('lembrar amanhã', 'DEM-FIC-0099')[0].texto).toContain('Não encontrei DEM-FIC-0099');
-    expect(pedir('lembrar amanhã', null)[0].natureza).toBe('sugestão');
-    expect(pedir('lembrar amanhã', 'DEM-FIC-0004')[0].texto).toContain('Lembretes livres ainda não existem');
+    expect(pedir('lembrar', null)[0].natureza).toBe('sugestão');
+    // Sem aviso ativo (item 14): vira lembrete próprio, que só grava depois de confirmar.
+    const proprio = pedir('lembrar DEM-FIC-0004 amanhã', 'DEM-FIC-0004')[0];
+    expect(proprio.texto).toContain('Vou anotar: Lembrete');
+    expect(proprio.acoes?.map((a) => a.rotulo)).toEqual(['Confirmar', 'Corrigir', 'Cancelar']);
     silenciarDemanda(avisos[0], SABADO);
     expect(pedir('lembrar amanhã', 'DEM-FIC-0003')[0].texto).toContain('silenciada');
     expect(obterLembretes()['DEM-FIC-0003']!.adiadoAte).toBeUndefined();

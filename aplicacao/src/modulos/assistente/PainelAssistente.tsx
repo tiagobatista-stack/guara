@@ -8,7 +8,7 @@ import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/prefe
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
 import { avisoDeBackup, avisosDoDia, naturezaDoAviso, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
-import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
+import { acrescentarFalas, useConversa, type AcaoDaFala, type Mensagem } from './conversa.ts';
 import { useDemandaEmFoco } from './demanda-em-foco.ts';
 import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
 import { classificar } from './classificar.ts';
@@ -27,6 +27,9 @@ import { abaPedida, abaPorTecla, ABAS, gravarAba, lerAba, pedirAba, rotuloDaAba,
 import { priorizarDemandas } from './priorizar.ts';
 import { nomeDaDemanda } from './rotuloDaDemanda.ts';
 import { useLimiteDeAvisos } from './preferencias-avisos.ts';
+import { cancelarCompromisso, confirmarCompromisso, respostaDeAgenda, respostaDeCompromisso, respostaDeDecisao } from './compromissoPelaConversa.ts';
+import { adiarCompromisso, concluirOcorrencia, marcarCienteCompromisso, tituloDoCompromisso, useCompromissos } from '../agenda/compromissos.ts';
+import { OPCAO_EM_DUAS_HORAS, textoDoCompromisso, useCompromissosParaAvisar, type CompromissoAvisado } from '../agenda/avisosDeCompromissos.ts';
 import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, useLembretes } from './lembretes.ts';
 import { DIAS_LEMBRETE_BACKUP, useUltimoBackup } from '../../compartilhado/ultimo-backup.ts';
 import { plural } from '../../compartilhado/plural.ts';
@@ -40,10 +43,13 @@ function textoDosPrazos(avisos: readonly Aviso[]): string {
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[], buscar: (termo: string | null) => Mensagem[], operacoes: () => Mensagem[]): Mensagem[] {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[], buscar: (termo: string | null) => Mensagem[], operacoes: () => Mensagem[], agenda: { agora: Date; compromisso: () => Mensagem[]; agendaDoDia: () => Mensagem[]; decisao: () => Mensagem[] | null }): Mensagem[] {
+  // "Confirmar"/"Cancelar" do compromisso entendido (botão ou digitado) valem antes de qualquer outra regra.
+  const decidida = agenda.decisao();
+  if (decidida) return decidida;
   // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
   // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
-  const intencao = classificar(comando)?.id;
+  const intencao = classificar(comando, agenda.agora)?.id;
   // Código de demanda escrito na frase: vale mais que a demanda aberta na tela. Sem outra intenção,
   // a frase "DEM-FIC-0002" (ou qualquer frase só com o código) é um pedido de resumo daquela demanda.
   const [idDaFrase] = extrairIds(comando);
@@ -64,6 +70,8 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string, so
   }
   if (intencao === 'prioridades') return prioridades();
   if (intencao === 'operacoes') return operacoes();
+  if (intencao === 'compromisso') return agenda.compromisso();
+  if (intencao === 'agenda') return agenda.agendaDoDia();
   if (intencao === 'lembrete') return lembrete(idDaFrase ?? null);
   if (intencao === 'prorrogar') return prorrogar(idDaFrase ?? null);
   if (intencao === 'buscar') {
@@ -115,19 +123,22 @@ const SAUDACAO: Mensagem = {
 // O humor resume o estado da tela: resposta de "não entendi" deixa o mascote curioso, inferência
 // deixa pensativo; demanda vencida, com prazo próximo ou parada deixa atento. Ele conta prazos,
 // não opina sobre o mérito.
-function humorDoPainel(mensagens: Mensagem[], avisos: readonly Aviso[]): HumorMascote {
+function humorDoPainel(mensagens: Mensagem[], avisos: readonly Aviso[], compromissos = 0): HumorMascote {
   const ultima = mensagens[mensagens.length - 1];
   if (ultima?.autor === 'assistente' && (ultima.natureza === 'sugestão' || ultima.natureza === 'inferência')) {
     return HUMOR_DA_NATUREZA[ultima.natureza];
   }
-  return avisos.length > 0 ? 'atento' : 'tranquilo';
+  return avisos.length > 0 || compromissos > 0 ? 'atento' : 'tranquilo';
 }
 
-const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[], ocultos: number) => string> = {
+const TEXTO_DO_HUMOR: Record<HumorMascote, (avisos: readonly Aviso[], ocultos: number, compromissos: number) => string> = {
   tranquilo: (_avisos, ocultos) => ocultos
     ? `Tranquilo: ${plural(ocultos, 'aviso ciente ou adiado', 'avisos cientes ou adiados')}; nada novo pede atenção.`
     : 'Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.',
-  atento: (avisos) => `Atento: ${resumoDosAvisos(avisos)}.`,
+  atento: (avisos, _ocultos, compromissos) => {
+    const deCompromisso = compromissos ? `${compromissos} compromisso(s) ou lembrete(s) para hoje` : '';
+    return `Atento: ${[avisos.length ? resumoDosAvisos(avisos) : '', deCompromisso].filter(Boolean).join('; ')}.`;
+  },
   curioso: () => 'Curioso: não entendi o último comando.',
   pensativo: () => 'Pensativo: a última resposta é uma inferência; confira antes de agir.',
   cauteloso: () => 'Cauteloso: há algo ainda não testado.',
@@ -154,18 +165,20 @@ export function useAvisosVisiveis(instante: Date) {
 }
 
 /** Nome acessível dos botões que abrem o assistente, com o resumo dos avisos. */
-export const rotuloAbrirAssistente = (avisos: readonly Aviso[]) =>
-  avisos.length ? `Abrir assistente: ${resumoDosAvisos(avisos)}` : 'Abrir assistente';
+export const rotuloAbrirAssistente = (avisos: readonly Aviso[], compromissos = 0) => {
+  const partes = [avisos.length ? resumoDosAvisos(avisos) : '', compromissos ? `${compromissos} compromisso(s) ou lembrete(s)` : ''].filter(Boolean);
+  return partes.length ? `Abrir assistente: ${partes.join('; ')}` : 'Abrir assistente';
+};
 
 /**
  * Rosto do mascote principal nos botões que abrem o assistente (celular e tablet), onde o painel
  * fica fechado: atento quando há aviso, e reage, dorme e comemora como o do painel.
  */
-export function RostoDoAssistente({ tamanho, avisos }: { tamanho: number; avisos: readonly Aviso[] }) {
+export function RostoDoAssistente({ tamanho, avisos, compromissos = 0 }: { tamanho: number; avisos: readonly Aviso[]; compromissos?: number }) {
   const preferencias = usePreferenciasMascote();
   const especie = preferencias.principal;
   return (
-    <Mascote especie={especie} humor={avisos.length ? 'atento' : 'tranquilo'} tamanho={tamanho} nome={nomeDoMascote(preferencias, especie)} />
+    <Mascote especie={especie} humor={avisos.length || compromissos ? 'atento' : 'tranquilo'} tamanho={tamanho} nome={nomeDoMascote(preferencias, especie)} />
   );
 }
 
@@ -198,8 +211,13 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     const buscar = (termo: string | null) => respostaDeBusca(termo, demandas);
     const operacoesDaConversa = () => respostaDeOperacoes(operacoes, demandas, instante);
     const lembrete = (idDaFrase: string | null) => respostaDeLembrete(comando, idDaFrase ?? emFoco, todos, demandas, instante, ajusteDoDia, origemDoComando);
-    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar, buscar, operacoesDaConversa);
-    const intencao = classificar(comando)?.id;
+    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar, buscar, operacoesDaConversa, {
+      agora: instante,
+      compromisso: () => respostaDeCompromisso(comando, demandas, instante),
+      agendaDoDia: () => respostaDeAgenda(comando, compromissos, demandas, operacoes, instante),
+      decisao: () => respostaDeDecisao(comando, instante),
+    });
+    const intencao = classificar(comando, instante)?.id;
     const temId = extrairIds(comando).length > 0;
     const contexto: ContextoDaResposta =
       intencao === 'cumprimento' ? 'inicio'
@@ -211,6 +229,13 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     // Toda resposta termina com 2 a 4 botões coerentes com o contexto (não há mais fileira fixa de atalhos).
     const comandoDado = intencao === 'prazos' || intencao === 'prioridades' || intencao === 'ajuda' || intencao === 'demanda' ? intencao : undefined;
     acrescentarFalas([{ autor: 'usuario', texto: comando }, ...comBotoes(resposta, contexto, Boolean(emFoco), comandoDado)]);
+  };
+
+  // Botões que gravam ou descartam executam a ação direto: o texto do botão nunca passa pelo classificador.
+  const executarAcao = (a: AcaoDaFala) => {
+    if (!a.acao) return;
+    const resposta = a.acao.tipo === 'confirmar-compromisso' ? confirmarCompromisso(a.acao.dados, instante) : cancelarCompromisso();
+    acrescentarFalas([{ autor: 'usuario', texto: a.rotulo }, ...comBotoes(resposta, 'outro', Boolean(emFoco))]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -225,11 +250,13 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   const emFoco = useDemandaEmFoco();
   const { demandas, diasInatividade } = useEstadoDemandas();
   const operacoes = useOperacoes();
+  const compromissos = useCompromissos();
+  const compromissosDoAviso = useCompromissosParaAvisar(instante);
   const ajusteDoDia = useAjusteFeriados(instante);
   const { todos, visiveis: avisos, ocultos } = useAvisosVisiveis(instante);
   const fila = priorizarDemandas(demandas, instante, diasInatividade, ajusteDoDia);
   const origemDoAviso = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
-  const humor = humorDoPainel(mensagens, avisos);
+  const humor = humorDoPainel(mensagens, avisos, compromissosDoAviso.length);
   const [mostrandoOcultos, setMostrandoOcultos] = useState(false);
   // Abas (item 11a): a última escolhida vale ao reabrir; um recado de "Avisos" (botão do cabeçalho com aviso
   // urgente) abre em Avisos e volta para a aba anterior quando o aviso urgente é dispensado.
@@ -250,7 +277,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
     escolherAba(proxima);
     botoesDasAbas.current[proxima]?.focus();
   };
-  const numeroDaAba: Record<Aba, number> = { conversa: 0, fila: fila.length, avisos: avisos.length };
+  const numeroDaAba: Record<Aba, number> = { conversa: 0, fila: fila.length, avisos: avisos.length + compromissosDoAviso.length };
   const opcoes = opcoesDeAdiamento(instante, useAjusteFeriados(instante));
 
   // Demanda concluída ou excluída não precisa mais do registro de ciente ou adiamento.
@@ -267,7 +294,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
             <strong data-testid="nome-do-mascote">{nome}</strong>
             {temNomeProprio && <span className="texto-pequeno texto-suave"> · {MASCOTES[especie].nome}</span>}
           </p>
-          <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](avisos, ocultos.length)}</p>
+          <p className="texto-pequeno" data-testid="humor-do-mascote">{TEXTO_DO_HUMOR[humor](avisos, ocultos.length, compromissosDoAviso.length)}</p>
         </div>
       </div>
 
@@ -299,8 +326,15 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
       </div>
 
       <div role="tabpanel" id={`${idBase}-painel-avisos`} aria-labelledby={`${idBase}-aba-avisos`} hidden={aba !== 'avisos'} className="aba-painel">
-        {avisos.length === 0 && ocultos.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
-        {avisos.length === 0 && ocultos.length > 0 && <p className="texto-suave">Nenhum aviso novo.</p>}
+        {avisos.length === 0 && ocultos.length === 0 && compromissosDoAviso.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
+        {avisos.length === 0 && ocultos.length > 0 && compromissosDoAviso.length === 0 && <p className="texto-suave">Nenhum aviso novo.</p>}
+        {compromissosDoAviso.length > 0 && (
+          <ul className="lista-limpa avisos-assistente" aria-label="Compromissos e lembretes">
+            {compromissosDoAviso.map((c) => (
+              <AvisoDeCompromisso key={`${c.id}-${c.ocorrencia}`} compromisso={c} agora={instante} aoMarcarCiente={() => marcarCienteCompromisso(c.id, agora())} aoConcluir={() => concluirOcorrencia(c.id, c.ocorrencia)} aoAdiar={() => adiarCompromisso(c.id, new Date(agora().getTime() + OPCAO_EM_DUAS_HORAS.horas * 3_600_000))} />
+            ))}
+          </ul>
+        )}
         {avisos.length > 0 && (
           <ul className="lista-limpa avisos-assistente">
             {avisos.slice(0, maximoDeAvisos).map((aviso, i) => (
@@ -381,7 +415,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
                         className="botao botao--pequeno"
                         aria-disabled={ativa ? undefined : true}
                         aria-label={a.rota?.includes('campo=prazo') ? `${a.rotulo} ${a.comando.replace(/^abrir /, '')}, no campo Prazo` : undefined}
-                        onClick={() => { if (!ativa) return; if (a.aba) escolherAba(a.aba); else if (a.rota) window.location.assign(a.rota); else enviarComando(a.comando); }}
+                        onClick={() => { if (!ativa) return; if (a.acao) executarAcao(a); else if (a.aba) escolherAba(a.aba); else if (a.rota) window.location.assign(a.rota); else enviarComando(a.comando); }}
                       >
                         {a.rotulo}
                       </button>
@@ -419,5 +453,23 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
       </div>
       </div>
     </div>
+  );
+}
+
+/** Aviso de um compromisso ou lembrete próprio, com a cor própria de lembrete (não é prazo de demanda). */
+function AvisoDeCompromisso({ compromisso: c, agora, aoMarcarCiente, aoConcluir, aoAdiar }: { compromisso: CompromissoAvisado; agora: Date; aoMarcarCiente: () => void; aoConcluir: () => void; aoAdiar: () => void }) {
+  const titulo = tituloDoCompromisso(c);
+  return (
+    <li className="fala aviso-compromisso" data-testid={`compromisso-${c.id}`}>
+      <div className="mensagem">
+        <strong>{c.tipo === 'lembrete' ? 'Lembrete' : 'Compromisso'}</strong>: {textoDoCompromisso(c, agora)}
+        <span className="mensagem-meta">fato · fonte: compromissos deste navegador</span>
+        <div className="acoes-aviso" role="group" aria-label={`Aviso de ${titulo}`}>
+          <button type="button" className="botao botao--pequeno" onClick={aoMarcarCiente}>Ciente</button>
+          <button type="button" className="botao botao--pequeno" onClick={aoConcluir}>Concluído</button>
+          <button type="button" className="botao botao--pequeno" onClick={aoAdiar}>{OPCAO_EM_DUAS_HORAS.rotulo}</button>
+        </div>
+      </div>
+    </li>
   );
 }

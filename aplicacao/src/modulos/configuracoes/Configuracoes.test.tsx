@@ -22,15 +22,27 @@ describe('Configurações: avisos do assistente', () => {
 });
 
 describe('Configurações: mascotes', () => {
-  it('mostra os três mascotes, com a capivara como principal e os campos de nome vazios', () => {
+  it('mostra os três mascotes, com o lobo-guará como principal e os campos de nome vazios', () => {
     render(<Configuracoes />);
     expect(screen.getByRole('heading', { name: 'Configurações' })).toBeInTheDocument();
     for (const especie of ['ariranha', 'lobo-guara', 'capivara']) {
       expect(within(screen.getByTestId(`mascote-${especie}`)).getByRole('img')).toBeInTheDocument();
     }
-    expect(within(screen.getByTestId('mascote-capivara')).getByRole('radio')).toBeChecked();
-    expect(within(screen.getByTestId('mascote-lobo-guara')).getByRole('radio')).not.toBeChecked();
+    expect(within(screen.getByTestId('mascote-lobo-guara')).getByRole('radio')).toBeChecked();
+    expect(within(screen.getByTestId('mascote-capivara')).getByRole('radio')).not.toBeChecked();
     expect(screen.getByLabelText('Nome do mascote Capivara')).toHaveValue('');
+  });
+
+  it('o interruptor dos mascotes convidados vem ligado, grava e persiste', () => {
+    render(<Configuracoes />);
+    const caixa = screen.getByRole('checkbox', { name: 'Mascotes convidados' });
+    expect(caixa).toBeChecked();
+    expect(screen.getByTestId('explicacao-convidados')).toHaveTextContent('o principal continua sendo a base');
+    fireEvent.click(caixa);
+    expect(caixa).not.toBeChecked();
+    expect(JSON.parse(localStorage.getItem(CHAVE_MASCOTE)!).convidados).toBe(false);
+    fireEvent.click(caixa);
+    expect(JSON.parse(localStorage.getItem(CHAVE_MASCOTE)!).convidados).toBe(true);
   });
 
   it('dar nome com espaço no meio funciona, grava na hora e muda o que o leitor de tela anuncia', () => {
@@ -54,15 +66,15 @@ describe('Configurações: mascotes', () => {
     // O único seletor da tela é o limite de avisos (Configurações); o painel não tem seletor de mascote.
     expect(screen.getAllByRole('combobox')).toHaveLength(1);
     expect(screen.getByRole('combobox', { name: /Avisos listados de uma vez/ })).toBeInTheDocument();
-    expect(screen.getByTestId('nome-do-mascote')).toHaveTextContent('Capivara');
-
-    fireEvent.click(within(screen.getByTestId('mascote-lobo-guara')).getByRole('radio'));
     expect(screen.getByTestId('nome-do-mascote')).toHaveTextContent('Lobo-guará');
-    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
 
-    fireEvent.change(screen.getByLabelText('Nome do mascote Lobo-guará'), { target: { value: 'Tobias' } });
+    fireEvent.click(within(screen.getByTestId('mascote-capivara')).getByRole('radio'));
+    expect(screen.getByTestId('nome-do-mascote')).toHaveTextContent('Capivara');
+    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+
+    fireEvent.change(screen.getByLabelText('Nome do mascote Capivara'), { target: { value: 'Tobias' } });
     expect(screen.getByTestId('nome-do-mascote')).toHaveTextContent('Tobias');
-    expect(screen.getByRole('img', { name: 'Tobias, Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Tobias, Capivara (Pantanal), atento' })).toBeInTheDocument();
     // a fala do assistente passa a ser atribuída ao nome escolhido
     expect(document.querySelector('li.fala')).toHaveTextContent('Tobias:');
   });

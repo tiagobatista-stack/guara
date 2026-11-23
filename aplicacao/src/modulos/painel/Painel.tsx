@@ -59,7 +59,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
         <div className="cartao">
           <h2 className="titulo-secao">Vencidas e inativas</h2>
           {m.vencidas.length + m.inativas.length === 0 ? (
-            <EstadoVazio texto="Nenhuma demanda vencida ou inativa." />
+            <EstadoVazio ocasiao="prazo" texto="Nenhuma demanda vencida ou inativa." />
           ) : (
             <ul className="lista-limpa lista-divisoria texto-medio">
               {m.vencidas.map((d) => <li key={`v-${d.id}`}><strong>{d.titulo}</strong> <span className="texto-pequeno texto--falha">· vencida em {data(d.prazo)} ({situacaoDaDemanda(d, instante, ajuste)?.texto})</span></li>)}
@@ -105,7 +105,7 @@ export function Painel({ agora = () => new Date(), limiarDias: limiarFixo }: { a
             </p>
           )}
           {comPrazo.length === 0 ? (
-            <EstadoVazio texto="Nenhum prazo em aberto." />
+            <EstadoVazio ocasiao="prazo" texto="Nenhum prazo em aberto." />
           ) : (
             <ol className="linha-tempo">
               {comPrazo.map((d) => {
