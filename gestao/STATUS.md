@@ -1,6 +1,6 @@
 # STATUS — GUARÁ
 
-**Atualizado em:** 21/11/2026.
+**Atualizado em:** 22/11/2026.
 
 **Alinhamento (D10):** a Apostila FluxoLab governa o MVP. As fases 0 a 7 do plano aprovado estão feitas. Relatório final em `documentacao/RELATORIO-FINAL.md`, atualizado em 19/11/2026: 13 PASSOU (a rodada A–F com os subagentes registrados e a tela `/mcp` foram fechadas). Versão final publicada (PR #3, `3666d55`); a `main` está em `b6970c5` (PR #7, 20/11/2026). A URL serve o mesmo bundle do build local. O roteiro na URL pública PASSOU (`2026-11-19-roteiro-url-publica.md`; por script, cliques físicos e celular NÃO TESTADO). Hook, subagentes e MCP foram repetidos em sessão aberta na pasta do projeto (`metodologia/evidencias/2026-11-13-p13-repeticao-hook-subagentes-mcp.md`).
 
@@ -25,6 +25,22 @@
 ## Assistente: abas, sem UUID e operações (21/11/2026)
 
 Branch `operacoes-campo`: 421137d (abas Conversa/Fila/Avisos), 1473cec (sem UUID, sugestão por motivo de bloqueio), d3e90a0 (comando "operações"). tsc, build e 73 arquivos / 914 testes: PASSOU. Visual em 375 px e desktop: NÃO TESTADO (sem navegador). Roteiro manual: NÃO TESTADO. Item 6d aguarda decisão. Não publicado. Evidência em `metodologia/evidencias/2026-11-21-assistente-abas-operacoes.md`.
+
+## Compromissos e lembretes próprios (item 14, 21/11/2026)
+
+Branch `operacoes-campo`, tsc, build e 78 arquivos / 1034 testes: PASSOU. Defeito do Confirmar (reenviava texto ao classificador) corrigido com ação direta; teste de clique real, provado por mutação (o sintoma não reproduziu no jsdom); confirmar no navegador: NÃO TESTADO. Formulário e aviso em 375 px e desktop, claro e escuro: NÃO TESTADO (sem navegador). Roteiro manual: NÃO TESTADO. Backup exportado e "Desfazer última importação" agora incluem `guara:compromissos:v1` (ida e volta testada). Não publicado. Evidência em `metodologia/evidencias/2026-11-21-compromissos-e-lembretes.md`.
+
+## Agenda: intervalo e repetição (22/11/2026)
+
+Branch `melhoria-agenda-intervalo-repeticao` (9 etapas, um commit cada): `dataFim`, repetição (diária, semanal, mensal, anual, dias úteis, semana do mês), `repetirAte`, perguntas curtas do mascote, avisos por ocorrência e `.ics` com `RRULE`/`UNTIL`/`EXDATE`. tsc, `npm run build` e 80 arquivos / 1159 testes: PASSOU; Agenda e assistente repetidos 3 vezes (479/479), sem falha intermitente. Importação do `.ics` em Google Agenda/Outlook reais, visual em 375 px/desktop e roteiro manual: NÃO TESTADO. Limitações: dias úteis sem feriados; editar altera a série toda. Não publicado (push exige autorização). Decisões em `gestao/decisoes/2026-11-22-agenda-intervalo-e-repeticao.md`; evidência na seção final de `metodologia/evidencias/2026-11-21-compromissos-e-lembretes.md`.
+
+## Mascotes convidados e padrão lobo-guará (22/11/2026)
+
+Branch `melhoria-agenda-intervalo-repeticao`. Principal padrão agora é o lobo-guará; outros mascotes entram em ocasiões pontuais (estados vazios e pergunta de Operações) por personalidade, com interruptor nas Configurações. tsc, `npm run build` e 80 arquivos / 1175 testes: PASSOU (um teste do assistente, "teto de falas", estourou o tempo em 2 rodadas e passou nas completas; causa não investigada). Telas no navegador: NÃO CONFERIDO VISUALMENTE. Pendências: frases por personalidade, convidado na comemoração do Kanban, teste da `FalaMascote` de Operações. Não publicado (push exige autorização). Decisões em `gestao/decisoes/2026-11-22-mascotes-convidados.md`; evidência em `metodologia/evidencias/2026-11-22-mascotes-convidados.md`.
+
+## Texto "Contexto do processo" para o relatório (21/11/2026)
+
+Seção nova no detalhe da demanda (`demandas/contexto-relatorio.ts` e `ContextoDoRelatorio.tsx`): texto com processo, SIMP, judicial, objeto, prazo, vistoria, equipe técnica e caracterização POP; o que falta vira marcador entre colchetes. Tipos e 6/6 testes da função pura: PASSOU (fora da pasta). `npm test`, `npm run build` e tela: NÃO TESTADO (node_modules do Windows, sem registro npm no ambiente). Não commitado. Evidência em `metodologia/evidencias/2026-11-21-contexto-do-relatorio.md`.
 
 ## Ponto de retomada
 
@@ -148,6 +164,8 @@ node testar-servidor.ts
 - `extrair-documento` usa texto por página e não lê PDF real.
 - O deploy de Edge Functions pode não empacotar `dados-ficticios/`, que fica fora de `functions/`. Verificar quando houver Supabase.
 - Hook em Python, e não em Node como diz a apostila. Desvio registrado.
+- Falha intermitente "Invalid Chai property: toBeInTheDocument" nos testes (matchers do jest-dom não chegam ao `expect`): **hipótese, não confirmada**; sumiu sem mudança de código. Detalhes em `metodologia/evidencias/2026-11-21-caracterizacao-salva-e-copia.md`.
+- Cópia da caracterização (item 13): teste manual no ponto JUINA202610-01 **NÃO TESTADO**; só há teste automático.
 
 ## Identidade Git local
 

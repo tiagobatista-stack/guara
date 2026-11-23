@@ -3,7 +3,7 @@
 import { act, render, screen, within } from '@testing-library/react';
 import { EstadoVazio } from './EstadoVazio.tsx';
 import { EmConstrucao } from './EmConstrucao.tsx';
-import { escolherPrincipal } from './preferencias-mascote.ts';
+import { definirConvidados, escolherPrincipal } from './preferencias-mascote.ts';
 import { ContextoArmazem, criarArmazem } from '../modulos/demandas/armazem.ts';
 import { Demandas } from '../modulos/demandas/Demandas.tsx';
 import { Kanban } from '../modulos/kanban/Kanban.tsx';
@@ -22,7 +22,7 @@ describe('estado vazio', () => {
     expect(screen.getByText('Nada por aqui.')).toBeInTheDocument();
     expect(screen.getByText('Faça isto para começar.')).toBeInTheDocument();
     const rosto = container.querySelector('svg.mascote')!;
-    expect(rosto).toHaveAttribute('data-especie', 'capivara');
+    expect(rosto).toHaveAttribute('data-especie', 'lobo-guara');
     expect(rosto).toHaveAttribute('aria-hidden', 'true');
     expect(rosto).not.toHaveClass('mascote--vivo');
     expect(screen.queryByRole('img')).toBeNull();
@@ -47,6 +47,17 @@ describe('estado vazio', () => {
       expect(vazio.querySelector('svg.mascote')).toHaveAttribute('width', '32');
     }
   });
+
+  it('com ocasião, o convidado da personalidade aparece; desligando os convidados, volta o principal', () => {
+    const { container, rerender } = render(<EstadoVazio texto="Nada." ocasiao="vazio-descoberta" />);
+    expect(container.querySelector('svg.mascote')).toHaveAttribute('data-especie', 'ariranha');
+    expect(screen.getByTestId('estado-vazio')).toHaveAttribute('data-especie', 'ariranha');
+    act(() => definirConvidados(false));
+    rerender(<EstadoVazio texto="Nada." ocasiao="vazio-descoberta" />);
+    expect(container.querySelector('svg.mascote')).toHaveAttribute('data-especie', 'lobo-guara');
+    act(() => definirConvidados(true));
+  });
+
 
   it('módulo ainda não implementado mostra o mascote e onde ver a situação', () => {
     render(<EmConstrucao titulo="Documentos" />);

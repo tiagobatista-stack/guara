@@ -44,17 +44,17 @@ afterEach(() => vi.restoreAllMocks());
 describe('painel do assistente: mascote', () => {
   it('com demanda que pede atenção, o mascote fica atento e resume os avisos em texto', () => {
     montar();
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Atento: 1 com prazo próximo.');
     const aviso = screen.getByTestId('aviso-DEM-1');
-    expect(aviso).toHaveTextContent('Capivara: Revisar parecer FIC-0001: vence hoje.');
+    expect(aviso).toHaveTextContent('Lobo-guará: Revisar parecer FIC-0001: vence hoje.');
     expect(aviso).toHaveTextContent('fato · fonte: demandas deste navegador · 13/11/2026');
     expect(aviso.querySelector('svg.mascote[aria-hidden="true"]')).not.toBeNull();
   });
 
   it('sem nada pedindo atenção, fica tranquilo; o aviso aparece quando os dados mudam', () => {
     const { armazem } = montar([entrada('Atualizar manual (fictício)', '2026-11-30')]);
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), tranquilo' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: nenhuma demanda vencida, com prazo próximo ou parada.');
     expect(screen.getByText('Nenhum aviso.')).toBeInTheDocument();
 
@@ -139,7 +139,7 @@ describe('painel do assistente: mascote', () => {
       ['curioso', 'sugestão'],
     ]);
     enviar('prazos');
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), pensativo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), pensativo' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Pensativo: a última resposta é uma inferência; confira antes de agir.');
   });
 
@@ -160,7 +160,7 @@ describe('painel do assistente: mascote', () => {
     const { container } = montar();
     enviar('me ajuda');
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
-    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar", "prorrogar", "buscar", "operações" e "ajuda".');
+    expect(fala).toHaveTextContent('Comandos disponíveis: "prazos", "prioridades", "demanda", "lembrar", "prorrogar", "buscar", "operações", "anotar compromisso", "agenda" e "ajuda".');
     expect(fala.querySelector('.mensagem-texto')?.textContent).toContain('\n• prazos — lista as demandas vencidas');
     // "lembrar" não está nos atalhos fixos: só eles ganham botão na resposta.
     expect(fala).toHaveTextContent('Toque num comando abaixo para usá-lo.');
@@ -283,10 +283,10 @@ describe('painel do assistente: mascote', () => {
   it('comando não reconhecido deixa o mascote curioso; um comando conhecido devolve ao estado dos avisos', () => {
     montar();
     enviar('xyz');
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), curioso' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), curioso' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Curioso');
     enviar('ajuda');
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
   });
 
   it('cada fala do assistente leva o rosto do mascote e o nome para o leitor de tela; a do usuário, não', () => {
@@ -296,7 +296,7 @@ describe('painel do assistente: mascote', () => {
     expect(falas).toHaveLength(2);
     falas.forEach((fala) => {
       expect(fala.querySelector('svg.mascote[aria-hidden="true"]')).not.toBeNull();
-      expect(fala).toHaveTextContent('Capivara:');
+      expect(fala).toHaveTextContent('Lobo-guará:');
     });
     const doUsuario = container.querySelector('li.mensagem--usuario')!;
     expect(doUsuario.querySelector('svg')).toBeNull();
@@ -355,7 +355,7 @@ describe('painel do assistente: mascote', () => {
     fireEvent.click(within(screen.getByRole('group', { name: 'Lembrete de DEM-1' })).getByRole('button', { name: 'Ciente' }));
     expect(screen.queryByTestId('aviso-DEM-1')).toBeNull();
     expect(screen.getByText('Nenhum aviso novo.')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), tranquilo' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), tranquilo' })).toBeInTheDocument();
     expect(screen.getByTestId('humor-do-mascote')).toHaveTextContent('Tranquilo: 1 aviso ciente ou adiado');
 
     fireEvent.click(screen.getByRole('button', { name: '1 ciente e 0 adiados' }));
@@ -363,7 +363,7 @@ describe('painel do assistente: mascote', () => {
 
     act(() => { armazem.mudarStatus('DEM-1', 'Em Andamento'); });
     expect(screen.getByTestId('aviso-DEM-1')).toBeInTheDocument();
-    expect(screen.getByRole('img', { name: 'Capivara (Pantanal), atento' })).toBeInTheDocument();
+    expect(screen.getByRole('img', { name: 'Lobo-guará (Cerrado), atento' })).toBeInTheDocument();
   });
 
   it('adiar esconde o lembrete até a hora escolhida; "Mostrar de novo" desfaz', () => {
@@ -418,6 +418,18 @@ describe('painel do assistente: mascote', () => {
     const fala = container.querySelectorAll('.conversa li.fala')[1] as HTMLElement;
     expect(fala).toHaveTextContent('Reconheci DEM-FIC-0001, mas não entendi o restante. Para essa demanda posso: resumo, lembrete, abrir para prorrogar.');
     expect(within(fala).getAllByRole('button').map((b) => b.textContent)).toEqual(['Resumo de DEM-FIC-0001', 'Lembrar', 'Abrir demanda']);
+  });
+
+  it('botões que mandam comando por texto funcionam no clique real: Lembrar, opção de horário e Resumo', () => {
+    montar([entrada('Revisar parecer FIC-0001', '2026-11-13')], (n) => `DEM-FIC-${String(n).padStart(4, '0')}`);
+    enviar('DEM-FIC-0001 xyz');
+    fireEvent.click(screen.getByRole('button', { name: 'Lembrar' }));
+    const opcao = screen.getAllByRole('button', { name: /^(Amanhã|Em 2 horas|Segunda|Terça|Quarta|Quinta|Sexta)/ }).pop()!;
+    fireEvent.click(opcao);
+    expect(screen.getByText(/Tirei o aviso de DEM-FIC-0001 da lista; ele volta/)).toBeInTheDocument();
+    enviar('DEM-FIC-0001 xyz');
+    fireEvent.click(screen.getAllByRole('button', { name: 'Resumo de DEM-FIC-0001' }).pop()!);
+    expect(screen.getAllByText(/DEM-FIC-0001 · Revisar parecer FIC-0001/).length).toBeGreaterThan(0);
   });
 
   it('"Abrir demanda" navega para a rota com o parâmetro', () => {

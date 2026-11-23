@@ -12,6 +12,7 @@ import { dataValida, paraEntrada } from '../demandas/regras.ts';
 import type { Demanda } from '../demandas/modelo.ts';
 import { obterDemandaEmFoco } from '../assistente/demanda-em-foco.ts';
 import { exportarDados, NOME_ARQUIVO, validarImportacao } from './dados-portaveis.ts';
+import { descartarBackupDeCompromissos, obterCompromissos, restaurarCompromissos, substituirCompromissos } from '../agenda/compromissos.ts';
 import { definirDiasPadraoElaboracao, lerDiasPadraoElaboracao } from '../operacoes/armazem.ts';
 import { definirPreferencias, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { plural } from '../../compartilhado/plural.ts';
@@ -62,7 +63,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   };
 
   const exportar = () => {
-    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote, lerDiasPadraoElaboracao(), obterDemandaEmFoco()));
+    baixar(NOME_ARQUIVO, exportarDados(demandas, diasInatividade, instante, preferenciasMascote, lerDiasPadraoElaboracao(), obterDemandaEmFoco(), obterCompromissos()));
     setAviso({ tipo: 'sucesso', texto: `Arquivo ${NOME_ARQUIVO} gerado com ${plural(demandas.length, 'demanda', 'demandas')}.` });
   };
 
@@ -91,8 +92,21 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       return;
     }
     const g = armazem.importar(r.dados);
+    // Agenda (item 14): arquivo com compromissos substitui a lista, com backup; arquivo antigo não a toca.
+    let textoAgenda = '';
+    let erroAgenda = '';
+    if (g.ok) {
+      if (r.dados.compromissos) {
+        const c = substituirCompromissos(r.dados.compromissos, instante.toISOString());
+        if (c.ok) textoAgenda = ` ${r.dados.compromissos.length} compromisso(s) importado(s).`; else erroAgenda = ` ${c.erro}`;
+      } else {
+        descartarBackupDeCompromissos();
+      }
+    }
     setAviso(g.ok
-      ? { tipo: 'sucesso', texto: `${plural(r.dados.demandas.length, 'demanda importada', 'demandas importadas')}. Backup anterior gravado.` }
+      ? (erroAgenda
+        ? { tipo: 'erro', texto: `${plural(r.dados.demandas.length, 'demanda importada', 'demandas importadas')}, mas:${erroAgenda}` }
+        : { tipo: 'sucesso', texto: `${plural(r.dados.demandas.length, 'demanda importada', 'demandas importadas')}. Backup anterior gravado.${textoAgenda}` })
       : { tipo: 'erro', texto: g.mensagem });
     if (g.ok) {
       setDias(String(r.dados.configuracao.diasInatividade));
@@ -106,7 +120,12 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
   const restaurarBackup = () => {
     if (!window.confirm('Desfazer a última importação e voltar aos dados anteriores?')) return;
     const r = armazem.restaurarBackup();
-    setAviso(r.ok ? { tipo: 'sucesso', texto: 'Dados anteriores à importação restaurados.' } : { tipo: 'erro', texto: r.mensagem });
+    const agenda = r.ok ? restaurarCompromissos() : 'sem-backup';
+    setAviso(!r.ok
+      ? { tipo: 'erro', texto: r.mensagem }
+      : agenda === 'erro'
+        ? { tipo: 'erro', texto: 'Demandas anteriores restauradas, mas a agenda anterior não pôde ser restaurada.' }
+        : { tipo: 'sucesso', texto: `Dados anteriores à importação restaurados.${agenda === 'restaurado' ? ' Agenda anterior restaurada.' : ''}` });
     // Sempre: após falha com reversão parcial, o limiar gravado pode ter mudado.
     setDias(String(armazem.obter().diasInatividade));
   };
@@ -141,7 +160,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Demandas inativas ({inativas.length})</h2>
         {inativas.length === 0 ? (
-          <EstadoVazio texto={`Nenhuma demanda inativa com o limiar de ${plural(diasInatividade, 'dia', 'dias')}.`} />
+          <EstadoVazio ocasiao="prazo" texto={`Nenhuma demanda inativa com o limiar de ${plural(diasInatividade, 'dia', 'dias')}.`} />
         ) : (
           <ul className="lista-limpa lista-divisoria texto-medio" aria-label="Demandas inativas">
             {inativas.map((d) => (
@@ -175,7 +194,7 @@ export function Alertas({ agora = () => new Date() }: { agora?: () => Date }) {
       <div className="cartao">
         <h2 className="titulo-secao">Triagem: demandas sem prazo ({semPrazo.length})</h2>
         {semPrazo.length === 0 ? (
-          <EstadoVazio texto="Toda demanda em aberto tem prazo." />
+          <EstadoVazio ocasiao="prazo" texto="Toda demanda em aberto tem prazo." />
         ) : (
           <>
             <p className="texto-pequeno texto-suave">

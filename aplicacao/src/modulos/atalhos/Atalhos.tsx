@@ -136,7 +136,7 @@ export function Atalhos() {
 
       {atalhos.length === 0 ? (
         <div className="cartao">
-          <EstadoVazio texto="Nenhum atalho por aqui." dica="Inclua um abaixo ou volte aos atalhos iniciais." />
+          <EstadoVazio ocasiao="vazio-descoberta" texto="Nenhum atalho por aqui." dica="Inclua um abaixo ou volte aos atalhos iniciais." />
           <div className="acoes">
             <button type="button" className="botao" onClick={restaurarAtalhosIniciais}>Restaurar os atalhos iniciais</button>
           </div>

@@ -3,6 +3,7 @@
 
 import type { Demanda } from '../demandas/modelo.ts';
 import { ehDemandaValida } from '../demandas/regras.ts';
+import { compromissosImportaveis, type Compromisso } from '../agenda/compromissos.ts';
 import { validarPreferencias, type PreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 
 export const FORMATO = 'guara-dados';
@@ -31,10 +32,12 @@ export interface DadosPortaveis {
   demandas: Demanda[];
   /** Mascote principal e nomes (preferência visual). Opcional: arquivos antigos não o têm e o formato continua `versao: 1`. */
   mascote?: PreferenciasMascote;
+  /** Compromissos e lembretes próprios (item 14). Opcional: arquivos antigos não o têm; sem ele a agenda atual não é tocada. */
+  compromissos?: Compromisso[];
   origem?: OrigemDaExportacao;
 }
 
-export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date, mascote?: PreferenciasMascote, diasPadraoElaboracao?: number, demandaEmFoco?: string | null): string {
+export function exportarDados(demandas: readonly Demanda[], diasInatividade: number, agora: Date, mascote?: PreferenciasMascote, diasPadraoElaboracao?: number, demandaEmFoco?: string | null, compromissos?: readonly Compromisso[]): string {
   const dados: DadosPortaveis = {
     formato: FORMATO,
     versao: 1,
@@ -43,6 +46,7 @@ export function exportarDados(demandas: readonly Demanda[], diasInatividade: num
     configuracao: { diasInatividade, ...(diasPadraoElaboracao !== undefined ? { diasPadraoElaboracao } : {}) },
     demandas: [...demandas],
     ...(mascote ? { mascote } : {}),
+    ...(compromissos ? { compromissos: [...compromissos] } : {}),
     origem: { aplicacao: 'GUARÁ', tela: 'Alertas', metodo: METODO_EXPORTACAO, ...(demandaEmFoco ? { demandaEmFoco } : {}) },
   };
   return JSON.stringify(dados, null, 2);
@@ -78,6 +82,12 @@ export function validarImportacao(texto: string): ResultadoImportacao {
   if (dias !== undefined && !diasValidos(dias)) return { ok: false, erro: 'Configuração de inatividade inválida.' };
   const padrao = d.configuracao?.diasPadraoElaboracao;
   if (padrao !== undefined && !(Number.isInteger(padrao) && padrao >= 0 && padrao <= 365)) return { ok: false, erro: 'Prazo padrão do relatório inválido.' };
+  let compromissos: Compromisso[] | undefined;
+  if (d.compromissos !== undefined) {
+    const c = compromissosImportaveis(d.compromissos);
+    if (!c.ok) return { ok: false, erro: c.erro };
+    compromissos = c.lista;
+  }
   const o = d.origem as Partial<OrigemDaExportacao> | undefined;
   const origem: OrigemDaExportacao | undefined = o && typeof o === 'object' && o.aplicacao === 'GUARÁ'
     ? { aplicacao: 'GUARÁ', tela: 'Alertas', metodo: typeof o.metodo === 'string' ? o.metodo.slice(0, 200) : METODO_EXPORTACAO, ...(typeof o.demandaEmFoco === 'string' ? { demandaEmFoco: o.demandaEmFoco.slice(0, 100) } : {}) }
@@ -93,6 +103,7 @@ export function validarImportacao(texto: string): ResultadoImportacao {
       demandas: d.demandas,
       // Parte inválida da preferência volta ao padrão em vez de recusar o arquivo: é só visual.
       ...(origem ? { origem } : {}),
+      ...(compromissos ? { compromissos } : {}),
       ...(d.mascote !== undefined ? { mascote: validarPreferencias(d.mascote) } : {}),
     },
   };

@@ -123,6 +123,12 @@ code, .mono { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; }
 
 .conteudo { flex: 1; padding: 16px 16px 96px; }
 
+/* Rodapé da área central: autoria e versão do programa. */
+.rodape-app {
+  margin-top: 32px; padding-top: 12px; border-top: 1px solid var(--borda);
+  font-size: 12px; color: var(--texto-suave); text-align: center;
+}
+
 .painel-assistente {
   display: none; position: sticky; top: 0; height: 100dvh; width: 320px; flex-shrink: 0;
   background: var(--superficie); border-left: 1px solid var(--borda);
@@ -459,6 +465,14 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .item-contato-dados { display: grid; gap: 2px; min-width: 0; }
 .item-contato-dados a { overflow-wrap: anywhere; }
 .observacoes-contato { white-space: pre-wrap; overflow-wrap: anywhere; }
+.conjunto-campos { border: 1px solid var(--guara-200, #ccc); border-radius: 8px; padding: 12px; display: grid; gap: 12px; margin: 0; min-width: 0; }
+.conjunto-campos legend { font-size: 14px; font-weight: 600; padding: 0 4px; }
+@media (min-width: 640px) {
+  .formulario--compromisso { grid-template-columns: 1fr 1fr; }
+  .formulario--compromisso .campo-grupo--largo { grid-column: 1 / -1; }
+  .conjunto-campos { grid-template-columns: 1fr 1fr; }
+  .conjunto-campos > .campo-grupo--linha, .conjunto-campos > p { grid-column: 1 / -1; }
+}
 @media (min-width: 768px) {
   .formulario-contato { grid-template-columns: 1fr 1fr; }
   .campo-grupo--largo { grid-column: 1 / -1; }
@@ -478,8 +492,14 @@ details.cartao[open] > summary { margin-bottom: 12px; }
 .agenda-numero { font-size: 13px; }
 .agenda-evento { font-size: 11px; line-height: 1.2; padding: 1px 4px; border-radius: 4px; background: rgba(128, 128, 128, .2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-evento--vistoria { border-left: 3px solid var(--guara-500); }
+.agenda-evento--operacao { border-left: 3px solid #dc2626; background: rgba(220, 38, 38, .22); }
+.agenda-evento--repete { font-style: italic; }
+.agenda-evento--continua { border-left: 3px double var(--guara-500); border-radius: 0 4px 4px 0; }
 @media (max-width: 600px) { .agenda-dia { min-height: 48px; } .agenda-evento { display: none; } }
 
+/* Aviso de coincidência com operação: borda tracejada e texto "Atenção:", sem depender só da cor. */
+.aviso-coincidencia { margin: 0; padding: .5rem .75rem; border: 1px dashed #b45309; border-left-width: 4px; border-radius: 6px; background: rgba(245, 158, 11, .12); color: inherit; }
+.aviso-coincidencia--item { display: block; margin-top: .25rem; font-size: .875rem; }
 .agenda-dia--operacao { background: rgba(220, 38, 38, .16); border-color: #dc2626; }
 
 /* Mapa */
