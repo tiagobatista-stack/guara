@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { SecaoBackup } from './SecaoBackup.tsx';
 import { definirAuthkey, lerAuthkey } from '../operacoes/sugestao-vegetacao.ts';
+import { definirLimiteDeAvisos, OPCOES_LIMITE_AVISOS, useLimiteDeAvisos } from '../assistente/preferencias-avisos.ts';
 import { Mascote, MASCOTES, type EspecieMascote } from '../../compartilhado/Mascote.tsx';
 import {
   escolherPrincipal,
@@ -58,6 +59,7 @@ function CampoChaveGeo() {
 }
 
 export function Configuracoes() {
+  const limiteDeAvisos = useLimiteDeAvisos();
   const preferencias = usePreferenciasMascote();
   const soNaMemoria = usePreferenciasSoNaMemoria();
   const especies = Object.keys(MASCOTES) as EspecieMascote[];
@@ -115,6 +117,19 @@ export function Configuracoes() {
 
       <CampoChaveGeo />
       <SecaoBackup />
+
+      <section aria-labelledby="titulo-avisos" className="cartao">
+        <h2 id="titulo-avisos"><strong>Avisos do assistente</strong></h2>
+        <label>
+          Avisos listados de uma vez{' '}
+          <select className="seletor" value={limiteDeAvisos} onChange={(e) => definirLimiteDeAvisos(Number(e.target.value))}>
+            {OPCOES_LIMITE_AVISOS.map((n) => <option key={n} value={n}>{n}</option>)}
+          </select>
+        </label>
+        <p className="texto-pequeno texto-suave">
+          O excedente vira "E mais N" e continua no Dashboard e em Alertas. A fila do dia não muda com este limite.
+        </p>
+      </section>
     </section>
   );
 }

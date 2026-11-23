@@ -592,3 +592,62 @@ describe('edição com proteção (leitura por padrão)', () => {
     expect(livre.defaultPrevented).toBe(false);
   });
 });
+describe('tela Demandas: rota "abrir" (botão do assistente)', () => {
+  afterEach(() => { window.location.hash = ''; });
+
+  function criarUma() {
+    const armazem = criarArmazem(localStorage, { gerarId: () => 'id-1', exemplos: () => [] });
+    const r = armazem.criar({ titulo: 'Renovação de licença fictícia', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer', prazo: '2026-11-10' } as never);
+    if (!r.ok) throw new Error('não criou');
+    return { armazem, id: armazem.obter().demandas[0].id };
+  }
+
+  it('abre a demanda para edição, foca o Prazo e limpa os parâmetros da URL', () => {
+    const { armazem, id } = criarUma();
+    window.location.hash = `#/demandas?abrir=${id}&campo=prazo`;
+    render(<ContextoArmazem.Provider value={armazem}><Demandas /></ContextoArmazem.Provider>);
+    expect(screen.getByRole('heading', { name: 'Editar demanda' })).toBeInTheDocument();
+    expect(screen.getByLabelText(/^Prazo/)).toHaveFocus();
+    expect(window.location.hash).toBe('#/demandas');
+  });
+
+  it('código inexistente vira mensagem na tela, sem erro e sem abrir formulário', () => {
+    const { armazem } = criarUma();
+    window.location.hash = '#/demandas?abrir=DEM-FIC-0099&campo=prazo';
+    render(<ContextoArmazem.Provider value={armazem}><Demandas /></ContextoArmazem.Provider>);
+    expect(screen.getByRole('alert')).toHaveTextContent('Não encontrei a demanda DEM-FIC-0099');
+    expect(screen.queryByRole('heading', { name: 'Editar demanda' })).toBeNull();
+  });
+});
+
+describe('tela Demandas: rota "texto" (botão "Ver todos em Demandas" da busca)', () => {
+  afterEach(() => { window.location.hash = ''; });
+
+  it('abre a lista com o termo no campo de pesquisa, filtra e limpa o endereço', () => {
+    const armazem = criarArmazem(localStorage, { gerarId: () => `id-${Math.random()}`, exemplos: () => [] });
+    const base = { descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer' } as const;
+    armazem.criar({ ...base, titulo: 'Renovação de licença fictícia' } as never);
+    armazem.criar({ ...base, titulo: 'Parecer do embargo fictício' } as never);
+    window.location.hash = '#/demandas?texto=licen%C3%A7a';
+    render(<ContextoArmazem.Provider value={armazem}><Demandas /></ContextoArmazem.Provider>);
+    expect(screen.getByPlaceholderText('Título, descrição ou número')).toHaveValue('licença');
+    expect(screen.getByText('Renovação de licença fictícia')).toBeInTheDocument();
+    expect(screen.queryByText('Parecer do embargo fictício')).toBeNull();
+    expect(window.location.hash).toBe('#/demandas');
+  });
+});
+
+describe('tela Demandas: rota "campo=bloqueio" (botão "Ver o motivo do bloqueio" do assistente)', () => {
+  afterEach(() => { window.location.hash = ''; });
+
+  it('abre o detalhe da demanda travada, onde o motivo e o comentário aparecem, e limpa o endereço', () => {
+    const armazem = criarArmazem(localStorage, { gerarId: () => '4d17a4eb-0f62-4c1e-9a53-0d8c2f7b9e11', exemplos: () => [] });
+    armazem.criar({ titulo: 'Fazenda Sobral fictícia', descricao: '', responsavel: 'Equipe A', prioridade: 'Média', status: 'A Fazer' } as never);
+    armazem.travar('4d17a4eb-0f62-4c1e-9a53-0d8c2f7b9e11', 'outro', 'Aguardando retorno do cartório (fictício)');
+    window.location.hash = '#/demandas?abrir=4d17a4eb-0f62-4c1e-9a53-0d8c2f7b9e11&campo=bloqueio';
+    render(<ContextoArmazem.Provider value={armazem}><Demandas /></ContextoArmazem.Provider>);
+    expect(screen.getByRole('button', { name: 'Editar' })).toBeInTheDocument();
+    expect(screen.getAllByText(/Aguardando retorno do cartório/).length).toBeGreaterThan(0);
+    expect(window.location.hash).toBe('#/demandas');
+  });
+});

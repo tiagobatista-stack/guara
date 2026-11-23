@@ -6,6 +6,7 @@ import { createPortal } from 'react-dom';
 import { useEffect, useId, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type KeyboardEvent, type ReactNode } from 'react';
 import { confirmarSaida, usePendente } from '../../compartilhado/alteracoes-pendentes.ts';
 import { plural } from '../../compartilhado/plural.ts';
+import { parametrosDaRota } from '../../nucleo/registro-modulos.ts';
 import { EstadoVazio } from '../../compartilhado/EstadoVazio.tsx';
 import { Mascote } from '../../compartilhado/Mascote.tsx';
 import { BloqueioDoItem } from '../../compartilhado/BloqueioDoItem.tsx';
@@ -1716,6 +1717,18 @@ export function Operacoes({ agora = () => new Date() }: { agora?: () => Date }) 
   const naQuarentena = useQuarentena().length;
   const [aberta, setAberta] = useState<string | null>(null);
   const [alvo, setAlvo] = useState<string | null>(null); // ponto a abrir direto (vindo dos Travados)
+  // Rota "#/operacoes?abrir=<id>" (botão "Abrir <operação>" do assistente): abre o detalhe e limpa o endereço.
+  useEffect(() => {
+    const abrirDaRota = () => {
+      const id = parametrosDaRota(window.location.hash).get('abrir');
+      if (!id || !window.location.hash.startsWith('#/operacoes')) return;
+      setAberta(id);
+      window.history.replaceState(null, '', '#/operacoes');
+    };
+    abrirDaRota();
+    window.addEventListener('hashchange', abrirDaRota);
+    return () => window.removeEventListener('hashchange', abrirDaRota);
+  }, []);
   const emDetalhe = operacoes.find((o) => o.id === aberta);
   const hoje = dataLocal(agora());
   const { demandas } = useEstadoDemandas();

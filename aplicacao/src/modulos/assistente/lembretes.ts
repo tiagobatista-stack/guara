@@ -1,7 +1,9 @@
 // Lembretes do assistente: o que a pessoa fez com cada aviso (ciente ou adiado), em `guara:avisos:v1`.
 // Decisão do responsável (14/11/2026): "ciente" apaga só o aviso no assistente, não a necessidade
 // de lembrar; o aviso volta quando a demanda muda de situação (status ou tipo do aviso). "Adiar"
-// esconde só o lembrete até as 8h ou as 14h seguintes. Dashboard e Alertas seguem mostrando tudo.
+// esconde só o lembrete por 2 horas ou até as 8h ou 14h seguintes. "Não mostrar para esta demanda" (passo 5)
+// silencia o aviso até a pessoa pedir para mostrar de novo, mesmo que a situação mude. Dashboard,
+// Alertas e a fila do dia seguem mostrando tudo.
 // Mesmo desenho das preferências do mascote: localStorage com validação e memória quando bloqueado.
 
 import { useSyncExternalStore } from 'react';
@@ -11,6 +13,8 @@ import { dataLocal, ehDiaUtil, feriadosEntre, type AjusteFeriados } from '../ale
 export const CHAVE_LEMBRETES = 'guara:avisos:v1';
 /** Horas do dia em que um lembrete adiado volta. */
 export const HORAS_DE_RETORNO = [8, 14] as const;
+/** Adiamento curto, em horas a partir de agora. */
+export const HORAS_DO_ADIAMENTO_CURTO = 2;
 const MAXIMO_DE_REGISTROS = 5000;
 
 export interface Lembrete {
@@ -20,6 +24,8 @@ export interface Lembrete {
   cienteEm?: string;
   /** Até quando o lembrete fica adiado (ISO). */
   adiadoAte?: string;
+  /** "Não mostrar para esta demanda": vale até "Mostrar de novo", em qualquer situação. */
+  silenciada?: true;
 }
 
 export type Lembretes = Record<string, Lembrete>;
@@ -34,14 +40,15 @@ export function validarLembretes(x: unknown): Lembretes {
     const b = bruto as Record<string, unknown>;
     if (typeof b.situacao !== 'string' || !b.situacao) continue;
     const l: Lembrete = { situacao: b.situacao };
+    if (b.silenciada === true) l.silenciada = true;
     if (dataValida(b.cienteEm)) l.cienteEm = b.cienteEm;
     if (dataValida(b.adiadoAte)) l.adiadoAte = b.adiadoAte;
-    if (l.cienteEm || l.adiadoAte) saida[id] = l;
+    if (l.cienteEm || l.adiadoAte || l.silenciada) saida[id] = l;
   }
   return saida;
 }
 
-export type MotivoOculto = 'ciente' | 'adiado';
+export type MotivoOculto = 'ciente' | 'adiado' | 'silenciado';
 
 /** Avisos que o assistente mostra agora e os que estão escondidos por decisão da pessoa. */
 export function separarAvisos(avisos: readonly Aviso[], lembretes: Lembretes, agora: Date) {
@@ -49,7 +56,9 @@ export function separarAvisos(avisos: readonly Aviso[], lembretes: Lembretes, ag
   const ocultos: { aviso: Aviso; motivo: MotivoOculto; ate?: Date }[] = [];
   for (const aviso of avisos) {
     const l = lembretes[aviso.id];
-    if (!l || l.situacao !== aviso.situacao) {
+    if (l?.silenciada) {
+      ocultos.push({ aviso, motivo: 'silenciado' });
+    } else if (!l || l.situacao !== aviso.situacao) {
       visiveis.push(aviso);
     } else if (l.adiadoAte && new Date(l.adiadoAte) > agora) {
       ocultos.push({ aviso, motivo: 'adiado', ate: new Date(l.adiadoAte) });
@@ -72,13 +81,15 @@ export function opcoesDeAdiamento(agora: Date, ajuste: AjusteFeriados = {}): { a
   limite.setDate(limite.getDate() + 30);
   const feriados = feriadosEntre(inicio, dataLocal(limite), ajuste);
   const opcoes: { ate: Date; rotulo: string }[] = [];
+  const emDuasHoras = new Date(agora.getTime() + HORAS_DO_ADIAMENTO_CURTO * 3_600_000);
   for (const hora of HORAS_DE_RETORNO) {
     const ate = new Date(agora.getFullYear(), agora.getMonth(), agora.getDate(), hora, 0, 0, 0);
     if (ate <= agora) ate.setDate(ate.getDate() + 1);
     while (!ehDiaUtil(dataLocal(ate), feriados)) ate.setDate(ate.getDate() + 1);
     opcoes.push({ ate, rotulo: `${diaDoRetorno(ate, agora)} às ${hora}h` });
   }
-  return opcoes.sort((a, b) => a.ate.getTime() - b.ate.getTime());
+  // O adiamento curto vem primeiro: "Em 2 horas" não depende de dia útil nem de horário.
+  return [{ ate: emDuasHoras, rotulo: `Em ${HORAS_DO_ADIAMENTO_CURTO} horas` }, ...opcoes.sort((a, b) => a.ate.getTime() - b.ate.getTime())];
 }
 
 const DIAS_DA_SEMANA = ['domingo', 'segunda', 'terça', 'quarta', 'quinta', 'sexta', 'sábado'];
@@ -155,7 +166,12 @@ export function adiarLembrete(aviso: Aviso, ate: Date) {
   gravar({ ...obterLembretes(), [aviso.id]: { situacao: aviso.situacao, adiadoAte: ate.toISOString() } });
 }
 
-/** Desfaz ciente ou adiamento: o aviso volta a aparecer. */
+/** "Não mostrar para esta demanda": o aviso some do assistente até "Mostrar de novo". */
+export function silenciarDemanda(aviso: Aviso, agora: Date) {
+  gravar({ ...obterLembretes(), [aviso.id]: { situacao: aviso.situacao, cienteEm: agora.toISOString(), silenciada: true } });
+}
+
+/** Desfaz ciente, adiamento ou silêncio: o aviso volta a aparecer. */
 export function mostrarDeNovo(id: string) {
   const { [id]: _removido, ...resto } = obterLembretes();
   gravar(resto);
@@ -165,7 +181,8 @@ export function mostrarDeNovo(id: string) {
 export function limparLembretesSemAviso(avisos: readonly Aviso[]) {
   const ids = new Set(avisos.map((a) => a.id));
   const atuais = obterLembretes();
-  const restantes = Object.fromEntries(Object.entries(atuais).filter(([id]) => ids.has(id)));
+  // A demanda silenciada guarda o registro mesmo sem aviso hoje: o silêncio vale até a pessoa desfazer.
+  const restantes = Object.fromEntries(Object.entries(atuais).filter(([id, l]) => ids.has(id) || l.silenciada));
   if (Object.keys(restantes).length !== Object.keys(atuais).length) gravar(restantes);
 }
 

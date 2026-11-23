@@ -2,16 +2,33 @@
 // MVP: comandos determinísticos, sem modelo de IA. Toda resposta indica a natureza
 // (fato extraído, inferência ou sugestão) e a fonte.
 
-import { useEffect, useRef, useState, type FormEvent } from 'react';
+import { useEffect, useId, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { Mascote, MASCOTES, type HumorMascote } from '../../compartilhado/Mascote.tsx';
 import { nomeDoMascote, usePreferenciasMascote } from '../../compartilhado/preferencias-mascote.ts';
 import { Icone } from '../../compartilhado/Icone.tsx';
 import { useAjusteFeriados, useEstadoDemandas } from '../demandas/armazem.ts';
-import { avisoDeBackup, avisosDoDia, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
+import { avisoDeBackup, avisosDoDia, naturezaDoAviso, resumoDosAvisos, type Aviso, type TipoAviso } from './avisos.ts';
 import { acrescentarFalas, useConversa, type Mensagem } from './conversa.ts';
+import { useDemandaEmFoco } from './demanda-em-foco.ts';
+import { METODO_DETERMINISTICO, respostaSobreDemanda } from './sobre-demanda.ts';
+import { classificar } from './classificar.ts';
+import { extrairIds, extrairTermoDeBusca, restoDaFrase } from './extrair.ts';
+import { rotaParaAbrirDemanda } from '../../nucleo/registro-modulos.ts';
+import { respostaDeBusca } from './buscarPelaConversa.ts';
+import { respostaDeOperacoes } from './respostaOperacoes.ts';
 import { useOperacoes } from '../operacoes/armazem.ts';
+import { respostaDeProrrogar } from './prorrogar.ts';
+import { respostaDeLembrete } from './lembrarPelaConversa.ts';
+import { BOTOES_DE_ABERTURA, comBotoes, type ContextoDaResposta } from './botoes.ts';
+import { respostaDeAjuda, respostaDeCumprimento } from './ajuda.ts';
+import { respostaDePrioridades } from './respostaPrioridades.ts';
+import { FilaDoDia } from './FilaDoDia.tsx';
+import { abaPedida, abaPorTecla, ABAS, gravarAba, lerAba, pedirAba, rotuloDaAba, type Aba } from './abas.ts';
+import { priorizarDemandas } from './priorizar.ts';
+import { nomeDaDemanda } from './rotuloDaDemanda.ts';
+import { useLimiteDeAvisos } from './preferencias-avisos.ts';
+import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, silenciarDemanda, textoDoRetorno, useLembretes } from './lembretes.ts';
 import { DIAS_LEMBRETE_BACKUP, useUltimoBackup } from '../../compartilhado/ultimo-backup.ts';
-import { adiarLembrete, limparLembretesSemAviso, marcarCiente, mostrarDeNovo, opcoesDeAdiamento, separarAvisos, textoDoRetorno, useLembretes } from './lembretes.ts';
 import { plural } from '../../compartilhado/plural.ts';
 
 const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-proximo': 'Prazo próximo', parada: 'Paradas', backup: 'Backup' };
@@ -19,13 +36,18 @@ const ROTULO_DO_TIPO: Record<TipoAviso, string> = { vencida: 'Vencidas', 'prazo-
 /** Os mesmos avisos do painel, agrupados por tipo, com o id de cada demanda. */
 function textoDosPrazos(avisos: readonly Aviso[]): string {
   return (Object.keys(ROTULO_DO_TIPO) as TipoAviso[])
-    .map((tipo) => `${ROTULO_DO_TIPO[tipo]}: ${avisos.filter((a) => a.tipo === tipo).map((a) => a.id).join(', ') || 'nenhuma'}.`)
+    .map((tipo) => `${ROTULO_DO_TIPO[tipo]}: ${avisos.filter((a) => a.tipo === tipo).map((a) => nomeDaDemanda(a.id, a.titulo)).join(', ') || 'nenhuma'}.`)
     .join(' ');
 }
 
-function responder(comando: string, avisos: readonly Aviso[], origem: string): Mensagem[] {
-  const c = comando.trim().toLowerCase();
-  if (c.startsWith('prazos')) {
+function responder(comando: string, avisos: readonly Aviso[], origem: string, sobreDemanda: (idDaFrase?: string) => Mensagem[], prioridades: () => Mensagem[], lembrete: (id: string | null) => Mensagem[], prorrogar: (id: string | null) => Mensagem[], buscar: (termo: string | null) => Mensagem[], operacoes: () => Mensagem[]): Mensagem[] {
+  // Etapa 1 da conversa (20/11/2026): a frase passa pelo classificador (`classificar.ts`), que
+  // reconhece sinônimos e frases comuns ("o que tá vencido?", "me ajuda") sem IA.
+  const intencao = classificar(comando)?.id;
+  // Código de demanda escrito na frase: vale mais que a demanda aberta na tela. Sem outra intenção,
+  // a frase "DEM-FIC-0002" (ou qualquer frase só com o código) é um pedido de resumo daquela demanda.
+  const [idDaFrase] = extrairIds(comando);
+  if (intencao === 'prazos') {
     const fato: Mensagem = { autor: 'assistente', natureza: 'fato', fonte: origem, texto: textoDosPrazos(avisos) };
     if (avisos.length === 0) return [fato];
     // A ordem é uma regra (vencidas, prazo próximo, paradas), não uma avaliação do mérito: por isso é inferência.
@@ -36,18 +58,43 @@ function responder(comando: string, avisos: readonly Aviso[], origem: string): M
         autor: 'assistente',
         natureza: 'inferência',
         fonte: 'ordem dos avisos: vencidas, prazo próximo e paradas; confira antes de agir',
-        texto: `Pela ordem das regras, a mais urgente é ${primeiro.id} (${primeiro.texto})`,
+        texto: `Pela ordem das regras, a mais urgente é ${nomeDaDemanda(primeiro.id, primeiro.titulo)} (${primeiro.texto})`,
       },
     ];
   }
-  if (c.startsWith('ajuda')) {
-    return [{ autor: 'assistente', natureza: 'fato', fonte: 'lista de comandos do MVP', texto: 'Comandos disponíveis: "prazos" (lista as demandas vencidas, com prazo próximo e paradas) e "ajuda". Os atalhos abaixo enviam esses comandos.' }];
+  if (intencao === 'prioridades') return prioridades();
+  if (intencao === 'operacoes') return operacoes();
+  if (intencao === 'lembrete') return lembrete(idDaFrase ?? null);
+  if (intencao === 'prorrogar') return prorrogar(idDaFrase ?? null);
+  if (intencao === 'buscar') {
+    const termo = extrairTermoDeBusca(comando);
+    // "cadê DEM-FIC-0002": só o código, sem outra palavra, vira o resumo daquela demanda.
+    if (idDaFrase && restoDaFrase(termo ?? '').length === 0) return sobreDemanda(idDaFrase);
+    return buscar(termo);
   }
+  if (intencao === 'demanda') return sobreDemanda(idDaFrase);
+  if (!intencao && idDaFrase) {
+    // Só o código (ou o código com "fala dela"): resumo. Com outra coisa, diz o que reconheceu.
+    if (restoDaFrase(comando).length === 0) return sobreDemanda(idDaFrase);
+    return [{
+      autor: 'assistente',
+      natureza: 'sugestão',
+      fonte: 'regra de comando não reconhecido',
+      texto: `Reconheci ${idDaFrase}, mas não entendi o restante. Para essa demanda posso: resumo, lembrete, abrir para prorrogar.`,
+      acoes: [
+        { rotulo: `Resumo de ${idDaFrase}`, comando: idDaFrase },
+        { rotulo: 'Lembrar', comando: `lembrar ${idDaFrase}` },
+        { rotulo: 'Abrir demanda', comando: `abrir ${idDaFrase}`, rota: rotaParaAbrirDemanda(idDaFrase) },
+      ],
+    }];
+  }
+  if (intencao === 'ajuda') return [respostaDeAjuda(['prazos', 'prioridades', 'demanda', 'ajuda'])];
+  if (intencao === 'cumprimento') return [respostaDeCumprimento()];
   return [{
     autor: 'assistente',
     natureza: 'sugestão',
     fonte: 'regra de comando não reconhecido',
-    texto: 'Ainda não entendo linguagem livre (o MVP não usa IA). Experimente "prazos" ou "ajuda".',
+    texto: 'Ainda não entendi essa frase (o MVP não usa IA). Experimente "prazos", "prioridades", "operações" ou "ajuda".',
   }];
 }
 
@@ -58,38 +105,12 @@ const HUMOR_DA_NATUREZA: Record<NonNullable<Mensagem['natureza']>, HumorMascote>
   sugestão: 'curioso',
 };
 
-// Comandos oferecidos como atalho abaixo da conversa: rótulo em linguagem de gente, comando por trás.
-const ATALHOS: readonly { rotulo: string; comando: string }[] = [
-  { rotulo: 'Ver prazos', comando: 'prazos' },
-  { rotulo: 'O que você faz?', comando: 'ajuda' },
-];
-
 // Primeira fala, sempre no topo da conversa (não é gravada).
 const SAUDACAO: Mensagem = {
   autor: 'assistente', natureza: 'fato', fonte: 'sistema',
-  texto: 'Olá! Trabalho só com dados fictícios. Escolha um atalho abaixo ou digite um comando.',
+  texto: 'Olá! Trabalho só com dados fictícios. Toque num botão ou digite um comando.',
+  acoes: [...BOTOES_DE_ABERTURA],
 };
-
-// Avisos mostrados de uma vez; os demais ficam no Dashboard e em Alertas.
-const MAXIMO_DE_AVISOS = 5;
-
-// A pessoa pode recolher a seção de notificações para ficar só com a conversa; a escolha fica
-// neste navegador, porque a gaveta é desmontada a cada fechamento.
-const CHAVE_NOTIFICACOES_RECOLHIDAS = 'guara:assistente:notificacoes-recolhidas:v1';
-function lerRecolhidas(): boolean {
-  try {
-    return window.localStorage.getItem(CHAVE_NOTIFICACOES_RECOLHIDAS) === '1';
-  } catch {
-    return false;
-  }
-}
-function gravarRecolhidas(valor: boolean) {
-  try {
-    window.localStorage.setItem(CHAVE_NOTIFICACOES_RECOLHIDAS, valor ? '1' : '0');
-  } catch {
-    // Armazenamento bloqueado: a escolha vale só até fechar a página.
-  }
-}
 
 // O humor resume o estado da tela: resposta de "não entendi" deixa o mascote curioso, inferência
 // deixa pensativo; demanda vencida, com prazo próximo ou parada deixa atento. Ele conta prazos,
@@ -170,7 +191,26 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
 
   const enviarComando = (comando: string) => {
     if (!comando.trim()) return;
-    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...responder(comando, todos, `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`)]);
+    const origemDoComando = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
+    const sobreDemanda = (idDaFrase?: string) => respostaSobreDemanda(idDaFrase ?? emFoco, demandas, instante, diasInatividade, ajusteDoDia, origemDoComando, Boolean(idDaFrase));
+    const prioridades = () => respostaDePrioridades(demandas, instante, diasInatividade, ajusteDoDia, origemDoComando);
+    const prorrogar = (idDaFrase: string | null) => respostaDeProrrogar(idDaFrase ?? emFoco, demandas, origemDoComando);
+    const buscar = (termo: string | null) => respostaDeBusca(termo, demandas);
+    const operacoesDaConversa = () => respostaDeOperacoes(operacoes, demandas, instante);
+    const lembrete = (idDaFrase: string | null) => respostaDeLembrete(comando, idDaFrase ?? emFoco, todos, demandas, instante, ajusteDoDia, origemDoComando);
+    const resposta = responder(comando, todos, origemDoComando, sobreDemanda, prioridades, lembrete, prorrogar, buscar, operacoesDaConversa);
+    const intencao = classificar(comando)?.id;
+    const temId = extrairIds(comando).length > 0;
+    const contexto: ContextoDaResposta =
+      intencao === 'cumprimento' ? 'inicio'
+        : intencao === 'prazos' || intencao === 'prioridades' ? 'lista'
+        : intencao === 'ajuda' ? 'ajuda'
+        : intencao === 'buscar' && !resposta[resposta.length - 1].acoes?.length && !temId ? 'nao-entendi'
+        : !intencao && !temId ? 'nao-entendi'
+        : 'outro';
+    // Toda resposta termina com 2 a 4 botões coerentes com o contexto (não há mais fileira fixa de atalhos).
+    const comandoDado = intencao === 'prazos' || intencao === 'prioridades' || intencao === 'ajuda' || intencao === 'demanda' ? intencao : undefined;
+    acrescentarFalas([{ autor: 'usuario', texto: comando }, ...comBotoes(resposta, contexto, Boolean(emFoco), comandoDado)]);
   };
 
   const enviar = (e: FormEvent) => {
@@ -180,14 +220,37 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
   };
 
   const instante = agora();
+  // Avisos listados de uma vez (Configurações); os demais ficam no Dashboard e em Alertas.
+  const maximoDeAvisos = useLimiteDeAvisos();
+  const emFoco = useDemandaEmFoco();
+  const { demandas, diasInatividade } = useEstadoDemandas();
+  const operacoes = useOperacoes();
+  const ajusteDoDia = useAjusteFeriados(instante);
   const { todos, visiveis: avisos, ocultos } = useAvisosVisiveis(instante);
-  const origem = `fato · fonte: demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
+  const fila = priorizarDemandas(demandas, instante, diasInatividade, ajusteDoDia);
+  const origemDoAviso = `demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`;
   const humor = humorDoPainel(mensagens, avisos);
   const [mostrandoOcultos, setMostrandoOcultos] = useState(false);
-  const [recolhidas, setRecolhidas] = useState(lerRecolhidas);
-  const alternarRecolhidas = () => {
-    setRecolhidas((v) => { gravarRecolhidas(!v); return !v; });
+  // Abas (item 11a): a última escolhida vale ao reabrir; um recado de "Avisos" (botão do cabeçalho com aviso
+  // urgente) abre em Avisos e volta para a aba anterior quando o aviso urgente é dispensado.
+  const idBase = useId();
+  const [aba, setAba] = useState<Aba>(() => abaPedida() ?? lerAba());
+  const [voltarPara, setVoltarPara] = useState<Aba | null>(() => (abaPedida() ? lerAba() : null));
+  useEffect(() => { pedirAba(null); }, []);
+  const botoesDasAbas = useRef<Partial<Record<Aba, HTMLButtonElement | null>>>({});
+  const escolherAba = (a: Aba) => { setAba(a); setVoltarPara(null); gravarAba(a); };
+  const temUrgente = avisos.some((x) => x.tipo === 'vencida');
+  useEffect(() => {
+    if (voltarPara && !temUrgente) { setAba(voltarPara); setVoltarPara(null); }
+  }, [voltarPara, temUrgente]);
+  const teclasDasAbas = (e: KeyboardEvent<HTMLDivElement>) => {
+    const proxima = abaPorTecla(aba, e.key);
+    if (!proxima) return;
+    e.preventDefault();
+    escolherAba(proxima);
+    botoesDasAbas.current[proxima]?.focus();
   };
+  const numeroDaAba: Record<Aba, number> = { conversa: 0, fila: fila.length, avisos: avisos.length };
   const opcoes = opcoesDeAdiamento(instante, useAjusteFeriados(instante));
 
   // Demanda concluída ou excluída não precisa mais do registro de ciente ou adiamento.
@@ -208,54 +271,75 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
         </div>
       </div>
 
-      <section aria-label="Notificações" className={recolhidas ? 'assistente-secao assistente-secao--recolhida' : 'assistente-secao'}>
-        <h2 className="titulo-notificacoes">
-          <button type="button" className="botao-titulo" aria-expanded={!recolhidas} aria-controls="notificacoes-do-assistente" onClick={alternarRecolhidas}>
-            <strong>Notificações</strong>
-            {recolhidas && avisos.length > 0 && <span className="sino-contagem" aria-hidden="true">{avisos.length}</span>}
-            <span className="sr-only">{recolhidas ? ` (${plural(avisos.length, 'novo', 'novos')}, recolhidas; mostrar)` : ' (recolher)'}</span>
-          </button>
-        </h2>
-        <div id="notificacoes-do-assistente" hidden={recolhidas}>
+      <div role="tablist" aria-label="Seções do assistente" className="abas-assistente" onKeyDown={teclasDasAbas}>
+        {ABAS.map((a) => {
+          const r = rotuloDaAba(a, numeroDaAba[a]);
+          return (
+            <button
+              key={a}
+              ref={(el) => { botoesDasAbas.current[a] = el; }}
+              type="button"
+              role="tab"
+              id={`${idBase}-aba-${a}`}
+              aria-selected={aba === a}
+              aria-controls={`${idBase}-painel-${a}`}
+              aria-label={r.nome}
+              tabIndex={aba === a ? 0 : -1}
+              className="aba-assistente"
+              onClick={() => escolherAba(a)}
+            >
+              {r.visivel}
+            </button>
+          );
+        })}
+      </div>
+
+      <div role="tabpanel" id={`${idBase}-painel-fila`} aria-labelledby={`${idBase}-aba-fila`} hidden={aba !== 'fila'} className="aba-painel">
+        <FilaDoDia itens={fila} origem={`demandas deste navegador · ${instante.toLocaleDateString('pt-BR')}`} aoVerLista={() => { escolherAba('conversa'); enviarComando('prioridades'); }} />
+      </div>
+
+      <div role="tabpanel" id={`${idBase}-painel-avisos`} aria-labelledby={`${idBase}-aba-avisos`} hidden={aba !== 'avisos'} className="aba-painel">
         {avisos.length === 0 && ocultos.length === 0 && <p className="texto-suave">Nenhum aviso.</p>}
         {avisos.length === 0 && ocultos.length > 0 && <p className="texto-suave">Nenhum aviso novo.</p>}
         {avisos.length > 0 && (
           <ul className="lista-limpa avisos-assistente">
-            {avisos.slice(0, MAXIMO_DE_AVISOS).map((aviso, i) => (
+            {avisos.slice(0, maximoDeAvisos).map((aviso, i) => (
               // Cada aviso é uma fala curta do mascote, com a origem e a data do cálculo.
               <li key={aviso.id} ref={i === 0 ? setPrimeiroAviso : undefined} className="fala" data-testid={`aviso-${aviso.id}`} data-tipo={aviso.tipo}>
                 <Mascote especie={especie} humor="atento" tamanho={28} decorativo />
                 <div className="mensagem">
                   <span className="sr-only">{nome}: </span>
                   {aviso.texto}
-                  <span className="mensagem-meta">{origem}</span>
+                  <span className="mensagem-meta">{naturezaDoAviso(aviso)} · fonte: {origemDoAviso}</span>
                   {/* Decisões da pessoa sobre o lembrete: não mudam a demanda nem as outras telas. */}
-                  <div className="acoes-aviso" role="group" aria-label={`Lembrete de ${aviso.id}`}>
+                  <div className="acoes-aviso" role="group" aria-label={`Lembrete de ${nomeDaDemanda(aviso.id, aviso.titulo)}`}>
                     <button type="button" className="botao botao--pequeno" onClick={() => marcarCiente(aviso, agora())}>Ciente</button>
                     {opcoes.map((o) => (
                       <button key={o.rotulo} type="button" className="botao botao--pequeno" onClick={() => adiarLembrete(aviso, o.ate)}>
                         {o.rotulo}
                       </button>
                     ))}
+                    <button type="button" className="botao botao--pequeno" onClick={() => silenciarDemanda(aviso, agora())}>Não mostrar para esta demanda</button>
                   </div>
                 </div>
               </li>
             ))}
           </ul>
         )}
-        {avisos.length > MAXIMO_DE_AVISOS && (
-          <p className="texto-pequeno texto-suave">E mais {avisos.length - MAXIMO_DE_AVISOS}: veja o Dashboard e a tela Alertas.</p>
+        {avisos.length > maximoDeAvisos && (
+          <p className="texto-pequeno texto-suave">E mais {avisos.length - maximoDeAvisos}: veja o Dashboard e a tela Alertas.</p>
         )}
         {ocultos.length > 0 && (
           <div className="avisos-ocultos">
             <button type="button" className="botao botao--pequeno" aria-expanded={mostrandoOcultos} onClick={() => setMostrandoOcultos((v) => !v)}>
               {plural(ocultos.filter((o) => o.motivo === 'ciente').length, 'ciente', 'cientes')} e {plural(ocultos.filter((o) => o.motivo === 'adiado').length, 'adiado', 'adiados')}
+              {ocultos.some((o) => o.motivo === 'silenciado') && ` e ${plural(ocultos.filter((o) => o.motivo === 'silenciado').length, 'silenciada', 'silenciadas')}`}
             </button>
             {mostrandoOcultos && (
               <ul className="lista-limpa avisos-assistente">
                 {ocultos.map(({ aviso, motivo, ate }) => (
                   <li key={aviso.id} className="mensagem texto-pequeno" data-testid={`oculto-${aviso.id}`}>
-                    {aviso.texto} <span className="texto-suave">({motivo === 'adiado' && ate ? `adiado até ${textoDoRetorno(ate, instante)}` : 'ciente'})</span>
+                    {aviso.texto} <span className="texto-suave">({motivo === 'adiado' && ate ? `adiado até ${textoDoRetorno(ate, instante)}` : motivo === 'silenciado' ? 'silenciada' : 'ciente'})</span>
                     <div className="acoes-aviso">
                       <button type="button" className="botao botao--pequeno" onClick={() => mostrarDeNovo(aviso.id)}>Mostrar de novo</button>
                     </div>
@@ -265,12 +349,18 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
             )}
           </div>
         )}
-        </div>
-      </section>
+        {/* O sino do cabeçalho conta outra coisa (demandas inativas, tela Alertas): a nota evita achar que os números deveriam ser iguais. */}
+        <p className="texto-pequeno texto-suave" data-testid="nota-sino">
+          Avisos do dia: prazo vencido, prazo próximo e demanda parada. O número do sino, no cabeçalho, conta só demandas inativas (tela Alertas).
+        </p>
+      </div>
 
+      <div role="tabpanel" id={`${idBase}-painel-conversa`} aria-labelledby={`${idBase}-aba-conversa`} hidden={aba !== 'conversa'} className="aba-conversa">
       <ol ref={conversa} className="conversa" aria-live="polite">
-        {mensagens.map((m, i) =>
-          m.autor === 'usuario' ? (
+        {mensagens.map((m, i) => {
+          // Só os botões da última fala do assistente ficam ativos; os das anteriores seguem à vista, apagados.
+          const ativa = i === mensagens.length - 1;
+          return m.autor === 'usuario' ? (
             <li key={i} className="mensagem mensagem--usuario">
               <span className="sr-only">Você: </span>
               {m.texto}
@@ -281,25 +371,35 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
               <Mascote especie={especie} humor={m.natureza ? HUMOR_DA_NATUREZA[m.natureza] : 'tranquilo'} tamanho={28} decorativo />
               <div className="mensagem">
                 <span className="sr-only">{nome}: </span>
-                {m.texto}
+                <span className="mensagem-texto">{m.texto}</span>
+                {m.acoes && (
+                  <div className={ativa ? 'acoes-aviso' : 'acoes-aviso acoes-aviso--antigas'} role="group" aria-label="Comandos sugeridos">
+                    {m.acoes.map((a) => (
+                      <button
+                        key={a.comando}
+                        type="button"
+                        className="botao botao--pequeno"
+                        aria-disabled={ativa ? undefined : true}
+                        aria-label={a.rota?.includes('campo=prazo') ? `${a.rotulo} ${a.comando.replace(/^abrir /, '')}, no campo Prazo` : undefined}
+                        onClick={() => { if (!ativa) return; if (a.aba) escolherAba(a.aba); else if (a.rota) window.location.assign(a.rota); else enviarComando(a.comando); }}
+                      >
+                        {a.rotulo}
+                      </button>
+                    ))}
+                  </div>
+                )}
                 {m.natureza && (
                   <span className="mensagem-meta">
-                    {m.natureza} · fonte: {m.fonte}
+                    {m.natureza} · fonte: {m.fonte} · {METODO_DETERMINISTICO}
                   </span>
                 )}
               </div>
             </li>
-          ),
-        )}
+          );
+        })}
       </ol>
 
       <div className="rodape-conversa">
-        {/* Atalhos: os mesmos comandos, sem precisar digitar (útil no celular). */}
-        <div className="atalhos-conversa" role="group" aria-label="Atalhos de comando">
-          {ATALHOS.map(({ rotulo, comando }) => (
-            <button key={comando} type="button" className="botao" onClick={() => enviarComando(comando)}>{rotulo}</button>
-          ))}
-        </div>
         <form onSubmit={enviar} className="formulario-conversa">
           <label>
             <span className="sr-only">Mensagem ao assistente</span>
@@ -316,6 +416,7 @@ export function PainelAssistente({ agora = () => new Date() }: { agora?: () => D
             <Icone nome="enviar" />
           </button>
         </form>
+      </div>
       </div>
     </div>
   );

@@ -1,4 +1,4 @@
-import { useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from 'react';
 import { confirmarSaida, usePendente } from '../../compartilhado/alteracoes-pendentes.ts';
 import { LIMITES, PRIORIDADES, STATUS, type EntradaDemanda } from './modelo.ts';
 import { validarEntrada, type ErrosValidacao } from './regras.ts';
@@ -36,6 +36,8 @@ interface Props {
   aoVerExistente?: (id: string) => void;
   /** Só no cadastro: preenche tipo e natureza pelo título enquanto a pessoa não os escolhe. */
   deduzirAoDigitar?: boolean;
+  /** Campo que recebe o foco ao abrir (ex.: o assistente leva a pessoa direto ao Prazo). */
+  focoInicial?: 'prazo';
 }
 
 type Classe = 'tipo' | 'natureza';
@@ -47,7 +49,9 @@ function deducoes(e: EntradaDemanda): { tipo: Deducao<Tipo>; natureza: Deducao<N
   return { tipo, natureza: deduzirNatureza(e.titulo, { temNumero, tipo: e.tipo ?? tipo.valor }) };
 }
 
-export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verificarParecida, aoVerExistente, deduzirAoDigitar }: Props) {
+export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verificarParecida, aoVerExistente, deduzirAoDigitar, focoInicial }: Props) {
+  const campoPrazo = useRef<HTMLInputElement>(null);
+  useEffect(() => { if (focoInicial === 'prazo') campoPrazo.current?.focus(); }, [focoInicial]);
   const [entrada, setEntrada] = useState<EntradaDemanda>(inicial);
   const original = useRef(JSON.stringify(inicial));
   const alterado = JSON.stringify(entrada) !== original.current;
@@ -180,7 +184,7 @@ export function FormularioDemanda({ titulo, inicial, aoSalvar, aoCancelar, verif
         </label>
         <label className="campo-grupo">
           <span>Prazo (opcional)</span>
-          <input className="campo" type="date" value={entrada.prazo}
+          <input ref={campoPrazo} className="campo" type="date" value={entrada.prazo}
             onChange={(e) => campo('prazo', e.target.value)} {...ajuda('prazo')} />
           {mensagem('prazo')}
         </label>

@@ -3,7 +3,8 @@
 
 import type { ExecucaoFluxo } from './fluxo-padrao.ts';
 
-export type SituacaoPadrao = 'DEMONSTRADO' | 'NÃO DEMONSTRADO' | 'FALHOU';
+/** NÃO EXERCIDO NESTA EXECUÇÃO: o fluxo parou num bloqueio esperado antes de exercer o padrão (neutro, não é falha). */
+export type SituacaoPadrao = 'DEMONSTRADO' | 'NÃO DEMONSTRADO' | 'FALHOU' | 'NÃO EXERCIDO NESTA EXECUÇÃO';
 
 export interface PadraoOrquestracao {
   letra: string;
@@ -14,10 +15,18 @@ export interface PadraoOrquestracao {
   desenvolvimento: { situacao: SituacaoPadrao; justificativa: string };
 }
 
-const DEV_PENDENTE = {
-  situacao: 'NÃO DEMONSTRADO' as const,
-  justificativa:
-    'Subagentes registrados (.claude/agents) não estavam disponíveis na sessão de 13/11/2026. Houve delegação real alternativa (agentes genéricos seguindo os arquivos de papel) para A–F: ver metodologia/evidencias/2026-11-13-p09-orquestracao.md.',
+const EVIDENCIA_DEV = 'metodologia/evidencias/2026-11-19-orquestracao-a-d-e-f.md';
+
+// Coluna de desenvolvimento: vem da rodada de 19/11/2026 com os subagentes registrados
+// (.claude/agents, chamadas por subagent_type). É um registro de execução já feita, não
+// calculado pelo fluxo; a rodada alternativa de 13/11 (agentes genéricos) ficou superada.
+const DESENVOLVIMENTO: Record<string, PadraoOrquestracao['desenvolvimento']> = {
+  A: { situacao: 'DEMONSTRADO', justificativa: `19/11/2026: o arquiteto recebeu os riscos do módulo de operações, só em leitura, e devolveu o relatório priorizado. Evidência: ${EVIDENCIA_DEV}.` },
+  B: { situacao: 'DEMONSTRADO', justificativa: `19/11/2026: a recomendação B1 do arquiteto foi aplicada pelo implementador, com teste que falha antes e passa depois (correção bbb4ece). Evidência: ${EVIDENCIA_DEV}.` },
+  C: { situacao: 'DEMONSTRADO', justificativa: `19/11/2026: o auditor, que não produziu a correção, revisou o bbb4ece e reproduziu a falha numa cópia; resultado APROVADO COM RESSALVAS (R1 e R3 tratadas, R2 corrigida e revista no 74a8ef6, também APROVADO COM RESSALVAS). Evidência: ${EVIDENCIA_DEV}.` },
+  D: { situacao: 'DEMONSTRADO', justificativa: `19/11/2026: arquiteto (importação e exportação da planilha) e auditor (afirmações do STATUS) trabalharam em paralelo. Valia só para o desenvolvimento; o modo local do produto continua NÃO DEMONSTRADO. Evidência: ${EVIDENCIA_DEV}.` },
+  E: { situacao: 'DEMONSTRADO', justificativa: `19/11/2026: o Claude principal consolidou os 3 relatórios, registrou convergências e divergências e escolheu o risco B1. Evidência: ${EVIDENCIA_DEV}.` },
+  F: { situacao: 'DEMONSTRADO', justificativa: `19/11/2026: gate antes (npm test 527/527 e build ok), correção pelo implementador com falha antes e passa depois, e gate depois (540/540 e build ok). Evidência: ${EVIDENCIA_DEV}.` },
 };
 
 function etapaOk(ex: ExecucaoFluxo, agente: string, habilidade: string): boolean | null {
@@ -41,23 +50,35 @@ export function avaliarPadroes(ex: ExecucaoFluxo | null): PadraoOrquestracao[] {
     { letra: 'E', nome: 'Supervisor / agregador', usoNoProduto: 'O orquestrador consolida as saídas dos agentes' },
     { letra: 'F', nome: 'Gate de qualidade', usoNoProduto: 'Resultado liberado só se esquema, fontes e revisão forem aprovados' },
   ];
-  if (!ex) return base.map((p) => ({ ...p, produto: semExecucao, desenvolvimento: DEV_PENDENTE }));
+  if (!ex) return base.map((p) => ({ ...p, produto: semExecucao, desenvolvimento: DESENVOLVIMENTO[p.letra] }));
 
   const ordem = ['triagem', 'documental', 'analista', 'redator'];
   const primeiras = ordem.map((a) => ex.etapas.findIndex((e) => e.agente === a));
   const sequenciaRespeitada = primeiras.every((i) => i >= 0) && primeiras.every((v, i, arr) => i === 0 || v > arr[i - 1]);
   const sequenciaOk = sequenciaRespeitada && ordem.every((a) => ex.etapas.filter((e) => e.agente === a).every((e) => e.estado === 'OK'));
 
+  // Bloqueio esperado: a etapa registrou FALHA por condição da entrada (ex.: demanda sem documento),
+  // sem exceção. Os padrões que o fluxo não chegou a exercer ficam neutros; FALHOU só para exceção
+  // real, ordem incorreta ou etapa que falhou por outro motivo.
+  const bloqueio = ex.etapas.find((e) => e.estado === 'FALHA' && e.bloqueioEsperado);
+  const outraFalha = ex.etapas.some((e) => e.estado === 'FALHA' && !e.bloqueioEsperado);
+  const naoExercido: PadraoOrquestracao['produto'] | null = bloqueio && !outraFalha
+    ? {
+        situacao: 'NÃO EXERCIDO NESTA EXECUÇÃO',
+        justificativa: `fluxo bloqueado pelo gate em ${bloqueio.habilidade}: ${bloqueio.detalhe}; rode com uma demanda que libera (ex.: DEM-FIC-0001) para demonstrar`,
+      }
+    : null;
+
   const produto: Record<string, PadraoOrquestracao['produto']> = {
-    A: situacaoDe(etapaOk(ex, 'documental', 'extrair-documento'), 'Etapa documental/extrair-documento executada e validada.', 'Etapa de extração falhou.', 'Fluxo interrompido antes da extração.'),
-    B: primeiras.some((i) => i < 0)
+    A: naoExercido ?? situacaoDe(etapaOk(ex, 'documental', 'extrair-documento'), 'Etapa documental/extrair-documento executada e validada.', 'Etapa de extração falhou.', 'Fluxo interrompido antes da extração.'),
+    B: naoExercido ?? (primeiras.some((i) => i < 0)
       ? { situacao: 'FALHOU', justificativa: 'Fluxo interrompido antes de completar a sequência.' }
-      : situacaoDe(sequenciaOk, 'Agentes executados na ordem prevista, todos com saída válida.', 'Ordem incorreta ou etapa com falha.', ''),
-    C: situacaoDe(etapaOk(ex, 'revisor', 'validar-evidencias'), 'Revisor (≠ redator) validou as evidências da minuta.', 'Revisão independente falhou.', 'Fluxo interrompido antes da revisão.'),
+      : situacaoDe(sequenciaOk, 'Agentes executados na ordem prevista, todos com saída válida.', 'Ordem incorreta ou etapa com falha.', '')),
+    C: naoExercido ?? situacaoDe(etapaOk(ex, 'revisor', 'validar-evidencias'), 'Revisor (≠ redator) validou as evidências da minuta.', 'Revisão independente falhou.', 'Fluxo interrompido antes da revisão.'),
     D: { situacao: 'NÃO DEMONSTRADO', justificativa: 'No modo local, a execução usa uma única thread: analista e prazos rodam em sequência, sem paralelismo real.' },
-    E: ex.consolidado
-      ? { situacao: 'DEMONSTRADO', justificativa: 'O orquestrador consolidou minuta, pendências e alertas de prazo.' }
-      : { situacao: 'FALHOU', justificativa: 'Nada consolidado: o gate não liberou o resultado.' },
+    E: naoExercido ?? (ex.consolidado
+      ? { situacao: 'DEMONSTRADO', justificativa: `O orquestrador consolidou minuta, pendências e alertas de prazo da demanda ${ex.demanda}.` }
+      : { situacao: 'FALHOU', justificativa: `Nada consolidado para ${ex.demanda}: o gate não liberou o resultado.` }),
     F: {
       situacao: 'DEMONSTRADO',
       justificativa: ex.gate.aprovado
@@ -65,5 +86,5 @@ export function avaliarPadroes(ex: ExecucaoFluxo | null): PadraoOrquestracao[] {
         : 'Gate avaliou as verificações e BLOQUEOU o resultado (comportamento esperado diante de falha).',
     },
   };
-  return base.map((p) => ({ ...p, produto: produto[p.letra], desenvolvimento: DEV_PENDENTE }));
+  return base.map((p) => ({ ...p, produto: produto[p.letra], desenvolvimento: DESENVOLVIMENTO[p.letra] }));
 }

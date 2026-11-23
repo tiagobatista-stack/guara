@@ -2,6 +2,8 @@
 
 import { agentes, habilidades } from '../../backend/supabase/functions/_compartilhado/catalogo.ts';
 import { executarFluxoPadrao } from '../../backend/supabase/functions/_compartilhado/fluxo-padrao.ts';
+import { demandaSinteticaCerrado, demandasFicticias } from '../../dados-ficticios/demandas.ts';
+import { MODO_DO_FLUXO } from '../../backend/supabase/functions/_compartilhado/fluxo-padrao.ts';
 import { avaliarPadroes } from '../../backend/supabase/functions/_compartilhado/padroes-orquestracao.ts';
 
 describe('fluxo padrão', () => {
@@ -42,17 +44,105 @@ describe('fluxo padrão', () => {
   });
 });
 
-describe('padrões de orquestração A–F', () => {
-  it('sem execução, nenhum padrão é dado como demonstrado', () => {
-    expect(avaliarPadroes(null).every((p) => p.produto.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+describe('fluxo recebe a demanda como parâmetro (P1 do relatório)', () => {
+  const textoDaTrilha = (ex: ReturnType<typeof executarFluxoPadrao>) => JSON.stringify([ex.entrada, ex.consolidado]);
+
+  it('VÁLIDO: dois casos sintéticos geram trilhas com os próprios dados, e o modo aparece na saída', () => {
+    const a = executarFluxoPadrao(habilidades, agentes);
+    const b = executarFluxoPadrao(habilidades, agentes, new Set(), demandaSinteticaCerrado);
+    expect(a.liberado && b.liberado).toBe(true);
+    expect(a.modo).toBe(MODO_DO_FLUXO);
+    expect(b.modo).toContain('determinístico');
+    expect(a.entrada).toMatchObject({ demanda: 'DEM-FIC-0001', processo: 'FIC-2026-0001', documento: 'DOC-FIC-0001' });
+    expect(b.entrada).toMatchObject({ demanda: 'DEM-FIC-0101', processo: 'FIC-2026-0101', documento: 'DOC-FIC-0101', prazo: '2026-11-30' });
+    expect(b.consolidado?.minuta[0]).toContain('FIC-2026-0101');
+    expect(a.consolidado?.minuta[0]).toContain('FIC-2026-0001');
+    // O caso B não herda nada do caso A (processo, interessado) e vice-versa.
+    expect(textoDaTrilha(b)).not.toContain('FIC-2026-0001');
+    expect(textoDaTrilha(a)).not.toContain('FIC-2026-0101');
+    // Outorga apresentada no documento B: o resultado da conferência difere do caso A (RL-05 pendente só em A).
+    expect(b.consolidado?.pendencias).toEqual(['RL-06']);
+    expect(a.consolidado?.pendencias).toEqual(['RL-05', 'RL-06']);
   });
 
-  it('após o fluxo: A, B, C, E e F demonstrados no produto; D não demonstrado; coluna de desenvolvimento pendente', () => {
+  it('FALHA: demanda sem documento fictício vinculado bloqueia a liberação pelo gate', () => {
+    const ex = executarFluxoPadrao(habilidades, agentes, new Set(), demandasFicticias[1]);
+    expect(ex.entrada.demanda).toBe('DEM-FIC-0002');
+    expect(ex.entrada.documento).toBeNull();
+    expect(ex.etapas.at(-1)).toMatchObject({ habilidade: 'extrair-documento', estado: 'FALHA' });
+    expect(ex.gate.aprovado).toBe(false);
+    expect(ex.liberado).toBe(false);
+    expect(ex.modo).toBe(MODO_DO_FLUXO);
+  });
+
+  it('NEGADO: demanda não marcada como fictícia não entra no fluxo', () => {
+    const real = { ...demandaSinteticaCerrado, ficticio: false } as unknown as typeof demandaSinteticaCerrado;
+    const ex = executarFluxoPadrao(habilidades, agentes, new Set(), real);
+    expect(ex.etapas).toHaveLength(1);
+    expect(ex.etapas[0]).toMatchObject({ estado: 'FALHA', habilidade: 'verificar-modo-ficticio' });
+    expect(ex.liberado).toBe(false);
+    expect(ex.consolidado).toBeNull();
+  });
+});
+
+describe('padrões de orquestração A–F', () => {
+  it('sem execução, nenhum padrão é dado como demonstrado', () => {
+    const semExecucao = avaliarPadroes(null);
+    expect(semExecucao.every((p) => p.produto.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    // A coluna de desenvolvimento é registro da rodada de 19/11, independente da execução do produto.
+    expect(semExecucao.every((p) => p.desenvolvimento.situacao === 'DEMONSTRADO')).toBe(true);
+  });
+
+  it('após o fluxo: A, B, C, E e F demonstrados no produto; D não demonstrado; coluna de desenvolvimento conforme a rodada de 19/11', () => {
     const padroes = avaliarPadroes(executarFluxoPadrao(habilidades, agentes));
     const situacoes = Object.fromEntries(padroes.map((p) => [p.letra, p.produto.situacao]));
     expect(situacoes).toEqual({
       A: 'DEMONSTRADO', B: 'DEMONSTRADO', C: 'DEMONSTRADO', D: 'NÃO DEMONSTRADO', E: 'DEMONSTRADO', F: 'DEMONSTRADO',
     });
-    expect(padroes.every((p) => p.desenvolvimento.situacao === 'NÃO DEMONSTRADO')).toBe(true);
+    expect(padroes.every((p) => p.desenvolvimento.situacao === 'DEMONSTRADO')).toBe(true);
+    expect(padroes.every((p) => p.desenvolvimento.justificativa.includes('2026-11-19-orquestracao-a-d-e-f.md'))).toBe(true);
+    expect(padroes.find((p) => p.letra === 'C')?.desenvolvimento.justificativa).toContain('APROVADO COM RESSALVAS');
+    expect(padroes.find((p) => p.letra === 'D')?.produto.situacao).toBe('NÃO DEMONSTRADO');
+  });
+});
+
+describe('padrões A–F: bloqueio esperado não é falha', () => {
+  const demandaDe = (id: string) => demandasFicticias.find((d) => d.id === id)!;
+
+  it.each(['DEM-FIC-0002', 'DEM-FIC-0004'])('%s (sem documento): nenhum FALHOU; A, B, C e E não exercidos; F demonstrado; D não demonstrado', (id) => {
+    const ex = executarFluxoPadrao(habilidades, agentes, new Set(), demandaDe(id));
+    expect(ex.liberado).toBe(false);
+    const p = Object.fromEntries(avaliarPadroes(ex).map((x) => [x.letra, x.produto]));
+    expect(Object.values(p).some((x) => x.situacao === 'FALHOU')).toBe(false);
+    for (const letra of ['A', 'B', 'C', 'E']) {
+      expect(p[letra].situacao).toBe('NÃO EXERCIDO NESTA EXECUÇÃO');
+      expect(p[letra].justificativa).toContain('fluxo bloqueado pelo gate em extrair-documento: ');
+      expect(p[letra].justificativa).toContain('sem documento fictício vinculado');
+      expect(p[letra].justificativa).toContain('DEM-FIC-0001');
+    }
+    expect(p.F.situacao).toBe('DEMONSTRADO');
+    expect(p.F.justificativa).toContain('BLOQUEOU');
+    expect(p.D.situacao).toBe('NÃO DEMONSTRADO');
+  });
+
+  it('demanda não fictícia: bloqueio esperado, também sem FALHOU', () => {
+    const ex = executarFluxoPadrao(habilidades, agentes, new Set(), { ...demandaDe('DEM-FIC-0001'), ficticio: false } as never);
+    expect(avaliarPadroes(ex).some((x) => x.produto.situacao === 'FALHOU')).toBe(false);
+  });
+
+  it('exceção forçada numa habilidade gera FALHOU (não é bloqueio esperado)', () => {
+    const comExcecao = habilidades.map((h) =>
+      h.contrato.id === 'extrair-documento' ? { ...h, executar: () => { throw new Error('exceção forçada'); } } : h,
+    ) as typeof habilidades;
+    const ex = executarFluxoPadrao(comExcecao, agentes);
+    expect(ex.etapas.some((e) => e.estado === 'FALHA' && e.detalhe.startsWith('exceção:'))).toBe(true);
+    const p = Object.fromEntries(avaliarPadroes(ex).map((x) => [x.letra, x.produto.situacao]));
+    expect(p.A).toBe('FALHOU');
+    expect(Object.values(p)).not.toContain('NÃO EXERCIDO NESTA EXECUÇÃO');
+  });
+
+  it('com demanda que libera, os padrões seguem DEMONSTRADO (exceto D)', () => {
+    const p = Object.fromEntries(avaliarPadroes(executarFluxoPadrao(habilidades, agentes)).map((x) => [x.letra, x.produto.situacao]));
+    expect(p).toEqual({ A: 'DEMONSTRADO', B: 'DEMONSTRADO', C: 'DEMONSTRADO', D: 'NÃO DEMONSTRADO', E: 'DEMONSTRADO', F: 'DEMONSTRADO' });
   });
 });

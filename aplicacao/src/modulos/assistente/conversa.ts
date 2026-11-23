@@ -5,6 +5,7 @@
 // Com o armazenamento bloqueado, vale só até fechar a página (mesma regra das preferências).
 
 import { useSyncExternalStore } from 'react';
+import { ehAba, type Aba } from './abas.ts';
 
 export const CHAVE_CONVERSA = 'guara:conversa:v1';
 /** Falas guardadas no máximo; as mais antigas saem primeiro. */
@@ -13,12 +14,26 @@ const TAMANHO_MAXIMO_TEXTO = 2000;
 
 export type Natureza = 'fato' | 'inferência' | 'sugestão';
 
+/** Comando que a fala oferece como botão (ex.: a ajuda lista os comandos clicáveis). */
+export interface AcaoDaFala {
+  rotulo: string;
+  comando: string;
+  /** Quando existe, o botão navega para esta rota ("#/demandas?abrir=…") em vez de enviar o comando. */
+  rota?: string;
+  /** Quando existe, o botão só troca a aba do painel ("fila" ou "avisos"). */
+  aba?: Aba;
+}
+
 export interface Mensagem {
   autor: 'usuario' | 'assistente';
   texto: string;
   natureza?: Natureza;
   fonte?: string;
+  acoes?: AcaoDaFala[];
 }
+
+const MAXIMO_DE_ACOES = 8;
+const TAMANHO_MAXIMO_ROTULO = 80;
 
 const NATUREZAS: Natureza[] = ['fato', 'inferência', 'sugestão'];
 
@@ -29,6 +44,18 @@ function validarMensagem(x: unknown): Mensagem | null {
   const m: Mensagem = { autor: b.autor, texto: b.texto.slice(0, TAMANHO_MAXIMO_TEXTO) };
   if (typeof b.natureza === 'string' && (NATUREZAS as string[]).includes(b.natureza)) m.natureza = b.natureza as Natureza;
   if (typeof b.fonte === 'string') m.fonte = b.fonte.slice(0, TAMANHO_MAXIMO_TEXTO);
+  if (Array.isArray(b.acoes)) {
+    const acoes = b.acoes.flatMap((a): AcaoDaFala[] => {
+      if (typeof a !== 'object' || a === null) return [];
+      const { rotulo, comando, rota, aba } = a as Record<string, unknown>;
+      if (typeof rotulo !== 'string' || !rotulo.trim() || typeof comando !== 'string' || !comando.trim()) return [];
+      const acao: AcaoDaFala = { rotulo: rotulo.slice(0, TAMANHO_MAXIMO_ROTULO), comando: comando.slice(0, TAMANHO_MAXIMO_ROTULO) };
+      if (typeof rota === 'string' && /^(#\/demandas(\?abrir=(DEM-FIC-\d{4}|[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12})&campo=(prazo|bloqueio)|\?texto=[A-Za-z0-9\-_.!~*'()%]{1,600})?|#\/operacoes(\?abrir=op-[a-z0-9]{1,20}-[a-z0-9]{1,20})?)$/.test(rota)) acao.rota = rota;
+      if (ehAba(aba) && aba !== 'conversa') acao.aba = aba;
+      return [acao];
+    }).slice(0, MAXIMO_DE_ACOES);
+    if (acoes.length) m.acoes = acoes;
+  }
   return m;
 }
 

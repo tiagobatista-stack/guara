@@ -1,7 +1,8 @@
 // Demandas: lista com pesquisa e filtros, cadastro, edição, detalhe e exclusão
 // com confirmação (incremento 1 do PLANO.md). Dados no localStorage deste navegador.
 
-import { Fragment, useMemo, useState } from 'react';
+import { Fragment, useEffect, useMemo, useState } from 'react';
+import { definirDemandaEmFoco } from '../assistente/demanda-em-foco.ts';
 import { PRIORIDADES, STATUS, type Demanda } from './modelo.ts';
 import { filtrarDemandas, FILTROS_VAZIOS, paraEntrada, type Filtros } from './regras.ts';
 import { useAjusteFeriados, useArmazem, useEstadoDemandas } from './armazem.ts';
@@ -27,6 +28,7 @@ import { contarAbertas } from '../../compartilhado/anotacoes.ts';
 import type { EntradaDemanda } from './modelo.ts';
 import { confirmarSaida } from '../../compartilhado/alteracoes-pendentes.ts';
 import { plural } from '../../compartilhado/plural.ts';
+import { parametrosDaRota } from '../../nucleo/registro-modulos.ts';
 
 type Modo = { tipo: 'lista' } | { tipo: 'nova' } | { tipo: 'editar'; id: string } | { tipo: 'detalhe'; id: string };
 type Aviso = { tipo: 'sucesso' | 'erro'; texto: string } | null;
@@ -56,6 +58,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
   const [modo, setModo] = useState<Modo>({ tipo: 'lista' });
   const [filtros, setFiltros] = useState<Filtros>(FILTROS_VAZIOS);
   const [aviso, setAviso] = useState<Aviso>(null);
+  const [focoInicial, setFocoInicial] = useState<'prazo' | undefined>(undefined);
   const abrirDetalhe = (_d: Demanda | undefined, id: string) => {
     if (!confirmarSaida()) return; // vindo de um formulário com alteração não salva
     setAviso(null);
@@ -100,6 +103,50 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
     const r = armazem.restaurarExemplos();
     setAviso(r.ok ? { tipo: 'sucesso', texto: 'Exemplos restaurados.' } : { tipo: 'erro', texto: r.mensagem });
   };
+
+  // O assistente e a exportação passam a saber qual demanda está aberta; ao sair do detalhe, o foco some.
+  const idEmFoco = modo.tipo === 'detalhe' && buscar(modo.id) ? modo.id : null;
+  useEffect(() => {
+    definirDemandaEmFoco(idEmFoco);
+    return () => definirDemandaEmFoco(null);
+  }, [idEmFoco]);
+
+  // Rota "#/demandas?abrir=DEM-FIC-0001&campo=prazo" (botão "Abrir demanda" do assistente): abre a demanda
+  // para edição, foca o campo e limpa os parâmetros para não reabrir ao recarregar. Código inexistente
+  // vira mensagem na tela. Lê ao montar e a cada mudança de rota (o botão pode ser tocado já nesta tela).
+  useEffect(() => {
+    const aplicar = () => {
+      const p = parametrosDaRota(window.location.hash);
+      // "#/demandas?texto=licença" (botão "Ver todos em Demandas" da busca do assistente): volta à lista com
+      // o termo no campo de pesquisa, o mesmo que a conversa usou.
+      const texto = p.get('texto');
+      if (texto !== null) {
+        window.history.replaceState(null, '', '#/demandas');
+        setAviso(null);
+        setModo({ tipo: 'lista' });
+        setFiltros({ ...FILTROS_VAZIOS, texto });
+        return;
+      }
+      const id = p.get('abrir');
+      if (!id) return;
+      window.history.replaceState(null, '', '#/demandas');
+      if (!demandas.some((d) => d.id === id)) {
+        setAviso({ tipo: 'erro', texto: `Não encontrei a demanda ${id} neste navegador.` });
+        return;
+      }
+      setAviso(null);
+      // "campo=bloqueio" (botão "Ver o motivo do bloqueio"): abre o detalhe, onde o motivo e o comentário aparecem.
+      if (p.get('campo') === 'bloqueio') {
+        setModo({ tipo: 'detalhe', id });
+        return;
+      }
+      setFocoInicial(p.get('campo') === 'prazo' ? 'prazo' : undefined);
+      setModo({ tipo: 'editar', id });
+    };
+    aplicar();
+    window.addEventListener('hashchange', aplicar);
+    return () => window.removeEventListener('hashchange', aplicar);
+  }, [demandas]);
 
   const emEdicao = modo.tipo === 'editar' ? buscar(modo.id) : undefined;
   const emDetalhe = modo.tipo === 'detalhe' ? buscar(modo.id) : undefined;
@@ -171,6 +218,7 @@ export function Demandas({ agora = () => new Date() }: { agora?: () => Date }) {
       {emEdicao && (
         <FormularioDemanda
           key={emEdicao.id}
+          focoInicial={focoInicial}
           titulo="Editar demanda"
           inicial={paraEntrada(emEdicao)}
           aoCancelar={() => { setConfirmaEdicao(null); setModo({ tipo: 'detalhe', id: emEdicao.id }); }}

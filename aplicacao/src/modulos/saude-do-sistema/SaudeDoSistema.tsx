@@ -7,6 +7,7 @@ import type { Estado } from '@catalogo/tipos.ts';
 import { agentes, habilidades } from '@catalogo/catalogo.ts';
 import { ferramentas } from '@catalogo/ferramentas/catalogo-ferramentas.ts';
 import { executarVerificacao, type RelatorioVerificacao } from '@catalogo/verificacao-saude.ts';
+import { demandasDoFluxo } from '@dados/demandas.ts';
 import { executarFluxoPadrao, type ExecucaoFluxo } from '@catalogo/fluxo-padrao.ts';
 import { avaliarPadroes, type SituacaoPadrao } from '@catalogo/padroes-orquestracao.ts';
 import { GATE_DESATIVAVEL } from '@catalogo/gate-de-qualidade/gate.ts';
@@ -24,8 +25,25 @@ const hora = (iso: string | null | undefined) => (iso ? new Date(iso).toLocaleTi
 
 function SeloPadrao({ situacao }: { situacao: SituacaoPadrao }) {
   const estado: Estado = situacao === 'DEMONSTRADO' ? 'OK' : situacao === 'FALHOU' ? 'FALHA' : 'NÃO TESTADO';
-  const simbolo = situacao === 'DEMONSTRADO' ? '✓ ' : situacao === 'FALHOU' ? '✕ ' : '? ';
+  // "Não exercido" é neutro (mesmo tom de NÃO TESTADO): o fluxo parou antes, sem falha do padrão.
+  const simbolo = situacao === 'DEMONSTRADO' ? '✓ ' : situacao === 'FALHOU' ? '✕ ' : situacao === 'NÃO EXERCIDO NESTA EXECUÇÃO' ? '– ' : '? ';
   return <strong className={`texto-pequeno ${textoDoEstado(estado)}`}>{simbolo}{situacao}</strong>;
+}
+
+// Resultado do fluxo de demonstração, à parte da saúde do sistema: o gate bloquear uma
+// demanda sem documento é o comportamento esperado, não uma falha de habilidade ou agente.
+function SeloFluxo({ liberado }: { liberado: boolean }) {
+  return liberado
+    ? <span className="selo selo--ok"><span aria-hidden="true">✓</span>LIBERADO</span>
+    : <span className="selo selo--atencao"><span aria-hidden="true">!</span>BLOQUEADO</span>;
+}
+
+const etapaComExcecao = (ex: ExecucaoFluxo) => ex.etapas.find((e) => e.estado === 'FALHA' && e.detalhe.startsWith('exceção:'));
+
+function descricaoDoFluxo(ex: ExecucaoFluxo): string {
+  if (ex.liberado) return `Fluxo ${ex.demanda}: liberado pelo gate`;
+  const falha = ex.etapas.find((e) => e.estado === 'FALHA');
+  return `Fluxo ${ex.demanda}: bloqueado pelo gate${falha ? ` (falha em ${falha.habilidade}: ${falha.detalhe})` : ''}`;
 }
 
 function Cartao({ titulo, children }: { titulo: string; children: ReactNode }) {
@@ -42,6 +60,8 @@ export function SaudeDoSistema() {
   const [inativos, setInativos] = useState<Set<string>>(() => new Set());
   const [relatorio, setRelatorio] = useState<RelatorioVerificacao | null>(null);
   const [execucoes, setExecucoes] = useState<ExecucaoFluxo[]>([]);
+  const [idDemanda, setIdDemanda] = useState(demandasDoFluxo[0].id);
+  const [erroFluxo, setErroFluxo] = useState<string | null>(null);
   const [auditoria, setAuditoria] = useState<RegistroAuditoria[]>([]);
 
   const ultimaExecucao = execucoes.at(-1) ?? null;
@@ -49,7 +69,13 @@ export function SaudeDoSistema() {
 
   const executar = () => {
     setRelatorio(executarVerificacao(habilidades, agentes, 'local', inativos));
-    setExecucoes((lista) => [...lista, executarFluxoPadrao(habilidades, agentes, inativos)]);
+    try {
+      const execucao = executarFluxoPadrao(habilidades, agentes, inativos, demandasDoFluxo.find((d) => d.id === idDemanda));
+      setExecucoes((lista) => [...lista, execucao]);
+      setErroFluxo(null);
+    } catch (erro) {
+      setErroFluxo(erro instanceof Error ? erro.message : String(erro));
+    }
   };
 
   const alternar = (id: string) => {
@@ -66,11 +92,15 @@ export function SaudeDoSistema() {
   const estadoHabilidade = (id: string): Estado => relatorio?.habilidades[id]?.estado ?? 'NÃO TESTADO';
   const estadoAgente = (id: string): Estado => relatorio?.agentes[id]?.estado ?? 'NÃO TESTADO';
 
+  // O estado geral reflete só habilidades e agentes. O resultado do fluxo (liberado/bloqueado)
+  // fica à parte; só uma exceção real na execução do fluxo conta como FALHA.
+  const excecaoNoFluxo = erroFluxo !== null || (ultimaExecucao ? etapaComExcecao(ultimaExecucao) !== undefined : false);
+  const estados = relatorio ? [...Object.values(relatorio.habilidades), ...Object.values(relatorio.agentes)].map((r) => r.estado) : [];
   const estadoGeral: Estado = !relatorio
     ? 'NÃO TESTADO'
-    : Object.values(relatorio.habilidades).some((r) => r.estado === 'FALHA') || (ultimaExecucao && !ultimaExecucao.liberado)
+    : estados.includes('FALHA') || excecaoNoFluxo
       ? 'FALHA'
-      : Object.values(relatorio.habilidades).some((r) => r.estado === 'ATENÇÃO')
+      : estados.includes('ATENÇÃO')
         ? 'ATENÇÃO'
         : 'OK';
   // A espécie continua escolhida pelo estado; o nome é o que o analista deu nas Configurações.
@@ -97,10 +127,16 @@ export function SaudeDoSistema() {
         <Mascote especie={especieDaSaude} humor={humor} tamanho={64} nome={nomeDoMascote(preferencias, especieDaSaude)} />
         <div>
           <h1 id="titulo-saude" className="titulo-pagina">Saúde do sistema</h1>
-          <p className="texto-suave texto-medio">
+          <p className="texto-suave texto-medio" data-testid="estado-geral">
             Estado geral: <SeloEstado estado={estadoGeral} />
           </p>
         </div>
+        <label className="campo-grupo">
+          <span className="texto-pequeno">Demanda fictícia do fluxo (modo determinístico)</span>
+          <select className="campo" value={idDemanda} onChange={(e) => setIdDemanda(e.target.value)}>
+            {demandasDoFluxo.map((d) => <option key={d.id} value={d.id}>{d.id} · {d.titulo}</option>)}
+          </select>
+        </label>
         <button type="button" onClick={executar} className="botao botao--primario">
           Executar verificação
         </button>
@@ -130,6 +166,21 @@ export function SaudeDoSistema() {
           <p className="texto-medio">Concluídas pela revisão humana: <strong>0</strong> <span className="texto-pequeno">(revisão humana não implementada)</span></p>
         </Cartao>
       </div>
+      <Cartao titulo="Resultado do fluxo de demonstração">
+        {erroFluxo ? (
+          <p className="texto-medio" data-testid="resultado-do-fluxo">
+            Exceção na execução do fluxo: {erroFluxo} · <SeloEstado estado="FALHA" />
+          </p>
+        ) : ultimaExecucao ? (
+          <p className="texto-medio" data-testid="resultado-do-fluxo">
+            {descricaoDoFluxo(ultimaExecucao)} · <SeloFluxo liberado={ultimaExecucao.liberado} />
+            {etapaComExcecao(ultimaExecucao) && <> · <SeloEstado estado="FALHA" /> <span className="texto-pequeno">exceção na execução</span></>}
+          </p>
+        ) : (
+          <p className="texto-medio" data-testid="resultado-do-fluxo">Nenhum fluxo executado nesta sessão.</p>
+        )}
+        <p className="texto-pequeno texto-suave">Não entra no Estado geral: bloqueio pelo gate é o comportamento esperado diante de falha na demanda.</p>
+      </Cartao>
       <Cartao titulo="Última verificação completa">
         {relatorio ? (
           <p className="texto-medio">
@@ -328,6 +379,10 @@ export function SaudeDoSistema() {
             {[...execucoes].reverse().map((ex) => (
               <li key={ex.id} className="cartao texto-pequeno">
                 <p className="mono"><strong>{ex.id}</strong></p>
+                <p data-testid="entrada-do-fluxo">
+                  Entrada: <strong>{ex.entrada.demanda}</strong> · processo {ex.entrada.processo} · {ex.entrada.titulo} · documento {ex.entrada.documento ?? 'nenhum'}
+                </p>
+                <p data-testid="modo-do-fluxo">Modo: {ex.modo}</p>
                 <p>
                   Demanda {ex.demanda} · {ex.etapas.length} etapas · tentativas de redação: {ex.tentativasRedacao} · gate:{' '}
                   <strong>{ex.gate.aprovado ? 'liberou' : 'bloqueou'}</strong>
